@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.vercel/
+.netlify/
+netlify/
+netlify.toml
+*.tsbuildinfo
+.turbo/
+nginx.conf
+Caddyfile
+
+# Real secrets — never commit. .env.example (the template) is intentionally
+# NOT ignored by this pattern.
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store

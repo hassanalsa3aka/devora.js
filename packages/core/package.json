@@ -1,0 +1,24 @@
+{
+  "name": "@devora/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./config-loader": "./src/configLoader.ts",
+    "./client": "./src/client.ts"
+  },
+  "dependencies": {
+    "jiti": "^2.3.0",
+    "react": "^18.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0"
+  }
+}

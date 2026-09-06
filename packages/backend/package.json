@@ -1,0 +1,13 @@
+{
+  "name": "@devora/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./settings": "./functions/settings.ts",
+    "./db": "./db/index.ts"
+  },
+  "dependencies": {
+    "@devora/core": "*"
+  }
+}

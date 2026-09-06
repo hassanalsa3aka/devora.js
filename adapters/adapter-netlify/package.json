@@ -1,0 +1,12 @@
+{
+  "name": "@devora/adapter-netlify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Outputs to Netlify's Frameworks API / build plugin format — one site per app in framework.config.ts.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@devora/core": "*",
+    "esbuild": "^0.21.5"
+  }
+}

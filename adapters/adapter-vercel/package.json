@@ -1,0 +1,12 @@
+{
+  "name": "@devora/adapter-vercel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) — one output dir per app in framework.config.ts.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@devora/core": "*",
+    "esbuild": "^0.21.5"
+  }
+}
