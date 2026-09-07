@@ -4152,7 +4152,8 @@ async function importBuilt2(serverOutDir, key) {
 // ../../adapters/adapter-vercel/src/index.ts
 import path15 from "node:path";
 import { existsSync as existsSync7 } from "node:fs";
-import { mkdir as mkdir2, writeFile as writeFile3, cp as cp2 } from "node:fs/promises";
+import { mkdir as mkdir2, writeFile as writeFile3, cp as cp2, readFile as readFile4 } from "node:fs/promises";
+import { createRequire } from "node:module";
 
 // ../../adapters/adapter-vercel/src/bundleForDeploy.ts
 import path13 from "node:path";
@@ -4214,6 +4215,18 @@ function deployToVercel(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
+var require2 = createRequire(import.meta.url);
+async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
+  if (seen.has(pkgName)) return;
+  seen.add(pkgName);
+  const pkgJsonPath = require2.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
+  const pkgDir = path15.dirname(pkgJsonPath);
+  await cp2(pkgDir, path15.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgJson = JSON.parse(await readFile4(pkgJsonPath, "utf-8"));
+  for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
+    await vendorRuntimeDependency(pkgDir, dep, destNodeModules, seen);
+  }
+}
 async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode) {
   const outputDir = path15.join(appRoot, ".vercel", "output");
   const funcDir = path15.join(outputDir, "functions", "index.func");
@@ -4262,6 +4275,10 @@ export default async function handler(req, res) {
 `
   );
   await bundleForDeploy(path15.join(funcDir, "index.mjs"), path15.join(funcDir, "dist", "server"));
+  const funcNodeModules = path15.join(funcDir, "node_modules");
+  await mkdir2(funcNodeModules, { recursive: true });
+  await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
+  await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   await writeFile3(
     path15.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime: "nodejs20.x", handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
@@ -4279,7 +4296,8 @@ export default async function handler(req, res) {
 // ../../adapters/adapter-netlify/src/index.ts
 import path18 from "node:path";
 import { existsSync as existsSync9 } from "node:fs";
-import { mkdir as mkdir3, writeFile as writeFile4, cp as cp3 } from "node:fs/promises";
+import { mkdir as mkdir3, writeFile as writeFile4, cp as cp3, readFile as readFile5 } from "node:fs/promises";
+import { createRequire as createRequire2 } from "node:module";
 
 // ../../adapters/adapter-netlify/src/bundleForDeploy.ts
 import path16 from "node:path";
@@ -4341,6 +4359,18 @@ function deployToNetlify(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
+var require3 = createRequire2(import.meta.url);
+async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
+  if (seen.has(pkgName)) return;
+  seen.add(pkgName);
+  const pkgJsonPath = require3.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
+  const pkgDir = path18.dirname(pkgJsonPath);
+  await cp3(pkgDir, path18.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgJson = JSON.parse(await readFile5(pkgJsonPath, "utf-8"));
+  for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
+    await vendorRuntimeDependency2(pkgDir, dep, destNodeModules, seen);
+  }
+}
 async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode) {
   const funcDir = path18.join(appRoot, "netlify", "functions", "ssr");
   const staticOutDir = path18.join(appRoot, "dist", "static");
@@ -4396,6 +4426,10 @@ export default async (request) => {
 `
   );
   await bundleForDeploy2(path18.join(funcDir, "ssr.mjs"), path18.join(funcDir, "dist", "server"));
+  const funcNodeModules = path18.join(funcDir, "node_modules");
+  await mkdir3(funcNodeModules, { recursive: true });
+  await vendorRuntimeDependency2(appRoot, "react", funcNodeModules);
+  await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   const toml = `[build]
   publish = "dist/client"
   functions = "netlify/functions"
@@ -4574,7 +4608,7 @@ async function deploy(opts) {
 // src/commands/new.ts
 import path20 from "node:path";
 import { existsSync as existsSync10 } from "node:fs";
-import { mkdir as mkdir4, writeFile as writeFile5, readFile as readFile4 } from "node:fs/promises";
+import { mkdir as mkdir4, writeFile as writeFile5, readFile as readFile6 } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 async function resolveAuthChoice(explicit) {
   if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
@@ -4872,7 +4906,7 @@ export default function Account({ data }: { data?: { session: unknown } }) {
   }
   const configPath = path20.join(root, "devora.config.ts");
   if (existsSync10(configPath)) {
-    const original = await readFile4(configPath, "utf-8");
+    const original = await readFile6(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
     const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
   ],`;
@@ -4895,14 +4929,14 @@ var newApp = scaffoldApp;
 // src/commands/remove.ts
 import path21 from "node:path";
 import { existsSync as existsSync11 } from "node:fs";
-import { readFile as readFile5, writeFile as writeFile6, rm as rm2 } from "node:fs/promises";
+import { readFile as readFile7, writeFile as writeFile6, rm as rm2 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
   const appDir = path21.join(root, "apps", appName);
   const configPath = path21.join(root, "devora.config.ts");
   let removedFromConfig = false;
   if (existsSync11(configPath)) {
-    const original = await readFile5(configPath, "utf-8");
+    const original = await readFile7(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
     if (updated !== original) {

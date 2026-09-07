@@ -1,10 +1,46 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile, cp } from "node:fs/promises";
+import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devora/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
+
+const require = createRequire(import.meta.url);
+
+/**
+ * Same vendoring `adapter-vercel/src/index.ts` does, and for the same
+ * underlying reason: `bundleForDeploy` leaves `react`/`react-dom` external,
+ * and `prodRequestHandler.ts`'s `importBuilt()` loads route files via a
+ * runtime-computed `import()` that a static dependency tracer can't follow.
+ * This doc comment used to assert "Netlify's own zip-it-and-ship-it already
+ * traces dependencies for ordinary packages, so this isn't needed here" —
+ * that was never actually verified against a real Netlify deploy, and the
+ * identical assumption just turned out to be false for Vercel (confirmed by
+ * a real `Cannot find package 'react'` production crash). Vendoring here too
+ * removes the reliance on that unverified assumption instead of leaving it
+ * in place for a second platform. See adapter-vercel's copy of this function
+ * for the recursion/sibling-symlink details.
+ */
+async function vendorRuntimeDependency(
+  resolveFrom: string,
+  pkgName: string,
+  destNodeModules: string,
+  seen: Set<string> = new Set()
+): Promise<void> {
+  if (seen.has(pkgName)) return;
+  seen.add(pkgName);
+
+  const pkgJsonPath = require.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
+  const pkgDir = path.dirname(pkgJsonPath);
+  await cp(pkgDir, path.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+
+  const pkgJson = JSON.parse(await readFile(pkgJsonPath, "utf-8")) as { dependencies?: Record<string, string> };
+  for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
+    await vendorRuntimeDependency(pkgDir, dep, destNodeModules, seen);
+  }
+}
 
 /**
  * Netlify Functions adapter (§13). Same real `dist/server` output as
@@ -17,15 +53,20 @@ export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
  * adapter-vercel uses, so `@devora/core` resolves outside the monorepo here
  * too (see that file for the real bugs found and fixed getting there).
  * Netlify's own function packaging (`zip-it-and-ship-it`) does its own
- * dependency tracing already, but it would hit the identical problem
- * `@devora/core`'s `exports` pose — .ts source, not something a tracer
- * built for ordinary compiled npm packages can execute — so this isn't
- * redundant with their tooling, it's covering what their tooling can't.
+ * dependency tracing already, and would likely handle `react`/`react-dom`
+ * (ordinary npm packages) on its own — but that claim was never actually
+ * verified against a real deploy, and the identical assumption just turned
+ * out to be false on Vercel (a real `Cannot find package 'react'` production
+ * crash — see `vendorRuntimeDependency` above). `@devora/core` still needs
+ * its own inline bundling regardless (`.ts` `exports`, not something any
+ * tracer built for ordinary compiled npm packages can execute), and now
+ * `react`/`react-dom` are vendored in explicitly too, removing the need to
+ * trust Netlify's tracer for this at all.
  *
  * Verified the same way as adapter-vercel: the generated function, run from
- * a directory completely outside this repo with real `react`/`react-dom`
- * placed in `node_modules` (simulating what Netlify's tracer would supply
- * for those two ordinary packages). Not deployed to real Netlify
+ * a directory completely outside this repo, with the vendored `react`/
+ * `react-dom` (not hand-placed anymore — this now happens for real). Not
+ * deployed to real Netlify
  * infrastructure — no platform access here.
  */
 export async function writeNetlifyConfig(
@@ -96,6 +137,11 @@ export async function writeNetlifyConfig(
   );
 
   await bundleForDeploy(path.join(funcDir, "ssr.mjs"), path.join(funcDir, "dist", "server"));
+
+  const funcNodeModules = path.join(funcDir, "node_modules");
+  await mkdir(funcNodeModules, { recursive: true });
+  await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
+  await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
 
   const toml =
     `[build]\n  publish = "dist/client"\n  functions = "netlify/functions"\n\n` +
