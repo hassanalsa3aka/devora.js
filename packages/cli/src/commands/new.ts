@@ -154,6 +154,14 @@ export async function scaffoldApp(appName: string, opts: { domain?: string }): P
         // "Output Directory" setting once it exists, so nothing else needs
         // overriding here — just which command actually runs.
         buildCommand: `cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=vercel`,
+        // Vercel's dashboard cosmetically labels this app "Vite" (it sees
+        // `vite` in package.json devDependencies) even though buildCommand
+        // above already overrides what runs — `framework: null` tells
+        // Vercel not to apply *any* framework-specific zero-config
+        // assumptions at all, belt-and-suspenders against a future one
+        // (routing/output-dir defaults, etc.) surfacing the same way the
+        // build-command one did.
+        framework: null,
       },
       null,
       2
