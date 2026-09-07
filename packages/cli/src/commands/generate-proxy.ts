@@ -2,11 +2,20 @@ import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import type { AppConfig } from "@devora/core";
 import { loadProjectConfig } from "@devora/core/config-loader";
+import { assignPorts } from "../build/portScheme.js";
 
 function nginxBlock(app: AppConfig, appPort: number): string {
   return `server {
     listen 80;
     server_name ${app.domain};
+
+    # No HTTPS by default — plain HTTP only, since this environment has no
+    # real domain/DNS to issue a certificate against. The standard next step
+    # on a real VPS with ${app.domain} actually resolving is \`certbot --nginx
+    # -d ${app.domain}\`, which rewrites this block in place to add the
+    # \`listen 443 ssl;\` + \`ssl_certificate\`/\`ssl_certificate_key\` directives
+    # and a matching :80 redirect — not attempted here since automating real
+    # ACME issuance needs infrastructure this command can't assume exists.
 
     location / {
         proxy_pass http://127.0.0.1:${appPort};
@@ -39,12 +48,16 @@ export async function generateProxy(opts: { target: string; out?: string }) {
   }
 
   // Each app's production port — matches the doc's one-Node-process-per-app
-  // model for the self-hosted adapter (§13, adapter-node).
-  let port = 4000;
+  // model for the self-hosted adapter (§13, adapter-node). Shared with
+  // `devora start`'s own port assignment (portScheme.ts) — these used to be
+  // two independently-guessed numbers (4000 here, 4173 in start.ts) that
+  // silently disagreed; a real bug, since running `devora start` then
+  // `devora generate:proxy`, exactly the documented workflow, produced a
+  // proxy config pointing at ports nothing was actually listening on.
+  const ports = assignPorts(project.apps);
   const blocks = project.apps.map((app) => {
-    const block = opts.target === "nginx" ? nginxBlock(app, port) : caddyBlock(app, port);
-    port += 1;
-    return block;
+    const appPort = ports.get(app.name)!;
+    return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
 
   const output = blocks.join("\n");

@@ -1,0 +1,88 @@
+name: CI
+
+# Runs a real `devora build` (plain, and both --adapter targets) for every
+# app under all three supported package managers on every push/PR — the
+# actual gate that would have caught this session's three real deploy bugs
+# (react/react-dom left out of the Vercel function, devora build silently
+# depending on the caller's NODE_ENV, netlify.toml only ever existing as
+# build output) before any of them ever reached a live deployment. See
+# ROADMAP.md #4 for the full account of each.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        package-manager: [pnpm, npm, yarn]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # No cache: key — this repo has no single lockfile all three
+          # managers share (see README.md's cross-package-manager notes),
+          # and this workflow's whole point is exercising a real install
+          # under each manager, not shortcutting it.
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install (pnpm)
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm install
+
+      - name: Install (npm)
+        if: matrix.package-manager == 'npm'
+        run: npm install
+
+      - name: Install (yarn)
+        if: matrix.package-manager == 'yarn'
+        run: yarn install
+
+      # Only pnpm is used from here — the point of the matrix above is
+      # proving `install` itself succeeds under all three (this is exactly
+      # what surfaced the ERR_PNPM_FETCH_404 / packageManager-pin issues
+      # documented in README.md); the build/typecheck steps below don't
+      # need repeating three times with identical inputs once install is
+      # confirmed to have linked the workspace correctly.
+      - name: Typecheck @devora/core
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm --filter @devora/core exec tsc --noEmit
+        # Deliberately not gating on packages/cli's own standalone `tsc
+        # --noEmit` here — it has 3 pre-existing `noUncheckedIndexedAccess`
+        # errors unrelated to its real build path (it ships via esbuild
+        # bundling, never through tsc — see packages/cli/build.mjs), a
+        # known, already-documented gap, not something this workflow is
+        # silently ignoring.
+
+      - name: Rebuild CLI bundle
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm --filter @devora/cli build
+
+      - name: Build every app (plain, adapter-node target)
+        if: matrix.package-manager == 'pnpm'
+        run: |
+          node packages/cli/dist/index.js build --app=marketing
+          node packages/cli/dist/index.js build --app=dashboard
+          node packages/cli/dist/index.js build --app=admin
+
+      - name: Build every app (--adapter=vercel)
+        if: matrix.package-manager == 'pnpm'
+        run: |
+          node packages/cli/dist/index.js build --app=marketing --adapter=vercel
+          node packages/cli/dist/index.js build --app=dashboard --adapter=vercel
+          node packages/cli/dist/index.js build --app=admin --adapter=vercel
+
+      - name: Build every app (--adapter=netlify)
+        if: matrix.package-manager == 'pnpm'
+        run: |
+          node packages/cli/dist/index.js build --app=marketing --adapter=netlify
+          node packages/cli/dist/index.js build --app=dashboard --adapter=netlify
+          node packages/cli/dist/index.js build --app=admin --adapter=netlify

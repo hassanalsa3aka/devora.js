@@ -1,0 +1,42 @@
+# systemd unit template for running `devora start` (all apps together,
+# adapter-node) as a supervised, restart-on-crash service on a real VPS.
+# Not something this environment can verify against a real systemd instance
+# — copy, edit the placeholders below, and verify on the actual machine.
+#
+# Install:
+#   sudo cp deploy/devora.service /etc/systemd/system/devora.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now devora
+#
+# Alternative: pm2 (no root needed, works well for a non-systemd host too)
+#   pm2 start "node packages/cli/dist/index.js start" --name devora
+#   pm2 save && pm2 startup   # regenerates its own equivalent of this file
+
+[Unit]
+Description=devora.js (all apps, adapter-node)
+After=network.target
+
+[Service]
+Type=simple
+# Absolute path to this repo's checkout on the VPS.
+WorkingDirectory=/opt/devora.js
+ExecStart=/usr/bin/node packages/cli/dist/index.js start
+Restart=on-failure
+RestartSec=2
+
+# NODE_ENV=production is required here — unlike `devora build` (which now
+# forces it internally, see ROADMAP.md #4), `devora start`'s own runtime
+# behavior (the `Secure` cookie attribute, the production-throw on a missing
+# session secret — packages/core/src/session.ts) still reads it from the
+# real process environment, same as any other adapter-node deployment.
+Environment=NODE_ENV=production
+# Only the apps with auth: "shared"/"isolated" in devora.config.ts need
+# these — an app with auth: "none" (e.g. marketing) needs neither, see
+# .env.example. Prefer an EnvironmentFile= (below) over inline Environment=
+# lines for real secret values — this repo's own .env is never committed.
+# Environment=DEVORA_SESSION_SECRET=...
+# Environment=DEVORA_SESSION_SECRET_ADMIN=...
+EnvironmentFile=-/opt/devora.js/.env
+
+[Install]
+WantedBy=multi-user.target

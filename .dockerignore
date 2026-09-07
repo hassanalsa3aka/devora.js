@@ -1,0 +1,23 @@
+node_modules
+**/node_modules
+**/dist
+# packages/cli/dist/index.js is committed to git on purpose (same reason
+# .gitignore carries an identical exception — see that file's comment) and
+# the Dockerfile's build stage runs it directly (`node packages/cli/dist/
+# index.js build ...`) before any fresh build of the CLI happens inside the
+# image. Excluding it via **/dist above would silently strip it from the
+# Docker build context, breaking the build stage outright.
+!packages/cli/dist
+!packages/cli/dist/index.js
+.vercel
+**/.vercel
+.netlify
+**/.netlify
+netlify
+**/netlify
+.git
+.DS_Store
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

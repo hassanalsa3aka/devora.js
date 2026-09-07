@@ -1,0 +1,38 @@
+# Runs all three apps together, each in its own container (one process per
+# app — same model Dockerfile/adapter-node already assume). Host ports match
+# portScheme.ts's shared sequential scheme (4173/4174/4175, devora.config.ts
+# app order) — the same numbers a real bare-VPS `devora generate:proxy`
+# config would target, so a reverse proxy in front of this compose stack
+# needs no different config than the one Phase B documents.
+#
+# Session secrets are read from a local `.env` file (gitignored already;
+# .env.example documents every variable) — marketing needs none at all
+# (auth: "none" in devora.config.ts).
+services:
+  marketing:
+    build:
+      context: .
+      args:
+        APP_NAME: marketing
+    ports:
+      - "4173:4173"
+
+  dashboard:
+    build:
+      context: .
+      args:
+        APP_NAME: dashboard
+    ports:
+      - "4174:4173"
+    environment:
+      DEVORA_SESSION_SECRET: ${DEVORA_SESSION_SECRET:?set DEVORA_SESSION_SECRET in .env — see .env.example}
+
+  admin:
+    build:
+      context: .
+      args:
+        APP_NAME: admin
+    ports:
+      - "4175:4173"
+    environment:
+      DEVORA_SESSION_SECRET_ADMIN: ${DEVORA_SESSION_SECRET_ADMIN:?set DEVORA_SESSION_SECRET_ADMIN in .env — see .env.example}

@@ -265,6 +265,166 @@ auto-binding (`vercel domains add` using the domain already in `devora.config.ts
 not built — a real external side effect on the user's account untestable without one; a natural,
 separately-scoped follow-up, not silently dropped.
 
+## Deploying to Vercel or Netlify
+
+Verified end-to-end against real, live deployments — all three apps (`marketing`, `dashboard`,
+`admin`) confirmed working in production on both platforms, not just built locally. This section
+is the step-by-step, including the real gotchas that only showed up once actual deploys were
+attempted (see `ROADMAP.md` #4 for the full bug-by-bug account).
+
+**The model: one platform project (Vercel) / site (Netlify) per app, not one for the whole repo.**
+This is inherent to how both platforms work (architecture-v1.md §13's N:N shape), not something
+devora invents — a multi-app project means multiple platform projects, each rooted at its own
+`apps/<name>` directory.
+
+### Vercel
+
+1. In the Vercel dashboard: **Add New → Project**, import this repo, and set **Root Directory** to
+   `apps/<name>` (e.g. `apps/marketing`). Repeat as a separate project for each app you want to
+   deploy.
+2. Nothing else needs configuring in the dashboard — `apps/<name>/vercel.json` is already committed
+   and handles the rest: `"framework": null` stops Vercel's zero-config Vite detection (which
+   otherwise runs a plain `vite build` and fails with `Could not resolve entry module "index.html"`,
+   since this isn't a conventional Vite SPA), and `"buildCommand"` points at `devora build --adapter=
+   vercel` for that specific app.
+3. **Environment variables** (Project Settings → Environment Variables, scoped to **Production**):
+   only needed if that app's `auth` mode (in `devora.config.ts`) is `"shared"` or `"isolated"` — an
+   app with `auth: "none"` (e.g. `marketing`) needs none of this at all.
+   - `auth: "shared"` → set `DEVORA_SESSION_SECRET` (generate with `openssl rand -base64 32`).
+   - `auth: "isolated"` (e.g. `admin`) → set `DEVORA_SESSION_SECRET_<APPNAME>` (uppercase app name,
+     e.g. `DEVORA_SESSION_SECRET_ADMIN`).
+   - Adding or changing an env var does **not** apply to an already-built deployment — redeploy
+     after saving it (Deployments → latest → **Redeploy**), or it'll still throw.
+4. Deploy. If you hit a 500 with `Cannot find package 'react'` in the function logs: that's already
+   fixed as of this repo's current state (the adapter vendors `react`/`react-dom`'s real package
+   files into the function directly — see `ROADMAP.md` #4) — make sure you're on a commit that
+   includes it, and that `packages/cli/dist/index.js` is the current committed build (see "Install &
+   try it" above for why that file is committed at all).
+
+### Netlify
+
+1. In the Netlify dashboard: **Add new project → Import an existing project**, pick this repo, and
+   set **Base directory** to `apps/<name>`. Repeat per app, same as Vercel.
+2. `apps/<name>/netlify.toml` is already committed and sets the build command, publish directory
+   (`dist/client`), the SSR redirect, and Netlify Functions directory — but **Netlify's dashboard
+   Build settings take precedence over `netlify.toml` when both are set**, unlike Vercel. If the
+   site was created by pointing Netlify at a `vite.config.ts` it auto-detected (common on first
+   import), it likely already has its own `Build command`/`Publish directory` saved, which will
+   silently override the committed file and fail with the same `Could not resolve entry module
+   "index.html"` error. Fix it once, per site: **Site configuration → Build & deploy → Build
+   settings → Edit settings**, and either clear the **Build command** and **Publish directory**
+   fields entirely (so Netlify falls through to reading `netlify.toml`), or set them explicitly to
+   match it:
+   - Build command: `cd ../.. && node packages/cli/dist/index.js build --app=<name> --adapter=netlify`
+   - Publish directory: `dist/client`
+3. **Environment variables** (Site configuration → Environment variables) — identical rules to
+   Vercel above: only needed for `"shared"`/`"isolated"` auth apps, same variable names, same
+   redeploy-after-adding requirement.
+4. Deploy — use **Trigger deploy → Clear cache and deploy site** the first time after changing
+   dashboard Build settings, to rule out a stale cached config from an earlier failed attempt.
+
+### Both platforms
+
+- Regenerating an app's `vercel.json`/`netlify.toml` is only needed if you change its name or
+  deploy topology — `devora new`/`devora add` scaffold both automatically for a new app.
+- Neither file is touched by `devora build` itself (they're static, committed config — the exact
+  thing that was wrong before: `netlify.toml` used to only exist as build *output*, which is too
+  late for the build that's supposed to produce it — see `ROADMAP.md` #4).
+- `devora deploy --adapter=vercel|netlify [--app=<name>] [--prod]` is a separate, optional
+  convenience for pushing from the CLI via each platform's own `vercel link`/`netlify link`
+  mechanism instead of git-integration deploys — see "Multi-app-aware Vercel/Netlify deploy
+  orchestration" above. Not required for either of the flows above, which both deploy on every git
+  push once configured.
+
+## Running in Docker
+
+Verified end-to-end against real `docker build`/`docker run`/`docker compose` — one app per
+container, real login/CSRF/tampered-cookie regression re-run inside a running container (not just
+built), and all three apps confirmed running concurrently with no port collisions via `docker
+compose up`. `adapter-node` — not the Vercel/Netlify adapters — is what actually runs here: a real
+`pnpm install` inside the image resolves `react`/`react-dom` normally, so none of the vendoring
+`adapter-vercel`/`adapter-netlify` need (see `ROADMAP.md` #4) is necessary here at all.
+
+```bash
+# One app per image — APP_NAME is required, no default.
+docker build --build-arg APP_NAME=marketing -t devora-marketing .
+docker run -p 4173:4173 devora-marketing
+# auth: "shared"/"isolated" apps need their secret passed in, same variables
+# as everywhere else (.env.example documents each one):
+docker run -p 4173:4173 -e DEVORA_SESSION_SECRET=... devora-dashboard
+
+# All three together, on the same host ports a real bare-VPS nginx/Caddy
+# config would target (see "Self-hosting on a VPS" below):
+cp .env.example .env   # fill in the two session-secret vars
+docker compose up --build
+```
+
+`Dockerfile` is deliberately "fat but correct" — a full monorepo `pnpm install` in both stages, one
+base image (`node:20-slim`, no alpine swap — see `ROADMAP.md` #6's already-documented native-addon
+risk) for build and runtime alike, not a hand-pruned dependency list. `.dockerignore` excludes
+`node_modules`/`dist` from the build context except `packages/cli/dist/index.js`, which is committed
+to git on purpose (same reason `.gitignore` carries the identical exception) and is what the image's
+build stage actually runs. One real gotcha found building this for real, not assumed: the base
+image's `corepack enable` with no pin grabs whatever pnpm is *latest* at build time — a real build
+against pnpm 12 failed with `ERR_PNPM_IGNORED_BUILDS` (a newer default-deny on install scripts like
+esbuild's, that pnpm 9.9.0 — what this project has actually been developed and verified against
+everywhere else — doesn't have). Fixed with `corepack prepare pnpm@9.9.0 --activate` **inside the
+Dockerfile only** — not via root `package.json`'s `"packageManager"` field, which was deliberately
+removed project-wide for Yarn/corepack compatibility (see "Cross-package-manager notes" above) and
+stays that way.
+
+## Self-hosting on a VPS (adapter-node + nginx/Caddy)
+
+`devora generate:proxy --target=nginx|caddy` (§10) reads every app's domain straight out of
+`devora.config.ts` and writes a working reverse-proxy config — verified for real, not just by
+inspecting the output: installed the generated config into a real local nginx and a real local
+Caddy binary, ran `devora start` for all three apps, and confirmed nginx correctly routes each
+domain (via `Host` header, no real DNS needed for local verification) to distinct, correct
+per-app content; `caddy validate` confirms the generated Caddyfile is valid and correctly plans
+automatic HTTPS + HTTP→HTTPS redirect once pointed at a real, DNS-resolving domain.
+
+```bash
+devora build --app=marketing && devora build --app=dashboard && devora build --app=admin
+devora start                              # all three, sequential ports (see below)
+devora generate:proxy --target=nginx      # or --target=caddy
+# install the generated nginx.conf/Caddyfile the normal way for your distro/
+# package manager, then reload nginx/caddy.
+```
+
+**A real, previously unnoticed bug fixed getting this to actually work end-to-end**: `devora
+generate:proxy` and `devora start` used to compute each app's port completely independently —
+`4000` in one, `4173` in the other — so following this exact documented workflow produced a proxy
+config pointing at ports nothing was actually listening on. Both commands now share one function
+(`packages/cli/src/build/portScheme.ts`), so they can't drift apart again; verified by generating a
+config and confirming its ports match `devora start`'s real bound ports exactly, not just
+eyeballing both outputs separately.
+
+nginx's generated config is plain HTTP only (`listen 80`) — there's no way to issue a real TLS
+certificate without a real, DNS-resolving domain, so nothing here fakes that. The documented next
+step on a real VPS is `certbot --nginx -d <domain>`, which rewrites the block in place to add
+HTTPS. Caddy needs no such step — automatic HTTPS via ACME is Caddy's default behavior for any
+domain it can prove ownership of.
+
+For keeping `devora start` running/restarting on a real VPS: `deploy/devora.service` is a systemd
+unit template (`Restart=on-failure`, loads secrets from an `EnvironmentFile=`), with a `pm2`
+one-liner alternative in its own comments — not something verifiable without a real systemd host,
+so treat it as a starting point to adapt, not a drop-in guarantee.
+
+## GitHub Actions CI
+
+`.github/workflows/ci.yml` runs on every push/PR: installs under **all three** package managers
+(pnpm/npm/yarn, matching the cross-manager verification above) to catch the exact class of "works
+under pnpm, breaks under npm" bug this project has hit before, then — using the pnpm leg — runs a
+real `devora build` for every app, **and** `--adapter=vercel`, **and** `--adapter=netlify`. That
+last part is the actual point: every individual command in this workflow was re-run locally against
+this repo's current state before being placed in the YAML, and this exact build sequence is what
+would have caught all three real deploy bugs from this session (`ROADMAP.md` #4: the missing
+`react`/`react-dom` in the Vercel function, `devora build` silently depending on the caller's
+`NODE_ENV`, and `netlify.toml` only ever existing as build output) before any of them ever reached a
+live deployment, rather than after. What this can't verify from here: an actual GitHub Actions run
+needs a real push — no `gh` CLI/runner access in this environment, the same boundary as an
+authenticated Vercel/Netlify deploy elsewhere in this document.
+
 ## What's still a stub, deliberately
 
 - **`"streaming"` render mode**: deferred to v2, not silently dropped — the island two-pass render

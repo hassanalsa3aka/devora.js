@@ -854,6 +854,71 @@ yet" when deploying broadly, since that's expected.
   `adapters/adapter-{vercel,netlify}/src/deploy.ts` (new, re-exported from each adapter's
   `index.ts`), `packages/cli/src/index.ts` (`deploy` command registration).
 
+### 14. Three more environments tried for real — Docker, a bare VPS (nginx/Caddy), CI — ✅ done
+Following real, live Vercel and Netlify deployments (see #4 and its "real Vercel AND Netlify
+deployment" bugs), the natural next question was what else this actually runs on. Three concrete
+targets, all exercised for real, not just written and assumed:
+
+- **Docker** — `Dockerfile` + `docker-compose.yml`, one `adapter-node` process per container (this
+  project's own one-process-per-app model, §13). Unlike Vercel/Netlify's Build Output/Frameworks
+  APIs, Docker has no "hand it a pre-built function" constraint — a real `pnpm install` inside the
+  image resolves `react`/`react-dom` normally, so none of #4's vendoring workaround is needed here
+  at all. Verified: built and ran both an `auth: "none"` app (marketing — real content, zero env
+  vars) and an `auth: "shared"` one (dashboard — full login → `requireAuth()` → logout → CSRF →
+  tampered-cookie regression re-run inside a real running container, including confirming the
+  `Secure` cookie attribute is present, proving `NODE_ENV=production` is genuinely active at
+  container runtime); `docker compose up` with all three services confirmed running concurrently
+  with correct, distinct content on their mapped ports and no collisions, including admin's isolated
+  cookie (`devora_session_admin`) working correctly alongside the other two. **A real bug found
+  building this, not anticipated in advance:** `.dockerignore`'s `**/dist` exclusion (needed to keep
+  real build output out of the image context) also silently excluded the *committed*
+  `packages/cli/dist/index.js` that the Dockerfile's own build stage runs — fixed with an explicit
+  `!packages/cli/dist`/`!packages/cli/dist/index.js` exception, the identical pattern `.gitignore`
+  already carries for the same file and the same reason. **A second real bug:** the base image's
+  `corepack enable` with no version pin grabbed pnpm 12 (latest at build time), which failed with
+  `ERR_PNPM_IGNORED_BUILDS` — a newer default-deny on install scripts (esbuild's, among others) that
+  pnpm 9.9.0 (what this project has actually been developed and verified against everywhere else)
+  doesn't have. Fixed with `corepack prepare pnpm@9.9.0 --activate` **inside the Dockerfile only** —
+  deliberately not via root `package.json`'s `"packageManager"` field, which stays removed for the
+  Yarn/corepack compatibility reasons already documented above in this same file.
+- **Bare VPS (nginx/Caddy)** — `devora generate:proxy --target=nginx|caddy` existed already but had
+  never been run against a real proxy binary, only had its output file inspected. **A real,
+  previously unnoticed bug found before writing any verification code**: it synthesized each app's
+  port starting at `4000`, completely independently from `start.ts`'s own `4173` default — so
+  following the exact documented workflow (`devora start` then `devora generate:proxy`) produced a
+  config pointing at ports nothing was actually listening on. Fixed with one shared function
+  (`packages/cli/src/build/portScheme.ts`, `assignPorts()`), used by both commands, keeping
+  `start.ts`'s existing single-`--app`-with-explicit-`--port` override behavior byte-for-byte
+  unchanged (verified directly: both the multi-app sequential-port path and the single-app literal-
+  port path re-tested and confirmed identical to before). Also added an nginx TLS note (previously
+  `listen 80` with no HTTPS story of any kind, or even a pointer to one) — a short comment directing
+  to `certbot --nginx -d <domain>` as the real next step, not a fabricated commented-out cert block
+  with made-up paths, since automating real ACME issuance needs a real DNS-resolving domain this
+  environment doesn't have. Verified for real: installed `nginx`/`caddy` locally (via `brew`), ran
+  `devora start` for all three apps, installed the generated `nginx.conf` into a real local nginx
+  instance, and confirmed — via `Host` header, no real DNS needed — that each of the three domains
+  correctly routes to distinct, correct per-app content, not just a 200; separately ran `caddy
+  validate` against the generated `Caddyfile` and confirmed it's valid and correctly plans automatic
+  HTTPS + HTTP→HTTPS redirect. A new `deploy/devora.service` systemd unit template (plus a `pm2`
+  one-liner in its own comments) covers process supervision — explicitly **not** verified against a
+  real systemd host, stated plainly rather than assumed to work.
+- **GitHub Actions CI** — new `.github/workflows/ci.yml`: installs under all three package managers
+  (pnpm/npm/yarn — the exact cross-manager matrix already verified by hand elsewhere in this
+  project), then, using the pnpm leg, runs a real `devora build` for every app under **all three**
+  targets (plain, `--adapter=vercel`, `--adapter=netlify`) — deliberately the same build sequence
+  that would have caught this session's three real deploy bugs (missing `react`/`react-dom` in the
+  Vercel function, `devora build` silently depending on the caller's `NODE_ENV`, `netlify.toml` only
+  ever existing as build output — all documented above in #4) before a push, not after. Every
+  individual command in the workflow was re-run locally against this repo's current state before
+  being placed in the YAML. **What can't be verified here:** an actual GitHub Actions run — no `gh`
+  CLI or runner access in this environment, needs a real push, the identical boundary already
+  documented for an authenticated Vercel/Netlify deploy.
+- **Where:** `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `deploy/devora.service` (all new,
+  repo root/new `deploy/` dir); `packages/cli/src/build/portScheme.ts` (new), `packages/cli/src/
+  commands/start.ts` and `generate-proxy.ts` (both updated to share it); `.github/workflows/ci.yml`
+  (new). See `README.md`'s "Running in Docker", "Self-hosting on a VPS", and "GitHub Actions CI"
+  sections for the practical how-to.
+
 ## Explicitly not roadmap items (see architecture-v1.md §11)
 
 Re-listing so scope creep during the above work gets caught early:

@@ -1,6 +1,7 @@
 import { resolveAuthMode } from "@devora/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devora/core/config-loader";
 import { createNodeServer } from "@devora/adapter-node";
+import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
 
 /**
  * Production serve (ROADMAP.md #4) — boots adapter-node against each app's
@@ -18,9 +19,14 @@ export async function start(opts: { app?: string; port?: string }) {
     process.exit(1);
   }
 
-  // 4173 (not 5173, dev's default) to avoid colliding with a `devora
-  // dev` instance still running for the same app.
-  let port = opts.port ? Number.parseInt(opts.port, 10) : 4173;
+  const explicitPort = opts.port ? Number.parseInt(opts.port, 10) : undefined;
+  // `--app` + `--port` (or `--app` alone) is a literal port for that one
+  // process, unchanged from before. Starting every app together assigns
+  // each a real sequential port from the shared scheme `generate-proxy.ts`
+  // also reads — see portScheme.ts for the bug this replaced (two
+  // independently-guessed base ports that used to silently disagree).
+  const ports = opts.app ? undefined : assignPorts(project.apps, explicitPort ?? DEFAULT_BASE_PORT);
+
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
@@ -33,8 +39,7 @@ export async function start(opts: { app?: string; port?: string }) {
       security: appConfig.security,
       sitemapEnabled: appConfig.sitemap === true,
       defaultRenderMode: appConfig.defaultRenderMode,
-      port,
+      port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
     });
-    port += 1;
   }
 }

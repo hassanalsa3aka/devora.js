@@ -4514,6 +4514,18 @@ function createNodeServer(opts) {
   return server;
 }
 
+// src/build/portScheme.ts
+var DEFAULT_BASE_PORT = 4173;
+function assignPorts(apps, basePort = DEFAULT_BASE_PORT) {
+  const ports = /* @__PURE__ */ new Map();
+  let port = basePort;
+  for (const app of apps) {
+    ports.set(app.name, port);
+    port += 1;
+  }
+  return ports;
+}
+
 // src/commands/start.ts
 async function start(opts) {
   const root = process.cwd();
@@ -4523,7 +4535,8 @@ async function start(opts) {
     console.error(`[devora] no app named "${opts.app}" in devora.config.ts`);
     process.exit(1);
   }
-  let port = opts.port ? Number.parseInt(opts.port, 10) : 4173;
+  const explicitPort = opts.port ? Number.parseInt(opts.port, 10) : void 0;
+  const ports = opts.app ? void 0 : assignPorts(project.apps, explicitPort ?? DEFAULT_BASE_PORT);
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
@@ -4536,9 +4549,8 @@ async function start(opts) {
       security: appConfig.security,
       sitemapEnabled: appConfig.sitemap === true,
       defaultRenderMode: appConfig.defaultRenderMode,
-      port
+      port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT
     });
-    port += 1;
   }
 }
 
@@ -4991,6 +5003,14 @@ function nginxBlock(app, appPort) {
     listen 80;
     server_name ${app.domain};
 
+    # No HTTPS by default \u2014 plain HTTP only, since this environment has no
+    # real domain/DNS to issue a certificate against. The standard next step
+    # on a real VPS with ${app.domain} actually resolving is \`certbot --nginx
+    # -d ${app.domain}\`, which rewrites this block in place to add the
+    # \`listen 443 ssl;\` + \`ssl_certificate\`/\`ssl_certificate_key\` directives
+    # and a matching :80 redirect \u2014 not attempted here since automating real
+    # ACME issuance needs infrastructure this command can't assume exists.
+
     location / {
         proxy_pass http://127.0.0.1:${appPort};
         proxy_http_version 1.1;
@@ -5017,11 +5037,10 @@ async function generateProxy(opts) {
     console.error(`[devora] --target must be "nginx" or "caddy"`);
     process.exit(1);
   }
-  let port = 4e3;
+  const ports = assignPorts(project.apps);
   const blocks = project.apps.map((app) => {
-    const block = opts.target === "nginx" ? nginxBlock(app, port) : caddyBlock(app, port);
-    port += 1;
-    return block;
+    const appPort = ports.get(app.name);
+    return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
   const outPath = opts.out ?? path22.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
