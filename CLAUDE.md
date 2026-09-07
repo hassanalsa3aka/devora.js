@@ -282,12 +282,24 @@ list):
   mechanism (`IslandCollectorContext`) fundamentally assumes a synchronous second `renderToString`
   pass, which `renderToPipeableStream`/`renderToReadableStream` don't support; making it work needs a
   Suspense-boundary-based island rewrite, real v2-sized work.
-- Real Vercel/Netlify deployment — genuinely blocked on platform access this environment doesn't
-  have, not something more local work can close. The dependency-resolution gap that used to be the
-  known blocker here is now closed; what's left unverified is specifically whether the platforms' own
-  dependency tracers behave the way local testing simulated them. `isr`'s disk cache is additionally
-  only verified/reliable under `adapter-node`'s long-lived process — a serverless function's
-  filesystem isn't guaranteed to persist or be shared across invocations.
+- Real Vercel/Netlify deployment beyond what's now verified — the user did a real, live Vercel
+  deployment of all three apps (not this environment; no platform access here), which surfaced two
+  real bugs local simulation had gotten wrong: (1) "the platforms' own dependency tracers behave
+  the way local testing simulated them" was false for Vercel specifically — its Build Output API
+  v3 never traces a function you hand it pre-built, so `react`/`react-dom` (left `external` by
+  `bundleForDeploy.ts`) were never actually included; fixed by having the adapters vendor the real
+  resolved package trees in themselves (see ROADMAP.md #4's new bullets). (2) `devora build` never
+  set `NODE_ENV` itself and silently depended on the caller having done so — invisible in every
+  local test here because it was always exported by hand first — which broke Vite's production JSX
+  transform specifically on Vercel's custom-`buildCommand` path; fixed by having `devora build` set
+  `NODE_ENV=production` unconditionally (`packages/cli/src/commands/build.ts`). Both fixes verified
+  against real deployments (marketing, dashboard, admin all confirmed working live) — this closes
+  the specific "unverified" gap this section used to describe; what remains genuinely unverified is
+  everything this environment still can't reach directly (Netlify's actual deploy, in particular —
+  fixed defensively the same way but never exercised against real Netlify infrastructure).
+  `isr`'s disk cache is additionally only verified/reliable under `adapter-node`'s long-lived
+  process — a serverless function's filesystem isn't guaranteed to persist or be shared across
+  invocations.
 
 `pnpm install` (the recommended manager, and the state the repo is currently left in) has been run;
 fresh `npm install`/`yarn install` were also each run and exercised, then cleaned up back to pnpm.

@@ -4473,6 +4473,7 @@ async function buildAppForAdapter(root, project, app, adapter) {
 
 // src/commands/build.ts
 async function build3(opts) {
+  process.env.NODE_ENV = "production";
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;

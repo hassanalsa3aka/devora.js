@@ -369,6 +369,51 @@ There was no production SSR build pipeline at all before this — only dev-mode
   specific follow-up item is gone, though a compiled `packages/core` remains available on its own
   separate merits (see above).
 - **Multi-app N:N risk from doc §13 — since closed, see #13.**
+- **Two real bugs found via an actual live Vercel deployment (not local simulation) — the exact
+  gap this section had flagged as unverifiable without platform access, now genuinely closed for
+  these two.**
+  1. `Cannot find package 'react'` at runtime. `bundleForDeploy.ts` deliberately leaves `react`/
+     `react-dom` `external` (bundling them inline hits a real esbuild+Node ESM interop failure —
+     see that file), on the assumption that "a platform's own dependency tracer already knows how
+     to handle ordinary npm packages" — this section's own local isolation testing simulated that
+     by hand-placing `react`/`react-dom` in `node_modules`. A real deploy proved the assumption
+     false: Vercel's Build Output API v3 only runs its own tracer (`@vercel/nft`) when *Vercel*
+     builds your function; handed a function pre-built by this adapter, it uploads exactly what's
+     in the function directory and nothing more. **Fix:** `adapter-vercel`/`adapter-netlify`'s
+     `writeVercelOutput`/`writeNetlifyConfig` now vendor the real, resolved `react`/`react-dom`
+     package directories (recursing into each package's own `dependencies` — `scheduler`,
+     `loose-envify`, `js-tokens` for react-dom's tree — not just the two top-level packages; a
+     first attempt that copied only `react`/`react-dom` themselves missed these because they live
+     as *sibling* symlinks in pnpm's per-package virtual-store folder, not nested inside
+     `react-dom`'s own directory) straight into the function's own `node_modules`, dereferencing
+     every pnpm symlink into a real file so it survives upload. Re-verified the same way this
+     section's local isolation testing always has — copied the generated function to `/tmp`
+     (outside any ancestor `node_modules`) and ran a real request against it — except the vendored
+     files are now produced by the adapter itself, not hand-placed.
+  2. `TypeError: jsxDEV is not a function`, only on `apps/admin`, only on Vercel — never reproduced
+     across dozens of local `devora build` runs. Root cause: `devora build` never set
+     `process.env.NODE_ENV` itself; it silently depended on the invoking shell/CI already having it
+     set to `"production"`. Every local verification in this document happened to export it first,
+     masking the gap entirely. `@vitejs/plugin-react` decides dev vs. production JSX transform from
+     Vite's resolved `config.isProduction`, which reads `process.env.NODE_ENV` — with it unset (or
+     not `"production"`), the SSR build silently emits calls to `jsxDEV` (from
+     `react/jsx-dev-runtime`) instead of `jsx`/`jsxs` (from `react/jsx-runtime`). React's own
+     production build deliberately ships `exports.jsxDEV = void 0` in `react-jsx-dev-runtime.
+     production.min.js` — using the dev JSX runtime in production is considered a build
+     misconfiguration by React itself, not something it tries to support — so calling it crashes
+     immediately at render time. Vercel sets `NODE_ENV=production` reliably for a function's
+     *runtime* (confirmed separately: the session-secret production-throw fired correctly), but not
+     reliably for a **custom `buildCommand`**'s build step — this project's `vercel.json` uses one
+     specifically to bypass Vercel's zero-config Vite detection (see the adapter section above), so
+     it never benefited from whatever `NODE_ENV` handling a recognized framework's default build
+     gets. **Fix:** `packages/cli/src/commands/build.ts` now sets `process.env.NODE_ENV =
+     "production"` itself, unconditionally, at the top of the command — `devora build` always means
+     "build for production," so there's no legitimate case where it should depend on the caller
+     remembering this (§2.2 "explicit over implicit"). Re-verified by explicitly *unsetting*
+     `NODE_ENV` in the shell before running `devora build --app=admin --adapter=vercel` (reproducing
+     the exact condition that broke on Vercel, which no earlier local test had actually done) and
+     confirming the built route file calls only `jsx`/`jsxs`, then re-running the same outside-the-
+     monorepo isolation test as bug 1 above and getting real rendered HTML back, no crash.
 
 ### 5. CSP/HSTS enforcement — ✅ done
 Every response now carries `Content-Security-Policy`, `X-Frame-Options`, and (unless
