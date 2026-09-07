@@ -9,6 +9,19 @@ netlify.toml
 nginx.conf
 Caddyfile
 
+# Real bug found via an actual Vercel deploy (not locally reproducible: needs
+# a single-pass CI install, not a dev machine where `pnpm install` gets run
+# more than once): packages/cli/dist/index.js is built by a `prepare` script
+# during `pnpm install`, but pnpm links bins into node_modules/.bin BEFORE
+# `prepare` finishes on a one-shot install — ENOENT on the very first
+# install anywhere that isn't run twice. Committing the built file removes
+# the race entirely (the bin target already exists from git; `prepare` just
+# refreshes it moments later, same path, no relink needed). Re-run
+# `pnpm --filter @devora/cli build` and commit the result after editing
+# anything under packages/cli/src.
+!packages/cli/dist/
+!packages/cli/dist/index.js
+
 # Real secrets — never commit. .env.example (the template) is intentionally
 # NOT ignored by this pattern.
 .env
