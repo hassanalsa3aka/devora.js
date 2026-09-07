@@ -1,0 +1,11 @@
+# Static, committed config — see apps/marketing/netlify.toml for the full
+# explanation of why this exists and isn't build output.
+[build]
+  command = "cd ../.. && node packages/cli/dist/index.js build --app=dashboard --adapter=netlify"
+  publish = "dist/client"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/ssr"
+  status = 200

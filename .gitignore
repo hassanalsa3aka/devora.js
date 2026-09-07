@@ -3,8 +3,14 @@ dist/
 .vercel/
 .netlify/
 netlify/
-netlify.toml
 *.tsbuildinfo
+# `netlify.toml` is deliberately NOT listed here (unlike `netlify/` and
+# `.netlify/` above) — it's a static, per-app config file committed ahead of
+# time (see apps/*/netlify.toml), the same role `vercel.json` already plays
+# and for the same reason: Netlify reads its config before running any build
+# command, so a config that only appeared as build output was always too
+# late to matter — a real bug found via an actual live Netlify deploy, see
+# ROADMAP.md #4.
 .turbo/
 nginx.conf
 Caddyfile

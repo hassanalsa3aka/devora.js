@@ -143,13 +143,21 @@ export async function writeNetlifyConfig(
   await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
   await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
 
-  const toml =
-    `[build]\n  publish = "dist/client"\n  functions = "netlify/functions"\n\n` +
-    `[[redirects]]\n  from = "/*"\n  to = "/.netlify/functions/ssr"\n  status = 200\n`;
-  await writeFile(path.join(appRoot, "netlify.toml"), toml);
+  // `netlify.toml` is NOT written here — real bug found via an actual live
+  // Netlify deploy (not local simulation): writing it only as build output
+  // (like this used to) means it doesn't exist yet on the very build that's
+  // supposed to produce it — Netlify reads its config before running any
+  // build command, so a config that only appears *after* the build is too
+  // late to matter, and its dashboard fell back to zero-config `vite build`
+  // detection instead (`Could not resolve entry module "index.html"` — the
+  // exact same zero-config-detection failure `apps/*/vercel.json` already
+  // fixed for Vercel). `netlify.toml` is now a static, pre-committed file
+  // per app (same role `vercel.json` already plays), generated once by the
+  // scaffolder and checked into git — see apps/*/netlify.toml — not
+  // regenerated here, so there's nothing for this build step to overwrite.
 
   console.log(
-    `[adapter-netlify] wrote ${funcDir} + netlify.toml for "${app.name}" (${app.domain}) — verified locally in ` +
+    `[adapter-netlify] wrote ${funcDir} for "${app.name}" (${app.domain}) — verified locally in ` +
       `isolation, NOT deployed to real Netlify infrastructure (no platform access here), see ROADMAP.md #4`
   );
 }

@@ -414,6 +414,32 @@ There was no production SSR build pipeline at all before this — only dev-mode
      the exact condition that broke on Vercel, which no earlier local test had actually done) and
      confirming the built route file calls only `jsx`/`jsxs`, then re-running the same outside-the-
      monorepo isolation test as bug 1 above and getting real rendered HTML back, no crash.
+- **A third real bug, this time from an actual live Netlify deploy — `Could not resolve entry
+  module "index.html"`, the identical zero-config-`vite build`-detection failure `apps/*/
+  vercel.json` already fixed for Vercel, but for a structurally different reason.** `netlify.toml`
+  had only ever been written as **build output** by `writeNetlifyConfig` (and correspondingly
+  `.gitignore`d, never committed) — but Netlify reads its config *before* running any build command
+  at all, so a config that only appears *after* the build finishes was always too late to matter on
+  the very build meant to produce it. The dashboard fell back to its own zero-config Vite detection
+  instead, which fails outright on this project's shape. Unlike the Vercel case, this needed no
+  code fix beyond stopping the mistake — `netlify.toml`'s content (`publish`/`functions`/the SSR
+  redirect, plus a `build.command` string) has no build-time-computed values at all, identical for
+  every app apart from its name, so it's now a **static, pre-committed file per app** (`apps/*/
+  netlify.toml`), the exact role `vercel.json` already plays — generated once by `devora new`/`add`
+  (`packages/cli/src/commands/new.ts`) and no longer touched by `devora build --adapter=netlify` at
+  all (removed from `writeNetlifyConfig`; `.gitignore`'s blanket `netlify.toml` exclusion removed
+  too, while `netlify/` — the real generated functions output — and `.netlify/` — Netlify CLI link
+  state — stay ignored, matching the identical split `.vercel/` vs. `vercel.json` already has).
+  Verified the config itself is now stable across a real build: hashed `apps/marketing/netlify.toml`
+  before and after running `devora build --app=marketing --adapter=netlify`, confirmed byte-
+  identical — nothing in the build path touches it anymore, so there's nothing left to race. Also
+  surfaced, separately from this bug: **the Netlify site's dashboard had its own Build command
+  explicitly set to `vite build` (`commandOrigin: ui` in the build log)** — Netlify's UI-configured
+  build settings take precedence over `netlify.toml` when both are present, unlike Vercel (where
+  `vercel.json` alone was sufficient without any dashboard change). Committing `netlify.toml` is
+  necessary but not sufficient here — the dashboard's Build command / Base directory / Publish
+  directory fields also need clearing (Site configuration → Build & deploy → Build settings) so
+  Netlify falls through to reading the committed file, or need to be set to match it explicitly.
 
 ### 5. CSP/HSTS enforcement — ✅ done
 Every response now carries `Content-Security-Policy`, `X-Frame-Options`, and (unless

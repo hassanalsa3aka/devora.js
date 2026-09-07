@@ -4430,18 +4430,8 @@ export default async (request) => {
   await mkdir3(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency2(appRoot, "react", funcNodeModules);
   await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
-  const toml = `[build]
-  publish = "dist/client"
-  functions = "netlify/functions"
-
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/ssr"
-  status = 200
-`;
-  await writeFile4(path18.join(appRoot, "netlify.toml"), toml);
   console.log(
-    `[adapter-netlify] wrote ${funcDir} + netlify.toml for "${app.name}" (${app.domain}) \u2014 verified locally in isolation, NOT deployed to real Netlify infrastructure (no platform access here), see ROADMAP.md #4`
+    `[adapter-netlify] wrote ${funcDir} for "${app.name}" (${app.domain}) \u2014 verified locally in isolation, NOT deployed to real Netlify infrastructure (no platform access here), see ROADMAP.md #4`
   );
 }
 
@@ -4777,6 +4767,19 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
       null,
       2
     ) + "\n"
+  );
+  await writeFile5(
+    path20.join(appDir, "netlify.toml"),
+    `[build]
+  command = "cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=netlify"
+  publish = "dist/client"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/ssr"
+  status = 200
+`
   );
   await writeFile5(
     path20.join(appDir, "routes", "index.tsx"),
