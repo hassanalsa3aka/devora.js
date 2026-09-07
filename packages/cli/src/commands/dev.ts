@@ -1,10 +1,11 @@
 import path from "node:path";
 import { createServer } from "vite";
-import { resolveAuthMode } from "@devora/core";
+import { listRouteFiles, resolveAuthMode } from "@devora/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devora/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
 import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
+import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 
 export async function dev(opts: { app?: string }) {
   const root = process.cwd();
@@ -23,6 +24,9 @@ export async function dev(opts: { app?: string }) {
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
+    if (authMode === "none") {
+      assertNoAuthUsage(app.name, listRouteFiles(path.join(appRoot, "routes")));
+    }
     const appConfig = await loadAppConfig(appRoot);
     const server = await createServer({
       root: appRoot,

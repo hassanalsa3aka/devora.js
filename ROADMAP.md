@@ -94,6 +94,53 @@ hand-tampered cookie is correctly rejected.
   fallback secret; production (`NODE_ENV=production`) throws instead of silently using it.
 - **Not done at the time this item landed** — since closed by #10: login UI, logout route, and CSRF
   protection on the cookie-based form flow.
+- **Since made opt-in per app, not a project-wide always-on requirement.** Every app used to pay
+  the "secret required or crash in production" cost above even with no login route at all
+  (`apps/marketing`, concretely — it never had one). `AuthMode` (`packages/core/src/config.ts`) is
+  now `"shared" | "isolated" | "none"`: a real third literal, not `auth: undefined` (which already
+  means "inherit the project's `shared.auth` default" via `resolveAuthMode` and can't be
+  repurposed without breaking that inheritance). `"none"` opts an app out of the *entire*
+  cookie/session/CSRF carrier — `resolveSessionCookieOptions()` (whose `resolveSecret()` is exactly
+  what throws in production without a configured secret) is never even *called* for a `"none"` app
+  in either `ssrMiddleware.ts` (dev) or `prodRequestHandler.ts` (production/adapter-node/Vercel/
+  Netlify); skipping only its *result* wouldn't have been enough, since the throw is a side effect
+  of the call itself, at handler-creation time, not per-request. A `"none"` app's `ctx` is
+  `session.ts`'s new `createNoAuthContext()` instead: `ctx.session` is always `undefined`, and
+  `requireAuth()`/`setSession()`/`clearSession()`/`verifyCsrf()` all throw a clear, specific error
+  ("this app has sessions disabled ... set auth: shared or isolated if it needs login") rather than
+  silently no-op'ing — a silent no-op would be a confusing way to discover a login button does
+  nothing. A second, build-time layer catches the common case earlier: `packages/cli/src/build/
+  checkNoAuthUsage.ts` scans a `"none"` app's route source for `ctx.<method>(` calls (same
+  plain-regex-over-raw-source approach `discoverIslandFiles.ts` already uses for `island()` calls,
+  deliberately not a full AST parse — same false-negative tradeoff accepted: a renamed/destructured
+  `ctx` defeats the scan, and the runtime throw above is what catches that case instead), and fails
+  `devora build`/`devora dev` immediately with the offending file and method named, before the
+  request that would have thrown ever arrives. Wired into `buildForAdapter.ts` (so the check runs
+  for every adapter target, computed unconditionally, not just inside the vercel/netlify branch)
+  and `dev.ts`. `devora new`/`devora add` now ask per-app whether the new app needs auth (`--auth
+  shared|isolated|none`, prompted interactively via a TTY-aware `readline/promises` if omitted,
+  defaulting to `shared` when stdin isn't a TTY so scripted/CI use never hangs) and skip generating
+  `login.tsx`/`logout.tsx`/a protected demo route for a `"none"` choice — no fake login route in an
+  app that said no to auth. Applied to all three existing apps as the real test case: `apps/
+  marketing` is now `auth: "none"` in `devora.config.ts` — confirmed by grep that it had no
+  `ctx.*` calls anywhere in its routes before this change either, so this wasn't papering over an
+  existing dependency — and verified end-to-end with literally zero `DEVORA_SESSION_SECRET*` env
+  vars set anywhere: `devora dev --app=marketing`, `devora build --app=marketing`, `devora start
+  --app=marketing` (adapter-node), and `devora build --app=marketing --adapter=vercel`/
+  `--adapter=netlify` all succeeded with no warning printed at all (confirmed by inspecting captured
+  stdout/stderr directly, not just checking exit codes). Negative-control verified too: a
+  deliberately-added `apps/marketing/routes/__test-bad-auth.tsx` calling `ctx.setSession()` made
+  both `devora build --app=marketing` and `devora dev --app=marketing` fail immediately with
+  `[devora] app "marketing" has auth: "none" ... ctx.setSession()` naming the exact file, before
+  any server started — then removed. `apps/dashboard`/`apps/admin` stay `auth: "shared"`/
+  `"isolated"` with the pre-existing behavior completely unweakened (secret required, throws in
+  production if missing, insecure dev fallback with a warning otherwise) — full existing regression
+  re-run and still passing: login → `requireAuth()` passing → logout → CSRF verification → a
+  hand-tampered session cookie correctly rejected (invalid HMAC signature → `currentSession` falls
+  back to `undefined` → `requireAuth()` throws "no active session", not the DB-stub error a valid
+  session would reach), confirmed separately for both the shared cookie (`dashboard`,
+  `devora_session`) and the isolated one (`admin`, `devora_session_admin` +
+  `DEVORA_SESSION_SECRET_ADMIN`).
 
 ### 3. Islands / partial hydration — ✅ done, in both dev and production
 `island(() => import("./X"))` does real work: SSR renders the island's actual content (not a

@@ -4,7 +4,18 @@
  * explicit — see architecture doc §2.2 "Explicit over implicit".
  */
 
-export type AuthMode = "shared" | "isolated";
+/**
+ * "none" is a real, explicit third state — not the same as omitting `auth`
+ * (which means "inherit `shared.auth`"). An app with sessions enabled
+ * ("shared"/"isolated") pays the real cost of a signed cookie carrier: a
+ * `DEVORA_SESSION_SECRET`/`DEVORA_SESSION_SECRET_<APP>` is required in
+ * production (throws if missing — see session.ts), with an insecure
+ * dev-only fallback otherwise. An app with no login at all (a marketing
+ * site, say) shouldn't have to configure a secret it will never use —
+ * "none" opts it out of the entire cookie/session/CSRF carrier, not just
+ * the requirement to set a secret. See session.ts's `createNoAuthContext()`.
+ */
+export type AuthMode = "shared" | "isolated" | "none";
 
 export interface AppConfig {
   /** Unique app name, matches its directory name under apps/ by convention. */
@@ -16,7 +27,10 @@ export interface AppConfig {
   /**
    * Per-app auth override. Defaults to the project-level `shared.auth`.
    * "isolated" gives this app its own session context (e.g. a different
-   * identity provider for an admin panel).
+   * identity provider for an admin panel). "none" disables sessions for
+   * this app entirely — `ctx.setSession()`/`clearSession()`/`requireAuth()`/
+   * `verifyCsrf()` all throw a clear error instead of silently no-op'ing if
+   * called, and no session-related env var is ever required or read.
    */
   auth?: AuthMode;
 }
@@ -26,7 +40,9 @@ export interface SharedConfig {
   core: string;
   /** Path to the shared backend package (packages/backend). */
   backend: string;
-  /** Project-level default auth mode. Individual apps may override it. */
+  /** Project-level default auth mode. Individual apps may override it —
+   * including overriding a "none" project default up to "shared"/"isolated"
+   * for one app that does need login, or vice versa. */
   auth: AuthMode;
 }
 

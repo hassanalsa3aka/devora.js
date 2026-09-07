@@ -43,7 +43,12 @@ export function createSsrMiddleware(
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
-  const sessionCookieOptions = resolveSessionCookieOptions(authMode, appName);
+  // Not called at all for a "none"-auth app — resolveSessionCookieOptions
+  // (via resolveSecret()) is exactly what throws in production without a
+  // configured secret; an app with sessions disabled must never reach that
+  // call, not just avoid using its result. See renderRoute.ts's
+  // createNoAuthContext() for the ctx a "none" app gets instead.
+  const sessionCookieOptions = authMode === "none" ? undefined : resolveSessionCookieOptions(authMode, appName);
 
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
@@ -93,7 +98,7 @@ export function createSsrMiddleware(
             method: string;
             formData?: FormData;
             cookieHeader?: string;
-            sessionCookieOptions: SessionCookieOptions;
+            sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
             appDefaultRenderMode?: RenderMode;
           }

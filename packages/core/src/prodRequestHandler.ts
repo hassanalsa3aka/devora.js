@@ -57,7 +57,10 @@ export function createProdRequestHandler(
   const serverOutDir = path.join(appRoot, "dist", "server");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");
-  const sessionCookieOptions = resolveSessionCookieOptions(authMode, appName);
+  // Not called at all for a "none"-auth app — see the identical comment in
+  // ssrMiddleware.ts; this is exactly the call that throws in production
+  // without a configured secret, and a "none" app must never reach it.
+  const sessionCookieOptions = authMode === "none" ? undefined : resolveSessionCookieOptions(authMode, appName);
   const securityHeaders = resolveSecurityHeaders(security);
   // Written by buildAppServer.ts after the client build (ROADMAP.md #4) —
   // absent (and islandClientUrl undefined) for an app with no islands.

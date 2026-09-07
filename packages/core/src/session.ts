@@ -174,3 +174,44 @@ export function createRequestContext(
 
   return { ctx, csrfToken, getSetCookie: () => (pendingSetCookies.length > 0 ? pendingSetCookies : undefined) };
 }
+
+function sessionsDisabledError(method: string): Error {
+  return new Error(
+    `[devora] ctx.${method}() was called, but this app has sessions disabled ` +
+      `(auth: "none" in devora.config.ts). Set auth: "shared" or "isolated" for ` +
+      `this app if it needs login.`
+  );
+}
+
+/**
+ * The `ctx` an "none"-auth app gets instead of `createRequestContext`'s real
+ * carrier — used by `renderRoute.ts` when `sessionCookieOptions` is absent
+ * (see that file). Deliberately does not read or write any cookie at all
+ * (no session cookie, no CSRF cookie either — CSRF protection in this
+ * codebase is only ever paired with a login flow, so disabling sessions
+ * disables the whole carrier, not just the parts that need a secret) —
+ * this is what makes the app need zero session-related env vars: nothing
+ * here ever calls `resolveSecret()`. The four methods below don't silently
+ * no-op if called; they throw a clear, specific error explaining why,
+ * since a silent no-op would be a confusing way to discover a login button
+ * does nothing. See also `checkNoAuthUsage.ts` for the build-time version
+ * of this same check, which catches the common case earlier.
+ */
+export function createNoAuthContext(): RequestContextResult {
+  const ctx: RequestContext = {
+    session: undefined,
+    requireAuth: () => {
+      throw sessionsDisabledError("requireAuth");
+    },
+    setSession: () => {
+      throw sessionsDisabledError("setSession");
+    },
+    clearSession: () => {
+      throw sessionsDisabledError("clearSession");
+    },
+    verifyCsrf: () => {
+      throw sessionsDisabledError("verifyCsrf");
+    },
+  };
+  return { ctx, csrfToken: "", getSetCookie: () => undefined };
+}

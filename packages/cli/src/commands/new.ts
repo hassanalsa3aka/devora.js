@@ -1,6 +1,39 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
+
+/**
+ * Auth is per-app, not per-project — a marketing site and a dashboard in
+ * the same project routinely differ (confirmed with the user; see
+ * ROADMAP.md's auth-opt-in item) — so this asks once per scaffolded app
+ * rather than once per project. `--auth` skips the prompt entirely (CI/
+ * scripted use); with no flag and a real TTY, asks interactively; with no
+ * flag and no TTY (piped/non-interactive), defaults to "shared" rather than
+ * hanging forever waiting for input that will never come.
+ */
+async function resolveAuthChoice(explicit: string | undefined): Promise<"shared" | "isolated" | "none"> {
+  if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
+  if (explicit) {
+    console.error(`[devora] --auth must be "shared", "isolated", or "none" (got "${explicit}")`);
+    process.exit(1);
+  }
+  if (!process.stdin.isTTY) return "shared";
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (
+      await rl.question(
+        `Does this app need auth/sessions? [shared/isolated/none] (default: shared): `
+      )
+    ).trim();
+    if (answer === "isolated") return "isolated";
+    if (answer === "none") return "none";
+    return "shared";
+  } finally {
+    rl.close();
+  }
+}
 
 /**
  * Scaffolds a new app and registers it in devora.config.ts — the shared
@@ -22,7 +55,7 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
  * for it. Confirmed by checking `apps/dashboard`'s actual files and
  * comparing, not assumed from memory of what the scaffolder should produce.
  */
-export async function scaffoldApp(appName: string, opts: { domain?: string }): Promise<void> {
+export async function scaffoldApp(appName: string, opts: { domain?: string; auth?: string }): Promise<void> {
   const root = process.cwd();
   const appDir = path.join(root, "apps", appName);
 
@@ -30,6 +63,8 @@ export async function scaffoldApp(appName: string, opts: { domain?: string }): P
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
+
+  const authMode = await resolveAuthChoice(opts.auth);
 
   await mkdir(path.join(appDir, "routes"), { recursive: true });
 
@@ -188,11 +223,110 @@ export async function scaffoldApp(appName: string, opts: { domain?: string }): P
       `}\n`
   );
 
+  // Don't scaffold a fake login flow into an app that said no to auth — an
+  // unused login route would be dead code at best and a false invitation to
+  // wire up real credential checking at worst.
+  if (authMode !== "none") {
+    await writeFile(
+      path.join(appDir, "routes", "login.tsx"),
+      `import type { RequestContext } from "@devora/core";\n` +
+        `import { redirect, CsrfField, PageShell } from "@devora/core";\n\n` +
+        `export const renderMode = "ssr";\n\n` +
+        `export function meta() {\n` +
+        `  return { title: "Log in", description: "${appName} login (demo)" };\n` +
+        `}\n\n` +
+        `// Demo only: the framework provides the session *carrier* (signing/cookie\n` +
+        `// storage — see packages/core/src/session.ts). Checking who someone is\n` +
+        `// stays bring-your-own (§6/§11): a real app verifies a password/token\n` +
+        `// against its own DB/provider before calling ctx.setSession(); this route\n` +
+        `// trusts any submitted username so the carrier can be exercised end to end.\n` +
+        `export async function action(formData: FormData, ctx: RequestContext) {\n` +
+        `  ctx.verifyCsrf(formData);\n` +
+        `  const username = String(formData.get("username") ?? "");\n` +
+        `  if (!username) throw new Error("username required");\n` +
+        `  ctx.setSession({ username });\n` +
+        `  return redirect("/");\n` +
+        `}\n\n` +
+        `export default function Login({ csrfToken }: { csrfToken?: string }) {\n` +
+        `  return (\n` +
+        `    <PageShell appName="${appName}">\n` +
+        `      <h1>Log in</h1>\n` +
+        `      <p><strong>Demo only</strong> — accepts any username with no password check.</p>\n` +
+        `      <form method="post">\n` +
+        `        <CsrfField token={csrfToken} />\n` +
+        `        <input name="username" placeholder="username" />\n` +
+        `        <button type="submit">Log in</button>\n` +
+        `      </form>\n` +
+        `    </PageShell>\n` +
+        `  );\n` +
+        `}\n`
+    );
+
+    await writeFile(
+      path.join(appDir, "routes", "logout.tsx"),
+      `import type { RequestContext } from "@devora/core";\n` +
+        `import { redirect, CsrfField, PageShell } from "@devora/core";\n\n` +
+        `export const renderMode = "ssr";\n\n` +
+        `export function meta() {\n` +
+        `  return { title: "Log out", description: "${appName} logout" };\n` +
+        `}\n\n` +
+        `export async function action(formData: FormData, ctx: RequestContext) {\n` +
+        `  ctx.verifyCsrf(formData);\n` +
+        `  ctx.clearSession();\n` +
+        `  return redirect("/login");\n` +
+        `}\n\n` +
+        `export default function Logout({ csrfToken }: { csrfToken?: string }) {\n` +
+        `  return (\n` +
+        `    <PageShell appName="${appName}">\n` +
+        `      <h1>Log out</h1>\n` +
+        `      {/* POST-only, never a bare <a href="/logout"> — a GET-triggered logout\n` +
+        `          is itself a CSRF-adjacent footgun. */}\n` +
+        `      <form method="post">\n` +
+        `        <CsrfField token={csrfToken} />\n` +
+        `        <button type="submit">Log out</button>\n` +
+        `      </form>\n` +
+        `    </PageShell>\n` +
+        `  );\n` +
+        `}\n`
+    );
+
+    await writeFile(
+      path.join(appDir, "routes", "account.tsx"),
+      `import type { RequestContext } from "@devora/core";\n` +
+        `import { PageShell } from "@devora/core";\n\n` +
+        `export const renderMode = "ssr";\n\n` +
+        `export function meta() {\n` +
+        `  return { title: "Account", description: "${appName} account (protected demo)" };\n` +
+        `}\n\n` +
+        `// ctx.requireAuth() throws if there's no active session — see\n` +
+        `// packages/core/src/session.ts and apps/dashboard/routes/settings.tsx for\n` +
+        `// the same pattern against the shared backend.\n` +
+        `export async function loader(ctx: RequestContext) {\n` +
+        `  ctx.requireAuth();\n` +
+        `  return { session: ctx.session };\n` +
+        `}\n\n` +
+        `export default function Account({ data }: { data?: { session: unknown } }) {\n` +
+        `  return (\n` +
+        `    <PageShell appName="${appName}">\n` +
+        `      <h1>Account</h1>\n` +
+        `      <p>Protected demo route — only reachable with an active session (see routes/login.tsx).</p>\n` +
+        `      <pre>{JSON.stringify(data?.session, null, 2)}</pre>\n` +
+        `    </PageShell>\n` +
+        `  );\n` +
+        `}\n`
+    );
+  }
+
   const configPath = path.join(root, "devora.config.ts");
   if (existsSync(configPath)) {
     const original = await readFile(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
-    const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}" },\n  ],`;
+    // Written explicitly regardless of value (even "shared", the project's
+    // usual default) — the whole point of asking per-app is that it must be
+    // unambiguous which apps have sessions enabled just by reading this
+    // file, not implied by omission matching whatever the project default
+    // happens to be today.
+    const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },\n  ],`;
     const updated = original.replace(/\n\s*\],/, `\n${insertion}`);
     if (updated !== original) {
       await writeFile(configPath, updated);

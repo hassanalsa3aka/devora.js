@@ -3547,7 +3547,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const serverOutDir = path4.join(appRoot, "dist", "server");
   const clientOutDir = path4.join(appRoot, "dist", "client");
   const staticOutDir = path4.join(appRoot, "dist", "static");
-  const sessionCookieOptions = resolveSessionCookieOptions(authMode, appName);
+  const sessionCookieOptions = authMode === "none" ? void 0 : resolveSessionCookieOptions(authMode, appName);
   const securityHeaders = resolveSecurityHeaders(security);
   const islandManifestPath = path4.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path4.join(serverOutDir, "csr-route-manifest.json");
@@ -3736,7 +3736,7 @@ import path7 from "node:path";
 function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode) {
   const routesDir = path7.join(appRoot, "routes");
   const entryServerPath = path7.join(appRoot, "entry-server.tsx");
-  const sessionCookieOptions = resolveSessionCookieOptions(authMode, appName);
+  const sessionCookieOptions = authMode === "none" ? void 0 : resolveSessionCookieOptions(authMode, appName);
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
     const url = new URL(req.url, "http://localhost");
@@ -3857,6 +3857,30 @@ function islandsPlugin() {
   };
 }
 
+// src/build/checkNoAuthUsage.ts
+import fs2 from "node:fs";
+var SESSION_METHOD_CALL_RE = /\bctx\.(requireAuth|setSession|clearSession|verifyCsrf)\s*\(/g;
+function checkNoAuthUsage(sourceFiles) {
+  const violations = [];
+  for (const file of sourceFiles) {
+    const code = fs2.readFileSync(file, "utf-8");
+    for (const match of code.matchAll(SESSION_METHOD_CALL_RE)) {
+      violations.push({ file, method: match[1] });
+    }
+  }
+  return violations;
+}
+function assertNoAuthUsage(appName, sourceFiles) {
+  const violations = checkNoAuthUsage(sourceFiles);
+  if (violations.length === 0) return;
+  const lines = violations.map((v) => `  - ${v.file}: ctx.${v.method}()`);
+  throw new Error(
+    `[devora] app "${appName}" has auth: "none" in devora.config.ts, but the following route(s) call session methods that will throw at request time:
+${lines.join("\n")}
+Set auth: "shared" or "isolated" for "${appName}" if it needs login, or remove these calls.`
+  );
+}
+
 // src/commands/dev.ts
 async function dev(opts) {
   const root = process.cwd();
@@ -3870,6 +3894,9 @@ async function dev(opts) {
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
+    if (authMode === "none") {
+      assertNoAuthUsage(app.name, listRouteFiles(path8.join(appRoot, "routes")));
+    }
     const appConfig = await loadAppConfig(appRoot);
     const server = await createServer({
       root: appRoot,
@@ -3903,6 +3930,9 @@ async function dev(opts) {
   }
 }
 
+// src/build/buildForAdapter.ts
+import path19 from "node:path";
+
 // src/build/buildAppServer.ts
 import path11 from "node:path";
 import { writeFile as writeFile2 } from "node:fs/promises";
@@ -3915,13 +3945,13 @@ import { existsSync as existsSync5 } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
 
 // src/build/discoverIslandFiles.ts
-import fs2 from "node:fs";
+import fs3 from "node:fs";
 import path9 from "node:path";
 var RESOLVE_EXTENSIONS = ["", ".tsx", ".ts", ".jsx", ".js"];
 function discoverIslandFiles(sourceFiles) {
   const found = /* @__PURE__ */ new Set();
   for (const file of sourceFiles) {
-    const code = fs2.readFileSync(file, "utf-8");
+    const code = fs3.readFileSync(file, "utf-8");
     for (const match of code.matchAll(ISLAND_CALL_RE)) {
       const resolved = resolveSpecifier(path9.dirname(file), match[2]);
       if (resolved) found.add(resolved);
@@ -3933,16 +3963,16 @@ function resolveSpecifier(fromDir, specifier) {
   const base = path9.resolve(fromDir, specifier);
   for (const ext of RESOLVE_EXTENSIONS) {
     const candidate = base + ext;
-    if (fs2.existsSync(candidate)) return candidate;
+    if (fs3.existsSync(candidate)) return candidate;
   }
   return null;
 }
 
 // src/build/discoverCsrRouteFiles.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 var CSR_RENDER_MODE_RE = /renderMode\s*=\s*["']csr["']/;
 function discoverCsrRouteFiles(sourceFiles) {
-  return sourceFiles.filter((file) => CSR_RENDER_MODE_RE.test(fs3.readFileSync(file, "utf-8")));
+  return sourceFiles.filter((file) => CSR_RENDER_MODE_RE.test(fs4.readFileSync(file, "utf-8")));
 }
 
 // src/build/buildAppClient.ts
@@ -4385,6 +4415,10 @@ export default async (request) => {
 async function buildAppForAdapter(root, project, app, adapter) {
   const appRoot = resolveAppDir(root, app.dir);
   const appConfig = await loadAppConfig(appRoot);
+  const authMode = resolveAuthMode(project, app.name);
+  if (authMode === "none") {
+    assertNoAuthUsage(app.name, listRouteFiles(path19.join(appRoot, "routes")));
+  }
   console.log(`[devora] building "${app.name}" (SSR)...`);
   const { serverOutDir } = await buildAppServer(appRoot);
   console.log(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
@@ -4393,7 +4427,6 @@ async function buildAppForAdapter(root, project, app, adapter) {
     console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }
   if (adapter === "vercel" || adapter === "netlify") {
-    const authMode = resolveAuthMode(project, app.name);
     const sitemapEnabled = appConfig.sitemap === true;
     if (adapter === "vercel") {
       await writeVercelOutput(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode);
@@ -4539,19 +4572,40 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path19 from "node:path";
+import path20 from "node:path";
 import { existsSync as existsSync10 } from "node:fs";
 import { mkdir as mkdir4, writeFile as writeFile5, readFile as readFile4 } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
+async function resolveAuthChoice(explicit) {
+  if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
+  if (explicit) {
+    console.error(`[devora] --auth must be "shared", "isolated", or "none" (got "${explicit}")`);
+    process.exit(1);
+  }
+  if (!process.stdin.isTTY) return "shared";
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(
+      `Does this app need auth/sessions? [shared/isolated/none] (default: shared): `
+    )).trim();
+    if (answer === "isolated") return "isolated";
+    if (answer === "none") return "none";
+    return "shared";
+  } finally {
+    rl.close();
+  }
+}
 async function scaffoldApp(appName, opts) {
   const root = process.cwd();
-  const appDir = path19.join(root, "apps", appName);
+  const appDir = path20.join(root, "apps", appName);
   if (existsSync10(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
-  await mkdir4(path19.join(appDir, "routes"), { recursive: true });
+  const authMode = await resolveAuthChoice(opts.auth);
+  await mkdir4(path20.join(appDir, "routes"), { recursive: true });
   await writeFile5(
-    path19.join(appDir, "package.json"),
+    path20.join(appDir, "package.json"),
     JSON.stringify(
       {
         name: `@project/app-${appName}`,
@@ -4574,7 +4628,7 @@ async function scaffoldApp(appName, opts) {
     ) + "\n"
   );
   await writeFile5(
-    path19.join(appDir, "tsconfig.json"),
+    path20.join(appDir, "tsconfig.json"),
     `{
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "outDir": "dist", "rootDir": "." },
@@ -4584,7 +4638,7 @@ async function scaffoldApp(appName, opts) {
 `
   );
   await writeFile5(
-    path19.join(appDir, "app.config.ts"),
+    path20.join(appDir, "app.config.ts"),
     `import { defineApp } from "@devora/core/config";
 
 export default defineApp({
@@ -4596,7 +4650,7 @@ export default defineApp({
 `
   );
   await writeFile5(
-    path19.join(appDir, "vite.config.ts"),
+    path20.join(appDir, "vite.config.ts"),
     `import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -4612,7 +4666,7 @@ export default defineConfig({
 `
   );
   await writeFile5(
-    path19.join(appDir, "entry-server.tsx"),
+    path20.join(appDir, "entry-server.tsx"),
     `import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { createRenderRoute, createRenderStatic } from "@devora/core";
@@ -4627,7 +4681,7 @@ export const renderStatic = createRenderStatic({ createElement, renderToString }
 `
   );
   await writeFile5(
-    path19.join(appDir, "island-client.tsx"),
+    path20.join(appDir, "island-client.tsx"),
     `import { createElement } from "react";
 import { hydrateRoot } from "react-dom/client";
 
@@ -4645,7 +4699,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-island]")) {
 `
   );
   await writeFile5(
-    path19.join(appDir, "csr-client.tsx"),
+    path20.join(appDir, "csr-client.tsx"),
     `import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -4661,7 +4715,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
 `
   );
   await writeFile5(
-    path19.join(appDir, "vercel.json"),
+    path20.join(appDir, "vercel.json"),
     JSON.stringify(
       {
         $schema: "https://openapi.vercel.sh/vercel.json",
@@ -4690,7 +4744,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
     ) + "\n"
   );
   await writeFile5(
-    path19.join(appDir, "routes", "index.tsx"),
+    path20.join(appDir, "routes", "index.tsx"),
     `import { PageShell } from "@devora/core";
 
 export const renderMode = "ssr";
@@ -4713,11 +4767,114 @@ export default function Index() {
 }
 `
   );
-  const configPath = path19.join(root, "devora.config.ts");
+  if (authMode !== "none") {
+    await writeFile5(
+      path20.join(appDir, "routes", "login.tsx"),
+      `import type { RequestContext } from "@devora/core";
+import { redirect, CsrfField, PageShell } from "@devora/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Log in", description: "${appName} login (demo)" };
+}
+
+// Demo only: the framework provides the session *carrier* (signing/cookie
+// storage \u2014 see packages/core/src/session.ts). Checking who someone is
+// stays bring-your-own (\xA76/\xA711): a real app verifies a password/token
+// against its own DB/provider before calling ctx.setSession(); this route
+// trusts any submitted username so the carrier can be exercised end to end.
+export async function action(formData: FormData, ctx: RequestContext) {
+  ctx.verifyCsrf(formData);
+  const username = String(formData.get("username") ?? "");
+  if (!username) throw new Error("username required");
+  ctx.setSession({ username });
+  return redirect("/");
+}
+
+export default function Login({ csrfToken }: { csrfToken?: string }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Log in</h1>
+      <p><strong>Demo only</strong> \u2014 accepts any username with no password check.</p>
+      <form method="post">
+        <CsrfField token={csrfToken} />
+        <input name="username" placeholder="username" />
+        <button type="submit">Log in</button>
+      </form>
+    </PageShell>
+  );
+}
+`
+    );
+    await writeFile5(
+      path20.join(appDir, "routes", "logout.tsx"),
+      `import type { RequestContext } from "@devora/core";
+import { redirect, CsrfField, PageShell } from "@devora/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Log out", description: "${appName} logout" };
+}
+
+export async function action(formData: FormData, ctx: RequestContext) {
+  ctx.verifyCsrf(formData);
+  ctx.clearSession();
+  return redirect("/login");
+}
+
+export default function Logout({ csrfToken }: { csrfToken?: string }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Log out</h1>
+      {/* POST-only, never a bare <a href="/logout"> \u2014 a GET-triggered logout
+          is itself a CSRF-adjacent footgun. */}
+      <form method="post">
+        <CsrfField token={csrfToken} />
+        <button type="submit">Log out</button>
+      </form>
+    </PageShell>
+  );
+}
+`
+    );
+    await writeFile5(
+      path20.join(appDir, "routes", "account.tsx"),
+      `import type { RequestContext } from "@devora/core";
+import { PageShell } from "@devora/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Account", description: "${appName} account (protected demo)" };
+}
+
+// ctx.requireAuth() throws if there's no active session \u2014 see
+// packages/core/src/session.ts and apps/dashboard/routes/settings.tsx for
+// the same pattern against the shared backend.
+export async function loader(ctx: RequestContext) {
+  ctx.requireAuth();
+  return { session: ctx.session };
+}
+
+export default function Account({ data }: { data?: { session: unknown } }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Account</h1>
+      <p>Protected demo route \u2014 only reachable with an active session (see routes/login.tsx).</p>
+      <pre>{JSON.stringify(data?.session, null, 2)}</pre>
+    </PageShell>
+  );
+}
+`
+    );
+  }
+  const configPath = path20.join(root, "devora.config.ts");
   if (existsSync10(configPath)) {
     const original = await readFile4(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
-    const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}" },
+    const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
   ],`;
     const updated = original.replace(/\n\s*\],/, `
 ${insertion}`);
@@ -4736,13 +4893,13 @@ ${insertion}`);
 var newApp = scaffoldApp;
 
 // src/commands/remove.ts
-import path20 from "node:path";
+import path21 from "node:path";
 import { existsSync as existsSync11 } from "node:fs";
 import { readFile as readFile5, writeFile as writeFile6, rm as rm2 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path20.join(root, "apps", appName);
-  const configPath = path20.join(root, "devora.config.ts");
+  const appDir = path21.join(root, "apps", appName);
+  const configPath = path21.join(root, "devora.config.ts");
   let removedFromConfig = false;
   if (existsSync11(configPath)) {
     const original = await readFile5(configPath, "utf-8");
@@ -4789,7 +4946,7 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path21 from "node:path";
+import path22 from "node:path";
 import { writeFile as writeFile7 } from "node:fs/promises";
 function nginxBlock(app, appPort) {
   return `server {
@@ -4829,7 +4986,7 @@ async function generateProxy(opts) {
     return block;
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path21.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  const outPath = opts.out ?? path22.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
   await writeFile7(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
@@ -4844,8 +5001,8 @@ program.command("start").description("Serve a production build (adapter-node) \u
 program.command("deploy").description(
   "Build and deploy to Vercel or Netlify (all apps, or one with --app) \u2014 each app must already be linked (`vercel link` / `netlify link`) to its own project/site"
 ).requiredOption("--adapter <target>", "vercel or netlify").option("--app <name>", "deploy only this app").option("--prod", "deploy to production (default: preview)").action(async (opts) => deploy(opts));
-program.command("new <appName>").description("Scaffold a new app inside the project").option("--domain <domain>", "domain to register in devora.config.ts").action(async (appName, opts) => newApp(appName, opts));
-program.command("add <appName>").description("Scaffold a new app inside the project and register it in devora.config.ts (alias for `new`)").option("--domain <domain>", "domain to register in devora.config.ts").action(async (appName, opts) => scaffoldApp(appName, opts));
+program.command("new <appName>").description("Scaffold a new app inside the project").option("--domain <domain>", "domain to register in devora.config.ts").option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)').action(async (appName, opts) => newApp(appName, opts));
+program.command("add <appName>").description("Scaffold a new app inside the project and register it in devora.config.ts (alias for `new`)").option("--domain <domain>", "domain to register in devora.config.ts").option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)').action(async (appName, opts) => scaffoldApp(appName, opts));
 program.command("remove <appName>").alias("rm").description("Delete apps/<name> and its devora.config.ts entry (undoes new/add)").action(async (appName) => removeApp(appName));
 program.command("list").alias("ls").description("List every app registered in devora.config.ts").action(async () => list());
 program.command("generate:proxy").description("Generate a reverse-proxy config from devora.config.ts domains").requiredOption("--target <target>", "nginx or caddy").option("--out <path>", "output file path").action(async (opts) => generateProxy(opts));

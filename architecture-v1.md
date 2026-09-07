@@ -41,7 +41,9 @@ my-project/
 ```ts
 export default defineProject({
   apps: [
-    { name: "marketing", dir: "apps/marketing", domain: "example.com" },
+    // none: no login anywhere on this site — sessions disabled entirely, no
+    // DEVORA_SESSION_SECRET* required for this app at all
+    { name: "marketing", dir: "apps/marketing", domain: "example.com", auth: "none" },
     { name: "dashboard", dir: "apps/dashboard", domain: "app.example.com" },
     // isolated: this app opts out of shared auth, gets its own session context
     { name: "admin", dir: "apps/admin", domain: "admin.example.com", auth: "isolated" },
@@ -57,6 +59,8 @@ export default defineProject({
 Default is **one shared backend** (`packages/backend`) — all apps call into the same server functions and DB layer, which matches "single source of truth" for business logic. Any app can override this per-route by defining its own function inside `apps/<name>/routes/` instead of importing from `packages/backend` — useful for something genuinely app-specific (e.g. an admin-only bulk-import function nobody else needs). This is opt-in per function, not a project-wide switch — most projects will use shared backend for almost everything and only reach for app-local functions occasionally.
 
 Default is **shared auth** across all apps in the project (the common case — one login, one user session, usable across marketing/dashboard/admin). Any individual app can opt out with `auth: "isolated"` if it needs its own separate session context (e.g. admin panel with a different identity provider). This is a per-app override, not a project-wide either/or choice.
+
+Sessions themselves are **opt-in per app**, not a project-wide always-on cost — `auth: "none"` disables the session/cookie/CSRF carrier entirely for one app (e.g. a marketing site with no login route anywhere). This exists because "shared"/"isolated" both require a signed-cookie secret (`DEVORA_SESSION_SECRET`/`DEVORA_SESSION_SECRET_<APP>`, throwing in production if missing — see `.env.example` and `ROADMAP.md`), and an app with no login shouldn't have to configure a secret it will never use. `auth?: "shared" | "isolated" | "none"` is left `undefined` only to mean "inherit the project's `shared.auth` default" — an app that genuinely wants no sessions sets `auth: "none"` explicitly, so it's unambiguous from `devora.config.ts` alone which apps have sessions enabled. A `"none"` app's `ctx.setSession()`/`clearSession()`/`requireAuth()`/`verifyCsrf()` don't silently no-op if called — they throw a clear error naming the app and pointing at this config, and the CLI's build step scans that app's routes for such calls upfront so a build fails immediately rather than waiting for the request that would have thrown.
 
 Each app can be built/deployed independently (`devora build --app=admin`) or all together (`devora build`).
 
@@ -141,7 +145,7 @@ devora dev                  # runs all apps in dev mode
 devora dev --app=admin      # runs one app
 devora build                # builds all apps
 devora build --app=admin    # builds one app
-devora new <app-name>       # scaffolds a new app inside the project
+devora new <app-name>       # scaffolds a new app inside the project (asks whether it needs auth/sessions per app; --auth shared|isolated|none)
 devora add <app-name>       # same as `new` — friendlier alias, same action
 devora remove <app-name>    # deletes apps/<name> and its devora.config.ts entry (alias: rm)
 devora list                 # lists every app registered in devora.config.ts (alias: ls)

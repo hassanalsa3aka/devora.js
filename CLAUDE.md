@@ -15,7 +15,9 @@ explicit design reaction to Next.js's implicit caching and undocumented build fo
 
 - **One shared backend by default.** `packages/backend` is the single source of truth all apps call
   into. Per-function override exists (see `apps/admin/routes/bulk-import.tsx`) but is the exception.
-- **Shared auth by default**, per-app `auth: "isolated"` override (admin panel uses this).
+- **Shared auth by default**, per-app `auth: "isolated"` override (admin panel uses this). Auth
+  itself is opt-in per app: `auth: "none"` (marketing site uses this) disables sessions entirely
+  for that app — no session secret required, `ctx.setSession()`/etc. throw a clear error if called.
 - **React**, not Solid/Qwik — keeps the door open to React Native in v3.
 - **No built-in ORM/auth/file storage in v1** — bring your own. Don't add one.
 - **No RSC-style server/client serialization protocol in v1** — too large, too security-sensitive.
@@ -240,6 +242,39 @@ invoke the real Vercel CLI (downloaded and ran v59.11.7), which correctly failed
 `No existing credentials found` auth error — not a devora crash — same proof repeated for Netlify.
 What can't be verified: an actual authenticated deploy (needs a real account) and domain
 auto-binding, deliberately not built this pass (a real external account side effect).
+
+**Sessions/auth made opt-in per app, not a project-wide always-on requirement.** Every app used to
+pay the "`DEVORA_SESSION_SECRET` required or crash in production" cost even with no login route at
+all (`apps/marketing`, concretely). `AuthMode` (`packages/core/src/config.ts`) is now `"shared" |
+"isolated" | "none"` — a real third literal, not `auth: undefined` (which already means "inherit
+the project default" via `resolveAuthMode`, and can't be repurposed without breaking that). `"none"`
+opts an app out of the *entire* cookie/session/CSRF carrier: `resolveSessionCookieOptions()` (the
+function whose `resolveSecret()` throws in production without a configured secret) is never even
+*called* for a `"none"` app, in either `ssrMiddleware.ts` (dev) or `prodRequestHandler.ts`
+(production/adapter-node/Vercel/Netlify) — skipping its result wouldn't have been enough, since the
+throw happens as a side effect of the call itself, at handler-creation time. Instead a `"none"` app's
+`ctx` is `session.ts`'s new `createNoAuthContext()`: `session` is always `undefined`, and
+`requireAuth()`/`setSession()`/`clearSession()`/`verifyCsrf()` all throw a clear, specific error
+("this app has sessions disabled...") rather than silently no-op'ing. A second, build-time layer
+(`packages/cli/src/build/checkNoAuthUsage.ts`, same plain-regex-over-raw-source approach
+`discoverIslandFiles.ts` already uses) scans a `"none"` app's route files for `ctx.<method>(` calls
+and fails `devora build`/`devora dev` immediately, before the request that would have thrown ever
+arrives — wired into `buildForAdapter.ts` (so every adapter target inherits it) and `dev.ts`.
+`devora new`/`devora add` now ask per-app whether the new app needs auth (`--auth
+shared|isolated|none`, prompted interactively via a TTY-aware `readline` if omitted, defaulting to
+`shared` non-interactively so scripted/CI use never hangs) and skip generating `login.tsx`/
+`logout.tsx`/the protected demo route for a `"none"` choice. Applied to all three existing apps as
+the real test case: `apps/marketing` is now `auth: "none"` in `devora.config.ts` (it had no login
+route before this change either — confirmed by grep, not assumed) and verified end-to-end with
+literally zero `DEVORA_SESSION_SECRET*` set anywhere — `devora dev`, `devora build`, `devora start`
+(adapter-node), and `devora build --adapter=vercel`/`--adapter=netlify` all succeed with no warning
+printed at all; a deliberately-added test route calling `ctx.setSession()` in `apps/marketing`
+confirmed the build-time check fails immediately with the file and method named, before removal.
+`apps/dashboard`/`apps/admin` stay `auth: "shared"`/`"isolated"` — full existing regression
+re-verified unchanged: login → `requireAuth()` passing → logout → CSRF verification → a tampered
+session cookie correctly rejected (falls back to `undefined` session, `requireAuth()` throws) for
+both the shared cookie (`dashboard`) and the isolated one (`admin`, its own `devora_session_admin`
+cookie name and `DEVORA_SESSION_SECRET_ADMIN`).
 
 **Not yet real** (see `README.md` "What's still a stub" and `ROADMAP.md` for the authoritative
 list):

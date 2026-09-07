@@ -1,5 +1,5 @@
 import { renderHtmlDocument } from "./html.js";
-import { createRequestContext } from "./session.js";
+import { createRequestContext, createNoAuthContext } from "./session.js";
 import { createIslandCollector, IslandCollectorContext } from "./islandComponent.js";
 import { isRedirectResult } from "./actionResult.js";
 import { createBuildTimeContext } from "./buildTimeContext.js";
@@ -25,7 +25,8 @@ export interface RenderRouteRequest {
   method: string;
   formData?: FormData;
   cookieHeader?: string;
-  sessionCookieOptions: SessionCookieOptions;
+  /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
+  sessionCookieOptions?: SessionCookieOptions;
   /** Where to fetch the island hydration bootstrap — dev: "/island-client.tsx";
    * prod: the real built asset URL, or undefined if this app has no islands. */
   islandClientUrl?: string;
@@ -98,10 +99,9 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, csrfToken, getSetCookie } = createRequestContext(
-      request.cookieHeader,
-      request.sessionCookieOptions
-    );
+    const { ctx, csrfToken, getSetCookie } = request.sessionCookieOptions
+      ? createRequestContext(request.cookieHeader, request.sessionCookieOptions)
+      : createNoAuthContext();
 
     if (request.method === "POST" && request.formData && routeModule.action) {
       const actionResult = await routeModule.action(request.formData, ctx);

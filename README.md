@@ -20,18 +20,33 @@ admin multi-app, one shared backend by default, security-first, no built-in ORM/
   "Also now real" below and `ROADMAP.md` #12.*
 - `devora dev` / `devora build` — actually spin up / build real Vite dev servers per app,
   reading `apps/<name>/vite.config.ts`.
-- `devora new <name>` — scaffolds a new `apps/<name>` and registers it in `devora.config.ts`.
+- `devora new <name>` — scaffolds a new `apps/<name>` and registers it in `devora.config.ts`. Asks
+  per-app whether this app needs auth/sessions (`--auth shared|isolated|none`, prompted
+  interactively if omitted and a real TTY, defaults to `shared` non-interactively) — see the
+  sessions entry below.
 - `devora generate:proxy --target=nginx|caddy` — reads app domains straight out of
   `devora.config.ts` and writes a working reverse-proxy config. This is the piece that was a
   manual "copy this nginx example" step before — now it's generated.
-- **Request context / sessions** (§3's shared-vs-isolated auth, now enforced): `ctx.setSession()`
-  signs an HMAC cookie (`packages/core/src/session.ts`, Node's built-in `crypto`, no new
-  dependency); `ctx.requireAuth()` throws without a valid session and rejects a tampered cookie.
-  Shared apps get one project-wide cookie; an `auth: "isolated"` app (e.g. `admin`) gets its own
-  cookie name and can be given its own secret via `DEVORA_SESSION_SECRET_<APP>`. Verified
-  end-to-end: `POST /settings` fails `requireAuth()` with no session, `POST /login` (demo route,
-  `apps/dashboard/routes/login.tsx`) sets one, `POST /settings` with that cookie then passes
-  `requireAuth()` — see `ROADMAP.md` #2. Checking *who* the caller is stays bring-your-own (§6/§11)
+- **Request context / sessions** (§3's shared-vs-isolated auth, now enforced) — **and opt-in per
+  app**: `AuthMode` is `"shared" | "isolated" | "none"` (`packages/core/src/config.ts`). `ctx
+  .setSession()` signs an HMAC cookie (`packages/core/src/session.ts`, Node's built-in `crypto`, no
+  new dependency); `ctx.requireAuth()` throws without a valid session and rejects a tampered
+  cookie. Shared apps get one project-wide cookie; an `auth: "isolated"` app (e.g. `admin`) gets
+  its own cookie name and can be given its own secret via `DEVORA_SESSION_SECRET_<APP>`. An app
+  with **no login at all** (e.g. `apps/marketing`) sets `auth: "none"` — it never reads, and never
+  requires, any `DEVORA_SESSION_SECRET*` variable (no dev warning, no production throw), and its
+  `ctx.setSession()`/`clearSession()`/`requireAuth()`/`verifyCsrf()` all throw a clear, explicit
+  error explaining sessions are disabled for this app, instead of silently no-op'ing — a route in a
+  `"none"` app that calls one of these is caught at build time too (`devora build`/`devora dev`
+  scan route source for the call and fail immediately, before the request that would have thrown —
+  see `packages/cli/src/build/checkNoAuthUsage.ts`). This exists because forcing every app to
+  configure a session secret it never uses was the wrong default — a marketing site with no login
+  shouldn't have a deploy-time dependency on session config. Verified end-to-end in both states:
+  `POST /settings` fails `requireAuth()` with no session, `POST /login` (demo route, `apps/
+  dashboard/routes/login.tsx`) sets one, `POST /settings` with that cookie then passes
+  `requireAuth()`; separately, `apps/marketing` builds/runs/deploys to all three targets (adapter-
+  node, `--adapter=vercel`, `--adapter=netlify`) with zero session env vars set anywhere and no
+  warning printed — see `ROADMAP.md` #2. Checking *who* the caller is stays bring-your-own (§6/§11)
   — the demo login route trusts any submitted username on purpose, to isolate what the framework
   actually provides (the carrier) from what it deliberately doesn't (credential verification).
 - **CSP/HSTS/X-Frame-Options** (§7 "security is a default, not opt-in"): every response from
@@ -182,7 +197,10 @@ subpath fixed it.
   wiring) and, more seriously, **never wrote a `package.json` at all** — a scaffolded app had no
   declared dependencies and wasn't a valid workspace member. Verified end-to-end: `devora add blog
   --domain=blog.example.com` → `pnpm install` → `devora dev --app=blog` → real header/logo/content
-  → `devora build --app=blog && devora start --app=blog` → same, in production.
+  → `devora build --app=blog && devora start --app=blog` → same, in production. Also asks (or
+  takes `--auth`) whether the new app needs sessions, per-app — `--auth none` skips generating
+  `login.tsx`/`logout.tsx`/the protected demo route entirely and writes `auth: "none"` into its
+  `devora.config.ts` entry, so a scaffolded marketing-style app never gets a fake login button.
 - `devora list` (alias `ls`) — prints every app registered in `devora.config.ts` (name, dir, domain,
   effective auth mode) — there was previously no way to see this without opening the config file.
 - `devora remove <name>` (alias `rm`) — undoes `new`/`add`: deletes `apps/<name>` and its

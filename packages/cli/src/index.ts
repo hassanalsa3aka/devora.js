@@ -50,12 +50,14 @@ program
   .command("new <appName>")
   .description("Scaffold a new app inside the project")
   .option("--domain <domain>", "domain to register in devora.config.ts")
+  .option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)')
   .action(async (appName, opts) => newApp(appName, opts));
 
 program
   .command("add <appName>")
   .description("Scaffold a new app inside the project and register it in devora.config.ts (alias for `new`)")
   .option("--domain <domain>", "domain to register in devora.config.ts")
+  .option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)')
   .action(async (appName, opts) => scaffoldApp(appName, opts));
 
 program
