@@ -4661,6 +4661,27 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
 `
   );
   await writeFile5(
+    path19.join(appDir, "vercel.json"),
+    JSON.stringify(
+      {
+        $schema: "https://openapi.vercel.sh/vercel.json",
+        // A real, previously undiscovered gap, found via an actual Vercel
+        // deploy (git-integration import, not the `vercel deploy --prebuilt`
+        // CLI flow) — without this, Vercel's zero-config detection runs
+        // plain `vite build`, which fails outright ("Could not resolve entry
+        // module index.html") since this isn't a conventional Vite SPA.
+        // `writeVercelOutput` already produces `.vercel/output` (Build
+        // Output API v3) at this app's own root when run with
+        // --adapter=vercel; Vercel auto-detects and prefers that over any
+        // "Output Directory" setting once it exists, so nothing else needs
+        // overriding here — just which command actually runs.
+        buildCommand: `cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=vercel`
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  await writeFile5(
     path19.join(appDir, "routes", "index.tsx"),
     `import { PageShell } from "@devora/core";
 

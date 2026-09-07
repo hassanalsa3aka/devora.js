@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && node packages/cli/dist/index.js build --app=dashboard --adapter=vercel"
+}
