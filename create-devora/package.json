@@ -1,0 +1,22 @@
+{
+  "name": "create-devora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "create-devora": "./dist/index.js"
+  },
+  "files": ["dist", "templates", "assets"],
+  "scripts": {
+    "build": "node ./build.mjs"
+  },
+  "devDependencies": {
+    "@devora/scaffold": "*",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

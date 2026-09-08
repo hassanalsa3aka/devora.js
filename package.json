@@ -6,16 +6,18 @@
     "dev": "tsx packages/cli/src/index.ts dev",
     "build": "tsx packages/cli/src/index.ts build",
     "typecheck": "tsc -b --noEmit",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest run"
   },
-  "workspaces": ["packages/*", "apps/*", "adapters/*"],
+  "workspaces": ["packages/*", "apps/*", "adapters/*", "create-devora"],
   "dependencies": {
     "@devora/core": "*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
     "tsx": "^4.19.0",
-    "@devora/cli": "*"
+    "@devora/cli": "*",
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=20"

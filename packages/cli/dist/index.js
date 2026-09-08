@@ -4609,11 +4609,13 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path20 from "node:path";
+import path22 from "node:path";
 import { existsSync as existsSync10 } from "node:fs";
-import { mkdir as mkdir4, writeFile as writeFile5, readFile as readFile6 } from "node:fs/promises";
+import { writeFile as writeFile6, readFile as readFile6 } from "node:fs/promises";
+
+// ../scaffold/src/resolveAuthChoice.ts
 import { createInterface } from "node:readline/promises";
-async function resolveAuthChoice(explicit) {
+async function resolveAuthChoice(explicit, appName) {
   if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
   if (explicit) {
     console.error(`[devora] --auth must be "shared", "isolated", or "none" (got "${explicit}")`);
@@ -4623,7 +4625,7 @@ async function resolveAuthChoice(explicit) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const answer = (await rl.question(
-      `Does this app need auth/sessions? [shared/isolated/none] (default: shared): `
+      `Does "${appName}" need auth/sessions? [shared/isolated/none] (default: shared): `
     )).trim();
     if (answer === "isolated") return "isolated";
     if (answer === "none") return "none";
@@ -4632,14 +4634,12 @@ async function resolveAuthChoice(explicit) {
     rl.close();
   }
 }
-async function scaffoldApp(appName, opts) {
-  const root = process.cwd();
-  const appDir = path20.join(root, "apps", appName);
-  if (existsSync10(appDir)) {
-    console.error(`[devora] apps/${appName} already exists`);
-    process.exit(1);
-  }
-  const authMode = await resolveAuthChoice(opts.auth);
+
+// ../scaffold/src/scaffoldAppFiles.ts
+import path20 from "node:path";
+import { mkdir as mkdir4, writeFile as writeFile5 } from "node:fs/promises";
+async function scaffoldAppFiles(appDir, appName, opts) {
+  const { authMode, coreVersion } = opts;
   await mkdir4(path20.join(appDir, "routes"), { recursive: true });
   await writeFile5(
     path20.join(appDir, "package.json"),
@@ -4650,7 +4650,7 @@ async function scaffoldApp(appName, opts) {
         private: true,
         type: "module",
         dependencies: {
-          "@devora/core": "*",
+          "@devora/core": coreVersion,
           "@devora/backend": "*",
           react: "^18.3.0",
           "react-dom": "^18.3.0"
@@ -4920,7 +4920,24 @@ export default function Account({ data }: { data?: { session: unknown } }) {
 `
     );
   }
-  const configPath = path20.join(root, "devora.config.ts");
+}
+
+// ../scaffold/src/scaffoldProjectFiles.ts
+import path21 from "node:path";
+import { fileURLToPath } from "node:url";
+var __dirname = path21.dirname(fileURLToPath(import.meta.url));
+
+// src/commands/new.ts
+async function scaffoldApp(appName, opts) {
+  const root = process.cwd();
+  const appDir = path22.join(root, "apps", appName);
+  if (existsSync10(appDir)) {
+    console.error(`[devora] apps/${appName} already exists`);
+    process.exit(1);
+  }
+  const authMode = await resolveAuthChoice(opts.auth, appName);
+  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*" });
+  const configPath = path22.join(root, "devora.config.ts");
   if (existsSync10(configPath)) {
     const original = await readFile6(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
@@ -4929,7 +4946,7 @@ export default function Account({ data }: { data?: { session: unknown } }) {
     const updated = original.replace(/\n\s*\],/, `
 ${insertion}`);
     if (updated !== original) {
-      await writeFile5(configPath, updated);
+      await writeFile6(configPath, updated);
       console.log(`[devora] registered "${appName}" in devora.config.ts (domain: ${domain})`);
     } else {
       console.log(
@@ -4943,20 +4960,20 @@ ${insertion}`);
 var newApp = scaffoldApp;
 
 // src/commands/remove.ts
-import path21 from "node:path";
+import path23 from "node:path";
 import { existsSync as existsSync11 } from "node:fs";
-import { readFile as readFile7, writeFile as writeFile6, rm as rm2 } from "node:fs/promises";
+import { readFile as readFile7, writeFile as writeFile7, rm as rm2 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path21.join(root, "apps", appName);
-  const configPath = path21.join(root, "devora.config.ts");
+  const appDir = path23.join(root, "apps", appName);
+  const configPath = path23.join(root, "devora.config.ts");
   let removedFromConfig = false;
   if (existsSync11(configPath)) {
     const original = await readFile7(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
     if (updated !== original) {
-      await writeFile6(configPath, updated);
+      await writeFile7(configPath, updated);
       removedFromConfig = true;
     }
   }
@@ -4996,8 +5013,8 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path22 from "node:path";
-import { writeFile as writeFile7 } from "node:fs/promises";
+import path24 from "node:path";
+import { writeFile as writeFile8 } from "node:fs/promises";
 function nginxBlock(app, appPort) {
   return `server {
     listen 80;
@@ -5043,8 +5060,8 @@ async function generateProxy(opts) {
     return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path22.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
-  await writeFile7(outPath, output);
+  const outPath = opts.out ?? path24.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  await writeFile8(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }

@@ -7,6 +7,10 @@ name: CI
 # depending on the caller's NODE_ENV, netlify.toml only ever existing as
 # build output) before any of them ever reached a live deployment. See
 # ROADMAP.md #4 for the full account of each.
+#
+# Also runs the real Vitest suite (packages/**/*.test.ts) — regression
+# protection that persists, replacing the "verify by hand via curl, then
+# throw the script away" pattern this project's development used until now.
 on:
   push:
     branches: [main]
@@ -52,9 +56,12 @@ jobs:
       # documented in README.md); the build/typecheck steps below don't
       # need repeating three times with identical inputs once install is
       # confirmed to have linked the workspace correctly.
-      - name: Typecheck @devora/core
+      - name: Typecheck @devora/core, @devora/scaffold, create-devora
         if: matrix.package-manager == 'pnpm'
-        run: pnpm --filter @devora/core exec tsc --noEmit
+        run: |
+          pnpm --filter @devora/core exec tsc --noEmit
+          pnpm --filter @devora/scaffold exec tsc --noEmit
+          pnpm --filter create-devora exec tsc --noEmit
         # Deliberately not gating on packages/cli's own standalone `tsc
         # --noEmit` here — it has 3 pre-existing `noUncheckedIndexedAccess`
         # errors unrelated to its real build path (it ships via esbuild
@@ -65,6 +72,10 @@ jobs:
       - name: Rebuild CLI bundle
         if: matrix.package-manager == 'pnpm'
         run: pnpm --filter @devora/cli build
+
+      - name: Run test suite
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm run test
 
       - name: Build every app (plain, adapter-node target)
         if: matrix.package-manager == 'pnpm'

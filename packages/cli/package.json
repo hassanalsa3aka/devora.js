@@ -11,15 +11,16 @@
     "prepare": "node ./build.mjs"
   },
   "dependencies": {
-    "@devora/core": "*",
-    "@devora/adapter-node": "*",
-    "@devora/adapter-vercel": "*",
-    "@devora/adapter-netlify": "*",
     "commander": "^12.1.0",
     "vite": "^5.4.0",
     "jiti": "^2.3.0"
   },
   "devDependencies": {
-    "esbuild": "^0.21.5"
+    "esbuild": "^0.21.5",
+    "@devora/core": "*",
+    "@devora/adapter-node": "*",
+    "@devora/adapter-vercel": "*",
+    "@devora/adapter-netlify": "*",
+    "@devora/scaffold": "*"
   }
 }
