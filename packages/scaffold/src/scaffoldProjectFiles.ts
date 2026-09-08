@@ -57,10 +57,18 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
         // adapter-vercel/@devorajs/adapter-netlify are ordinary npm deps of
         // @devorajs/cli, not something a scaffolded project owns or edits.
         workspaces: ["packages/*", "apps/*"],
+        // @devorajs/cli is a real "dependencies" entry, NOT devDependencies
+        // — it looks like a dev-only tool, but the *build* itself needs its
+        // bin to exist, and platform build steps (confirmed on a real
+        // Netlify deploy: "added 67 packages" vs. 119 in the full lockfile)
+        // commonly install with devDependencies omitted. A devDependency
+        // there is invisible locally (a normal `npm install` always
+        // includes both) and only breaks on a platform's production-only
+        // install — exactly the kind of gap this project's own "works
+        // locally, fails on the platform" bugs have repeatedly turned out
+        // to be (see ROADMAP.md #4).
         dependencies: {
           "@devorajs/core": coreVersion,
-        },
-        devDependencies: {
           "@devorajs/cli": cliVersion,
         },
         engines: {

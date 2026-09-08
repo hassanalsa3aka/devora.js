@@ -19,25 +19,56 @@ export interface ScaffoldAppOptions {
   coreVersion: string;
   /**
    * How the generated `vercel.json`/`netlify.toml` build commands should
-   * invoke devora. `"monorepo"` → `cd ../.. && node packages/cli/dist/
-   * index.js` — a real, monorepo-relative file path, correct ONLY inside
-   * this repo, where `packages/cli` is a local workspace member built to a
-   * committed `dist/index.js`. `"standalone"` → `npx devora`, which finds
-   * the locally-installed `node_modules/.bin/devora` — correct for a
-   * project scaffolded by `create-devora`, where `@devorajs/cli` is an
-   * ordinary npm devDependency and `packages/cli/dist/index.js` doesn't
-   * exist at all (there's no `packages/cli` directory in a scaffolded
-   * project in the first place).
+   * invoke devora. Both variants start with `cd ../..` — Vercel/Netlify run
+   * the build command from the *app's own directory* (`apps/<name>`), but
+   * `devora build` needs to run from the project root, where
+   * `devora.config.ts` actually lives (confirmed by an actual Netlify
+   * failure: `[devora] no devora.config.ts found at .../apps/docs/
+   * devora.config.ts`, from a build command that had dropped this `cd`).
    *
-   * A real bug, found via an actual Netlify deploy of a create-devora-
-   * scaffolded project: every generated app always got the monorepo-style
-   * command, so every Vercel/Netlify build from a scaffolded project failed
-   * with `MODULE_NOT_FOUND` trying to resolve a path that only exists in
-   * the devora.js monorepo itself. `devora new`/`add` (only ever run
-   * *inside* this monorepo) always pass `"monorepo"`; `create-devora`
-   * (scaffolding a standalone project) always passes `"standalone"`.
+   * `"monorepo"` → `cd ../.. && node packages/cli/dist/index.js` — a real,
+   * monorepo-relative file path, correct ONLY inside this repo, where
+   * `packages/cli` is a local workspace member built to a committed
+   * `dist/index.js`.
+   *
+   * `"standalone"` → `cd ../.. && ./node_modules/.bin/devora` — correct for
+   * a project scaffolded by `create-devora`, where `@devorajs/cli` is an
+   * ordinary npm devDependency (so `packages/cli/dist/index.js` doesn't
+   * exist at all) and its `devora` bin is installed at the project root's
+   * `node_modules/.bin`. Deliberately a direct path, not `npx devora` (what
+   * this used before) — a real, worse-than-expected bug found via an actual
+   * Netlify deploy: `npx <name>`, when it can't immediately resolve `<name>`
+   * from the current directory, silently falls through to *fetching an
+   * unrelated package of that exact name from the real npm registry* rather
+   * than erroring — there is a real, different "devora" package on npm, and
+   * Netlify's build ran *that* one instead (its own interactive setup
+   * wizard, which then crashed non-interactively). A direct path to the
+   * already-installed bin has no such fallback — it either exists or the
+   * command fails loudly, never silently substitutes the wrong tool.
+   *
+   * `devora new`/`add` (only ever run *inside* this monorepo) always pass
+   * `"monorepo"`; `create-devora` (scaffolding a standalone project) always
+   * passes `"standalone"`.
    */
   cliInvocation: "monorepo" | "standalone";
+  /**
+   * Version string for a `"standalone"` app's own `@devorajs/cli`
+   * dependency — required when `cliInvocation` is `"standalone"`, ignored
+   * for `"monorepo"` (monorepo apps never depend on the CLI directly; it's
+   * invoked by its committed `packages/cli/dist/index.js` file path, not a
+   * locally-installed bin). A real bug, found via an actual Netlify deploy
+   * that had *already* fixed `@devorajs/cli` as a root-level dependency
+   * (`scaffoldProjectFiles.ts`) and still failed the identical way: Netlify
+   * (and, it turns out, plenty of other monorepo-aware CI/build platforms)
+   * runs a *workspace-scoped* install for a detected sub-package — `npm
+   * install --workspace=apps/<name>` — reproduced exactly (same "added 67
+   * packages", same missing `@devorajs/cli`/`node_modules/.bin/devora`) by
+   * running that literal command locally. A scoped install only pulls in
+   * what the *app's own* `package.json` declares, never the project root's
+   * `dependencies` — so `@devorajs/cli` has to be declared at both levels
+   * to survive either kind of install.
+   */
+  cliVersion?: string;
 }
 
 /**
@@ -58,8 +89,11 @@ export interface ScaffoldAppOptions {
  * it assumes is safe to write into.
  */
 export async function scaffoldAppFiles(appDir: string, appName: string, opts: ScaffoldAppOptions): Promise<void> {
-  const { authMode, coreVersion, cliInvocation } = opts;
-  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "npx devora";
+  const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
+  const devoraCmd =
+    cliInvocation === "monorepo"
+      ? "cd ../.. && node packages/cli/dist/index.js"
+      : "cd ../.. && ./node_modules/.bin/devora";
 
   await mkdir(path.join(appDir, "routes"), { recursive: true });
 
@@ -71,15 +105,28 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         version: "0.1.0",
         private: true,
         type: "module",
+        // vite/@vitejs/plugin-react are real "dependencies", NOT
+        // devDependencies — same reasoning, and the same real bug, as
+        // @devorajs/cli in scaffoldProjectFiles.ts: vite.config.ts needs
+        // them at BUILD time, and a platform's production-only install
+        // (confirmed on a real Netlify deploy: `Cannot find package
+        // '@vitejs/plugin-react'` from vite.config.ts, only after fixing
+        // the identical @devorajs/cli issue one level up) skips
+        // devDependencies entirely. "Needed to build" and "needed to run
+        // in production" aren't the same question here — this file
+        // doesn't ship in dist/ output, but it has to resolve *during* the
+        // build that produces dist/.
         dependencies: {
           "@devorajs/core": coreVersion,
           "@devorajs/backend": "*",
           react: "^18.3.0",
           "react-dom": "^18.3.0",
-        },
-        devDependencies: {
           "@vitejs/plugin-react": "^4.3.0",
           vite: "^5.4.0",
+          // Only for a standalone (create-devora) app — see cliVersion's
+          // doc comment for why a workspace-scoped platform install needs
+          // this declared here too, not just at the project root.
+          ...(cliInvocation === "standalone" ? { "@devorajs/cli": cliVersion } : {}),
         },
       },
       null,

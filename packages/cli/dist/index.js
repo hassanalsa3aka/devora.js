@@ -4639,8 +4639,8 @@ async function resolveAuthChoice(explicit, appName) {
 import path20 from "node:path";
 import { mkdir as mkdir4, writeFile as writeFile5 } from "node:fs/promises";
 async function scaffoldAppFiles(appDir, appName, opts) {
-  const { authMode, coreVersion, cliInvocation } = opts;
-  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "npx devora";
+  const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
+  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
   await mkdir4(path20.join(appDir, "routes"), { recursive: true });
   await writeFile5(
     path20.join(appDir, "package.json"),
@@ -4650,15 +4650,28 @@ async function scaffoldAppFiles(appDir, appName, opts) {
         version: "0.1.0",
         private: true,
         type: "module",
+        // vite/@vitejs/plugin-react are real "dependencies", NOT
+        // devDependencies — same reasoning, and the same real bug, as
+        // @devorajs/cli in scaffoldProjectFiles.ts: vite.config.ts needs
+        // them at BUILD time, and a platform's production-only install
+        // (confirmed on a real Netlify deploy: `Cannot find package
+        // '@vitejs/plugin-react'` from vite.config.ts, only after fixing
+        // the identical @devorajs/cli issue one level up) skips
+        // devDependencies entirely. "Needed to build" and "needed to run
+        // in production" aren't the same question here — this file
+        // doesn't ship in dist/ output, but it has to resolve *during* the
+        // build that produces dist/.
         dependencies: {
           "@devorajs/core": coreVersion,
           "@devorajs/backend": "*",
           react: "^18.3.0",
-          "react-dom": "^18.3.0"
-        },
-        devDependencies: {
+          "react-dom": "^18.3.0",
           "@vitejs/plugin-react": "^4.3.0",
-          vite: "^5.4.0"
+          vite: "^5.4.0",
+          // Only for a standalone (create-devora) app — see cliVersion's
+          // doc comment for why a workspace-scoped platform install needs
+          // this declared here too, not just at the project root.
+          ...cliInvocation === "standalone" ? { "@devorajs/cli": cliVersion } : {}
         }
       },
       null,

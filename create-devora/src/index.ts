@@ -127,6 +127,7 @@ async function main() {
       authMode: app.auth,
       coreVersion: CORE_VERSION,
       cliInvocation: "standalone",
+      cliVersion: CLI_VERSION,
     });
   }
 
