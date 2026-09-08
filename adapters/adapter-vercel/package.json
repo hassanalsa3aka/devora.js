@@ -1,7 +1,7 @@
 {
   "name": "@devorajs/adapter-vercel",
-  "version": "0.1.0",
-  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) — one output dir per app in devora.config.ts.",
+  "version": "0.1.1",
+  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) \u2014 one output dir per app in devora.config.ts.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,7 +12,9 @@
   "scripts": {
     "build": "tsc"
   },
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "files": [
     "dist"
   ],

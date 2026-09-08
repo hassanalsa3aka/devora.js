@@ -1,7 +1,7 @@
 {
   "name": "create-devora",
-  "version": "0.1.0",
-  "description": "Scaffold a new devora.js project — npx create-devora, yarn create devora, or pnpm create devora.",
+  "version": "0.1.1",
+  "description": "Scaffold a new devora.js project \u2014 npx create-devora, yarn create devora, or pnpm create devora.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,7 +12,11 @@
   "bin": {
     "create-devora": "./dist/index.js"
   },
-  "files": ["dist", "templates", "assets"],
+  "files": [
+    "dist",
+    "templates",
+    "assets"
+  ],
   "scripts": {
     "build": "node ./build.mjs"
   },
