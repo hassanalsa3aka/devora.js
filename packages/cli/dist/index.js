@@ -4942,6 +4942,23 @@ import { fileURLToPath } from "node:url";
 var __dirname = path21.dirname(fileURLToPath(import.meta.url));
 
 // src/commands/new.ts
+async function detectScaffoldContext(root) {
+  if (existsSync10(path22.join(root, "packages", "cli", "dist", "index.js"))) {
+    return { cliInvocation: "monorepo", coreVersion: "*" };
+  }
+  let coreVersion = "*";
+  let cliVersion;
+  const rootPkgPath = path22.join(root, "package.json");
+  if (existsSync10(rootPkgPath)) {
+    try {
+      const rootPkg = JSON.parse(await readFile6(rootPkgPath, "utf-8"));
+      coreVersion = rootPkg.dependencies?.["@devorajs/core"] ?? rootPkg.devDependencies?.["@devorajs/core"] ?? coreVersion;
+      cliVersion = rootPkg.dependencies?.["@devorajs/cli"] ?? rootPkg.devDependencies?.["@devorajs/cli"];
+    } catch {
+    }
+  }
+  return { cliInvocation: "standalone", coreVersion, cliVersion };
+}
 async function scaffoldApp(appName, opts) {
   const root = process.cwd();
   const appDir = path22.join(root, "apps", appName);
@@ -4950,7 +4967,13 @@ async function scaffoldApp(appName, opts) {
     process.exit(1);
   }
   const authMode = await resolveAuthChoice(opts.auth, appName);
-  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*", cliInvocation: "monorepo" });
+  const context = await detectScaffoldContext(root);
+  await scaffoldAppFiles(appDir, appName, {
+    authMode,
+    coreVersion: context.coreVersion,
+    cliInvocation: context.cliInvocation,
+    cliVersion: context.cliVersion
+  });
   const configPath = path22.join(root, "devora.config.ts");
   if (existsSync10(configPath)) {
     const original = await readFile6(configPath, "utf-8");
