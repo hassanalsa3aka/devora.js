@@ -126,6 +126,7 @@ async function main() {
     await scaffoldAppFiles(path.join(projectRoot, "apps", app.name), app.name, {
       authMode: app.auth,
       coreVersion: CORE_VERSION,
+      cliInvocation: "standalone",
     });
   }
 

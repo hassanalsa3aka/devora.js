@@ -4639,7 +4639,8 @@ async function resolveAuthChoice(explicit, appName) {
 import path20 from "node:path";
 import { mkdir as mkdir4, writeFile as writeFile5 } from "node:fs/promises";
 async function scaffoldAppFiles(appDir, appName, opts) {
-  const { authMode, coreVersion } = opts;
+  const { authMode, coreVersion, cliInvocation } = opts;
+  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "npx devora";
   await mkdir4(path20.join(appDir, "routes"), { recursive: true });
   await writeFile5(
     path20.join(appDir, "package.json"),
@@ -4766,7 +4767,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
         // --adapter=vercel; Vercel auto-detects and prefers that over any
         // "Output Directory" setting once it exists, so nothing else needs
         // overriding here — just which command actually runs.
-        buildCommand: `cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=vercel`,
+        buildCommand: `${devoraCmd} build --app=${appName} --adapter=vercel`,
         // Vercel's dashboard cosmetically labels this app "Vite" (it sees
         // `vite` in package.json devDependencies) even though buildCommand
         // above already overrides what runs — `framework: null` tells
@@ -4783,7 +4784,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
   await writeFile5(
     path20.join(appDir, "netlify.toml"),
     `[build]
-  command = "cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=netlify"
+  command = "${devoraCmd} build --app=${appName} --adapter=netlify"
   publish = "dist/client"
   functions = "netlify/functions"
 
@@ -4936,7 +4937,7 @@ async function scaffoldApp(appName, opts) {
     process.exit(1);
   }
   const authMode = await resolveAuthChoice(opts.auth, appName);
-  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*" });
+  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*", cliInvocation: "monorepo" });
   const configPath = path22.join(root, "devora.config.ts");
   if (existsSync10(configPath)) {
     const original = await readFile6(configPath, "utf-8");

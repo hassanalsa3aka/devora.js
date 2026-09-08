@@ -17,6 +17,27 @@ export interface ScaffoldAppOptions {
    * in both cases, so it always gets `"*"`.
    */
   coreVersion: string;
+  /**
+   * How the generated `vercel.json`/`netlify.toml` build commands should
+   * invoke devora. `"monorepo"` → `cd ../.. && node packages/cli/dist/
+   * index.js` — a real, monorepo-relative file path, correct ONLY inside
+   * this repo, where `packages/cli` is a local workspace member built to a
+   * committed `dist/index.js`. `"standalone"` → `npx devora`, which finds
+   * the locally-installed `node_modules/.bin/devora` — correct for a
+   * project scaffolded by `create-devora`, where `@devorajs/cli` is an
+   * ordinary npm devDependency and `packages/cli/dist/index.js` doesn't
+   * exist at all (there's no `packages/cli` directory in a scaffolded
+   * project in the first place).
+   *
+   * A real bug, found via an actual Netlify deploy of a create-devora-
+   * scaffolded project: every generated app always got the monorepo-style
+   * command, so every Vercel/Netlify build from a scaffolded project failed
+   * with `MODULE_NOT_FOUND` trying to resolve a path that only exists in
+   * the devora.js monorepo itself. `devora new`/`add` (only ever run
+   * *inside* this monorepo) always pass `"monorepo"`; `create-devora`
+   * (scaffolding a standalone project) always passes `"standalone"`.
+   */
+  cliInvocation: "monorepo" | "standalone";
 }
 
 /**
@@ -37,7 +58,8 @@ export interface ScaffoldAppOptions {
  * it assumes is safe to write into.
  */
 export async function scaffoldAppFiles(appDir: string, appName: string, opts: ScaffoldAppOptions): Promise<void> {
-  const { authMode, coreVersion } = opts;
+  const { authMode, coreVersion, cliInvocation } = opts;
+  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "npx devora";
 
   await mkdir(path.join(appDir, "routes"), { recursive: true });
 
@@ -161,7 +183,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         // --adapter=vercel; Vercel auto-detects and prefers that over any
         // "Output Directory" setting once it exists, so nothing else needs
         // overriding here — just which command actually runs.
-        buildCommand: `cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=vercel`,
+        buildCommand: `${devoraCmd} build --app=${appName} --adapter=vercel`,
         // Vercel's dashboard cosmetically labels this app "Vite" (it sees
         // `vite` in package.json devDependencies) even though buildCommand
         // above already overrides what runs — `framework: null` tells
@@ -186,7 +208,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
   await writeFile(
     path.join(appDir, "netlify.toml"),
     `[build]\n` +
-      `  command = "cd ../.. && node packages/cli/dist/index.js build --app=${appName} --adapter=netlify"\n` +
+      `  command = "${devoraCmd} build --app=${appName} --adapter=netlify"\n` +
       `  publish = "dist/client"\n` +
       `  functions = "netlify/functions"\n\n` +
       `[[redirects]]\n` +

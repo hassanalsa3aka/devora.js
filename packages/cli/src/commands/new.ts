@@ -39,7 +39,7 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
   // package, not an ordinary published npm dependency. See
   // ScaffoldAppOptions's doc comment in @devorajs/scaffold for the contrast
   // with create-devora, which passes a real pinned version here instead.
-  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*" });
+  await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*", cliInvocation: "monorepo" });
 
   const configPath = path.join(root, "devora.config.ts");
   if (existsSync(configPath)) {
