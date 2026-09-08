@@ -8,11 +8,11 @@ importers:
 
   .:
     dependencies:
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:packages/core
     devDependencies:
-      '@devora/cli':
+      '@devorajs/cli':
         specifier: '*'
         version: link:packages/cli
       tsx:
@@ -27,34 +27,48 @@ importers:
 
   adapters/adapter-netlify:
     dependencies:
-      '@devora/core':
-        specifier: '*'
+      '@devorajs/core':
+        specifier: ^0.1.0
         version: link:../../packages/core
       esbuild:
         specifier: ^0.21.5
         version: 0.21.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   adapters/adapter-node:
     dependencies:
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../../packages/core
 
   adapters/adapter-vercel:
     dependencies:
-      '@devora/core':
-        specifier: '*'
+      '@devorajs/core':
+        specifier: ^0.1.0
         version: link:../../packages/core
       esbuild:
         specifier: ^0.21.5
         version: 0.21.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   apps/admin:
     dependencies:
-      '@devora/backend':
+      '@devorajs/backend':
         specifier: '*'
         version: link:../../packages/backend
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../../packages/core
       react:
@@ -73,10 +87,10 @@ importers:
 
   apps/dashboard:
     dependencies:
-      '@devora/backend':
+      '@devorajs/backend':
         specifier: '*'
         version: link:../../packages/backend
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../../packages/core
       react:
@@ -95,10 +109,10 @@ importers:
 
   apps/marketing:
     dependencies:
-      '@devora/backend':
+      '@devorajs/backend':
         specifier: '*'
         version: link:../../packages/backend
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../../packages/core
       react:
@@ -117,7 +131,7 @@ importers:
 
   create-devora:
     devDependencies:
-      '@devora/scaffold':
+      '@devorajs/scaffold':
         specifier: '*'
         version: link:../packages/scaffold
       '@types/node':
@@ -132,7 +146,7 @@ importers:
 
   packages/backend:
     dependencies:
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../core
 
@@ -148,19 +162,19 @@ importers:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@22.20.1)
     devDependencies:
-      '@devora/adapter-netlify':
+      '@devorajs/adapter-netlify':
         specifier: '*'
         version: link:../../adapters/adapter-netlify
-      '@devora/adapter-node':
+      '@devorajs/adapter-node':
         specifier: '*'
         version: link:../../adapters/adapter-node
-      '@devora/adapter-vercel':
+      '@devorajs/adapter-vercel':
         specifier: '*'
         version: link:../../adapters/adapter-vercel
-      '@devora/core':
+      '@devorajs/core':
         specifier: '*'
         version: link:../core
-      '@devora/scaffold':
+      '@devorajs/scaffold':
         specifier: '*'
         version: link:../scaffold
       esbuild:
@@ -172,9 +186,6 @@ importers:
       jiti:
         specifier: ^2.3.0
         version: 2.7.0
-      react:
-        specifier: ^18.3.0
-        version: 18.3.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -185,6 +196,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.31)
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
       react-dom:
         specifier: ^18.3.0
         version: 18.3.1(react@18.3.1)

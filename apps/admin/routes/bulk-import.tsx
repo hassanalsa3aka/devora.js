@@ -1,6 +1,6 @@
-import type { RequestContext } from "@devora/core";
-import { CsrfField, PageShell } from "@devora/core";
-import { serverFn } from "@devora/core";
+import type { RequestContext } from "@devorajs/core";
+import { CsrfField, PageShell } from "@devorajs/core";
+import { serverFn } from "@devorajs/core";
 import { ADMIN_NAV } from "../nav.js";
 
 // This one lives only in admin — no other app needs it. This is the
@@ -35,7 +35,7 @@ export default function BulkImport({ csrfToken }: { csrfToken?: string }) {
   return (
     <PageShell appName="admin" nav={ADMIN_NAV}>
       <h1>Bulk import</h1>
-      <p>Admin-only function — defined locally instead of in @devora/backend.</p>
+      <p>Admin-only function — defined locally instead of in @devorajs/backend.</p>
       <form method="post">
         <CsrfField token={csrfToken} />
         <label htmlFor="rows">Rows</label>

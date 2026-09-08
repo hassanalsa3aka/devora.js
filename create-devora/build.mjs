@@ -3,13 +3,13 @@ import * as esbuild from "esbuild";
 
 /**
  * Same technique `packages/cli/build.mjs` already uses (see that file's own
- * doc comment for the full reasoning) — bundles `@devora/scaffold` (a
+ * doc comment for the full reasoning) — bundles `@devorajs/scaffold` (a
  * workspace-local package, unresolvable as raw `.ts` outside this monorepo)
  * inline via esbuild, no real npm runtime dependencies to keep external at
  * all (everything this package needs — readline/promises, fs/promises,
  * path, child_process — is a Node builtin).
  *
- * One extra step `packages/cli`'s build doesn't need: `@devora/scaffold`'s
+ * One extra step `packages/cli`'s build doesn't need: `@devorajs/scaffold`'s
  * `scaffoldProjectFiles` reads two small asset directories at runtime
  * (`templates/tsconfig.base.json`, `assets/icons/*.png`) via a path relative
  * to its own module location. Once bundled, that relative lookup resolves

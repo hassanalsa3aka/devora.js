@@ -1,6 +1,6 @@
 /**
- * Browser-safe subpath (`@devora/core/client`), deliberately separate from
- * the main `@devora/core` entry — same reasoning `./config-loader` already
+ * Browser-safe subpath (`@devorajs/core/client`), deliberately separate from
+ * the main `@devorajs/core` entry — same reasoning `./config-loader` already
  * exists for (see configLoader.ts's doc comment), a different concrete
  * failure mode. The main barrel's `export *` chain reaches modules using
  * real Node builtins (`session.ts`/`csrf.ts` use `node:crypto`,

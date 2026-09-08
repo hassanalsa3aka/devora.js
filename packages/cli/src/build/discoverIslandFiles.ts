@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { ISLAND_CALL_RE } from "@devora/core";
+import { ISLAND_CALL_RE } from "@devorajs/core";
 
 /**
  * Finds every `island(() => import("specifier"))` call across the given

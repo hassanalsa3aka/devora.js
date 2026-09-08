@@ -1,8 +1,8 @@
 // Same function, same DB, same logic every app uses — the "one true
 // shared backend" default from §3/§6. No fetch() + API route boilerplate.
-import { updateSettings } from "@devora/backend/settings";
-import type { RequestContext } from "@devora/core";
-import { CsrfField, PageShell } from "@devora/core";
+import { updateSettings } from "@devorajs/backend/settings";
+import type { RequestContext } from "@devorajs/core";
+import { CsrfField, PageShell } from "@devorajs/core";
 import { DASHBOARD_NAV } from "../nav.js";
 
 export const renderMode = "ssr";
@@ -26,7 +26,7 @@ export default function Settings({ csrfToken }: { csrfToken?: string }) {
   return (
     <PageShell appName="dashboard" nav={DASHBOARD_NAV}>
       <h1>Settings</h1>
-      <p>Calls the shared @devora/backend function directly — no separate admin copy of this logic.</p>
+      <p>Calls the shared @devorajs/backend function directly — no separate admin copy of this logic.</p>
       <form method="post">
         <CsrfField token={csrfToken} />
         <label htmlFor="key">Key</label>

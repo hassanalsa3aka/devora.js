@@ -1,4 +1,4 @@
-import type { NavLink } from "@devora/core";
+import type { NavLink } from "@devorajs/core";
 
 // One shared nav definition, reused by every route in this app. Login/
 // logout deliberately excluded — logout is POST-only by design (a GET nav

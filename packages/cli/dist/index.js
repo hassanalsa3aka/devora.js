@@ -4245,7 +4245,7 @@ async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnable
   }
   await writeFile3(
     path15.join(funcDir, "index.mjs"),
-    `import { createProdRequestHandler } from "@devora/core";
+    `import { createProdRequestHandler } from "@devorajs/core";
 
 // appRoot is this function's own directory \u2014 routes/ and dist/server
 // were copied in alongside this file by writeVercelOutput.
@@ -4383,7 +4383,7 @@ async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabl
   }
   await writeFile4(
     path18.join(funcDir, "ssr.mjs"),
-    `import { createProdRequestHandler } from "@devora/core";
+    `import { createProdRequestHandler } from "@devorajs/core";
 import { Readable } from "node:stream";
 
 const handleRequest = createProdRequestHandler(
@@ -4650,8 +4650,8 @@ async function scaffoldAppFiles(appDir, appName, opts) {
         private: true,
         type: "module",
         dependencies: {
-          "@devora/core": coreVersion,
-          "@devora/backend": "*",
+          "@devorajs/core": coreVersion,
+          "@devorajs/backend": "*",
           react: "^18.3.0",
           "react-dom": "^18.3.0"
         },
@@ -4676,7 +4676,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
   );
   await writeFile5(
     path20.join(appDir, "app.config.ts"),
-    `import { defineApp } from "@devora/core/config";
+    `import { defineApp } from "@devorajs/core/config";
 
 export default defineApp({
   defaultRenderMode: "ssr",
@@ -4706,11 +4706,11 @@ export default defineConfig({
     path20.join(appDir, "entry-server.tsx"),
     `import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { createRenderRoute, createRenderStatic } from "@devora/core";
+import { createRenderRoute, createRenderStatic } from "@devorajs/core";
 
 // Framework SSR entry point for this app \u2014 loaded via vite.ssrLoadModule
 // so react-dom/server resolves against this app's own node_modules. The
-// actual render logic lives once in @devora/core's renderRoute.ts,
+// actual render logic lives once in @devorajs/core's renderRoute.ts,
 // shared by every app; this file only supplies the React bindings that
 // genuinely can't be shared.
 export const renderRoute = createRenderRoute({ createElement, renderToString });
@@ -4795,7 +4795,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
   );
   await writeFile5(
     path20.join(appDir, "routes", "index.tsx"),
-    `import { PageShell } from "@devora/core";
+    `import { PageShell } from "@devorajs/core";
 
 export const renderMode = "ssr";
 
@@ -4820,8 +4820,8 @@ export default function Index() {
   if (authMode !== "none") {
     await writeFile5(
       path20.join(appDir, "routes", "login.tsx"),
-      `import type { RequestContext } from "@devora/core";
-import { redirect, CsrfField, PageShell } from "@devora/core";
+      `import type { RequestContext } from "@devorajs/core";
+import { redirect, CsrfField, PageShell } from "@devorajs/core";
 
 export const renderMode = "ssr";
 
@@ -4859,8 +4859,8 @@ export default function Login({ csrfToken }: { csrfToken?: string }) {
     );
     await writeFile5(
       path20.join(appDir, "routes", "logout.tsx"),
-      `import type { RequestContext } from "@devora/core";
-import { redirect, CsrfField, PageShell } from "@devora/core";
+      `import type { RequestContext } from "@devorajs/core";
+import { redirect, CsrfField, PageShell } from "@devorajs/core";
 
 export const renderMode = "ssr";
 
@@ -4891,8 +4891,8 @@ export default function Logout({ csrfToken }: { csrfToken?: string }) {
     );
     await writeFile5(
       path20.join(appDir, "routes", "account.tsx"),
-      `import type { RequestContext } from "@devora/core";
-import { PageShell } from "@devora/core";
+      `import type { RequestContext } from "@devorajs/core";
+import { PageShell } from "@devorajs/core";
 
 export const renderMode = "ssr";
 

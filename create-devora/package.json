@@ -1,7 +1,13 @@
 {
   "name": "create-devora",
   "version": "0.1.0",
-  "private": true,
+  "description": "Scaffold a new devora.js project — npx create-devora, yarn create devora, or pnpm create devora.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
+    "directory": "create-devora"
+  },
   "type": "module",
   "bin": {
     "create-devora": "./dist/index.js"
@@ -11,7 +17,7 @@
     "build": "node ./build.mjs"
   },
   "devDependencies": {
-    "@devora/scaffold": "*",
+    "@devorajs/scaffold": "*",
     "esbuild": "^0.21.5",
     "typescript": "^5.6.0",
     "@types/node": "^22.0.0"

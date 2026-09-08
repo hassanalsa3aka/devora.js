@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { ISLAND_CALL_RE } from "@devora/core";
+import { ISLAND_CALL_RE } from "@devorajs/core";
 
 /**
  * Production counterpart to islandsPlugin.ts (ROADMAP.md #4). Same

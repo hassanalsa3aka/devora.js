@@ -56,11 +56,11 @@ jobs:
       # documented in README.md); the build/typecheck steps below don't
       # need repeating three times with identical inputs once install is
       # confirmed to have linked the workspace correctly.
-      - name: Typecheck @devora/core, @devora/scaffold, create-devora
+      - name: Typecheck @devorajs/core, @devorajs/scaffold, create-devora
         if: matrix.package-manager == 'pnpm'
         run: |
-          pnpm --filter @devora/core exec tsc --noEmit
-          pnpm --filter @devora/scaffold exec tsc --noEmit
+          pnpm --filter @devorajs/core exec tsc --noEmit
+          pnpm --filter @devorajs/scaffold exec tsc --noEmit
           pnpm --filter create-devora exec tsc --noEmit
         # Deliberately not gating on packages/cli's own standalone `tsc
         # --noEmit` here — it has 3 pre-existing `noUncheckedIndexedAccess`
@@ -71,7 +71,7 @@ jobs:
 
       - name: Rebuild CLI bundle
         if: matrix.package-manager == 'pnpm'
-        run: pnpm --filter @devora/cli build
+        run: pnpm --filter @devorajs/cli build
 
       - name: Run test suite
         if: matrix.package-manager == 'pnpm'

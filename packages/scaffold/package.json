@@ -1,5 +1,5 @@
 {
-  "name": "@devora/scaffold",
+  "name": "@devorajs/scaffold",
   "version": "0.1.0",
   "private": true,
   "type": "module",

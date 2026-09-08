@@ -1,5 +1,5 @@
-import { resolveAuthMode } from "@devora/core";
-import { loadProjectConfig } from "@devora/core/config-loader";
+import { resolveAuthMode } from "@devorajs/core";
+import { loadProjectConfig } from "@devorajs/core/config-loader";
 
 /**
  * `devora list` — a real, previously-missing gap: there was no way to see

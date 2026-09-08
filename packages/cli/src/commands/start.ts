@@ -1,6 +1,6 @@
-import { resolveAuthMode } from "@devora/core";
-import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devora/core/config-loader";
-import { createNodeServer } from "@devora/adapter-node";
+import { resolveAuthMode } from "@devorajs/core";
+import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
+import { createNodeServer } from "@devorajs/adapter-node";
 import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
 
 /**

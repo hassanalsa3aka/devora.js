@@ -11,7 +11,7 @@ import {
   type RenderMode,
   type RouteModule,
   type SessionCookieOptions,
-} from "@devora/core";
+} from "@devorajs/core";
 
 /**
  * The SSR request handler (ROADMAP.md #1): matches a request to a route

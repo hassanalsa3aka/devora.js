@@ -1,7 +1,7 @@
-import { loadProjectConfig } from "@devora/core/config-loader";
+import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
-import { isVercelLinked, deployToVercel } from "@devora/adapter-vercel";
-import { isNetlifyLinked, deployToNetlify } from "@devora/adapter-netlify";
+import { isVercelLinked, deployToVercel } from "@devorajs/adapter-vercel";
+import { isNetlifyLinked, deployToNetlify } from "@devorajs/adapter-netlify";
 
 /**
  * Multi-app-aware deploy orchestration (ROADMAP.md's §13 N:N item —

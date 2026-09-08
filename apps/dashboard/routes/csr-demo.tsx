@@ -4,11 +4,11 @@
 // csr-client.tsx imports and mounts it in a real browser. No loader runs
 // anywhere for a csr route; this reads a client-only value (Date.now()) to
 // make that concrete rather than just asserted.
-// From "@devora/core/client", not the main entry — this route is built
+// From "@devorajs/core/client", not the main entry — this route is built
 // for the browser too (renderMode: "csr"), and the main barrel reaches
 // server-only code (node:crypto etc.) that can't bundle for a browser
 // target. See packages/core/src/client.ts for the real failure this avoids.
-import { PageShell } from "@devora/core/client";
+import { PageShell } from "@devorajs/core/client";
 import { DASHBOARD_NAV } from "../nav.js";
 
 export const renderMode = "csr";

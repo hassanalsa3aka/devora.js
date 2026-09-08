@@ -2,7 +2,7 @@ import path from "node:path";
 import { readFile, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
-import { listRouteFiles, toBuildKey } from "@devora/core";
+import { listRouteFiles, toBuildKey } from "@devorajs/core";
 import { discoverIslandFiles } from "./discoverIslandFiles.js";
 import { discoverCsrRouteFiles } from "./discoverCsrRouteFiles.js";
 

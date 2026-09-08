@@ -8,7 +8,7 @@ import {
   scaffoldAppFiles,
   scaffoldProjectFiles,
   type ScaffoldProjectApp,
-} from "@devora/scaffold";
+} from "@devorajs/scaffold";
 import { detectPackageManager, installCommand, runScriptCommand } from "./detectPackageManager.js";
 
 /**
@@ -29,16 +29,16 @@ function formatCommand([cmd, args]: [string, string[]]): string {
  * devora.config.ts exists, unlike `devora new`/`add` (packages/cli/src/
  * commands/new.ts), which only ever run *inside* an already-scaffolded
  * project. Shares its actual file-generation with that command via
- * `@devora/scaffold`, not a second copy of the same templates — see that
+ * `@devorajs/scaffold`, not a second copy of the same templates — see that
  * package's `scaffoldAppFiles`/`scaffoldProjectFiles` doc comments for why
  * project-root scaffolding and one-app scaffolding stay two functions
  * rather than one.
  *
- * `@devora/core`/`@devora/cli` are pinned to a real semver range here
+ * `@devorajs/core`/`@devorajs/cli` are pinned to a real semver range here
  * (CORE_VERSION/CLI_VERSION below), not `"*"` — inside the devora.js
  * monorepo itself they're sibling workspace packages; here, for a
  * genuinely standalone scaffolded project, they're ordinary published npm
- * packages (see `ScaffoldAppOptions`'s doc comment in `@devora/scaffold`
+ * packages (see `ScaffoldAppOptions`'s doc comment in `@devorajs/scaffold`
  * for the same distinction from the other direction).
  */
 const CORE_VERSION = "^0.1.0";

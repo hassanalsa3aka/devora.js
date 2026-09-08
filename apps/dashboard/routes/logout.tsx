@@ -1,5 +1,5 @@
-import type { RequestContext } from "@devora/core";
-import { redirect, CsrfField, PageShell } from "@devora/core";
+import type { RequestContext } from "@devorajs/core";
+import { redirect, CsrfField, PageShell } from "@devorajs/core";
 import { DASHBOARD_NAV } from "../nav.js";
 
 export const renderMode = "ssr";

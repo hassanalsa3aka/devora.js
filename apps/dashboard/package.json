@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@devora/core": "*",
-    "@devora/backend": "*",
+    "@devorajs/core": "*",
+    "@devorajs/backend": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

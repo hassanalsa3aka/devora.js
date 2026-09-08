@@ -1,4 +1,4 @@
-import { serverFn } from "@devora/core";
+import { serverFn } from "@devorajs/core";
 import { db } from "../db/index.js";
 
 export interface SettingsInput {

@@ -6,7 +6,7 @@ import * as esbuild from "esbuild";
  * Makes the deployed function actually runnable outside the monorepo
  * (ROADMAP.md #4). Verified for real, not assumed: copied a real generated
  * function directory to /tmp (outside any node_modules ancestor) and ran
- * it — before this, it failed with `Cannot find package '@devora/core'`
+ * it — before this, it failed with `Cannot find package '@devorajs/core'`
  * (its `exports` point at `.ts` source, unexecutable by plain Node/any
  * platform runtime); after, with real `react`/`react-dom` placed in
  * `node_modules` (simulating what a platform's own dependency tracer does
@@ -18,7 +18,7 @@ import * as esbuild from "esbuild";
  *
  * Two separate bundle passes, not one, and each shape was arrived at by
  * hitting a real failure and fixing it — not decided in advance:
- * 1. The wrapper (`index.mjs`) is bundled alone, inlining `@devora/core` —
+ * 1. The wrapper (`index.mjs`) is bundled alone, inlining `@devorajs/core` —
  *    the actual unique problem (react/react-dom are ordinary npm packages
  *    any platform tracer already knows how to handle; nothing here should
  *    duplicate that).
@@ -34,14 +34,14 @@ import * as esbuild from "esbuild";
  *    exact shape, since it's cheap insurance and it's genuinely possible for
  *    other bundlers to hit the same lexer gap). Bundling every route
  *    separately (no `splitting`) creates an *independent* copy of
- *    `@devora/core` per file — harmless for stateless exports, but
+ *    `@devorajs/core` per file — harmless for stateless exports, but
  *    `Island.tsx`'s `IslandCollectorContext` is a React Context object,
  *    and two separately-bundled copies are two different objects, so
  *    `useContext` in a route's copy can never see the Provider set up by
  *    entry-server's copy. It fails *silently* (the context's own
  *    `if (!collector) return null` guard), not with an error — an island
  *    quietly renders nothing instead of crashing. `splitting: true` shares
- *    one `@devora/core` chunk across all of them, which is what actually
+ *    one `@devorajs/core` chunk across all of them, which is what actually
  *    fixed it (confirmed by re-running the isolated test and seeing the
  *    island's real markup appear).
  */

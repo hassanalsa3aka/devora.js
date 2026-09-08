@@ -99,7 +99,7 @@ Scaffolded and structurally real:
   requests, which the bundle didn't have (fixed by restoring `{ "handle": "filesystem" }` and
   copying client assets); bundling react-dom inline hit a real esbuild+Node ESM interop failure,
   fixing that a different way then hit a CJS default-export interop gap, and bundling each route
-  file separately (no code-splitting) gave each its own copy of `@devora/core`, silently breaking
+  file separately (no code-splitting) gave each its own copy of `@devorajs/core`, silently breaking
   island hydration via two non-identical React Context objects — see `ROADMAP.md` #4 for the full
   account of each.
 - SSR bundle size — fixed with a measured 98% reduction, correcting this document's own earlier
@@ -107,10 +107,10 @@ Scaffolded and structurally real:
   copy; inspecting the actual bundle showed React was already correctly externalized, and the real
   cause was `packages/core`'s single barrel export pulling the CLI-only `jiti`-dependent config
   loaders into every SSR build, even though SSR code never calls them. Fixed by splitting them into
-  `@devora/core/config-loader` (`packages/core/src/configLoader.ts`); measured before/after on the
+  `@devorajs/core/config-loader` (`packages/core/src/configLoader.ts`); measured before/after on the
   real build path: `apps/marketing`'s `entry-server.js` 259.79KB → 5.23KB. Full regression pass
   confirmed nothing else broke. `packages/core` also picked up a real, verified build step
-  (`pnpm --filter @devora/core build`, confirmed plain-Node-importable without `tsx`) as a smaller,
+  (`pnpm --filter @devorajs/core build`, confirmed plain-Node-importable without `tsx`) as a smaller,
   separate improvement — kept available, not wired into the build pipeline, since it wasn't what
   fixed the bloat. Two real latent type errors were found and fixed getting `tsc` to run cleanly
   (this package had never actually been type-checked with real `@types/node`/`@types/react`
@@ -119,7 +119,7 @@ Scaffolded and structurally real:
   corepack), and pnpm, not just declared. Every `workspace:*` version string became a plain `"*"`,
   and root `package.json` gained a `"workspaces"` array for npm/Yarn. One real, pnpm-specific
   breakage found doing this: without `link-workspace-packages=true` in a new root `.npmrc`, plain
-  `"*"` makes pnpm try to fetch `@devora/core` from the real npm registry instead of linking it
+  `"*"` makes pnpm try to fetch `@devorajs/core` from the real npm registry instead of linking it
   locally, failing with `ERR_PNPM_FETCH_404` — confirmed by actually running the install without
   that setting first (npm doesn't understand this setting either, but only warns, not fails — worth
   knowing if a future npm major makes that a hard error). The `"packageManager": "pnpm@9.9.0"` pin
@@ -141,10 +141,10 @@ Scaffolded and structurally real:
 `devora build && devora start` production server, not just built):**
 - **The `devora` CLI bin actually runs** — `pnpm exec devora dev/build/start` all work with zero
   `tsx` anywhere in the invocation. Two compounding bugs, not one: pnpm never linked the bin at all
-  (no workspace package declared `@devora/cli` as a dependency — fixed by adding it to root
+  (no workspace package declared `@devorajs/cli` as a dependency — fixed by adding it to root
   `devDependencies`), and even a linked bin would fail under plain Node because `src/index.ts`'s
   relative imports use `.js` specifiers over `.ts` sources. A third, undocumented issue found while
-  fixing this: `@devora/core` and every `@devora/adapter-*` package's `exports` also point at raw
+  fixing this: `@devorajs/core` and every `@devorajs/adapter-*` package's `exports` also point at raw
   `.ts` — so even a correctly-compiled bin would immediately fail again the moment it imports them.
   Fixed by bundling the whole CLI with `esbuild` (`packages/cli/build.mjs`, reusing the exact
   technique `adapter-vercel`/`adapter-netlify`'s `bundleForDeploy.ts` already uses), keeping real npm
@@ -199,10 +199,10 @@ variant via `prefers-color-scheme`, no JS toggle needed). **Two real bugs found 
 anticipated in advance**: (1) an app with zero islands/csr routes never ran a Vite client build at
 all, so its `publicDir` never reached `dist/client` — its logo 404'd in production until
 `buildAppClient.ts` was fixed to copy `publicDir` unconditionally; (2) a `csr` route importing
-`PageShell` from the main `@devora/core` entry broke that route's *browser* build outright
+`PageShell` from the main `@devorajs/core` entry broke that route's *browser* build outright
 (`"randomBytes" is not exported by "__vite-browser-external"` — the main barrel's `export *` reaches
 `node:crypto`/`node:fs` code that can't bundle for a browser target) — fixed with a new, genuinely
-browser-safe `@devora/core/client` subpath, same reasoning `./config-loader` already existed for.
+browser-safe `@devorajs/core/client` subpath, same reasoning `./config-loader` already existed for.
 Also new: `devora add <name>` (friendlier alias for `new`, same action — the scaffolder itself was
 regenerated while touching this, since it had gone stale and, more seriously, never wrote a
 `package.json` at all, so a scaffolded app wasn't a valid workspace member), `devora remove <name>`/
@@ -340,7 +340,7 @@ and (temporarily, then reverted) so was a real DB client.
 cleanup" section for the full account. Summary: secrets scan came back clean (no hardcoded
 keys/tokens, no `.env` file, nothing to leak); added `LICENSE` (MIT) and `.env.example`; fixed a
 real `.gitignore` gap (no `.env` exclusion existed); and renamed `@project/core`/`@project/backend`
-→ `@devora/core`/`@devora/backend` across every `package.json`, import, and doc — `packages/core`
+→ `@devorajs/core`/`@devorajs/backend` across every `package.json`, import, and doc — `packages/core`
 turned out to be 100% framework internals now (not the user-space code its old `@project/*` naming
 implied), while `packages/backend` and every scaffolded app genuinely are user-owned and correctly
 kept `@project/*`. Full regression (all CLI commands, all three apps, cross-package calls) re-run

@@ -14,7 +14,7 @@ export interface ScaffoldProjectApp {
 export interface ScaffoldProjectOptions {
   projectName: string;
   apps: ScaffoldProjectApp[];
-  /** Real pinned version for "@devora/core"/"@devora/cli" — these are
+  /** Real pinned version for "@devorajs/core"/"@devorajs/cli" — these are
    * ordinary published npm packages for a project scaffolded by
    * create-devora, not local workspace members the way they are inside the
    * devora.js monorepo itself. */
@@ -53,15 +53,15 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
         // dual-declaration devora.js's own root package.json uses, for the
         // identical reason (see README.md's "Cross-package-manager notes").
         // No "adapters/*" entry — unlike the devora.js monorepo itself,
-        // there's no project-local adapter source here at all; @devora/
-        // adapter-vercel/@devora/adapter-netlify are ordinary npm deps of
-        // @devora/cli, not something a scaffolded project owns or edits.
+        // there's no project-local adapter source here at all; @devorajs/
+        // adapter-vercel/@devorajs/adapter-netlify are ordinary npm deps of
+        // @devorajs/cli, not something a scaffolded project owns or edits.
         workspaces: ["packages/*", "apps/*"],
         dependencies: {
-          "@devora/core": coreVersion,
+          "@devorajs/core": coreVersion,
         },
         devDependencies: {
-          "@devora/cli": cliVersion,
+          "@devorajs/cli": cliVersion,
         },
         engines: {
           node: ">=20",
@@ -125,7 +125,7 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
 
   await writeFile(
     path.join(projectRoot, "devora.config.ts"),
-    `import { defineProject } from "@devora/core/config";\n\n` +
+    `import { defineProject } from "@devorajs/core/config";\n\n` +
       `export default defineProject({\n` +
       `  apps: [\n${appEntries}\n  ],\n` +
       `  shared: {\n` +
@@ -147,7 +147,7 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
   );
 
   // Shared backend — same starter shape apps/*'s own package.json already
-  // expects (@devora/backend, workspace-linked via "*"). Kept minimal on
+  // expects (@devorajs/backend, workspace-linked via "*"). Kept minimal on
   // purpose: no example server function pre-wired to any specific route,
   // since which apps exist and what they need is entirely up to the user's
   // choices above — see packages/backend/db/index.ts in the devora.js repo
@@ -158,21 +158,21 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
     path.join(projectRoot, "packages", "backend", "package.json"),
     JSON.stringify(
       {
-        // Matches scaffoldAppFiles.ts's hardcoded `"@devora/backend": "*"`
+        // Matches scaffoldAppFiles.ts's hardcoded `"@devorajs/backend": "*"`
         // dependency exactly — that function is shared, unchanged, with
         // `devora new`/`add` (which must keep producing byte-identical
         // output, see this package's own regression test), so this name
         // has to match what it already expects rather than the other way
         // around. A real bug caught by an actual `pnpm install`, not just
         // reading the code: naming this "@project/backend" here while
-        // scaffoldAppFiles.ts's apps depend on "@devora/backend" left every
+        // scaffoldAppFiles.ts's apps depend on "@devorajs/backend" left every
         // scaffolded app's install 404ing against the real npm registry.
-        name: "@devora/backend",
+        name: "@devorajs/backend",
         version: "0.1.0",
         private: true,
         type: "module",
         exports: { "./db": "./db/index.ts" },
-        dependencies: { "@devora/core": coreVersion },
+        dependencies: { "@devorajs/core": coreVersion },
       },
       null,
       2

@@ -11,7 +11,7 @@ import * as esbuild from "esbuild";
  *    native TS support doesn't remap `.js` -> `.ts` the way `tsx`/`ts-node`
  *    do, so `node src/index.ts` fails with `ERR_MODULE_NOT_FOUND`.
  * 2. Even a correctly-compiled entry would immediately hit the same
- *    problem one level deeper: `@devora/core` and every `@devora/adapter-*`
+ *    problem one level deeper: `@devorajs/core` and every `@devorajs/adapter-*`
  *    package's `exports` field points at raw `.ts` source too (needed so
  *    Vite/tsx can resolve them live during development without a rebuild
  *    step) — plain Node can't execute those either.
@@ -38,13 +38,13 @@ import * as esbuild from "esbuild";
  * - `commander`, `vite` — plain npm packages, no reason to inline.
  * - `esbuild` — has a native binary it locates relative to its own module
  *   location; bundling it inline would break that lookup.
- * - `jiti` — `@devora/core/config-loader`'s loader for `devora.config.ts`/
+ * - `jiti` — `@devorajs/core/config-loader`'s loader for `devora.config.ts`/
  *   `app.config.ts`, with real side-effecting internals (see
  *   `packages/core/src/configLoader.ts`'s doc comment) that make it
  *   unsafe to assume tree-shakeable; kept external and explicit instead.
  *
  * `react` is deliberately NOT external: it's pulled in only transitively,
- * through `@devora/core`'s barrel (`islandComponent.tsx` imports it for
+ * through `@devorajs/core`'s barrel (`islandComponent.tsx` imports it for
  * `createElement`/context types), and no CLI command ever renders anything
  * — nothing here calls the island machinery. It's also not a declared
  * dependency of this package, so marking it external would leave an
@@ -73,6 +73,6 @@ const reactPulledIn = Object.keys(result.metafile.inputs).some((file) =>
 );
 console.log(
   reactPulledIn
-    ? "[build] note: react was bundled into dist/index.js (expected — transitively pulled in via @devora/core, never externally resolvable from this package)."
+    ? "[build] note: react was bundled into dist/index.js (expected — transitively pulled in via @devorajs/core, never externally resolvable from this package)."
     : "[build] react was fully tree-shaken out of dist/index.js."
 );

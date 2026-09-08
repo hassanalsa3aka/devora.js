@@ -1,5 +1,5 @@
 import http from "node:http";
-import { createProdRequestHandler, type AuthMode, type AppRuntimeConfig, type RenderMode } from "@devora/core";
+import { createProdRequestHandler, type AuthMode, type AppRuntimeConfig, type RenderMode } from "@devorajs/core";
 
 /**
  * Self-hosted fallback (§13). Boots a real Node HTTP server against an

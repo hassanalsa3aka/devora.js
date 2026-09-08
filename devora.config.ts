@@ -1,4 +1,4 @@
-import { defineProject } from "@devora/core/config";
+import { defineProject } from "@devorajs/core/config";
 
 export default defineProject({
   apps: [

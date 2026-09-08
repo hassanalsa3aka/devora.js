@@ -1,5 +1,5 @@
 {
-  "name": "@devora/backend",
+  "name": "@devorajs/backend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,6 @@
     "./db": "./db/index.ts"
   },
   "dependencies": {
-    "@devora/core": "*"
+    "@devorajs/core": "*"
   }
 }

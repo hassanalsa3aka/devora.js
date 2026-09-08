@@ -11,7 +11,7 @@ export function meta() {
   };
 }
 
-import { PageShell } from "@devora/core";
+import { PageShell } from "@devorajs/core";
 import { MARKETING_NAV } from "../nav.js";
 
 export async function loader() {

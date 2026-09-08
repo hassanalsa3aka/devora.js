@@ -1,12 +1,37 @@
 {
-  "name": "@devora/adapter-vercel",
+  "name": "@devorajs/adapter-vercel",
   "version": "0.1.0",
-  "private": true,
+  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) — one output dir per app in devora.config.ts.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
+    "directory": "adapters/adapter-vercel"
+  },
   "type": "module",
-  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) — one output dir per app in framework.config.ts.",
+  "scripts": {
+    "build": "tsc"
+  },
   "exports": { ".": "./src/index.ts" },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "dependencies": {
-    "@devora/core": "*",
+    "@devorajs/core": "^0.1.0",
     "esbuild": "^0.21.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
   }
 }

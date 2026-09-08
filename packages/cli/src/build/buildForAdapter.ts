@@ -1,11 +1,11 @@
 import path from "node:path";
-import { listRouteFiles, resolveAuthMode, type AppConfig, type ProjectConfig } from "@devora/core";
-import { loadAppConfig, resolveAppDir } from "@devora/core/config-loader";
+import { listRouteFiles, resolveAuthMode, type AppConfig, type ProjectConfig } from "@devorajs/core";
+import { loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { buildAppServer } from "./buildAppServer.js";
 import { buildAppStatic } from "./buildAppStatic.js";
 import { assertNoAuthUsage } from "./checkNoAuthUsage.js";
-import { writeVercelOutput } from "@devora/adapter-vercel";
-import { writeNetlifyConfig } from "@devora/adapter-netlify";
+import { writeVercelOutput } from "@devorajs/adapter-vercel";
+import { writeNetlifyConfig } from "@devorajs/adapter-netlify";
 
 /**
  * One app's full build pipeline (SSR build → ssg/isr pre-render → optional

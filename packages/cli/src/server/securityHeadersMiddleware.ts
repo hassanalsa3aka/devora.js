@@ -1,5 +1,5 @@
 import type { Connect } from "vite";
-import { resolveSecurityHeaders, type AppRuntimeConfig } from "@devora/core";
+import { resolveSecurityHeaders, type AppRuntimeConfig } from "@devorajs/core";
 
 /**
  * Applies CSP/HSTS/X-Frame-Options to every response this middleware sees

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
-import type { AppConfig } from "@devora/core";
-import { loadProjectConfig } from "@devora/core/config-loader";
+import type { AppConfig } from "@devorajs/core";
+import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { assignPorts } from "../build/portScheme.js";
 
 function nginxBlock(app: AppConfig, appPort: number): string {

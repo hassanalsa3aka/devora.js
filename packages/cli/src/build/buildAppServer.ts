@@ -1,7 +1,7 @@
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { build as viteBuild } from "vite";
-import { listRouteFiles, toBuildKey } from "@devora/core";
+import { listRouteFiles, toBuildKey } from "@devorajs/core";
 import { buildAppClient } from "./buildAppClient.js";
 import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
 
@@ -22,7 +22,7 @@ import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
  * request handler to read once at startup — see prodRequestHandler.ts.
  *
  * `react`/`react-dom` (real npm installs) get externalized as expected for
- * an SSR build. `@devora/core` does NOT — and correctly so, not a bug:
+ * an SSR build. `@devorajs/core` does NOT — and correctly so, not a bug:
  * its package.json `exports` points straight at `.ts` source
  * (`./src/index.ts`), not a compiled `.js` file, so plain Node `import()`
  * couldn't execute it if it stayed external. Bundling it inline is what
@@ -31,7 +31,7 @@ import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
  * confirmed the above rather than leaving it assumed.
  *
  * Real, measured cost of that: every app's SSR bundle inlines its own copy
- * of `@devora/core`, including a second copy of `react` (the parts
+ * of `@devorajs/core`, including a second copy of `react` (the parts
  * islandComponent.tsx imports) separate from the externalized one used
  * elsewhere in the same bundle — ~255KB per app, paid even by an app with
  * zero islands. Tested whether this causes an actual two-React-instances

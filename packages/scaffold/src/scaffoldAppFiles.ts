@@ -5,14 +5,14 @@ import type { AuthChoice } from "./resolveAuthChoice.js";
 export interface ScaffoldAppOptions {
   authMode: AuthChoice;
   /**
-   * Version string for the generated package.json's "@devora/core"
+   * Version string for the generated package.json's "@devorajs/core"
    * dependency. `"*"` when scaffolding *inside* this monorepo (`devora
    * new`/`add`, where `packages/core` is a sibling workspace member pnpm/
    * npm/yarn link locally) — a real pinned semver range (e.g. `"^0.1.0"`)
    * when scaffolding a genuinely standalone project (`create-devora`),
-   * where `@devora/core` is an ordinary published npm package, not a
+   * where `@devorajs/core` is an ordinary published npm package, not a
    * workspace sibling, and `"*"` would be needlessly loose for it.
-   * `"@devora/backend"` is NOT parameterized the same way — it's always the
+   * `"@devorajs/backend"` is NOT parameterized the same way — it's always the
    * scaffolded project's own local workspace package (`packages/backend`),
    * in both cases, so it always gets `"*"`.
    */
@@ -50,8 +50,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         private: true,
         type: "module",
         dependencies: {
-          "@devora/core": coreVersion,
-          "@devora/backend": "*",
+          "@devorajs/core": coreVersion,
+          "@devorajs/backend": "*",
           react: "^18.3.0",
           "react-dom": "^18.3.0",
         },
@@ -77,7 +77,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
 
   await writeFile(
     path.join(appDir, "app.config.ts"),
-    `import { defineApp } from "@devora/core/config";\n\n` +
+    `import { defineApp } from "@devorajs/core/config";\n\n` +
       `export default defineApp({\n` +
       `  defaultRenderMode: "ssr",\n` +
       `  // Opt-in, off by default — see ROADMAP.md #7. Turn on for a\n` +
@@ -104,10 +104,10 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
     path.join(appDir, "entry-server.tsx"),
     `import { createElement } from "react";\n` +
       `import { renderToString } from "react-dom/server";\n` +
-      `import { createRenderRoute, createRenderStatic } from "@devora/core";\n\n` +
+      `import { createRenderRoute, createRenderStatic } from "@devorajs/core";\n\n` +
       `// Framework SSR entry point for this app — loaded via vite.ssrLoadModule\n` +
       `// so react-dom/server resolves against this app's own node_modules. The\n` +
-      `// actual render logic lives once in @devora/core's renderRoute.ts,\n` +
+      `// actual render logic lives once in @devorajs/core's renderRoute.ts,\n` +
       `// shared by every app; this file only supplies the React bindings that\n` +
       `// genuinely can't be shared.\n` +
       `export const renderRoute = createRenderRoute({ createElement, renderToString });\n` +
@@ -197,7 +197,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
 
   await writeFile(
     path.join(appDir, "routes", "index.tsx"),
-    `import { PageShell } from "@devora/core";\n\n` +
+    `import { PageShell } from "@devorajs/core";\n\n` +
       `export const renderMode = "ssr";\n\n` +
       `export function meta() {\n` +
       `  return { title: "${appName}" };\n` +
@@ -221,8 +221,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
   if (authMode !== "none") {
     await writeFile(
       path.join(appDir, "routes", "login.tsx"),
-      `import type { RequestContext } from "@devora/core";\n` +
-        `import { redirect, CsrfField, PageShell } from "@devora/core";\n\n` +
+      `import type { RequestContext } from "@devorajs/core";\n` +
+        `import { redirect, CsrfField, PageShell } from "@devorajs/core";\n\n` +
         `export const renderMode = "ssr";\n\n` +
         `export function meta() {\n` +
         `  return { title: "Log in", description: "${appName} login (demo)" };\n` +
@@ -256,8 +256,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
 
     await writeFile(
       path.join(appDir, "routes", "logout.tsx"),
-      `import type { RequestContext } from "@devora/core";\n` +
-        `import { redirect, CsrfField, PageShell } from "@devora/core";\n\n` +
+      `import type { RequestContext } from "@devorajs/core";\n` +
+        `import { redirect, CsrfField, PageShell } from "@devorajs/core";\n\n` +
         `export const renderMode = "ssr";\n\n` +
         `export function meta() {\n` +
         `  return { title: "Log out", description: "${appName} logout" };\n` +
@@ -284,8 +284,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
 
     await writeFile(
       path.join(appDir, "routes", "account.tsx"),
-      `import type { RequestContext } from "@devora/core";\n` +
-        `import { PageShell } from "@devora/core";\n\n` +
+      `import type { RequestContext } from "@devorajs/core";\n` +
+        `import { PageShell } from "@devorajs/core";\n\n` +
         `export const renderMode = "ssr";\n\n` +
         `export function meta() {\n` +
         `  return { title: "Account", description: "${appName} account (protected demo)" };\n` +

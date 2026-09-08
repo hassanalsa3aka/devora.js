@@ -101,7 +101,7 @@ export const updateSettings = serverFn(async (input: SettingsInput, ctx) => {
 
 ```ts
 // apps/dashboard/routes/settings.ts
-import { updateSettings } from "@devora/backend/settings";
+import { updateSettings } from "@devorajs/backend/settings";
 // call it directly — same function, same DB, same logic every app uses
 ```
 
@@ -182,9 +182,9 @@ Without this section, the framework only runs as a raw Node server — which mea
 **Strategy: target open build specs, don't invent our own.** Vercel and Netlify each publish a documented, file-system-based spec that any framework can output to and get first-class platform support (Functions, Routing, Caching, ISR, etc.) — this is exactly how Astro, SvelteKit, and others integrate. Next.js is the cautionary counter-example: it uses its own private, undocumented build format instead of these open specs, which is a large part of why other platforms have historically struggled to support it well. We deliberately avoid repeating that mistake.
 
 **v1 adapters (build these, don't skip):**
-- `@devora/adapter-vercel` — outputs to Vercel's Build Output API (`.vercel/output` spec). Gets us Functions, Edge routing, and caching for free once implemented correctly.
-- `@devora/adapter-netlify` — outputs to Netlify's Frameworks API / build plugin format.
-- `@devora/adapter-node` — self-hosted fallback: a plain Node server output, paired with `devora generate:proxy` (see §10) to auto-generate a working reverse-proxy config from the domains already declared in `devora.config.ts` — no hand-editing required. This is what teams self-hosting or on AWS/DigitalOcean/etc. use.
+- `@devorajs/adapter-vercel` — outputs to Vercel's Build Output API (`.vercel/output` spec). Gets us Functions, Edge routing, and caching for free once implemented correctly.
+- `@devorajs/adapter-netlify` — outputs to Netlify's Frameworks API / build plugin format.
+- `@devorajs/adapter-node` — self-hosted fallback: a plain Node server output, paired with `devora generate:proxy` (see §10) to auto-generate a working reverse-proxy config from the domains already declared in `devora.config.ts` — no hand-editing required. This is what teams self-hosting or on AWS/DigitalOcean/etc. use.
 
 **Multi-app specific concern:** each adapter needs to understand that a project can emit *multiple* deployable units (one per app in `devora.config.ts`), not just one. This means the adapter output must map each app to its own Vercel project / Netlify site / Node process — this is genuinely new work beyond what existing adapters do, since none of them were built with "one repo, many independently-deployed apps" in mind. Budget real time here; it's the least precedented part of the whole framework.
 

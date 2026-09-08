@@ -7,7 +7,7 @@
 // under routes/ as a page (§4), so a colocated non-route file there would
 // itself become an accidentally-servable route.
 import { useEffect, useState, type ComponentType } from "react";
-import { island, Island, clientOnly, PageShell } from "@devora/core";
+import { island, Island, clientOnly, PageShell } from "@devorajs/core";
 import { DASHBOARD_NAV } from "../nav.js";
 
 export const renderMode = "ssr";

@@ -1,4 +1,4 @@
-import type { AppConfig } from "@devora/core";
+import type { AppConfig } from "@devorajs/core";
 
 /**
  * Shared port-assignment scheme for `devora start` (running every app

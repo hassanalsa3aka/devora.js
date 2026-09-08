@@ -1,4 +1,4 @@
-import type { NavLink } from "@devora/core";
+import type { NavLink } from "@devorajs/core";
 
 // One shared nav definition, reused by every route in this app — explicit
 // (CLAUDE.md §2.2), not guessed from the app name inside the shared header

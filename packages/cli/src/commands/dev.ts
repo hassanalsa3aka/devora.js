@@ -1,7 +1,7 @@
 import path from "node:path";
 import { createServer } from "vite";
-import { listRouteFiles, resolveAuthMode } from "@devora/core";
-import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devora/core/config-loader";
+import { listRouteFiles, resolveAuthMode } from "@devorajs/core";
+import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
 import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";

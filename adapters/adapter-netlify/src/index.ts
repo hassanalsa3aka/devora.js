@@ -2,7 +2,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devora/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
@@ -50,14 +50,14 @@ async function vendorRuntimeDependency(
  * expectations with a minimal shim — not a full polyfill, just the surface
  * the handler actually touches (url, method, headers, async-iterable body;
  * setHeader/statusCode/end) — then bundled via the same `bundleForDeploy`
- * adapter-vercel uses, so `@devora/core` resolves outside the monorepo here
+ * adapter-vercel uses, so `@devorajs/core` resolves outside the monorepo here
  * too (see that file for the real bugs found and fixed getting there).
  * Netlify's own function packaging (`zip-it-and-ship-it`) does its own
  * dependency tracing already, and would likely handle `react`/`react-dom`
  * (ordinary npm packages) on its own — but that claim was never actually
  * verified against a real deploy, and the identical assumption just turned
  * out to be false on Vercel (a real `Cannot find package 'react'` production
- * crash — see `vendorRuntimeDependency` above). `@devora/core` still needs
+ * crash — see `vendorRuntimeDependency` above). `@devorajs/core` still needs
  * its own inline bundling regardless (`.ts` `exports`, not something any
  * tracer built for ordinary compiled npm packages can execute), and now
  * `react`/`react-dom` are vendored in explicitly too, removing the need to
@@ -98,7 +98,7 @@ export async function writeNetlifyConfig(
 
   await writeFile(
     path.join(funcDir, "ssr.mjs"),
-    `import { createProdRequestHandler } from "@devora/core";\n` +
+    `import { createProdRequestHandler } from "@devorajs/core";\n` +
       `import { Readable } from "node:stream";\n\n` +
       `const handleRequest = createProdRequestHandler(\n` +
       `  new URL(".", import.meta.url).pathname,\n` +

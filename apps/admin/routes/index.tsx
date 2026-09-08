@@ -1,4 +1,4 @@
-import { PageShell } from "@devora/core";
+import { PageShell } from "@devorajs/core";
 import { ADMIN_NAV } from "../nav.js";
 
 export const renderMode = "ssr";

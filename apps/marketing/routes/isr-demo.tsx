@@ -8,7 +8,7 @@ export function meta() {
   return { title: "ISR demo", description: "Regenerates at most once per 5 seconds" };
 }
 
-import { PageShell } from "@devora/core";
+import { PageShell } from "@devorajs/core";
 import { MARKETING_NAV } from "../nav.js";
 
 export async function loader() {

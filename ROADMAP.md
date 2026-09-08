@@ -47,8 +47,8 @@ honestly 404s instead of mis-rendering, since only `"ssr"` is implemented.
   instead of adding React to `packages/core`), `packages/cli/src/server/ssrMiddleware.ts` (request
   handling, wired into `devora dev` via `server.middlewares.use(...)` with `appType: "custom"`).
 - **Two pre-existing gaps found and fixed/flagged while verifying this:**
-  - Root `package.json` never listed `@devora/core` as a dependency, so pnpm never linked it at
-    the repo root and `devora.config.ts` (which imports `@devora/core/config`) couldn't
+  - Root `package.json` never listed `@devorajs/core` as a dependency, so pnpm never linked it at
+    the repo root and `devora.config.ts` (which imports `@devorajs/core/config`) couldn't
     resolve at all — the CLI was unusable before this fix, unrelated to SSR specifically. Fixed.
   - The `devora` bin still doesn't run directly (`pnpm exec devora dev` fails) — Node's
     native loader won't map this codebase's `.js`-suffixed relative imports back to `.ts` sources.
@@ -231,7 +231,7 @@ There was no production SSR build pipeline at all before this — only dev-mode
   `Request` and watching it crash the test script. Fixed in both: wrapped in try/catch, logs
   server-side, returns a proper error response.
 - **The dependency-resolution gap above — resolved, not left open.** This section previously ended
-  with the generated function's `import "@devora/core"` only resolving from inside the monorepo,
+  with the generated function's `import "@devorajs/core"` only resolving from inside the monorepo,
   and called closing that "probably the single largest remaining piece of adapter work." It's
   closed: `bundleForDeploy` (`adapters/adapter-vercel/src/bundleForDeploy.ts`, duplicated in
   `adapter-netlify` — small enough that a shared package wasn't worth a new circular-dependency risk)
@@ -241,7 +241,7 @@ There was no production SSR build pipeline at all before this — only dev-mode
   - **Proven by the strictest local test available, not assumed:** copied the *actual* generated
     function directory to `/tmp`, completely outside this repo — no ancestor `node_modules`, nothing
     to fall back on — and ran it there. Before `bundleForDeploy`: `Cannot find package
-    '@devora/core'`, immediately, exactly as predicted. After: with real `react`/`react-dom`
+    '@devorajs/core'`, immediately, exactly as predicted. After: with real `react`/`react-dom`
     manually placed in a local `node_modules` (simulating what a platform's own dependency tracer
     does automatically for *ordinary* npm packages — react/react-dom were never the problem, and
     aren't re-implemented here), the full request chain works: home page renders with real content,
@@ -259,7 +259,7 @@ There was no production SSR build pipeline at all before this — only dev-mode
        hint Node's `cjs-module-lexer` uses, so a route's default-exported component silently became
        the *whole* CJS exports object one level too high — confirmed by inspecting the exact resulting
        object shape (`mod.default` was an object, not a function; `mod.default.default` was the real
-       component). Neither of these is `@devora/core`-specific; both are real esbuild/Node bundling
+       component). Neither of these is `@devorajs/core`-specific; both are real esbuild/Node bundling
        hazards.
     2. The actual fix that avoided both: keep `react`/`react-dom` **external** (not bundled) in the
        route/entry-server pass, ESM output — sidesteps the CJS-interop mess entirely, and correctly
@@ -269,13 +269,13 @@ There was no production SSR build pipeline at all before this — only dev-mode
        `packages/core/src/prodRequestHandler.ts` anyway — cheap insurance against the same gap from a
        different bundler.
     3. Bundling `entry-server.js` and each route file as *separate* esbuild invocations (no
-       `splitting`) gave each its own independent copy of `@devora/core` — harmless for stateless
+       `splitting`) gave each its own independent copy of `@devorajs/core` — harmless for stateless
        exports, but `Island.tsx`'s `IslandCollectorContext` is a React Context object, and two
        separately-bundled copies are two different objects. `useContext` in a route's copy could
        never see the Provider set up by entry-server's copy — and it failed *silently* (the
        component's own `if (!collector) return null` guard), not with an error: an island quietly
        rendered nothing instead of crashing, the kind of bug that's easy to ship unnoticed.
-       `splitting: true` (ESM-only, which this now is) shares one `@devora/core` chunk across every
+       `splitting: true` (ESM-only, which this now is) shares one `@devorajs/core` chunk across every
        file; confirmed fixed by re-running the isolated test and seeing the island's real markup
        reappear.
   - **What this does and doesn't prove:** it proves the generated function is genuinely runnable
@@ -286,11 +286,11 @@ There was no production SSR build pipeline at all before this — only dev-mode
     boundary is now much smaller than "the whole dependency story is unverified," but it hasn't
     disappeared.
 - **The ~255KB-per-app bloat: the original theory here was wrong, and the real cause — and fix —
-  turned out to be simpler.** `@devora/core`'s `package.json` `exports` pointing at raw `.ts`
+  turned out to be simpler.** `@devorajs/core`'s `package.json` `exports` pointing at raw `.ts`
   source (not compiled `.js`) is still true and still means any consumer's build bundles it inline
   rather than externalizing it. What was wrong was the explanation for *why that was expensive*:
   this section previously said the cost was "a second copy of `react`" duplicated inside the
-  bundled `@devora/core`. Directly inspecting the actual bundle's `import` statements (not
+  bundled `@devorajs/core`. Directly inspecting the actual bundle's `import` statements (not
   re-guessing) showed `react`/`react-dom` were correctly externalized the whole time — that was
   never the problem. The real cause: `packages/core/src/index.ts`'s single barrel `export *`
   re-exported `loadProjectConfig.ts`/`loadAppConfig.ts` (CLI-only, needed only by `devora dev`/
@@ -300,7 +300,7 @@ There was no production SSR build pipeline at all before this — only dev-mode
   dependency, with side-effecting internals) was safe to drop, so every SSR build pulled in the
   entire `jiti` transpile-on-demand loader — that was the ~255KB.
   - **Fix, verified by measuring before and after, not assumed:** split the barrel.
-    `loadProjectConfig`/`loadAppConfig`/`resolveAppDir` moved to a new `@devora/core/config-loader`
+    `loadProjectConfig`/`loadAppConfig`/`resolveAppDir` moved to a new `@devorajs/core/config-loader`
     subpath (`packages/core/src/configLoader.ts`); the four CLI files that used them
     (`dev.ts`/`build.ts`/`start.ts`/`generate-proxy.ts`) now import from that subpath instead of the
     main entry. Result, on the real (unmodified) build path: `apps/marketing`'s `entry-server.js`
@@ -309,14 +309,14 @@ There was no production SSR build pipeline at all before this — only dev-mode
     sitemap, headers, `generate:proxy`) confirmed nothing else broke.
   - **What was actually tried and ruled out along the way:** `ssr.external: true` (verified to
     change nothing — the real reason, understood only after this investigation, is that
-    `@devora/core`'s `exports` point at `.ts` source, which plain Node can't execute even if
+    `@devorajs/core`'s `exports` point at `.ts` source, which plain Node can't execute even if
     "externalized", so Vite has no choice but to process it); a `resolve.alias` pointing
-    `@devora/core` at a real compiled `dist/index.js` instead of raw source (built one via `tsc`,
+    `@devorajs/core` at a real compiled `dist/index.js` instead of raw source (built one via `tsc`,
     confirmed with a real test — see below — that plain Node could import it; then verified the
     alias made *no measurable difference* to bundle size, because the bloat was never about
     TS-vs-compiled-JS in the first place).
   - **`packages/core` now has a real, working, verified build step anyway — kept as a documented,
-    standalone capability, not wired into the hot path.** `pnpm --filter @devora/core build` (a
+    standalone capability, not wired into the hot path.** `pnpm --filter @devorajs/core build` (a
     real `"build": "tsc"` script) produces `dist/` with compiled `.js` + `.d.ts`; confirmed by
     actually importing `dist/index.js` with plain `node` (no `tsx`) and calling a real exported
     function successfully — the exact thing that failed earlier in this document (ROADMAP.md #4's
@@ -536,14 +536,14 @@ all correctly falling back or overriding as designed.
 
 Two compounding bugs, both reproduced directly before fixing anything: (1) pnpm never linked the
 `devora` bin into any `node_modules/.bin` at all — no workspace package (including the root) ever
-declared `@devora/cli` as a dependency, which is what pnpm requires to link a workspace bin; fixed
+declared `@devorajs/cli` as a dependency, which is what pnpm requires to link a workspace bin; fixed
 by adding it to root `devDependencies`. (2) Even a linked bin failed under plain Node with
 `ERR_MODULE_NOT_FOUND`: `packages/cli/src/index.ts`'s relative imports use `.js` specifiers over
 `.ts` sources (`./commands/dev.js`, no such file on disk) — plain Node's native TS handling doesn't
 remap `.js` → `.ts` the way `tsx`/`ts-node` do.
 
 **A third, undocumented issue found while fixing this, not anticipated in advance**: fixing only
-`packages/cli` isn't enough. `@devora/core`'s and every `@devora/adapter-*` package's `exports`
+`packages/cli` isn't enough. `@devorajs/core`'s and every `@devorajs/adapter-*` package's `exports`
 field *also* points at raw `.ts` source (needed so Vite/`tsx` resolve them live during development) —
 so even a correctly-compiled CLI entry would immediately fail again the moment `dev.ts`/`build.ts`/
 `start.ts` import them. Repointing those packages' `exports` at compiled output was ruled out (would
@@ -555,19 +555,19 @@ by plain Node" problem — inlining every workspace-local package while keeping 
 (`commander`, `vite`, `esbuild`, `jiti`) external and resolvable from `packages/cli`'s own
 `node_modules` (confirmed empirically that none of those four are resolvable from a plain-Node
 import otherwise). `react` is deliberately *not* external — it's pulled in only transitively via
-`@devora/core`'s barrel and isn't a declared dependency of `packages/cli` itself, so marking it
+`@devorajs/core`'s barrel and isn't a declared dependency of `packages/cli` itself, so marking it
 external would leave an unresolvable bare specifier; bundling it in is correct and cheap (confirmed
 by inspecting the real bundled output, not assumed).
 - **Where:** `packages/cli/build.mjs` (new), `packages/cli/package.json` (`"bin"` → `"./dist/
   index.js"`, new `esbuild` devDependency, `"build"`/`"prepare"` scripts — the latter means a fresh
   `pnpm install` produces `dist/` automatically, confirmed by deleting `dist/` and re-running
-  `pnpm install`), root `package.json` (`"@devora/cli": "*"` devDependency).
+  `pnpm install`), root `package.json` (`"@devorajs/cli": "*"` devDependency).
 - **Verified end-to-end, not just "it builds":** fresh `pnpm install` → `node_modules/.bin/devora`
   exists → `pnpm exec devora --help`/`dev --app=dashboard`/`build --app=dashboard` (no adapter — the
   specific case that would fail without inlining the adapter packages)/`build --app=dashboard
   --adapter=vercel`/`--adapter=netlify`/`start --app=dashboard`, all producing output identical to
   the already-verified `tsx`-driven behavior (real SSR content, real Vercel/Netlify output written).
-- **Not addressed:** whether a real end user's `pnpm add -D @devora/cli` (installing this as a
+- **Not addressed:** whether a real end user's `pnpm add -D @devorajs/cli` (installing this as a
   published package rather than a workspace member) behaves identically — untested, since this
   package has never been published; the `prepare` script is the mechanism that would matter there.
 
@@ -992,8 +992,8 @@ before making the repo public. Recorded here since it included a real, repo-wide
   depth in the monorepo — no leading/internal slash, so git already applied them repo-wide;
   confirmed against gitignore's own documented matching rules, not assumed). Added `.env`/`.env.*`
   (with `!.env.example` to keep the template committed) and `.DS_Store`.
-- **`@project/*` → `@devora/*` rename** — `@project/core` and `@project/backend` renamed to
-  `@devora/core`/`@devora/backend` across every `package.json`, every import (61 files), and all
+- **`@project/*` → `@devorajs/*` rename** — `@project/core` and `@project/backend` renamed to
+  `@devorajs/core`/`@devorajs/backend` across every `package.json`, every import (61 files), and all
   four docs (a genuine deviation from this project's own "packages/core is user-space, only
   cli/adapters are framework-branded" assumption from earlier in this document — re-examining
   `packages/core/src` directly showed it's 100% framework internals now — router, session, CSRF,
@@ -1001,7 +1001,7 @@ before making the repo public. Recorded here since it included a real, repo-wide
   app correctly stayed `@project/*`, since those genuinely are meant to be user-owned). Regenerated
   `pnpm-lock.yaml` from scratch; full regression pass after — `dev`/`build`/`build --adapter=vercel`/
   `--adapter=netlify`/`start`/`deploy`/`add`/`remove`/`list` all re-verified against real running
-  servers, including the shared-backend cross-package call (`@devora/backend` → `@devora/core`'s
+  servers, including the shared-backend cross-package call (`@devorajs/backend` → `@devorajs/core`'s
   `requireAuth()`) and the isolated-admin session cookie — then smoke-tested again under a fresh npm
   install (not just pnpm) before restoring pnpm as the resting state. One line-wrapped
   `` `@project/\ncore` `` instance in README.md's own prose was missed by the mechanical rename (a

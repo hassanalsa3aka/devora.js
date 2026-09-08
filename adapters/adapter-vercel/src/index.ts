@@ -2,7 +2,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devora/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isVercelLinked, deployToVercel } from "./deploy.js";
@@ -115,7 +115,7 @@ export async function writeVercelOutput(
 
   await writeFile(
     path.join(funcDir, "index.mjs"),
-    `import { createProdRequestHandler } from "@devora/core";\n\n` +
+    `import { createProdRequestHandler } from "@devorajs/core";\n\n` +
       `// appRoot is this function's own directory — routes/ and dist/server\n` +
       `// were copied in alongside this file by writeVercelOutput.\n` +
       `const handleRequest = createProdRequestHandler(\n` +

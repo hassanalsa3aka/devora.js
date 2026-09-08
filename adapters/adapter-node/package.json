@@ -1,11 +1,11 @@
 {
-  "name": "@devora/adapter-node",
+  "name": "@devorajs/adapter-node",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Self-hosted fallback adapter — plain Node server output, paired with `framework generate:proxy`.",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@devora/core": "*"
+    "@devorajs/core": "*"
   }
 }

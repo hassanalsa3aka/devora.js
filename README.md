@@ -6,7 +6,7 @@ admin multi-app, one shared backend by default, security-first, no built-in ORM/
 ## What's wired up for real
 
 - `devora.config.ts` — loaded and validated by `packages/core/src/loadProjectConfig.ts` (exposed as
-  `@devora/core/config-loader`) via `jiti` (no `eval`, see `packages/core/DEPENDENCIES.md`).
+  `@devorajs/core/config-loader`) via `jiti` (no `eval`, see `packages/core/DEPENDENCIES.md`).
 - **The SSR request handler** (`renderMode: "ssr"`, still the default a route gets if it declares no
   `renderMode` at all): `devora dev` matches a request to a route file
   (`packages/core/src/router.ts`, file-based, static segments only for now — dynamic segments like
@@ -102,7 +102,7 @@ admin multi-app, one shared backend by default, security-first, no built-in ORM/
   *and* client, including island assets — into their platform's function/static format, generate a
   function calling the same `createProdRequestHandler` adapter-node uses, then run it through a real
   `esbuild` bundling pass (`bundleForDeploy`, a genuine new dependency of both adapter packages) so
-  `@devora/core` resolves without the surrounding monorepo. Verified in the strictest way available
+  `@devorajs/core` resolves without the surrounding monorepo. Verified in the strictest way available
   without an actual platform: copied the real generated function to a directory completely outside
   this repo (no ancestor `node_modules` at all) and ran it there — home page renders with real
   content, login sets a real cookie, an authenticated write reaches the same DB-stub error as
@@ -116,14 +116,14 @@ admin multi-app, one shared backend by default, security-first, no built-in ORM/
   for the full account, including what was tried and ruled out.
 - **SSR bundle size, fixed with a real, measured 98% reduction** — not the fix originally guessed.
   This document previously theorized the ~255KB-per-app SSR bundle bloat was a duplicated copy of
-  React from `@devora/core` not being externalized; directly inspecting the bundle's actual
+  React from `@devorajs/core` not being externalized; directly inspecting the bundle's actual
   `import` statements showed React was fine the whole time. The real cause: `packages/core`'s single
   barrel export mixed CLI-only config-loading code (which needs `jiti`) into the same entry point
   SSR routes import from, so every SSR build pulled in the entire `jiti` loader even though nothing
-  at runtime ever calls it. Fixed by splitting it into `@devora/core/config-loader` (see
+  at runtime ever calls it. Fixed by splitting it into `@devorajs/core/config-loader` (see
   `packages/core/src/configLoader.ts`); `apps/marketing`'s `entry-server.js` went from 259.79KB to
   5.23KB, measured before and after on the real build path, not assumed. `packages/core` also picked
-  up a real, working, verified build step (`pnpm --filter @devora/core build`, confirmed importable
+  up a real, working, verified build step (`pnpm --filter @devorajs/core build`, confirmed importable
   by plain Node without `tsx`) as a separate, smaller improvement — kept available but not wired into
   the build pipeline, since it wasn't what fixed the bloat. See `ROADMAP.md` #4 for the full
   investigation, including what was tried and ruled out along the way.
@@ -132,8 +132,8 @@ admin multi-app, one shared backend by default, security-first, no built-in ORM/
 
 - **The `devora` CLI bin runs directly** — `pnpm exec devora dev/build/start` all work now, zero
   `tsx` in the invocation. Two compounding bugs: pnpm never linked the bin (no workspace package
-  depended on `@devora/cli` — fixed via a root `devDependency`), and the bin's own `.js`-suffixed
-  imports over `.ts` sources fail under plain Node. Fixing just those two wasn't enough — `@devora/
+  depended on `@devorajs/cli` — fixed via a root `devDependency`), and the bin's own `.js`-suffixed
+  imports over `.ts` sources fail under plain Node. Fixing just those two wasn't enough — `@devorajs/
   core` and every adapter package also export raw `.ts`, so the bin needs everything workspace-local
   bundled in. `packages/cli/build.mjs` does this with `esbuild` (same technique the Vercel/Netlify
   adapters' `bundleForDeploy.ts` already uses), keeping `commander`/`vite`/`esbuild`/`jiti` external.
@@ -181,8 +181,8 @@ logo's own blue-to-purple gradient as the accent, with an automatic light varian
 `prefers-color-scheme` and zero client JS/toggle button needed) and `packages/core/src/branding.tsx`
 (`<AppHeader>`/`<PageShell>` — the real logo + "devora.js" wordmark + an app-name badge). Every
 route across all three apps uses `<PageShell>` instead of a bare `<main>`. A route that's also built
-for the browser (`renderMode: "csr"`) must import these from **`@devora/core/client`**, not the
-main `@devora/core` entry — a real bug found wiring this up: the main barrel's `export *` reaches
+for the browser (`renderMode: "csr"`) must import these from **`@devorajs/core/client`**, not the
+main `@devorajs/core` entry — a real bug found wiring this up: the main barrel's `export *` reaches
 server-only code (`node:crypto` in `csrf.ts`, `node:fs`/`node:http` in `prodRequestHandler.ts`/
 `router.ts`), which breaks outright when Vite tries to bundle it for a browser target.
 `apps/dashboard/routes/csr-demo.tsx` hit this directly
@@ -482,7 +482,7 @@ all three managers, both with and without the separator, and confirmed the plain
 ### Cross-package-manager notes
 
 - **pnpm needs one piece of config that npm/Yarn don't** — the root `.npmrc` sets
-  `link-workspace-packages=true`. Without it, pnpm treats a plain `"*"` on `@devora/core` (etc.) as
+  `link-workspace-packages=true`. Without it, pnpm treats a plain `"*"` on `@devorajs/core` (etc.) as
   "fetch this from the real npm registry" rather than "link the local workspace package," and fails
   outright with `ERR_PNPM_FETCH_404` (confirmed by actually running `pnpm install` without this
   setting, not assumed). npm and Yarn don't need this — their workspace resolution prefers a
@@ -510,7 +510,7 @@ all three managers, both with and without the separator, and confirmed the plain
   (`0.28.2` under npm's root `tsx`, `0.21.5` under the adapters' pinned range) — expected, harmless,
   not a bug; each package's own declared range was satisfied either way.
 
-The `devora` bin (`packages/cli/dist/index.js`, built by `pnpm --filter @devora/cli build` — a real
+The `devora` bin (`packages/cli/dist/index.js`, built by `pnpm --filter @devorajs/cli build` — a real
 `esbuild` bundle, wired to run automatically on install via a `prepare` script) runs directly under
 all three package managers — re-verified specifically for this bin mechanism (a separate check from
 the multi-manager pass above, which predates the bin working at all): fresh `npm install`/`yarn

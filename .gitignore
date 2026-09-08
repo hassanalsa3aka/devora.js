@@ -23,7 +23,7 @@ Caddyfile
 # install anywhere that isn't run twice. Committing the built file removes
 # the race entirely (the bin target already exists from git; `prepare` just
 # refreshes it moments later, same path, no relink needed). Re-run
-# `pnpm --filter @devora/cli build` and commit the result after editing
+# `pnpm --filter @devorajs/cli build` and commit the result after editing
 # anything under packages/cli/src.
 !packages/cli/dist/
 !packages/cli/dist/index.js

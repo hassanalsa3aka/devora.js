@@ -1,7 +1,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
-import { resolveAuthChoice, scaffoldAppFiles } from "@devora/scaffold";
+import { resolveAuthChoice, scaffoldAppFiles } from "@devorajs/scaffold";
 
 /**
  * Scaffolds a new app and registers it in devora.config.ts — the shared
@@ -11,7 +11,7 @@ import { resolveAuthChoice, scaffoldAppFiles } from "@devora/scaffold";
  * working).
  *
  * The per-app file template itself (`entry-server.tsx`, `vercel.json`,
- * `routes/`, etc.) now lives once in `@devora/scaffold`'s `scaffoldAppFiles`
+ * `routes/`, etc.) now lives once in `@devorajs/scaffold`'s `scaffoldAppFiles`
  * — shared with `create-devora` (the standalone `npx create-devora`
  * installer, which scaffolds a brand-new project from an empty directory,
  * before any `devora.config.ts` exists to register an app *into*). Only
@@ -35,9 +35,9 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
 
   const authMode = await resolveAuthChoice(opts.auth, appName);
 
-  // "*" — inside this monorepo, @devora/core is a sibling workspace
+  // "*" — inside this monorepo, @devorajs/core is a sibling workspace
   // package, not an ordinary published npm dependency. See
-  // ScaffoldAppOptions's doc comment in @devora/scaffold for the contrast
+  // ScaffoldAppOptions's doc comment in @devorajs/scaffold for the contrast
   // with create-devora, which passes a real pinned version here instead.
   await scaffoldAppFiles(appDir, appName, { authMode, coreVersion: "*" });
 

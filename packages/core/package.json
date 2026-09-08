@@ -1,7 +1,13 @@
 {
-  "name": "@devora/core",
+  "name": "@devorajs/core",
   "version": "0.1.0",
-  "private": true,
+  "description": "Devora.js framework internals — SSR request handling, sessions/CSRF, security headers, islands, config loading. Not a standalone library; used by @devorajs/cli-scaffolded apps.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc"
@@ -12,8 +18,35 @@
     "./config-loader": "./src/configLoader.ts",
     "./client": "./src/client.ts"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "default": "./dist/config.js"
+      },
+      "./config-loader": {
+        "types": "./dist/configLoader.d.ts",
+        "default": "./dist/configLoader.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "default": "./dist/client.js"
+      }
+    }
+  },
   "dependencies": {
-    "jiti": "^2.3.0",
+    "jiti": "^2.3.0"
+  },
+  "peerDependencies": {
     "react": "^18.3.0"
   },
   "devDependencies": {
@@ -21,6 +54,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "vitest": "^2.1.0"
   }

@@ -9,7 +9,7 @@ import {
   readIslandClientUrl,
   type RouteModule,
   type RenderMode,
-} from "@devora/core";
+} from "@devorajs/core";
 
 /**
  * Build-time pre-render for `ssg`/`isr` routes — the piece that was

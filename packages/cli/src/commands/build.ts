@@ -1,4 +1,4 @@
-import { loadProjectConfig } from "@devora/core/config-loader";
+import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
 
 export async function build(opts: { app?: string; adapter?: string }) {

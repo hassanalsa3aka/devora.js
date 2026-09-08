@@ -1,4 +1,4 @@
-import type { NavLink } from "@devora/core";
+import type { NavLink } from "@devorajs/core";
 
 // Same reasoning as apps/dashboard/nav.ts — login/logout excluded on purpose.
 export const ADMIN_NAV: NavLink[] = [
