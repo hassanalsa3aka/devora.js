@@ -8,6 +8,11 @@
     "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
     "directory": "create-devora"
   },
+  "homepage": "https://github.com/hassanalsa3aka/devora.js#readme",
+  "bugs": {
+    "url": "https://github.com/hassanalsa3aka/devora.js/issues"
+  },
+  "keywords": ["devora", "create-devora", "scaffold", "framework", "ssr", "vite", "multi-app"],
   "type": "module",
   "bin": {
     "create-devora": "./dist/index.js"

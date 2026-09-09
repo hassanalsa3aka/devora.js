@@ -8,6 +8,11 @@
     "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
     "directory": "adapters/adapter-netlify"
   },
+  "homepage": "https://github.com/hassanalsa3aka/devora.js#readme",
+  "bugs": {
+    "url": "https://github.com/hassanalsa3aka/devora.js/issues"
+  },
+  "keywords": ["devora", "netlify", "adapter", "ssr", "vite", "deploy"],
   "type": "module",
   "scripts": {
     "build": "tsc"

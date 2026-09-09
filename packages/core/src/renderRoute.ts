@@ -25,6 +25,9 @@ export interface RenderRouteRequest {
   method: string;
   formData?: FormData;
   cookieHeader?: string;
+  /** Values captured from any `[param]` segments the route matched on
+   * (router.ts) — empty/absent for a route with no dynamic segments. */
+  params?: Record<string, string>;
   /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
   sessionCookieOptions?: SessionCookieOptions;
   /** Where to fetch the island hydration bootstrap — dev: "/island-client.tsx";
@@ -100,8 +103,8 @@ export function createRenderRoute(deps: RenderRouteDeps) {
     }
 
     const { ctx, csrfToken, getSetCookie } = request.sessionCookieOptions
-      ? createRequestContext(request.cookieHeader, request.sessionCookieOptions)
-      : createNoAuthContext();
+      ? createRequestContext(request.cookieHeader, request.sessionCookieOptions, request.params)
+      : createNoAuthContext(request.params);
 
     if (request.method === "POST" && request.formData && routeModule.action) {
       const actionResult = await routeModule.action(request.formData, ctx);

@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import {
   listRouteFiles,
   routeFileToPath,
+  isDynamicRouteFile,
   toBuildKey,
   resolveRenderMode,
   writeCachedRoute,
@@ -44,6 +45,17 @@ export async function buildAppStatic(
     if (routeModule.action) {
       throw new Error(
         `[devora] route "${key}" is renderMode: "${mode}" but exports action — actions never run for ${mode} routes.`
+      );
+    }
+    // A dynamic route (`[id].tsx`) has no fixed set of URLs to pre-render —
+    // there's no static-params API yet to know which values exist (see
+    // router.ts). Fail the build loudly rather than pre-rendering the
+    // literal "[id]" segment as if it were a real page.
+    if (isDynamicRouteFile(routesDir, filePath)) {
+      throw new Error(
+        `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: ` +
+          `"${mode}") — dynamic routes don't support ssg/isr yet (no static-params API). Use ` +
+          `renderMode: "ssr" or "csr" instead.`
       );
     }
 

@@ -7,6 +7,7 @@ import {
   resolveSessionCookieOptions,
   resolveRenderMode,
   renderCsrShell,
+  isDynamicRouteFile,
   type AuthMode,
   type RenderMode,
   type RouteModule,
@@ -98,6 +99,7 @@ export function createSsrMiddleware(
             method: string;
             formData?: FormData;
             cookieHeader?: string;
+            params?: Record<string, string>;
             sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
             appDefaultRenderMode?: RenderMode;
@@ -120,6 +122,17 @@ export function createSsrMiddleware(
               `actions never run for ${renderMode} routes.`
           );
         }
+        // A dynamic route (`[id].tsx`) has no fixed set of URLs to
+        // pre-render — there's no static-params API yet to know which
+        // values exist (router.ts). ssr/csr both still work on it; only
+        // ssg/isr specifically can't, and fail loudly here instead of
+        // silently pre-rendering the literal "[id]" segment.
+        if (isDynamicRouteFile(routesDir, match.filePath)) {
+          throw new Error(
+            `[devora] route "${match.routePath}" is a dynamic route (renderMode: "${renderMode}") — ` +
+              `dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
+          );
+        }
         const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl: "/island-client.tsx" });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -132,6 +145,7 @@ export function createSsrMiddleware(
         method: req.method ?? "GET",
         formData,
         cookieHeader: req.headers.cookie,
+        params: match.params,
         sessionCookieOptions,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see ROADMAP.md #4.

@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/hassanalsa3aka/devora.js/main/assets/icons/devorajs-logo-withoutbg.png" alt="Devora.js" width="64" />
+
 # @devorajs/core
 
 Framework internals for [devora.js](https://github.com/hassanalsa3aka/devora.js) — the SSR

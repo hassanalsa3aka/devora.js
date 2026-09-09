@@ -18,6 +18,7 @@ Real Vitest unit tests exist for `@devorajs/core` and one CLI utility — nowher
 | `packages/core/src/__tests__/config.test.ts` | `devora.config.ts` validation |
 | `packages/core/src/__tests__/isrCache.test.ts` | ISR disk cache staleness/regeneration |
 | `packages/core/src/__tests__/renderRoute.test.ts` | Route rendering, redirects, render-mode dispatch |
+| `packages/core/src/__tests__/router.test.ts` | Static + dynamic route matching, params, sitemap filtering |
 | `packages/cli/src/build/__tests__/checkNoAuthUsage.test.ts` | Build-time `auth: "none"` misuse detection |
 
 `.github/workflows/ci.yml` also runs a real `devora build` for every app under all three build
@@ -66,10 +67,14 @@ by hand. Areas covered this way:
 - **A DB client under real production load.** A real Drizzle + `better-sqlite3` client was wired
   in and verified end-to-end during development, then reverted (the framework ships no built-in
   ORM by design) — see `ROADMAP.md` #6 for a genuine native-binding/Vite-SSR-reload hazard it
-  surfaced, worth reading before picking a driver.
+  surfaced, and `packages/backend/DATABASE.md` for a since-verified fix pattern (not shipped as
+  the default). Not verified under sustained real production load/concurrency.
 
 ## Known unsupported, not silently missing
 
-- **Dynamic route segments** (`routes/users/[id].tsx`) — routing is static-segment-only for now.
+- **Dynamic routes (`[id].tsx`) don't support `ssg`/`isr`.** `ssr`/`csr` both work — verified
+  end-to-end in dev, a real production build, `adapter-node`, and both Vercel/Netlify build
+  targets; `ssg`/`isr` on a dynamic route fails the build with a clear error instead, since there's
+  no static-params API yet to know which concrete values to pre-render.
 - **`renderMode: "streaming"`** — typed and listed, not implemented. Needs a Suspense-boundary
   island rewrite; planned for v2 (see `ROADMAP.md`).

@@ -8,6 +8,11 @@
     "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/hassanalsa3aka/devora.js#readme",
+  "bugs": {
+    "url": "https://github.com/hassanalsa3aka/devora.js/issues"
+  },
+  "keywords": ["devora", "framework", "ssr", "vite", "react", "multi-app", "typescript"],
   "type": "module",
   "scripts": {
     "build": "tsc"

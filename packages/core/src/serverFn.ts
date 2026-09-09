@@ -11,6 +11,9 @@
  */
 
 export interface RequestContext {
+  /** Values captured from any `[param]` segments in the matched route file's
+   * path (router.ts) — empty object for a route with no dynamic segments. */
+  params: Record<string, string>;
   /** Throws if there is no authenticated session. Session shape is bring-your-own. */
   requireAuth: () => void;
   /** The current session, if any — undefined when unauthenticated. */

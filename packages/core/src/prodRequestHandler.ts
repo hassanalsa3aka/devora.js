@@ -162,6 +162,7 @@ export function createProdRequestHandler(
           method: string;
           formData?: FormData;
           cookieHeader?: string;
+          params?: Record<string, string>;
           sessionCookieOptions: typeof sessionCookieOptions;
           islandClientUrl?: string;
           appDefaultRenderMode?: RenderMode;
@@ -175,6 +176,7 @@ export function createProdRequestHandler(
       method: req.method ?? "GET",
       formData,
       cookieHeader: req.headers.cookie,
+      params: match.params,
       sessionCookieOptions,
       islandClientUrl,
       appDefaultRenderMode,

@@ -9,6 +9,7 @@ import type { RequestContext } from "./serverFn.js";
  */
 export function createBuildTimeContext(): RequestContext {
   return {
+    params: {},
     session: undefined,
     requireAuth: () => {
       throw new Error("[devora] requireAuth() is not available at build time (ssg/isr routes render without a request)");

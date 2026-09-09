@@ -129,7 +129,8 @@ export interface RequestContextResult {
 
 export function createRequestContext(
   cookieHeader: string | undefined,
-  cookieOptions: SessionCookieOptions
+  cookieOptions: SessionCookieOptions,
+  params: Record<string, string> = {}
 ): RequestContextResult {
   const cookies = parseCookieHeader(cookieHeader);
   let currentSession = verifySession(cookies[cookieOptions.name], cookieOptions);
@@ -145,6 +146,7 @@ export function createRequestContext(
   }
 
   const ctx: RequestContext = {
+    params,
     get session() {
       return currentSession;
     },
@@ -197,8 +199,9 @@ function sessionsDisabledError(method: string): Error {
  * does nothing. See also `checkNoAuthUsage.ts` for the build-time version
  * of this same check, which catches the common case earlier.
  */
-export function createNoAuthContext(): RequestContextResult {
+export function createNoAuthContext(params: Record<string, string> = {}): RequestContextResult {
   const ctx: RequestContext = {
+    params,
     session: undefined,
     requireAuth: () => {
       throw sessionsDisabledError("requireAuth");

@@ -3133,13 +3133,32 @@ import fs from "node:fs";
 import path from "node:path";
 var ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
 function matchRoute(routesDir, urlPath) {
-  const normalized = normalizePath(urlPath);
+  const urlSegments = segmentsOf(normalizePath(urlPath));
+  let best = null;
   for (const filePath of collectRouteFiles(routesDir)) {
-    if (fileToRoutePath(routesDir, filePath) === normalized) {
-      return { filePath, routePath: normalized };
+    const routeSegments = fileToRouteSegments(routesDir, filePath);
+    if (routeSegments.length !== urlSegments.length) continue;
+    const params = {};
+    let dynamicCount = 0;
+    let matched = true;
+    for (let i = 0; i < routeSegments.length; i++) {
+      const routeSeg = routeSegments[i];
+      const urlSeg = urlSegments[i];
+      if (isDynamicSegment(routeSeg)) {
+        params[paramName(routeSeg)] = decodeURIComponent(urlSeg);
+        dynamicCount++;
+      } else if (routeSeg !== urlSeg) {
+        matched = false;
+        break;
+      }
+    }
+    if (!matched) continue;
+    if (!best || dynamicCount < best.dynamicCount) {
+      best = { filePath, params, dynamicCount };
     }
   }
-  return null;
+  if (!best) return null;
+  return { filePath: best.filePath, routePath: normalizePath(urlPath), params: best.params };
 }
 function listRoutePaths(routesDir) {
   return collectRouteFiles(routesDir).map((filePath) => fileToRoutePath(routesDir, filePath));
@@ -3150,9 +3169,21 @@ function listRouteFiles(routesDir) {
 function routeFileToPath(routesDir, filePath) {
   return fileToRoutePath(routesDir, filePath);
 }
+function isDynamicRouteFile(routesDir, filePath) {
+  return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
+}
+function isDynamicSegment(segment) {
+  return segment.startsWith("[") && segment.endsWith("]") && segment.length > 2;
+}
+function paramName(segment) {
+  return segment.slice(1, -1);
+}
 function normalizePath(urlPath) {
   if (urlPath === "" || urlPath === "/") return "/";
   return urlPath.replace(/\/+$/, "");
+}
+function segmentsOf(normalized) {
+  return normalized === "/" ? [] : normalized.slice(1).split("/");
 }
 function collectRouteFiles(routesDir) {
   if (!fs.existsSync(routesDir)) return [];
@@ -3167,11 +3198,15 @@ function collectRouteFiles(routesDir) {
   }
   return files;
 }
-function fileToRoutePath(routesDir, filePath) {
+function fileToRouteSegments(routesDir, filePath) {
   const rel = path.relative(routesDir, filePath);
   const noExt = rel.slice(0, -path.extname(rel).length);
   const segments = noExt.split(path.sep);
   if (segments[segments.length - 1] === "index") segments.pop();
+  return segments;
+}
+function fileToRoutePath(routesDir, filePath) {
+  const segments = fileToRouteSegments(routesDir, filePath);
   return segments.length === 0 ? "/" : "/" + segments.join("/");
 }
 
@@ -3457,7 +3492,7 @@ function resolveSecurityHeaders(security) {
 
 // ../core/src/sitemap.ts
 function generateSitemapXml(routePaths, domain) {
-  const urls = routePaths.map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
+  const urls = routePaths.filter((routePath) => !routePath.includes("[")).map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
@@ -3474,7 +3509,7 @@ import path2 from "node:path";
 function toBuildKey(appRoot, filePath) {
   const rel = path2.relative(appRoot, filePath);
   const noExt = rel.slice(0, -path2.extname(rel).length);
-  return noExt.split(path2.sep).join("/");
+  return noExt.split(path2.sep).join("/").replace(/[[\]]/g, "_");
 }
 
 // ../core/src/prodRequestHandler.ts
@@ -3612,6 +3647,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       method: req.method ?? "GET",
       formData,
       cookieHeader: req.headers.cookie,
+      params: match.params,
       sessionCookieOptions,
       islandClientUrl,
       appDefaultRenderMode
@@ -3773,6 +3809,11 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
             `[devora] route "${match.routePath}" is renderMode: "${renderMode}" but exports action \u2014 actions never run for ${renderMode} routes.`
           );
         }
+        if (isDynamicRouteFile(routesDir, match.filePath)) {
+          throw new Error(
+            `[devora] route "${match.routePath}" is a dynamic route (renderMode: "${renderMode}") \u2014 dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
+          );
+        }
         const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl: "/island-client.tsx" });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -3784,6 +3825,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         method: req.method ?? "GET",
         formData,
         cookieHeader: req.headers.cookie,
+        params: match.params,
         sessionCookieOptions,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see ROADMAP.md #4.
@@ -4135,6 +4177,11 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode) {
     if (routeModule.action) {
       throw new Error(
         `[devora] route "${key}" is renderMode: "${mode}" but exports action \u2014 actions never run for ${mode} routes.`
+      );
+    }
+    if (isDynamicRouteFile(routesDir, filePath)) {
+      throw new Error(
+        `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: "${mode}") \u2014 dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
       );
     }
     const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });

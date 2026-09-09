@@ -33,6 +33,20 @@ build format standing between you and a plain reverse proxy if you ever need one
 - Docs site, built with the published npm packages rather than this monorepo:
   [devorajs-docs-docs.vercel.app](https://devorajs-docs-docs.vercel.app)
 
+## Screenshots
+
+The same shared header/theme (`<PageShell>`) across all three apps — one design, not three ad
+hoc ones.
+
+**Marketing** (`auth: "none"` — no login anywhere on this app)
+![marketing](assets/screenshots/marketing.png)
+
+**Dashboard** (`auth: "shared"` — an island counter and a `clientOnly()` widget)
+![dashboard](assets/screenshots/dashboard.png)
+
+**Admin** (`auth: "isolated"` — its own session cookie, separate from the other two)
+![admin](assets/screenshots/admin.png)
+
 ## Quickstart
 
 ```bash
@@ -62,6 +76,8 @@ under each.
   the whole cookie/session carrier for apps that don't need login, like a marketing site).
 - **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
+- **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
+  `ctx.params.id`. A static route at the same depth always wins over a dynamic one.
 - **Deploy anywhere** — Vercel, Netlify, Docker, or a plain VPS with a generated nginx/Caddy
   config. See `DEPLOYING.md`.
 - **No built-in ORM or auth provider** — bring your own (Prisma, Drizzle, Clerk, Lucia, whatever
@@ -71,8 +87,9 @@ under each.
 
 Stated plainly, not buried:
 
-- **No dynamic routes yet.** `routes/users/[id].tsx` isn't supported — file-based routing is
-  static segments only, for now.
+- **Dynamic routes don't support `ssg`/`isr` yet.** `ssr` and `csr` both work on a `[id].tsx`
+  route; pre-rendering one at build time needs a static-params API this doesn't have yet, and
+  fails the build with a clear error rather than silently mis-building.
 - **No streaming SSR yet.** `renderMode: "streaming"` is typed but not implemented — it needs a
   Suspense-boundary-based rewrite of how islands hydrate, planned for v2.
 - **`devora deploy` (the CLI's own deploy command) hasn't completed a real authenticated deploy.**
@@ -84,7 +101,9 @@ Stated plainly, not buried:
   function's filesystem isn't guaranteed to persist between requests, so ongoing background
   regeneration there hasn't been verified (the initial build's output still serves correctly).
 - **No DB client, by design.** Framework internals never touch a database — you bring your own
-  ORM. See architecture-v1.md §6.
+  ORM (architecture-v1.md §6). If you use a driver with native bindings, see
+  `packages/backend/DATABASE.md` for a verified pattern that avoids a real crash this framework's
+  own dev server can otherwise cause.
 
 ## Testing
 
@@ -112,6 +131,7 @@ please open an issue.
 - 🚀 [Deploying](DEPLOYING.md) — Vercel, Netlify, Docker, self-hosted VPS, CI
 - ✅ [Testing & verification](VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)
+- 🤝 [Contributing](CONTRIBUTING.md)
 
 ## Status
 

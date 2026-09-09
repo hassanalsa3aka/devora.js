@@ -40,6 +40,7 @@ for exactly how):
 - Security headers (CSP/HSTS/X-Frame-Options) on by default — #5
 - Islands / partial hydration, in dev and production — #3
 - SEO primitives: OG tags, opt-in `sitemap.xml` — #7
+- Dynamic routes (`routes/users/[id].tsx`) for `ssr`/`csr` — #1
 - `clientOnly()` — #9
 - The `devora` CLI, working under npm/Yarn/pnpm — #8
 - `adapter-node`, `adapter-vercel`, `adapter-netlify` — build output verified in isolation — #4
@@ -58,7 +59,7 @@ for exactly how):
 
 **Planned (v2):**
 - `renderMode: "streaming"` — needs a Suspense-boundary-based island rewrite — #12
-- Dynamic route segments (`routes/users/[id].tsx`) — no timeline yet, real limitation today
+- A static-params API so dynamic routes can support `ssg`/`isr` (currently `ssr`/`csr` only) — #1
 - Formal third-party security audit / signed release provenance — once the API surface stabilizes
 
 **Deliberately out of scope, not planned** (see architecture-v1.md §11 and "Explicitly not
@@ -94,7 +95,30 @@ honestly 404s instead of mis-rendering, since only `"ssr"` is implemented.
   render mode besides `"ssr"` was implemented; no hydration script is emitted (full-page hydration
   isn't this framework's model — only islands hydrate, and islands don't exist yet at this point in
   the sequence, so nothing on an SSR page is interactive); no security headers (#5); dynamic route
-  segments still aren't supported (unchanged, real remaining gap — see architecture doc §4).
+  segments weren't supported — since closed, see below.
+- **Dynamic route segments — since closed.** `matchRoute` (`router.ts`) now supports a `[param]`
+  segment per path part (e.g. `routes/users/[id].tsx` → `/users/123`, captured as `ctx.params.id`,
+  new on `RequestContext`); a static route at the same depth always wins over a dynamic one
+  (scored by fewest dynamic segments, not file-scan order — verified directly: `users/new.tsx` and
+  `users/[id].tsx` both present, `/users/new` matches the static one). No catch-all/rest segments
+  (`[...slug]`) — out of scope for this slice. `ssg`/`isr` on a dynamic route fails the build/dev
+  server immediately with a clear error (no static-params API yet to know which values to
+  pre-render — same guard shape as the existing action-export check); `ssr`/`csr` both work.
+  **A real bug found verifying this against an actual production build, not anticipated in
+  advance:** `toBuildKey` (`buildKey.ts`) doubles as both the Rollup input name at build time and
+  the request-time lookup key — this contract silently broke for a dynamic route's file name,
+  since Rollup sanitizes `[`/`]` out of a chunk's actual output filename (confirmed directly: it
+  produced `_id_.js` for an input named `routes/users/[id]`, not `[id].js`), so production lookups
+  404'd via `ERR_MODULE_NOT_FOUND` even though the dev server worked fine. Fixed by sanitizing in
+  `toBuildKey` itself, the one place both sides are computed, so they can't drift apart again.
+  Verified end-to-end: dev server (`GET /users/42` → `ctx.params.id` → "User 42" rendered), a real
+  production build + `adapter-node` (same request, same result, plus a 404 confirmed for a
+  segment-count mismatch and normal static routes at the same depth confirmed unaffected), and
+  both `--adapter=vercel`/`--adapter=netlify` builds completing with the sanitized file present.
+  New `packages/core/src/__tests__/router.test.ts` (12 tests) locks in the matching/precedence
+  logic and the sitemap-exclusion behavior below, not just this account.
+  Real remaining gap: no static-params API yet, so `ssg`/`isr` still can't cover a dynamic route
+  (see the Status section above) — see architecture doc §4.
 - **Unblocked:** request-context plumbing (#2), islands (#3), SEO primitives (#5), and gives the
   adapters (#4) something real to serve instead of static config.
 
@@ -504,7 +528,7 @@ override the defaults per app, per §7. Verified end-to-end: default headers pre
   for a future inline script (not needed yet — SSR emits no scripts at all until islands, #3, and
   bundled island scripts will be same-origin, already allowed by `default-src 'self'`).
 
-### 6. DB client — ✅ checked, one real issue found, not fixed here
+### 6. DB client — ✅ checked; a real issue was found, and a verified fix is now documented as a guide
 Wired Drizzle + `better-sqlite3` into `packages/backend/db/index.ts` (real schema, real
 `INSERT ... ON CONFLICT DO UPDATE`), then reverted — see below. Still throws its original stub
 error today, deliberately (§6/§11 — bring your own, don't add one).
@@ -530,18 +554,26 @@ specifically — it's a general hazard for **any** ORM/driver with native bindin
 module-scope singleton connection, under a dev server that reloads SSR modules. A pure-JS driver
 (or one that manages its connection lifecycle more defensively, or is designed to be safely
 re-instantiated) likely wouldn't hit this; wasn't tested here.
-- **Not fixed, deliberately out of scope for a "check":** making native-binding DB drivers safe
-  under Vite SSR module reload is real framework-lifecycle work (e.g., a documented pattern for a
-  reload-safe singleton, or an app-shutdown/module-dispose hook the framework doesn't have yet) —
-  worth a real decision, not something to paper over inside a verification spike.
-- **Recommendation if this comes up for real:** either document the module-scope-native-handle
-  hazard explicitly for BYO-ORM users (cheapest fix), or investigate Vite's `import.meta.hot.dispose`
-  /`server.ws` module-invalidation hooks for a reload-safe connection pattern before v1 ships this
-  as a guide.
-- **Repo state:** clean — `packages/backend/db/index.ts` and `package.json` are back to their
-  original throw-stub/no-extra-deps state; no Drizzle/`better-sqlite3` dependency was left behind.
-  Verified by re-running the exact same login → POST /settings flow and confirming the original
-  stub error returns.
+- **Follow-up spike, done later: the fix is real, verified against an actual reload, and it's not
+  what this section originally guessed.** `import.meta.hot.dispose()` — floated above as worth
+  investigating — was tested directly and doesn't apply: `import.meta.hot` is `undefined` inside
+  a module loaded via `vite.ssrLoadModule` in this project's setup (confirmed by logging
+  `typeof import.meta.hot` from inside the reloaded module, not assumed). The actual fix: cache
+  the connection on `globalThis` instead of module scope (the same pattern Prisma's own official
+  guidance recommends for the identical class of dev-server-reload problem) — `globalThis` isn't
+  part of Vite's module graph, so the existing connection survives a reload untouched instead of a
+  new one being created and the old one abandoned. Verified by wiring this exact pattern back in,
+  writing a real row, then editing the route file and `db/index.ts` while the dev server was
+  running to force a genuine Vite SSR module reload (`[vite] page reload ...` in the dev log
+  confirms the module body actually re-executed) and making another request immediately after — no
+  crash, server stayed up, and critically no second connection was opened, confirming the guard
+  did its job rather than the reload simply not having happened. Documented as a guide, not
+  shipped as the default (`db/index.ts` stays a throw-stub, per §6/§11) — see
+  `packages/backend/DATABASE.md` for the full pattern and this same verification account.
+- **Repo state:** clean, both times — `packages/backend/db/index.ts` and `package.json` are back
+  to their original throw-stub/no-extra-deps state; no Drizzle/`better-sqlite3` dependency was
+  left behind either time. Verified by re-running the exact same login → POST /settings flow and
+  confirming the original stub error returns.
 
 ### 7. SEO primitives — ✅ done
 Per-route `meta()` now renders OG tags in addition to title/description (`og:title`/`og:description`

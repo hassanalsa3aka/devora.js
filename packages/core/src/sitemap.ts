@@ -6,10 +6,14 @@
  * visit. Whether this is called at all is gated per app by `sitemap: true`
  * in app.config.ts (opt-in, default off — see AppRuntimeConfig, ROADMAP.md
  * #7); once an app opts in, its *entire* route tree is listed, with no
- * further per-route exclusion.
+ * further per-route exclusion — except a dynamic route (`[id].tsx`), which
+ * has no single fixed URL and is skipped rather than listed literally as
+ * "/users/[id]" (there's no static-params API yet to know which concrete
+ * values exist — see router.ts).
  */
 export function generateSitemapXml(routePaths: string[], domain: string): string {
   const urls = routePaths
+    .filter((routePath) => !routePath.includes("["))
     .map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`)
     .join("\n");
 
