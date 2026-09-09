@@ -7,6 +7,8 @@
 Repo scaffold for Devora.js, the framework described in `architecture-v1.md` (marketing/dashboard/
 admin multi-app, one shared backend by default, security-first, no built-in ORM/auth).
 
+📖 [Architecture spec](architecture-v1.md) · 🗺️ [Roadmap](ROADMAP.md)
+
 ## Live demo
 
 All three apps deployed for real from this repo, on both platforms `devora deploy`/git-integration
