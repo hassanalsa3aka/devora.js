@@ -52,14 +52,13 @@ by hand. Areas covered this way:
 - `devora generate:proxy` against a real local nginx and a real local Caddy binary
 - All CLI commands (`dev`/`build`/`start`/`new`/`add`/`remove`/`list`/`generate:proxy`/`deploy`),
   under npm, Yarn, and pnpm
+- **`devora deploy`'s actual authenticated deploy**, on both Vercel and Netlify — a real account,
+  real `vercel link`/`netlify link`, a real deploy that actually rendered correctly when opened in
+  a browser (not just a clean CLI exit code). Two real bugs were found and fixed getting a clean
+  run — see `DEPLOYING.md`'s `devora deploy` section for both.
 
 ## Not verified at all
 
-- **`devora deploy`'s actual authenticated deploy.** The command has been confirmed to correctly
-  detect linked/unlinked apps and to genuinely invoke the real Vercel/Netlify CLIs (which then
-  fail predictably on missing credentials here) — but it has never completed a real deploy, since
-  that needs a real account/token this environment doesn't have. The live Vercel/Netlify
-  deployments linked above were done via each platform's own git integration, not this command.
 - **`isr` regeneration on Vercel/Netlify specifically.** Fully verified under `adapter-node`'s
   long-lived process; a serverless function's filesystem isn't guaranteed to persist across
   invocations, and that specific behavior hasn't been exercised on either platform.

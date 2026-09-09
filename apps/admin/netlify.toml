@@ -5,6 +5,11 @@
   publish = "dist/client"
   functions = "netlify/functions"
 
+# See apps/dashboard/netlify.toml for why this exists — a real, confirmed
+# bug from an actual authenticated deploy (ROADMAP.md #4/#13).
+[functions.ssr]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]
+
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/ssr"

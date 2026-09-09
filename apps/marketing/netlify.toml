@@ -12,6 +12,15 @@
   publish = "dist/client"
   functions = "netlify/functions"
 
+# A real, confirmed bug from an actual authenticated deploy: without this,
+# the function ran with no crash/error but returned "Not found" for every
+# route, including "/" — Netlify's function packager only zips up what it
+# can trace from ssr.mjs's static imports; routes/ and dist/server/ are
+# read at runtime via fs.readdirSync/dynamic import(), invisible to that
+# tracer. See ROADMAP.md #4/#13's "real live deploy" account.
+[functions.ssr]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]
+
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/ssr"

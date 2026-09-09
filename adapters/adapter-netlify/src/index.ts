@@ -65,9 +65,23 @@ async function vendorRuntimeDependency(
  *
  * Verified the same way as adapter-vercel: the generated function, run from
  * a directory completely outside this repo, with the vendored `react`/
- * `react-dom` (not hand-placed anymore — this now happens for real). Not
- * deployed to real Netlify
- * infrastructure — no platform access here.
+ * `react-dom` (not hand-placed anymore — this now happens for real).
+ *
+ * Since confirmed on a real, live, authenticated `devora deploy
+ * --adapter=netlify` — and a real bug found doing it, the same class as the
+ * `react`/`react-dom` one above: the function ran with no crash at all but
+ * returned "Not found" for every route, including "/". `routes/` and
+ * `dist/server/` are read at runtime via `fs.readdirSync`/dynamic
+ * `import()` (`matchRoute`/`importBuilt`) — invisible to Netlify's own
+ * function-packaging dependency tracer, which only zips up what it can see
+ * statically imported from `ssr.mjs` itself. Confirmed directly: a debug
+ * build logging `fs.existsSync`/`fs.readdirSync` from inside the actual
+ * deployed function showed both directories missing at `/var/task/...`
+ * before the fix, present after. Fixed with `netlify.toml`'s documented
+ * escape hatch for exactly this — `[functions.ssr] included_files` (see
+ * `scaffoldAppFiles.ts` and each app's own `netlify.toml`) — not something
+ * this adapter can write itself, since `netlify.toml` is static/pre-committed
+ * (see the comment below on why).
  */
 export async function writeNetlifyConfig(
   app: AppConfig,

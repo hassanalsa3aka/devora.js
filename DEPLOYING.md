@@ -93,19 +93,27 @@ every app under all three targets (plain, `--adapter=vercel`, `--adapter=netlify
 same build sequence that would catch a broken deploy before it reaches a live environment, not
 after.
 
-## `devora deploy` — CLI-orchestrated deploys (built, not yet proven with a real account)
+## `devora deploy` — CLI-orchestrated deploys
 
 Both flows above deploy via each platform's own git integration (a push triggers a build). There's
 also a CLI-native path: `devora deploy --adapter=vercel|netlify [--app=<name>] [--prod]`, which
 rebuilds an app and shells out to the real platform CLI (`vercel deploy --prebuilt` /
-`netlify deploy --dir=dist/client`) via `npx`, once you've run `vercel link`/`netlify link` in
-that app's directory. An app that isn't linked is skipped with a clear instruction rather than
-failing the whole run.
+`netlify deploy`) via `npx`, once you've run `vercel link`/`netlify link` in that app's directory.
+An app that isn't linked is skipped with a clear instruction rather than failing the whole run.
 
-This command is real and has been confirmed to correctly detect linked/unlinked apps and to
-genuinely invoke the real platform CLIs (which then fail predictably on missing credentials in
-this environment) — but it has never completed an actual authenticated deploy, since that needs
-a real Vercel/Netlify account and token this environment doesn't have. Domain auto-binding
-(`vercel domains add` using the domain already in `devora.config.ts`) isn't built at all yet.
+Confirmed with a real, authenticated deploy on both platforms — not just link-detection and
+error-message correctness. Two real bugs were found and fixed getting a genuinely clean run,
+both the same class as ROADMAP.md #4's `react`/`react-dom` and `NODE_ENV` bugs — something that
+only surfaces on an actual platform, never in local simulation:
+- `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did) — the same
+  `jsxDEV is not a function` crash from #4, in the one code path that had missed the fix.
+- The Netlify function ran without crashing but returned "Not found" for every route — Netlify's
+  own function packager only zips up what it can trace from static imports; `routes/` and
+  `dist/server/` are read at runtime via `fs.readdirSync`/dynamic `import()`, invisible to that
+  tracer. Fixed via `netlify.toml`'s `[functions.ssr] included_files` — Netlify's documented
+  escape hatch for exactly this.
+
+Domain auto-binding (`vercel domains add` using the domain already in `devora.config.ts`) isn't
+built at all yet — a separate, smaller follow-up.
 
 If you try it and something's wrong, that's the most likely place — please open an issue.

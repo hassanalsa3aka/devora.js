@@ -92,11 +92,6 @@ Stated plainly, not buried:
   fails the build with a clear error rather than silently mis-building.
 - **No streaming SSR yet.** `renderMode: "streaming"` is typed but not implemented — it needs a
   Suspense-boundary-based rewrite of how islands hydrate, planned for v2.
-- **`devora deploy` (the CLI's own deploy command) hasn't completed a real authenticated deploy.**
-  It correctly detects linked Vercel/Netlify projects and invokes the real platform CLIs — but
-  finishing an actual deploy through it needs a real account/token that hasn't been available to
-  test with yet. The live demos above were deployed the other way: each platform's own git
-  integration, which is fully working.
 - **`isr` is weaker on Vercel/Netlify than on a self-hosted `adapter-node` server.** A serverless
   function's filesystem isn't guaranteed to persist between requests, so ongoing background
   regeneration there hasn't been verified (the initial build's output still serves correctly).

@@ -4397,7 +4397,7 @@ function isNetlifyLinked(appRoot) {
 }
 function deployToNetlify(appRoot, opts = {}) {
   return new Promise((resolve) => {
-    const args = ["--yes", "netlify-cli@latest", "deploy", "--dir=dist/client"];
+    const args = ["--yes", "netlify-cli@latest", "deploy"];
     if (opts.prod) args.push("--prod");
     const child = spawn2("npx", args, { cwd: appRoot, stdio: "inherit" });
     child.on("exit", (code) => resolve({ ok: code === 0 }));
@@ -4603,6 +4603,7 @@ async function start(opts) {
 
 // src/commands/deploy.ts
 async function deploy(opts) {
+  process.env.NODE_ENV = "production";
   if (opts.adapter !== "vercel" && opts.adapter !== "netlify") {
     console.error(`[devora] --adapter must be "vercel" or "netlify"`);
     process.exit(1);
@@ -4847,6 +4848,9 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
   command = "${devoraCmd} build --app=${appName} --adapter=netlify"
   publish = "dist/client"
   functions = "netlify/functions"
+
+[functions.ssr]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]
 
 [[redirects]]
   from = "/*"

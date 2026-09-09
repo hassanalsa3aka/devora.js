@@ -20,16 +20,13 @@ Unpacked, that requires five things to all be true at once:
 3. Client-only libraries (three.js, fabric.js, etc.) never crash on the server — done (#9),
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
 4. Each app deploys independently to at least one real target — done: `adapter-node`, Vercel, and
-   Netlify are all live-verified now (see the Status section below and README.md's live demo
-   links) — the one remaining gap is narrower than "deploy is unverified": it's specifically
-   `devora deploy` (the CLI's own `vercel link`/`netlify link`-based path) never having completed
-   a real authenticated deploy — the live deployments happened via each platform's git
-   integration instead. See #4 and #13's detail.
+   Netlify are all live-verified now, via both git integration and `devora deploy`'s own
+   CLI-orchestrated path (see the Status section below and README.md's live demo links). See #4
+   and #13's detail.
 5. SEO primitives work — done (#7): OG tags + per-app opt-in sitemap.xml, both verified.
 
-All five are now true for a real, live deployment via git integration. The one specific gap left
-is `devora deploy`'s own CLI-orchestrated path, and `isr`'s regeneration reliability on a
-serverless filesystem specifically — see the Status section immediately below.
+All five are now unconditionally true. What's left is narrower: `isr`'s regeneration reliability
+on a serverless filesystem specifically — see the Status section immediately below.
 
 ## Status: done, in progress, planned
 
@@ -46,12 +43,11 @@ for exactly how):
 - `adapter-node`, `adapter-vercel`, `adapter-netlify` — build output verified in isolation — #4
 - Real, live production deployment to Vercel and Netlify via git integration (both platforms,
   all three apps) — #4
+- `devora deploy` (the CLI's own `vercel link`/`netlify link`-orchestrated deploy) — a real,
+  authenticated deploy confirmed on both platforms, not just link-detection — #13
 - Docker, self-hosted VPS (nginx/Caddy + systemd), GitHub Actions CI — #14
 
 **In progress / partial:**
-- `devora deploy` (the CLI's own `vercel link`/`netlify link`-orchestrated deploy) — built,
-  correctly detects linked/unlinked apps and genuinely invokes the real platform CLIs, but has
-  never completed a real authenticated deploy (no account/token in this environment) — #13
 - `isr` on Vercel/Netlify — the initial build's static output serves correctly; ongoing
   regeneration on a serverless function's non-persistent filesystem is unverified — #12
 - Domain auto-binding for a `devora deploy`-managed app — not built, deliberately scoped out of
@@ -841,7 +837,7 @@ cache again on the next immediate request.
   `defaultRenderMode` param); `apps/marketing/routes/{about,isr-demo}.tsx`, `apps/dashboard/routes/
   csr-demo.tsx`, `apps/*/csr-client.tsx` (all new demo/bootstrap files).
 
-### 13. Multi-app-aware Vercel/Netlify — ✅ done (orchestration + link-detection verified for real; the actual authenticated deploy is the one thing that can't be)
+### 13. Multi-app-aware Vercel/Netlify — ✅ done, including a real authenticated deploy on both platforms
 Before this, `devora build --adapter=vercel|netlify` already looped over every app in
 `devora.config.ts` and wrote each one's build output, but confirmed by direct inspection: that
 produced N completely independent, uncoordinated `.vercel/output`/`netlify/functions` directories —
@@ -909,17 +905,43 @@ yet" when deploying broadly, since that's expected.
   (with and without `--app`) all still produce identical output to before the `buildForAdapter.ts`
   extraction; `devora dev`/`devora start` (adapter-node, untouched by this work) still work. All
   fake link files and build artifacts cleaned up afterward.
-- **What genuinely can't be verified here, stated explicitly rather than assumed:** an actual
-  authenticated deploy succeeding end-to-end (needs a real Vercel/Netlify account + token — the
-  same irreducible boundary #4 already documents for the underlying build output itself). Domain
-  auto-binding (`vercel domains add <app.domain>` using the domain already declared in
-  `devora.config.ts`) was deliberately **not** built in this pass — a real external side effect on
-  the user's account that can't be verified without one; flagged as a natural, separately-scoped
-  follow-up rather than silently added or silently ignored.
+- **Follow-up, done later: an actual authenticated deploy, confirmed on both platforms — the one
+  thing this section used to say couldn't be verified without a real account.** Run with a real
+  Vercel/Netlify account (not this environment's own credentials — provided separately), `vercel
+  link`/`netlify link` against fresh scratch projects (never the real demo apps), then `devora
+  deploy --adapter=vercel|netlify`. Vercel worked on the first real try. Netlify took two real
+  bugs to get a genuinely clean result, both found by actually deploying, not by re-reading the
+  code harder:
+  1. `TypeError: jsxDEV is not a function` on Vercel — the *exact* bug #4 already fixed, in a code
+     path that fix never reached. `devora build` sets `NODE_ENV=production` itself (#4); `devora
+     deploy` also builds (via `buildAppForAdapter`, same as `build`), but this command didn't
+     exist yet when that fix landed, so it never got it. Fixed the same way, in `deploy.ts`.
+  2. The Netlify function ran with no crash at all but returned `"Not found"` for every route,
+     including `/` — confirmed the redirect itself was fine first (added a temporary debug log;
+     the function received the correct original path, `pathname=/`). The real cause: Netlify's
+     own function packager only zips up what it can trace via static imports from `ssr.mjs`
+     (confirmed directly from the deploy log: `Packaging Functions ... - ssr/ssr.mjs`, nothing
+     else listed) — `routes/` and `dist/server/` are read at runtime via `fs.readdirSync`/dynamic
+     `import()` (`matchRoute`/`importBuilt`), invisible to that tracer, so neither ever reached
+     the deployed function. A second debug pass (logging `fs.existsSync`/`fs.readdirSync` from
+     inside the actual running function) confirmed both directories were genuinely missing at
+     `/var/task/...` before the fix. Fixed with `netlify.toml`'s own documented escape hatch for
+     exactly this — `[functions.ssr]` `included_files` — added to `scaffoldAppFiles.ts`'s
+     generated template and to every already-committed `apps/*/netlify.toml`. Also found along
+     the way (real, but a red herring — not the actual bug): `netlify deploy`'s explicit
+     `--dir=dist/client` flag resolved against the wrong base directory on this packagePath-scoped
+     site — dropping it (letting Netlify read `publish` from `netlify.toml` instead, which was
+     always correct) fixed a *different* failure that showed up first (`deploy directory ... has
+     not been found`), before the "Not found" issue above was even reachable.
+  Both fixes re-verified with a real second deploy on each platform, opened in a real browser
+  (not just a clean CLI exit code, which the pre-fix Vercel run also had while the page 500'd) —
+  real rendered content on both.
 - **Where:** `packages/cli/src/build/buildForAdapter.ts` (new), `packages/cli/src/commands/
-  build.ts` (now a thin loop calling it), `packages/cli/src/commands/deploy.ts` (new),
-  `adapters/adapter-{vercel,netlify}/src/deploy.ts` (new, re-exported from each adapter's
-  `index.ts`), `packages/cli/src/index.ts` (`deploy` command registration).
+  build.ts` (now a thin loop calling it), `packages/cli/src/commands/deploy.ts` (new — and where
+  the missing `NODE_ENV` fix landed), `adapters/adapter-{vercel,netlify}/src/deploy.ts` (new,
+  re-exported from each adapter's `index.ts`; the Netlify one dropped its explicit `--dir` flag),
+  `packages/cli/src/index.ts` (`deploy` command registration), `packages/scaffold/src/
+  scaffoldAppFiles.ts` and every `apps/*/netlify.toml` (the `included_files` fix).
 
 ### 14. Three more environments tried for real — Docker, a bare VPS (nginx/Caddy), CI — ✅ done
 Following real, live Vercel and Netlify deployments (see #4 and its "real Vercel AND Netlify
@@ -1011,8 +1033,8 @@ If work on #1–#12 starts pulling in any of these, stop and flag it rather than
  ├─→ #2 Request context (auth/session) — done
  ├─→ #3 Islands (Vite plugin) — done, dev AND production (real client-build+manifest pipeline)
  ├─→ #4 Adapters (copy real output) — all three done, including real live Vercel/Netlify deploys
- │     └─→ #13 Multi-app deploy orchestration — done (link-detection + real CLI wiring verified;
- │           `devora deploy`'s own authenticated deploy specifically still unverified — see above)
+ │     └─→ #13 Multi-app deploy orchestration — done, including a real authenticated
+ │           `devora deploy` on both platforms — see above
  ├─→ #5 CSP/HSTS enforcement — done
  └─→ #7 SEO primitives (meta + sitemap) — done
 
@@ -1033,11 +1055,11 @@ were closed in later passes: #3's production hydration (and, discovered while ve
 (closed via real `esbuild` bundling, verified by running the actual generated function completely
 outside this repo), and #4's own multi-app N:N risk (closed by #13). What's left is depth, not
 breadth — see each section above for the specific "not done" / "not verified" boundaries. Real live
-Vercel and Netlify deployments (via each platform's git integration) are done — see #4. What's still
-genuinely unverified: `devora deploy`'s own CLI-orchestrated authenticated deploy specifically (#13
-— the orchestration layer and link-detection are verified for real; a real account/token to complete
-an actual deploy through it is not available here), and `isr`'s regeneration reliability on a
-serverless function's non-persistent filesystem specifically (#12). #6's native-driver SSR-reload hazard is the other real,
+Vercel and Netlify deployments are done, via both git integration (#4) and `devora deploy`'s own
+CLI-orchestrated path (#13, including a real authenticated deploy on both platforms and two real
+bugs found and fixed getting a clean one). What's still genuinely unverified: `isr`'s regeneration
+reliability on a serverless function's non-persistent filesystem specifically (#12). #6's
+native-driver SSR-reload hazard is the other real,
 documented-not-fixed gap. `"streaming"` is the one deferred render mode, deliberately (#12) — real
 v2-sized architectural work, not a small addition. Domain auto-binding for a deployed app
 (`vercel domains add`/equivalent) is a deliberately out-of-scope follow-up from #13, not silently

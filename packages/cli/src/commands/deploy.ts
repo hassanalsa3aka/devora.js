@@ -15,6 +15,14 @@ import { isNetlifyLinked, deployToNetlify } from "@devorajs/adapter-netlify";
  * scaffolded app. One app's failure doesn't abort the rest.
  */
 export async function deploy(opts: { adapter?: string; app?: string; prod?: boolean }): Promise<void> {
+  // Same fix as build.ts, and the same real bug it was fixed for (ROADMAP.md
+  // #4's "jsxDEV is not a function" on a live Vercel deploy) — missed here
+  // because this command didn't exist yet when that fix landed. `deploy`
+  // builds too (via buildAppForAdapter below), so it needs this exactly as
+  // much as `build` does; confirmed by reproducing the identical crash on a
+  // real `devora deploy --adapter=vercel` run before this line was added.
+  process.env.NODE_ENV = "production";
+
   if (opts.adapter !== "vercel" && opts.adapter !== "netlify") {
     console.error(`[devora] --adapter must be "vercel" or "netlify"`);
     process.exit(1);

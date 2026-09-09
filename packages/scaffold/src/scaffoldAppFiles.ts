@@ -258,6 +258,21 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  command = "${devoraCmd} build --app=${appName} --adapter=netlify"\n` +
       `  publish = "dist/client"\n` +
       `  functions = "netlify/functions"\n\n` +
+      // A real, confirmed bug from an actual authenticated deploy: the
+      // function ran (no crash, no error) but returned a literal "Not
+      // found" for every route, including "/" — Netlify's own function
+      // packager only zips up what it can trace from ssr.mjs's static
+      // imports (confirmed by the deploy log itself: "Packaging Functions
+      // ... - ssr/ssr.mjs", nothing else listed). routes/ and dist/server/
+      // are read at runtime via fs.readdirSync/dynamic import() (matchRoute,
+      // importBuilt) — no static analyzer can see that — so they never made
+      // it into the deployed function without this. `included_files` is
+      // Netlify's documented escape hatch for exactly this "the tracer
+      // can't see it" case (the same class of problem Vercel's own tracer
+      // had with react/react-dom, ROADMAP.md #4, just missing here for a
+      // different reason).
+      `[functions.ssr]\n` +
+      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]\n\n` +
       `[[redirects]]\n` +
       `  from = "/*"\n` +
       `  to = "/.netlify/functions/ssr"\n` +
