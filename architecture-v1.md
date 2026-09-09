@@ -172,8 +172,10 @@ This section exists to stop scope creep. If it's listed here, it does not go int
 - **Bundler/dev server**: Vite
 - **Language**: TypeScript, strict mode
 - **Runtime**: Node.js (LTS)
-- **Monorepo tooling**: pnpm workspaces + Turborepo
-- **Rendering**: React (SSR + streaming + standard hydration)
+- **Monorepo tooling**: pnpm/npm/Yarn workspaces (Turborepo was tried early on and dropped — it
+  assumes one lockfile/package manager, which conflicts with this project's cross-manager support;
+  see README.md's "Cross-package-manager notes")
+- **Rendering**: React (SSR + standard hydration; streaming is v2 — see §5 and ROADMAP.md)
 
 ## 13. Deployment & platform adapters (v1 scope)
 

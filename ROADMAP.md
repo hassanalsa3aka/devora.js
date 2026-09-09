@@ -19,16 +19,51 @@ Unpacked, that requires five things to all be true at once:
 2. Auth/session context is real, shared by default, isolable per app — done (#2, #10).
 3. Client-only libraries (three.js, fabric.js, etc.) never crash on the server — done (#9),
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
-4. Each app deploys independently to at least one real target — `adapter-node` is real and fully
-   verified (#4); Vercel/Netlify write structurally correct output reusing the same build, and a
-   real multi-app deploy *orchestration* layer now exists (#13, link-detection and CLI wiring
-   verified for real) — but an actual authenticated deploy to either platform still isn't
-   verified against real platform deployment (no access here) — see #4's and #13's detail.
+4. Each app deploys independently to at least one real target — done: `adapter-node`, Vercel, and
+   Netlify are all live-verified now (see the Status section below and README.md's live demo
+   links) — the one remaining gap is narrower than "deploy is unverified": it's specifically
+   `devora deploy` (the CLI's own `vercel link`/`netlify link`-based path) never having completed
+   a real authenticated deploy — the live deployments happened via each platform's git
+   integration instead. See #4 and #13's detail.
 5. SEO primitives work — done (#7): OG tags + per-app opt-in sitemap.xml, both verified.
 
-Four of five are now unconditionally true (#2, #3, #5, and #1 for every mode except the explicitly-
-deferred `"streaming"`); #4 is true for the self-hosted target specifically, with real platform
-deployment honestly scoped as not-yet (and `isr` specifically weaker there — see #12).
+All five are now true for a real, live deployment via git integration. The one specific gap left
+is `devora deploy`'s own CLI-orchestrated path, and `isr`'s regeneration reliability on a
+serverless filesystem specifically — see the Status section immediately below.
+
+## Status: done, in progress, planned
+
+**Done** — built and verified (see "Automated tests" vs. "manually verified" in `VERIFICATION.md`
+for exactly how):
+- SSR, SSG, CSR, and ISR rendering (`renderMode`) — #1, #12
+- Sessions, CSRF, and per-app auth modes (`shared`/`isolated`/`none`) — #2, #10
+- Security headers (CSP/HSTS/X-Frame-Options) on by default — #5
+- Islands / partial hydration, in dev and production — #3
+- SEO primitives: OG tags, opt-in `sitemap.xml` — #7
+- `clientOnly()` — #9
+- The `devora` CLI, working under npm/Yarn/pnpm — #8
+- `adapter-node`, `adapter-vercel`, `adapter-netlify` — build output verified in isolation — #4
+- Real, live production deployment to Vercel and Netlify via git integration (both platforms,
+  all three apps) — #4
+- Docker, self-hosted VPS (nginx/Caddy + systemd), GitHub Actions CI — #14
+
+**In progress / partial:**
+- `devora deploy` (the CLI's own `vercel link`/`netlify link`-orchestrated deploy) — built,
+  correctly detects linked/unlinked apps and genuinely invokes the real platform CLIs, but has
+  never completed a real authenticated deploy (no account/token in this environment) — #13
+- `isr` on Vercel/Netlify — the initial build's static output serves correctly; ongoing
+  regeneration on a serverless function's non-persistent filesystem is unverified — #12
+- Domain auto-binding for a `devora deploy`-managed app — not built, deliberately scoped out of
+  this pass — #13
+
+**Planned (v2):**
+- `renderMode: "streaming"` — needs a Suspense-boundary-based island rewrite — #12
+- Dynamic route segments (`routes/users/[id].tsx`) — no timeline yet, real limitation today
+- Formal third-party security audit / signed release provenance — once the API surface stabilizes
+
+**Deliberately out of scope, not planned** (see architecture-v1.md §11 and "Explicitly not
+roadmap items" below): built-in ORM/auth/file storage, a real-time sync engine, React
+Native/Tauri targets, a custom RSC-style serialization protocol.
 
 ## Work items, in dependency order
 
@@ -179,7 +214,7 @@ production-hydration gap; see that section for the build-pipeline detail). Verif
 - **Scope boundary, explicit:** only the literal call shape `island(() => import("specifier"))` is
   recognized (regex-based plugin, not a full AST transform) — no dynamic/computed specifiers.
 
-### 4. Adapters: real build output, not just config — ✅ all three done and verified in isolation; only the actual platform deploy itself remains unverified
+### 4. Adapters: real build output, not just config — ✅ done, including real live Vercel and Netlify deployments
 There was no production SSR build pipeline at all before this — only dev-mode
 `vite.ssrLoadModule`. Building one was most of this item's real work.
 - **The real build (`packages/cli/src/build/buildAppServer.ts`):** every route file plus
@@ -943,9 +978,9 @@ If work on #1–#12 starts pulling in any of these, stop and flag it rather than
 #1 SSR handler — done
  ├─→ #2 Request context (auth/session) — done
  ├─→ #3 Islands (Vite plugin) — done, dev AND production (real client-build+manifest pipeline)
- ├─→ #4 Adapters (copy real output) — all three done and run correctly in isolation, verified;
- │     │  only the actual Vercel/Netlify platform deploy itself is unverified (no platform access)
- │     └─→ #13 Multi-app deploy orchestration — done (link-detection + real CLI wiring verified)
+ ├─→ #4 Adapters (copy real output) — all three done, including real live Vercel/Netlify deploys
+ │     └─→ #13 Multi-app deploy orchestration — done (link-detection + real CLI wiring verified;
+ │           `devora deploy`'s own authenticated deploy specifically still unverified — see above)
  ├─→ #5 CSP/HSTS enforcement — done
  └─→ #7 SEO primitives (meta + sitemap) — done
 
@@ -965,12 +1000,12 @@ were closed in later passes: #3's production hydration (and, discovered while ve
 ~255KB-per-app bundle bloat and dependency-resolution gap for the generated Vercel/Netlify functions
 (closed via real `esbuild` bundling, verified by running the actual generated function completely
 outside this repo), and #4's own multi-app N:N risk (closed by #13). What's left is depth, not
-breadth — see each section above for the specific "not done" / "not verified" boundaries. Two things
-remain genuinely irreducible without resources this environment doesn't have: an actual authenticated
-Vercel/Netlify deployment (#13's orchestration layer and link-detection are verified for real; the
-deploy itself, and specifically whether their real dependency tracers behave the way this document's
-manual simulation assumed, is not), and `isr`'s regeneration reliability on a serverless function's
-non-persistent filesystem specifically (#12). #6's native-driver SSR-reload hazard is the other real,
+breadth — see each section above for the specific "not done" / "not verified" boundaries. Real live
+Vercel and Netlify deployments (via each platform's git integration) are done — see #4. What's still
+genuinely unverified: `devora deploy`'s own CLI-orchestrated authenticated deploy specifically (#13
+— the orchestration layer and link-detection are verified for real; a real account/token to complete
+an actual deploy through it is not available here), and `isr`'s regeneration reliability on a
+serverless function's non-persistent filesystem specifically (#12). #6's native-driver SSR-reload hazard is the other real,
 documented-not-fixed gap. `"streaming"` is the one deferred render mode, deliberately (#12) — real
 v2-sized architectural work, not a small addition. Domain auto-binding for a deployed app
 (`vercel domains add`/equivalent) is a deliberately out-of-scope follow-up from #13, not silently
