@@ -3,6 +3,19 @@
 Repo scaffold for Devora.js, the framework described in `architecture-v1.md` (marketing/dashboard/
 admin multi-app, one shared backend by default, security-first, no built-in ORM/auth).
 
+## Live demo
+
+All three apps deployed for real from this repo, on both platforms `devora deploy`/git-integration
+deploys support (see "Deploying to Vercel or Netlify" below):
+
+- Vercel: [marketing](https://devora-js-marketing.vercel.app) ·
+  [dashboard](https://devora-js-dashboard.vercel.app) ·
+  [admin](https://devora-js-admin.vercel.app)
+- Netlify: [devorajs.netlify.app](https://devorajs.netlify.app)
+
+Docs site (scaffolded via `create-devora`, a separate deploy testing the published npm packages
+rather than this monorepo directly): [devorajs-docs-docs.vercel.app](https://devorajs-docs-docs.vercel.app)
+
 ## What's wired up for real
 
 - `devora.config.ts` — loaded and validated by `packages/core/src/loadProjectConfig.ts` (exposed as
