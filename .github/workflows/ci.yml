@@ -27,6 +27,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm is installed directly (not via corepack) for the pnpm leg of
+      # the matrix. Root package.json deliberately has no "packageManager"
+      # field (removed earlier — it broke plain Node's yarn corepack shim,
+      # see README.md's cross-package-manager notes), which leaves corepack
+      # with no pinned version to activate for pnpm and fails fast on
+      # GitHub's runners (a known corepack signature/keyid verification
+      # issue when no packageManager field is present). pnpm/action-setup
+      # sidesteps corepack entirely for this leg, so it can't regress the
+      # yarn fix. Version pinned to 9.9.0 to match this repo's actual
+      # development version (see pnpm-lock.yaml).
+      - uses: pnpm/action-setup@v4
+        if: matrix.package-manager == 'pnpm'
+        with:
+          version: 9.9.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -36,6 +51,7 @@ jobs:
           # under each manager, not shortcutting it.
 
       - name: Enable corepack
+        if: matrix.package-manager != 'pnpm'
         run: corepack enable
 
       - name: Install (pnpm)
