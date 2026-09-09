@@ -1,4 +1,8 @@
+<img src="assets/icons/devorajs-logo-withoutbg.png" alt="Devora.js" width="96" />
+
 # Devora.js (v1 skeleton)
+
+[![CI](https://github.com/hassanalsa3aka/devora.js/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanalsa3aka/devora.js/actions/workflows/ci.yml)
 
 Repo scaffold for Devora.js, the framework described in `architecture-v1.md` (marketing/dashboard/
 admin multi-app, one shared backend by default, security-first, no built-in ORM/auth).
@@ -15,6 +19,22 @@ deploys support (see "Deploying to Vercel or Netlify" below):
 
 Docs site (scaffolded via `create-devora`, a separate deploy testing the published npm packages
 rather than this monorepo directly): [devorajs-docs-docs.vercel.app](https://devorajs-docs-docs.vercel.app)
+
+## npm packages
+
+Published, real installable packages, not just workspace-local source — the docs site above is
+this monorepo depending on them exactly the way an external project would:
+
+- [`@devorajs/core`](https://www.npmjs.com/package/@devorajs/core) — framework internals: SSR
+  request handling, sessions/CSRF, security headers, islands, config loading.
+- [`@devorajs/cli`](https://www.npmjs.com/package/@devorajs/cli) — the `devora` CLI
+  (`dev`/`build`/`start`/`deploy`/`new`/`add`/`remove`/`list`/`generate:proxy`).
+- [`@devorajs/adapter-vercel`](https://www.npmjs.com/package/@devorajs/adapter-vercel) — Vercel
+  Build Output API target.
+- [`@devorajs/adapter-netlify`](https://www.npmjs.com/package/@devorajs/adapter-netlify) — Netlify
+  Frameworks API / build plugin target.
+- [`create-devora`](https://www.npmjs.com/package/create-devora) — scaffolds a brand-new standalone
+  project (`npm create devora@latest`), independent of this monorepo.
 
 ## What's wired up for real
 
@@ -434,9 +454,13 @@ this repo's current state before being placed in the YAML, and this exact build 
 would have caught all three real deploy bugs from this session (`ROADMAP.md` #4: the missing
 `react`/`react-dom` in the Vercel function, `devora build` silently depending on the caller's
 `NODE_ENV`, and `netlify.toml` only ever existing as build output) before any of them ever reached a
-live deployment, rather than after. What this can't verify from here: an actual GitHub Actions run
-needs a real push — no `gh` CLI/runner access in this environment, the same boundary as an
-authenticated Vercel/Netlify deploy elsewhere in this document.
+live deployment, rather than after.
+
+**Confirmed with a real run, not just written and assumed**: the workflow initially failed on its
+pnpm leg (`corepack enable` with no `packageManager` field to pin — left removed deliberately, see
+the Yarn note above — fails fast resolving a pnpm version on GitHub's runners). Fixed by installing
+pnpm directly via `pnpm/action-setup` for that leg instead of relying on corepack; the badge above
+and the Actions tab both confirm all three matrix legs (pnpm/npm/yarn) now pass on a real push.
 
 ## What's still a stub, deliberately
 

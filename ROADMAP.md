@@ -910,9 +910,15 @@ targets, all exercised for real, not just written and assumed:
   Vercel function, `devora build` silently depending on the caller's `NODE_ENV`, `netlify.toml` only
   ever existing as build output — all documented above in #4) before a push, not after. Every
   individual command in the workflow was re-run locally against this repo's current state before
-  being placed in the YAML. **What can't be verified here:** an actual GitHub Actions run — no `gh`
-  CLI or runner access in this environment, needs a real push, the identical boundary already
-  documented for an authenticated Vercel/Netlify deploy.
+  being placed in the YAML. **Confirmed with a real push, closing the one boundary this environment
+  couldn't self-verify:** the pnpm leg initially failed for real — `corepack enable` with no
+  `packageManager` field to pin (removed deliberately, see the Yarn compatibility note elsewhere in
+  this document) fails fast resolving a pnpm version on GitHub's hosted runners; the ~12s fail time
+  was too fast to be a build/test failure, confirming it was the install step. Fixed by installing
+  pnpm directly via `pnpm/action-setup` for just that matrix leg instead of depending on corepack's
+  package-manager pin, which can't regress the Yarn fix since it only touches the pnpm leg.
+  Re-checked against the real, public Actions run history after pushing: all three matrix legs
+  (pnpm/npm/yarn) pass.
 - **Where:** `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `deploy/devora.service` (all new,
   repo root/new `deploy/` dir); `packages/cli/src/build/portScheme.ts` (new), `packages/cli/src/
   commands/start.ts` and `generate-proxy.ts` (both updated to share it); `.github/workflows/ci.yml`
