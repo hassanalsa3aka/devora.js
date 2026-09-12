@@ -5,7 +5,7 @@
 [![CI](https://github.com/hassanalsa3aka/devora.js/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanalsa3aka/devora.js/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A Vite-based React framework built around one idea: **a project is more than one app.**
+A Vite-based React framework built around one idea : **a project is more than one app.**
 
 Devora.js lets you define several apps in one repo — a marketing site, a product app, an admin
 panel — that share a core and a backend, but build and deploy independently. Each app gets its
