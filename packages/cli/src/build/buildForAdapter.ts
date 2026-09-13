@@ -35,11 +35,13 @@ export async function buildAppForAdapter(
     ]);
   }
 
+  const backendOnly = appConfig.backendOnly === true;
+
   console.log(`[devora] building "${app.name}" (SSR)...`);
-  const { serverOutDir } = await buildAppServer(appRoot);
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly });
   console.log(`[devora] "${app.name}" built → ${serverOutDir}`);
 
-  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode);
+  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, { backendOnly });
   if (staticRoutes.length > 0) {
     console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }

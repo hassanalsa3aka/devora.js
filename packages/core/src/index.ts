@@ -28,3 +28,6 @@ export * from "./branding.js";
 export * from "./module.js";
 export * from "./apiRoute.js";
 export * from "./apiDispatch.js";
+export * from "./middleware.js";
+export * from "./fastifyAdapter.js";
+export * from "./disposeRegistry.js";

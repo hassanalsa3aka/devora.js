@@ -277,7 +277,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       // had with react/react-dom, ROADMAP.md #4, just missing here for a
       // different reason).
       `[functions.ssr]\n` +
-      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]\n\n` +
+      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]\n\n` +
       `[[redirects]]\n` +
       `  from = "/*"\n` +
       `  to = "/.netlify/functions/ssr"\n` +

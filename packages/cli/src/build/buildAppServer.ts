@@ -43,15 +43,24 @@ import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
  * `packages/core` an actual build step (compiled `.js` output) so it can be
  * externalized like any other dependency — not done here, see ROADMAP.md #4.
  */
-export async function buildAppServer(appRoot: string): Promise<{ serverOutDir: string }> {
+export async function buildAppServer(
+  appRoot: string,
+  options: { backendOnly?: boolean } = {}
+): Promise<{ serverOutDir: string }> {
   const routesDir = path.join(appRoot, "routes");
   const apiDir = path.join(appRoot, "api");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
   const serverOutDir = path.join(appRoot, "dist", "server");
 
-  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = await buildAppClient(appRoot);
+  // Backend-only app mode (architecture-v2.md §3.4) — no pages means no
+  // client build (islands/csr are page-rendering concepts) and no
+  // entry-server.tsx SSR entry (renderRoute.ts/renderStatic.ts are never
+  // reachable with zero routes/ files — nothing to wrap in PageShell).
+  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly
+    ? { islandUrls: new Map<string, string>(), islandClientUrl: undefined, csrUrls: new Map<string, string>(), csrClientUrl: undefined }
+    : await buildAppClient(appRoot);
 
-  const input: Record<string, string> = { "entry-server": entryServerPath };
+  const input: Record<string, string> = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }

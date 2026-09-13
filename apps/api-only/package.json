@@ -1,0 +1,13 @@
+{
+  "name": "@project/app-api-only",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@devorajs/core": "*",
+    "@devorajs/backend": "*"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

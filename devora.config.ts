@@ -8,6 +8,9 @@ export default defineProject({
     { name: "dashboard", dir: "apps/dashboard", domain: "app.example.com" },
     // isolated: this app opts out of shared auth, gets its own session context
     { name: "admin", dir: "apps/admin", domain: "admin.example.com", auth: "isolated" },
+    // backendOnly (app.config.ts) — pure API, no pages, no client build at
+    // all (architecture-v2.md §3.4).
+    { name: "api-only", dir: "apps/api-only", domain: "api.example.com", auth: "none" },
   ],
   shared: {
     core: "packages/core",

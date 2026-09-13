@@ -57,7 +57,11 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
     logLevel: "silent",
   });
 
-  const routeFiles = await findJsFiles(path.join(serverOutDir, "routes"));
+  // existsSync-guarded — a backend-only app (architecture-v2.md §3.4) has
+  // no dist/server/routes at all (buildAppServer.ts never builds any), and
+  // `readdir` throws ENOENT on a missing directory.
+  const routesOutDir = path.join(serverOutDir, "routes");
+  const routeFiles = existsSync(routesOutDir) ? await findJsFiles(routesOutDir) : [];
   // Generic API routes (architecture-v2.md §3.2) land at dist/server/api/**
   // via the same named-rollup-entry mechanism as routes/ (buildAppServer.ts)
   // — bundle them the same way, or a deployed function would 500 on
@@ -65,8 +69,12 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
   // existsSync-guarded: most apps have no api/ directory at all.
   const apiDir = path.join(serverOutDir, "api");
   const apiFiles = existsSync(apiDir) ? await findJsFiles(apiDir) : [];
+  // A backend-only app never builds entry-server.js either (buildAppServer.ts
+  // skips it — nothing to render). existsSync-guarded the same way.
+  const entryServerPath = path.join(serverOutDir, "entry-server.js");
+  const entryPoints = existsSync(entryServerPath) ? [entryServerPath] : [];
   await esbuild.build({
-    entryPoints: [path.join(serverOutDir, "entry-server.js"), ...routeFiles, ...apiFiles],
+    entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,
     splitting: true,
     platform: "node",

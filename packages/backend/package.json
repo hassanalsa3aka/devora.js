@@ -6,9 +6,14 @@
   "exports": {
     "./settings": "./functions/settings.ts",
     "./db": "./db/index.ts",
-    "./modules/users": "./modules/users.ts"
+    "./modules/users": "./modules/users.ts",
+    "./middleware": "./middleware.ts"
   },
   "dependencies": {
-    "@devorajs/core": "*"
+    "@devorajs/core": "*",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17"
   }
 }

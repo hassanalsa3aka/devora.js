@@ -4181,17 +4181,19 @@ async function dev(opts) {
       plugins: [islandsPlugin(), createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security)]
     });
     server.middlewares.use(createSecurityHeadersMiddleware(appConfig.security));
-    server.middlewares.use(
-      createSsrMiddleware(
-        server,
-        appRoot,
-        app.name,
-        authMode,
-        app.domain,
-        appConfig.sitemap === true,
-        appConfig.defaultRenderMode
-      )
-    );
+    if (appConfig.backendOnly !== true) {
+      server.middlewares.use(
+        createSsrMiddleware(
+          server,
+          appRoot,
+          app.name,
+          authMode,
+          app.domain,
+          appConfig.sitemap === true,
+          appConfig.defaultRenderMode
+        )
+      );
+    }
     await server.listen();
     const boundPort = server.config.server.port ?? port;
     console.log(
@@ -4353,13 +4355,13 @@ function islandsBuildPlugin(islandUrls) {
 }
 
 // src/build/buildAppServer.ts
-async function buildAppServer(appRoot) {
+async function buildAppServer(appRoot, options = {}) {
   const routesDir = path12.join(appRoot, "routes");
   const apiDir = path12.join(appRoot, "api");
   const entryServerPath = path12.join(appRoot, "entry-server.tsx");
   const serverOutDir = path12.join(appRoot, "dist", "server");
-  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = await buildAppClient(appRoot);
-  const input = { "entry-server": entryServerPath };
+  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly ? { islandUrls: /* @__PURE__ */ new Map(), islandClientUrl: void 0, csrUrls: /* @__PURE__ */ new Map(), csrClientUrl: void 0 } : await buildAppClient(appRoot);
+  const input = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
@@ -4395,7 +4397,8 @@ async function buildAppServer(appRoot) {
 // src/build/buildAppStatic.ts
 import path13 from "node:path";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
-async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode) {
+async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, options = {}) {
+  if (options.backendOnly) return { staticRoutes: [] };
   const routesDir = path13.join(appRoot, "routes");
   const staticOutDir = path13.join(appRoot, "dist", "static");
   const islandManifestPath = path13.join(serverOutDir, "island-manifest.json");
@@ -4450,11 +4453,14 @@ async function bundleForDeploy(wrapperPath, serverOutDir) {
     allowOverwrite: true,
     logLevel: "silent"
   });
-  const routeFiles = await findJsFiles(path14.join(serverOutDir, "routes"));
+  const routesOutDir = path14.join(serverOutDir, "routes");
+  const routeFiles = existsSync6(routesOutDir) ? await findJsFiles(routesOutDir) : [];
   const apiDir = path14.join(serverOutDir, "api");
   const apiFiles = existsSync6(apiDir) ? await findJsFiles(apiDir) : [];
+  const entryServerPath = path14.join(serverOutDir, "entry-server.js");
+  const entryPoints = existsSync6(entryServerPath) ? [entryServerPath] : [];
   await esbuild.build({
-    entryPoints: [path14.join(serverOutDir, "entry-server.js"), ...routeFiles, ...apiFiles],
+    entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,
     splitting: true,
     platform: "node",
@@ -4517,7 +4523,9 @@ async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnable
   const staticOutDir = path16.join(appRoot, "dist", "static");
   await mkdir2(path16.join(outputDir, "static"), { recursive: true });
   await mkdir2(funcDir, { recursive: true });
-  await cp2(path16.join(appRoot, "routes"), path16.join(funcDir, "routes"), { recursive: true });
+  if (existsSync8(path16.join(appRoot, "routes"))) {
+    await cp2(path16.join(appRoot, "routes"), path16.join(funcDir, "routes"), { recursive: true });
+  }
   if (existsSync8(path16.join(appRoot, "api"))) {
     await cp2(path16.join(appRoot, "api"), path16.join(funcDir, "api"), { recursive: true });
   }
@@ -4600,11 +4608,14 @@ async function bundleForDeploy2(wrapperPath, serverOutDir) {
     allowOverwrite: true,
     logLevel: "silent"
   });
-  const routeFiles = await findJsFiles2(path17.join(serverOutDir, "routes"));
+  const routesOutDir = path17.join(serverOutDir, "routes");
+  const routeFiles = existsSync9(routesOutDir) ? await findJsFiles2(routesOutDir) : [];
   const apiDir = path17.join(serverOutDir, "api");
   const apiFiles = existsSync9(apiDir) ? await findJsFiles2(apiDir) : [];
+  const entryServerPath = path17.join(serverOutDir, "entry-server.js");
+  const entryPoints = existsSync9(entryServerPath) ? [entryServerPath] : [];
   await esbuild2.build({
-    entryPoints: [path17.join(serverOutDir, "entry-server.js"), ...routeFiles, ...apiFiles],
+    entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,
     splitting: true,
     platform: "node",
@@ -4664,7 +4675,9 @@ async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabl
   const funcDir = path19.join(appRoot, "netlify", "functions", "ssr");
   const staticOutDir = path19.join(appRoot, "dist", "static");
   await mkdir3(funcDir, { recursive: true });
-  await cp3(path19.join(appRoot, "routes"), path19.join(funcDir, "routes"), { recursive: true });
+  if (existsSync11(path19.join(appRoot, "routes"))) {
+    await cp3(path19.join(appRoot, "routes"), path19.join(funcDir, "routes"), { recursive: true });
+  }
   if (existsSync11(path19.join(appRoot, "api"))) {
     await cp3(path19.join(appRoot, "api"), path19.join(funcDir, "api"), { recursive: true });
   }
@@ -4738,10 +4751,11 @@ async function buildAppForAdapter(root, project, app, adapter) {
       ...listRouteFiles(path20.join(appRoot, "api"))
     ]);
   }
+  const backendOnly = appConfig.backendOnly === true;
   console.log(`[devora] building "${app.name}" (SSR)...`);
-  const { serverOutDir } = await buildAppServer(appRoot);
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly });
   console.log(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
-  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode);
+  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, { backendOnly });
   if (staticRoutes.length > 0) {
     console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }
@@ -5103,7 +5117,7 @@ for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
   functions = "netlify/functions"
 
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
 
 [[redirects]]
   from = "/*"

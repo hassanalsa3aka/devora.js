@@ -23,8 +23,18 @@ import {
 export async function buildAppStatic(
   appRoot: string,
   serverOutDir: string,
-  appDefaultRenderMode: RenderMode | undefined
+  appDefaultRenderMode: RenderMode | undefined,
+  options: { backendOnly?: boolean } = {}
 ): Promise<{ staticRoutes: string[] }> {
+  // Backend-only app mode (architecture-v2.md §3.4) — no pages means no
+  // entry-server.tsx build output at all (buildAppServer.ts skips it), so
+  // this must return before ever trying to import it. A real bug found
+  // wiring this up: this function used to import entry-server.js
+  // unconditionally, before even checking whether any ssg/isr route
+  // existed — harmless for a normal app (always has one), but a build-time
+  // crash for a backend-only app that never built one in the first place.
+  if (options.backendOnly) return { staticRoutes: [] };
+
   const routesDir = path.join(appRoot, "routes");
   const staticOutDir = path.join(appRoot, "dist", "static");
   const islandManifestPath = path.join(serverOutDir, "island-manifest.json");

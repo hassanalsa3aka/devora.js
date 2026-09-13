@@ -8,10 +8,16 @@
  * `x-devora-csrf` header (not FormData — there's no form here) against the
  * token this app's own page already received as a `csrfToken` prop and
  * would send back on this header from client-side JS.
+ *
+ * Also demonstrates §3.3's native middleware composition, wrapping the real
+ * `cors` package via `fromExpressMiddleware()` — the wrapped middleware
+ * itself is defined once in packages/backend/middleware.ts (§3.3.1's
+ * governance rule), this route just opts in explicitly.
  */
-import { apiRoute, CSRF_HEADER_NAME } from "@devorajs/core";
+import { apiRoute, withMiddleware, CSRF_HEADER_NAME } from "@devorajs/core";
+import { allowMarketingOrigin } from "@devorajs/backend/middleware";
 
-export const handler = apiRoute((req, ctx) => {
+const helloHandler = apiRoute((req, ctx) => {
   if (req.method === "POST") {
     ctx.requireAuth();
     const csrfHeader = req.headers[CSRF_HEADER_NAME];
@@ -26,3 +32,5 @@ export const handler = apiRoute((req, ctx) => {
     body: JSON.stringify({ message: "hello", session: ctx.session }),
   };
 });
+
+export const handler = withMiddleware(helloHandler, allowMarketingOrigin);
