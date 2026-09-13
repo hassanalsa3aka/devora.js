@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import * as esbuild from "esbuild";
 
 /**
@@ -57,8 +58,15 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
   });
 
   const routeFiles = await findJsFiles(path.join(serverOutDir, "routes"));
+  // Generic API routes (architecture-v2.md §3.2) land at dist/server/api/**
+  // via the same named-rollup-entry mechanism as routes/ (buildAppServer.ts)
+  // — bundle them the same way, or a deployed function would 500 on
+  // `Cannot find module` the first time any API route is actually hit.
+  // existsSync-guarded: most apps have no api/ directory at all.
+  const apiDir = path.join(serverOutDir, "api");
+  const apiFiles = existsSync(apiDir) ? await findJsFiles(apiDir) : [];
   await esbuild.build({
-    entryPoints: [path.join(serverOutDir, "entry-server.js"), ...routeFiles],
+    entryPoints: [path.join(serverOutDir, "entry-server.js"), ...routeFiles, ...apiFiles],
     bundle: true,
     splitting: true,
     platform: "node",

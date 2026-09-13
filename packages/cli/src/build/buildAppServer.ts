@@ -45,6 +45,7 @@ import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
  */
 export async function buildAppServer(appRoot: string): Promise<{ serverOutDir: string }> {
   const routesDir = path.join(appRoot, "routes");
+  const apiDir = path.join(appRoot, "api");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
   const serverOutDir = path.join(appRoot, "dist", "server");
 
@@ -52,6 +53,14 @@ export async function buildAppServer(appRoot: string): Promise<{ serverOutDir: s
 
   const input: Record<string, string> = { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
+    input[toBuildKey(appRoot, filePath)] = filePath;
+  }
+  // Generic API routes (architecture-v2.md §3.2) — same named-rollup-entry
+  // trick as page routes above, so prodRequestHandler.ts can compute an API
+  // route's built file the same way it already does for a page route, no
+  // separate manifest needed. `listRouteFiles` returns [] if an app has no
+  // `api/` directory at all — the common case, and free.
+  for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
 

@@ -3,6 +3,7 @@ import { createServer } from "vite";
 import { listRouteFiles, resolveAuthMode } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
+import { createApiMiddlewarePlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
@@ -25,7 +26,10 @@ export async function dev(opts: { app?: string }) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
     if (authMode === "none") {
-      assertNoAuthUsage(app.name, listRouteFiles(path.join(appRoot, "routes")));
+      assertNoAuthUsage(app.name, [
+        ...listRouteFiles(path.join(appRoot, "routes")),
+        ...listRouteFiles(path.join(appRoot, "api")),
+      ]);
     }
     const appConfig = await loadAppConfig(appRoot);
     const server = await createServer({
@@ -36,7 +40,11 @@ export async function dev(opts: { app?: string }) {
       // Injected here rather than requiring every app's vite.config.ts to
       // import framework internals — Vite merges this with the app's own
       // plugins array (see ROADMAP.md #3).
-      plugins: [islandsPlugin()],
+      // apiMiddlewarePlugin must run before Vite's own internal middlewares
+      // (see apiMiddleware.ts's doc comment on why) — passed as a plugin,
+      // not a post-hoc server.middlewares.use() call, for exactly that
+      // reason.
+      plugins: [islandsPlugin(), createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security)],
     });
     // Security headers apply to every response from this server, not just
     // SSR-matched routes — "a default, not opt-in" (§7).

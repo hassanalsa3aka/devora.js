@@ -10,8 +10,10 @@ import { resolveSecurityHeaders } from "./securityHeaders.js";
 import { resolveRenderMode } from "./renderRoute.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
+import { dispatchApiRoute } from "./apiDispatch.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
+import type { ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -54,6 +56,7 @@ export function createProdRequestHandler(
   appDefaultRenderMode?: RenderMode
 ) {
   const routesDir = path.join(appRoot, "routes");
+  const apiDir = path.join(appRoot, "api");
   const serverOutDir = path.join(appRoot, "dist", "server");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");
@@ -81,6 +84,36 @@ export function createProdRequestHandler(
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
+      return true;
+    }
+
+    // Generic API routes (architecture-v2.md §3.2) — matched and dispatched
+    // before any page-route/asset handling, same "/api/*" convention and
+    // second-call-site reasoning as apiMiddleware.ts (dev's equivalent).
+    if (url.pathname.startsWith("/api/")) {
+      const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
+      if (!apiMatch) return false;
+
+      const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
+      const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
+      const body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+
+      const apiResult = await dispatchApiRoute(apiRouteModule, {
+        method: req.method ?? "GET",
+        url: req.url,
+        headers: req.headers,
+        cookieHeader: req.headers.cookie,
+        params: apiMatch.params,
+        sessionCookieOptions,
+        body,
+      });
+
+      if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+      if (apiResult.headers) {
+        for (const [name, value] of Object.entries(apiResult.headers)) res.setHeader(name, value);
+      }
+      res.statusCode = apiResult.status;
+      res.end(apiResult.body ?? "");
       return true;
     }
 
@@ -307,4 +340,12 @@ async function parseFormData(req: IncomingMessage): Promise<FormData> {
   // real tsc build (this package never had one before) caught immediately.
   new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
   return formData;
+}
+
+async function readRawBody(req: IncomingMessage): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks);
 }

@@ -29,7 +29,10 @@ export async function buildAppForAdapter(
   // reasoning as the runtime throw in session.ts's createNoAuthContext().
   const authMode = resolveAuthMode(project, app.name);
   if (authMode === "none") {
-    assertNoAuthUsage(app.name, listRouteFiles(path.join(appRoot, "routes")));
+    assertNoAuthUsage(app.name, [
+      ...listRouteFiles(path.join(appRoot, "routes")),
+      ...listRouteFiles(path.join(appRoot, "api")),
+    ]);
   }
 
   console.log(`[devora] building "${app.name}" (SSR)...`);

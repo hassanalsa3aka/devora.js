@@ -96,6 +96,14 @@ export async function writeNetlifyConfig(
   await mkdir(funcDir, { recursive: true });
 
   await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
+  // Generic API routes (architecture-v2.md §3.2) — same real bug fix as
+  // adapter-vercel's identical copy step: prodRequestHandler.ts's
+  // matchRoute() needs the *source* api/ files at runtime, not just their
+  // built dist/server/api/*.js output. existsSync-guarded: most apps have
+  // no api/ directory at all.
+  if (existsSync(path.join(appRoot, "api"))) {
+    await cp(path.join(appRoot, "api"), path.join(funcDir, "api"), { recursive: true });
+  }
   await cp(path.join(appRoot, "dist", "server"), path.join(funcDir, "dist", "server"), { recursive: true });
 
   // ssg/isr pre-rendered HTML — same caveat as adapter-vercel: copied into

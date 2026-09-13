@@ -17,4 +17,11 @@ export const db = {
       );
     },
   },
+  users: {
+    async find(id: string): Promise<unknown> {
+      throw new Error(
+        "[backend/db] no DB client configured yet — wire up Prisma/Drizzle/etc. here."
+      );
+    },
+  },
 };

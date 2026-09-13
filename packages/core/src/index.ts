@@ -25,3 +25,6 @@ export * from "./isrCache.js";
 export * from "./csrRoute.js";
 export * from "./theme.js";
 export * from "./branding.js";
+export * from "./module.js";
+export * from "./apiRoute.js";
+export * from "./apiDispatch.js";

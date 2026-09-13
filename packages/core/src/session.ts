@@ -163,12 +163,13 @@ export function createRequestContext(
       currentSession = undefined;
       pendingSetCookies.push(`${cookieOptions.name}=; ${buildCookieAttributes()}; Max-Age=0`);
     },
-    verifyCsrf: (formData: FormData) => {
+    verifyCsrf: (submitted: FormData | string) => {
       // Verified against the cookie actually sent on *this* request, not
       // the possibly-freshly-generated `csrfToken` above — a POST arriving
       // with no CSRF cookie at all has nothing legitimate to verify against
       // and must fail, not silently pass against a token nobody submitted.
-      if (!verifyCsrfToken(incomingCsrfCookie, formData.get(CSRF_FORM_FIELD))) {
+      const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
+      if (!verifyCsrfToken(incomingCsrfCookie, value)) {
         throw new Error("[devora] verifyCsrf(): missing or invalid CSRF token");
       }
     },

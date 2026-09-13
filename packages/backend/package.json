@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./settings": "./functions/settings.ts",
-    "./db": "./db/index.ts"
+    "./db": "./db/index.ts",
+    "./modules/users": "./modules/users.ts"
   },
   "dependencies": {
     "@devorajs/core": "*"
