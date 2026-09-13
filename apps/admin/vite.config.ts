@@ -13,4 +13,10 @@ export default defineConfig({
   // packages/core/src/theme.ts, and prodRequestHandler.ts's static-file
   // fallback for how production serves it).
   publicDir: path.resolve(__dirname, "../../assets"),
+  // esbuild 0.25+ (bumped for GHSA-67mh-4wv8-2f99, see architecture-v2.md Phase 0)
+  // can no longer down-level destructuring to Vite's old default multi-browser
+  // target list in combination; picking one explicit modern target avoids it.
+  build: {
+    target: "es2022",
+  },
 });

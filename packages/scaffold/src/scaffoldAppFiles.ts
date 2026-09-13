@@ -166,6 +166,11 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  plugins: [react()],\n` +
       `  // Shared brand assets (logo, favicon) — see packages/core/src/theme.ts.\n` +
       `  publicDir: path.resolve(__dirname, "../../assets"),\n` +
+      `  // Explicit modern target — esbuild 0.25+ can no longer down-level\n` +
+      `  // destructuring to Vite's old default multi-browser target list.\n` +
+      `  build: {\n` +
+      `    target: "es2022",\n` +
+      `  },\n` +
       `});\n`
   );
 

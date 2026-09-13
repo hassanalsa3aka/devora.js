@@ -30,7 +30,7 @@
     "jiti": "^2.3.0"
   },
   "devDependencies": {
-    "esbuild": "^0.21.5",
+    "esbuild": "^0.28.2",
     "@devorajs/core": "*",
     "@devorajs/adapter-node": "*",
     "@devorajs/adapter-vercel": "*",

@@ -69,6 +69,7 @@ Each app can be built/deployed independently (`devora build --app=admin`) or all
 - File-based routing per app (`apps/*/routes/`).
 - Route files export `loader` (server-side data), `component` (UI), and optional `action` (mutations) — explicit, not inferred from file naming conventions beyond the path itself.
 - No nested layout caching magic — layouts are explicit React components that wrap children; no hidden revalidation windows.
+- **Dynamic route segments** — `routes/users/[id].tsx` matches `/users/123`, with the matched value available as `ctx.params.id` inside that route's `loader`/`action` (no separate params argument — one context object, consistent with how `ctx` already carries auth/session/CSRF). A static route always wins over a dynamic one at the same path depth, so `routes/users/settings.tsx` is matched before `routes/users/[id].tsx` for `/users/settings` — explicit, deterministic precedence, not longest-match heuristics. `ssr`/`csr` render modes support dynamic routes today; `ssg`/`isr` do not yet, since pre-rendering a dynamic route at build time requires knowing which concrete param values to render ahead of time (a static-params export, planned for v2 — see `ROADMAP.md`).
 
 ## 5. Rendering pipeline
 

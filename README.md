@@ -29,7 +29,9 @@ build format standing between you and a plain reverse proxy if you ever need one
 - Vercel: [marketing](https://devora-js-marketing.vercel.app) ·
   [dashboard](https://devora-js-dashboard.vercel.app) ·
   [admin](https://devora-js-admin.vercel.app)
-- Netlify: [devorajs.netlify.app](https://devorajs.netlify.app)
+- Netlify: [marketing](https://devorajs.netlify.app) ·
+  [dashboard](https://devora-dashboard.netlify.app) ·
+  [admin](https://devora-admin.netlify.app)
 - Docs site, built with the published npm packages rather than this monorepo:
   [devorajs-docs-docs.vercel.app](https://devorajs-docs-docs.vercel.app)
 
