@@ -127,6 +127,12 @@ export interface RenderStaticOptions {
   /** Where to fetch the island hydration bootstrap, if this page uses one —
    * same real hashed URL islandsBuildPlugin.ts resolves for ssr pages. */
   islandClientUrl?: string;
+  /** Values for this render's `[param]` segments (architecture-v2.md §3.6) —
+   * from a build-time `getStaticParams()` entry (buildAppStatic.ts), or a
+   * live request's own matched params for dev/isr-regeneration (which
+   * already have a real value, no `getStaticParams()` involved). Empty for
+   * a non-dynamic route. */
+  params?: Record<string, string>;
 }
 
 /**
@@ -143,7 +149,7 @@ export function createRenderStatic(deps: RenderRouteDeps) {
     if (typeof routeModule.default !== "function") {
       throw new Error("[devora] route has no default export component");
     }
-    const ctx = createBuildTimeContext();
+    const ctx = createBuildTimeContext(options.params);
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
     const html = await renderPage(deps, routeModule, data, undefined, options.islandClientUrl);
     return { html };

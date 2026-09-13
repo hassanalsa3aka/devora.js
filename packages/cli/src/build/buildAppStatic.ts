@@ -4,6 +4,7 @@ import {
   listRouteFiles,
   routeFileToPath,
   isDynamicRouteFile,
+  resolveStaticRoutePath,
   toBuildKey,
   resolveRenderMode,
   writeCachedRoute,
@@ -41,7 +42,10 @@ export async function buildAppStatic(
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
 
   const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-    renderStatic: (routeModule: RouteModule, opts: { islandClientUrl?: string }) => Promise<{ html: string }>;
+    renderStatic: (
+      routeModule: RouteModule,
+      opts: { islandClientUrl?: string; params?: Record<string, string> }
+    ) => Promise<{ html: string }>;
   };
 
   const staticRoutes: string[] = [];
@@ -57,16 +61,27 @@ export async function buildAppStatic(
         `[devora] route "${key}" is renderMode: "${mode}" but exports action — actions never run for ${mode} routes.`
       );
     }
-    // A dynamic route (`[id].tsx`) has no fixed set of URLs to pre-render —
-    // there's no static-params API yet to know which values exist (see
-    // router.ts). Fail the build loudly rather than pre-rendering the
-    // literal "[id]" segment as if it were a real page.
+    // A dynamic route (`[id].tsx`) has no single fixed URL — it needs
+    // `getStaticParams()` (architecture-v2.md §3.6) to say which concrete
+    // values to pre-render, one static file per entry. Still fails loudly,
+    // just for a narrower reason now: a dynamic route with no
+    // `getStaticParams()` export, not "dynamic routes don't support this."
     if (isDynamicRouteFile(routesDir, filePath)) {
-      throw new Error(
-        `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: ` +
-          `"${mode}") — dynamic routes don't support ssg/isr yet (no static-params API). Use ` +
-          `renderMode: "ssr" or "csr" instead.`
-      );
+      if (typeof routeModule.getStaticParams !== "function") {
+        throw new Error(
+          `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: ` +
+            `"${mode}") — needs a getStaticParams() export to know which values to pre-render. Add ` +
+            `one, or use renderMode: "ssr"/"csr" instead.`
+        );
+      }
+      const paramSets = await routeModule.getStaticParams();
+      for (const params of paramSets) {
+        const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params });
+        const routePath = resolveStaticRoutePath(routesDir, filePath, params);
+        await writeCachedRoute(staticOutDir, routePath, html);
+        staticRoutes.push(routePath);
+      }
+      continue;
     }
 
     const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });

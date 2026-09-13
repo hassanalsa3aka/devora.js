@@ -7,9 +7,9 @@ import type { RequestContext } from "./serverFn.js";
  * mostly exists to satisfy `loader`'s signature; if a loader does call one
  * of these, failing loudly beats silently no-op'ing.
  */
-export function createBuildTimeContext(): RequestContext {
+export function createBuildTimeContext(params: Record<string, string> = {}): RequestContext {
   return {
-    params: {},
+    params,
     session: undefined,
     requireAuth: () => {
       throw new Error("[devora] requireAuth() is not available at build time (ssg/isr routes render without a request)");

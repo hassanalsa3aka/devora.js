@@ -7,7 +7,6 @@ import {
   resolveSessionCookieOptions,
   resolveRenderMode,
   renderCsrShell,
-  isDynamicRouteFile,
   type AuthMode,
   type RenderMode,
   type RouteModule,
@@ -107,7 +106,7 @@ export function createSsrMiddleware(
         ) => Promise<{ status: number; html: string; setCookie?: string[]; redirectTo?: string } | null>;
         renderStatic: (
           routeModule: RouteModule,
-          opts: { islandClientUrl?: string }
+          opts: { islandClientUrl?: string; params?: Record<string, string> }
         ) => Promise<{ html: string }>;
       };
 
@@ -122,18 +121,16 @@ export function createSsrMiddleware(
               `actions never run for ${renderMode} routes.`
           );
         }
-        // A dynamic route (`[id].tsx`) has no fixed set of URLs to
-        // pre-render — there's no static-params API yet to know which
-        // values exist (router.ts). ssr/csr both still work on it; only
-        // ssg/isr specifically can't, and fail loudly here instead of
-        // silently pre-rendering the literal "[id]" segment.
-        if (isDynamicRouteFile(routesDir, match.filePath)) {
-          throw new Error(
-            `[devora] route "${match.routePath}" is a dynamic route (renderMode: "${renderMode}") — ` +
-              `dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
-          );
-        }
-        const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl: "/island-client.tsx" });
+        // A dynamic route (`[id].tsx`) needs getStaticParams() only for the
+        // real *build* step (buildAppStatic.ts), which has no live request
+        // to derive params from. Dev never pre-renders anything — it
+        // already has the real params from this actual request
+        // (match.params), the same way ssr/csr already do — so there's
+        // nothing to reject here (architecture-v2.md §3.6).
+        const { html } = await entryServer.renderStatic(routeModule, {
+          islandClientUrl: "/island-client.tsx",
+          params: match.params,
+        });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);

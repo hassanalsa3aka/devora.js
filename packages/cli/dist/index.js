@@ -3176,6 +3176,20 @@ function routeFileToPath(routesDir, filePath) {
 function isDynamicRouteFile(routesDir, filePath) {
   return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
 }
+function resolveStaticRoutePath(routesDir, filePath, params) {
+  const segments = fileToRouteSegments(routesDir, filePath).map((segment) => {
+    if (!isDynamicSegment(segment)) return segment;
+    const name = paramName(segment);
+    const value = params[name];
+    if (value === void 0) {
+      throw new Error(
+        `[devora] getStaticParams() entry is missing "${name}" for dynamic route segment "${segment}"`
+      );
+    }
+    return value;
+  });
+  return segments.length === 0 ? "/" : "/" + segments.join("/");
+}
 function isDynamicSegment(segment) {
   return segment.startsWith("[") && segment.endsWith("]") && segment.length > 2;
 }
@@ -3790,7 +3804,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         if (!cached || revalidateSeconds !== void 0 && isStale(cached.renderedAt, revalidateSeconds)) {
           const entryServer2 = await importBuilt(serverOutDir, "entry-server");
           const islandClientUrl2 = await readIslandClientUrl(islandManifestPath);
-          const { html } = await entryServer2.renderStatic(routeModule, { islandClientUrl: islandClientUrl2 });
+          const { html } = await entryServer2.renderStatic(routeModule, { islandClientUrl: islandClientUrl2, params: match.params });
           await writeCachedRoute(staticOutDir, match.routePath, html);
           cached = { html, renderedAt: Date.now() };
         }
@@ -3899,6 +3913,24 @@ var ISLAND_CALL_RE = /\bisland(?:<[^>]*>)?\(\s*\(\)\s*=>\s*import\(\s*(['"])((?:
 // ../core/src/branding.tsx
 var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 
+// ../core/src/disposeRegistry.ts
+function registry() {
+  if (!globalThis.__devoraDisposables) {
+    globalThis.__devoraDisposables = /* @__PURE__ */ new Map();
+  }
+  return globalThis.__devoraDisposables;
+}
+function normalizeKey(fileUrlOrPath) {
+  return fileUrlOrPath.startsWith("file://") ? new URL(fileUrlOrPath).pathname : fileUrlOrPath;
+}
+function runAndClearDisposable(filePath) {
+  const key = normalizeKey(filePath);
+  const dispose = registry().get(key);
+  if (!dispose) return;
+  registry().delete(key);
+  dispose();
+}
+
 // ../core/src/loadProjectConfig.ts
 import path5 from "node:path";
 import { existsSync as existsSync3 } from "node:fs";
@@ -3976,12 +4008,10 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
             `[devora] route "${match.routePath}" is renderMode: "${renderMode}" but exports action \u2014 actions never run for ${renderMode} routes.`
           );
         }
-        if (isDynamicRouteFile(routesDir, match.filePath)) {
-          throw new Error(
-            `[devora] route "${match.routePath}" is a dynamic route (renderMode: "${renderMode}") \u2014 dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
-          );
-        }
-        const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl: "/island-client.tsx" });
+        const { html } = await entryServer.renderStatic(routeModule, {
+          islandClientUrl: "/island-client.tsx",
+          params: match.params
+        });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);
@@ -4121,6 +4151,16 @@ function islandsPlugin() {
   };
 }
 
+// src/server/moduleDisposePlugin.ts
+function moduleDisposePlugin() {
+  return {
+    name: "devora-module-dispose",
+    handleHotUpdate(ctx) {
+      runAndClearDisposable(ctx.file);
+    }
+  };
+}
+
 // src/build/checkNoAuthUsage.ts
 import fs2 from "node:fs";
 var SESSION_METHOD_CALL_RE = /\bctx\.(requireAuth|setSession|clearSession|verifyCsrf)\s*\(/g;
@@ -4178,7 +4218,11 @@ async function dev(opts) {
       // (see apiMiddleware.ts's doc comment on why) — passed as a plugin,
       // not a post-hoc server.middlewares.use() call, for exactly that
       // reason.
-      plugins: [islandsPlugin(), createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security)]
+      plugins: [
+        islandsPlugin(),
+        moduleDisposePlugin(),
+        createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security)
+      ]
     });
     server.middlewares.use(createSecurityHeadersMiddleware(appConfig.security));
     if (appConfig.backendOnly !== true) {
@@ -4416,9 +4460,19 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
       );
     }
     if (isDynamicRouteFile(routesDir, filePath)) {
-      throw new Error(
-        `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: "${mode}") \u2014 dynamic routes don't support ssg/isr yet (no static-params API). Use renderMode: "ssr" or "csr" instead.`
-      );
+      if (typeof routeModule.getStaticParams !== "function") {
+        throw new Error(
+          `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: "${mode}") \u2014 needs a getStaticParams() export to know which values to pre-render. Add one, or use renderMode: "ssr"/"csr" instead.`
+        );
+      }
+      const paramSets = await routeModule.getStaticParams();
+      for (const params of paramSets) {
+        const { html: html2 } = await entryServer.renderStatic(routeModule, { islandClientUrl, params });
+        const routePath2 = resolveStaticRoutePath(routesDir, filePath, params);
+        await writeCachedRoute(staticOutDir, routePath2, html2);
+        staticRoutes.push(routePath2);
+      }
+      continue;
     }
     const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });
     const routePath = routeFileToPath(routesDir, filePath);

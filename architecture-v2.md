@@ -162,10 +162,22 @@ server loads route/entry modules), not just unused. So a `packages/core`-provide
 can't be a thin wrapper around Vite's own HMR API for the case that actually crashes — it needs a
 different mechanism, e.g. a Vite plugin hook that runs on the *server* side of module invalidation
 (`handleHotUpdate`, or watching the module graph directly) rather than inside the loaded module
-itself, since the loaded module has no working HMR handle to attach to. Phase 1e's task is
-therefore: confirm whether such a plugin-side hook is actually feasible before promising it, and
-if not, say so explicitly and keep `DATABASE.md`'s documented pattern as the real v2 answer rather
-than leaving "evaluate" open-ended.
+itself, since the loaded module has no working HMR handle to attach to.
+
+**Resolved during Phase 1e: the plugin-side hook is real and confirmed working.**
+`registerDisposable()`/`runAndClearDisposable()` (`packages/core/src/disposeRegistry.ts`, backed
+by `globalThis` for the same reload-survival reason `DATABASE.md`'s singleton pattern already
+uses) plus a small Vite plugin (`packages/cli/src/server/moduleDisposePlugin.ts`, wired into every
+dev server) give a resource a real place to register cleanup that runs exactly when Vite is about
+to invalidate its file. Confirmed against a real dev server, not assumed: booted `createServer()`
+with the plugin, loaded a fake module that registers a disposer, edited the file to force a real
+reload, and watched the disposer fire before the next load re-created the "connection" — see
+`DATABASE.md`'s "v2 update" section for the full account, including a real first-attempt miss
+(testing with `hmr: false` silently disabled the exact mechanism being tested). Scope stays honest:
+this is a generic reload-cleanup primitive, not a driver-specific fix — `DATABASE.md`'s
+`globalThis` singleton pattern remains the recommended default, with this as an additional tool for
+closing the old connection cleanly rather than a replacement for it, and it's dev-only by
+construction (nothing to dispose in a production process that never reloads modules).
 
 ### 3.6 Static params for dynamic routes
 

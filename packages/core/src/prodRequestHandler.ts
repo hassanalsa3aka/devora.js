@@ -173,10 +173,17 @@ export function createProdRequestHandler(
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || (revalidateSeconds !== undefined && isStale(cached.renderedAt, revalidateSeconds))) {
           const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-            renderStatic: (routeModule: RouteModule, opts: { islandClientUrl?: string }) => Promise<{ html: string }>;
+            renderStatic: (
+              routeModule: RouteModule,
+              opts: { islandClientUrl?: string; params?: Record<string, string> }
+            ) => Promise<{ html: string }>;
           };
           const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-          const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });
+          // A dynamic route's isr regeneration already has real params from
+          // the live request that triggered it (match.params) — no
+          // getStaticParams() involved here, same reasoning dev mode uses
+          // (see ssrMiddleware.ts).
+          const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params: match.params });
           await writeCachedRoute(staticOutDir, match.routePath, html);
           cached = { html, renderedAt: Date.now() };
         }
