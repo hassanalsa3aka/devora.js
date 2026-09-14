@@ -3665,7 +3665,11 @@ ${urls}
 // ../core/src/islandComponent.tsx
 var import_react2 = __toESM(require_react(), 1);
 var IslandCollectorContext = (0, import_react2.createContext)(null);
-var IslandStreamingContext = (0, import_react2.createContext)(false);
+var IslandStreamingContext = (0, import_react2.createContext)(null);
+var streamingModuleCache = /* @__PURE__ */ new Map();
+function clearStreamingModuleCache() {
+  streamingModuleCache.clear();
+}
 
 // ../core/src/buildKey.ts
 import path2 from "node:path";
@@ -3868,6 +3872,13 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       if (renderMode === "ssg") {
         if (!cached) return false;
       } else {
+        if (isDynamicRouteFile(routesDir, match.filePath) && typeof routeModule.getStaticParams === "function") {
+          const declaredParams = await routeModule.getStaticParams();
+          const allowed = declaredParams.some(
+            (params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath
+          );
+          if (!allowed) return false;
+        }
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || revalidateSeconds !== void 0 && isStale(cached.renderedAt, revalidateSeconds)) {
           const entryServer2 = await importBuilt(serverOutDir, "entry-server");
@@ -4110,7 +4121,12 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
         res.statusCode = result2.status;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        result2.pipeTo(res, (error) => {
+        result2.pipeTo(res, (error, phase) => {
+          if (phase === "shell") {
+            vite.ssrFixStacktrace(error);
+            next(error);
+            return;
+          }
           console.error(`[devora] streaming error on "${match.routePath}":`, error);
         });
         return;
@@ -4271,7 +4287,11 @@ function moduleDisposePlugin() {
   return {
     name: "devora-module-dispose",
     handleHotUpdate(ctx) {
-      runAndClearDisposable(ctx.file);
+      const files = /* @__PURE__ */ new Set([ctx.file, ...ctx.modules.map((m) => m.file).filter((f) => f !== null)]);
+      for (const file of files) {
+        runAndClearDisposable(file);
+      }
+      clearStreamingModuleCache();
     }
   };
 }
@@ -5590,8 +5610,7 @@ async function generateProxy(opts) {
 // src/commands/split.ts
 import path27 from "node:path";
 import { existsSync as existsSync14 } from "node:fs";
-import { mkdtemp, rm as rm3, cp as cp4 } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm as rm3 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
 import path26 from "node:path";
@@ -5604,6 +5623,13 @@ function resolveSplitTarget(root, project, name) {
     throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
   }
   return path26.join(root, app.dir);
+}
+function nameForSplitTarget(root, project, relativePath) {
+  if (path26.normalize(project.shared.backend) === path26.normalize(relativePath)) {
+    return "backend";
+  }
+  const app = project.apps.find((a) => path26.normalize(a.dir) === path26.normalize(relativePath));
+  return app?.name ?? relativePath;
 }
 
 // src/build/gitHelpers.ts
@@ -5695,7 +5721,7 @@ async function split(name, opts) {
     process.exit(1);
   }
   console.log(`[devora] about to split ${relPath} into its own repo:`);
-  console.log(`  1. Push ${relPath}'s current content to ${opts.repo} as that repo's initial history.`);
+  console.log(`  1. Extract ${relPath}'s real commit history (git subtree split) and push it to ${opts.repo}.`);
   console.log(`  2. Remove ${relPath} from this repo's own tracked files.`);
   console.log(`  3. Re-add it as a git submodule pointing at ${opts.repo}.`);
   console.log(`  Nothing is committed here in this repo \u2014 you review and commit yourself afterward.`);
@@ -5704,17 +5730,19 @@ async function split(name, opts) {
     console.log(`[devora] aborted \u2014 nothing changed.`);
     return;
   }
-  const tempDir = await mkdtemp(path27.join(tmpdir(), "devora-split-"));
+  const splitBranch = `devora-split-${Date.now()}`;
   try {
-    await cp4(targetPath, tempDir, { recursive: true });
-    gitOrThrow(["init", "-b", "main"], tempDir);
-    gitOrThrow(["add", "-A"], tempDir);
-    gitOrThrow(["commit", "-m", `Initial split of ${relPath} via devora split`], tempDir);
-    gitOrThrow(["remote", "add", "origin", opts.repo], tempDir);
-    const push = git(["push", "-u", "origin", "main"], tempDir);
+    const splitResult = git(["subtree", "split", `--prefix=${relPath}`, "-b", splitBranch], root);
+    if (splitResult.code !== 0) {
+      throw new Error(
+        `[devora] "git subtree split" failed \u2014 nothing has changed yet:
+${splitResult.stderr || splitResult.stdout}`
+      );
+    }
+    const push = git(["push", opts.repo, `${splitBranch}:main`], root);
     if (push.code !== 0) {
       throw new Error(
-        `[devora] failed to push the initial split content to ${opts.repo}:
+        `[devora] failed to push ${relPath}'s extracted history to ${opts.repo}:
 ${push.stderr}
 Nothing in this repo has changed yet \u2014 fix the remote (does it exist? do you have push access?) and retry.`
       );
@@ -5726,13 +5754,13 @@ Nothing in this repo has changed yet \u2014 fix the remote (does it exist? do yo
       throw new Error(
         `[devora] "git submodule add" failed after ${relPath} was already removed from this repo's tracked files:
 ${addResult.stderr}
-Your real content is safely pushed to ${opts.repo} \u2014 run \`git submodule add ${opts.repo} ${relPath}\` manually to finish, or \`git checkout -- ${relPath}\` to abandon the split and restore the original tracked files.`
+Your real content (with its real history) is safely pushed to ${opts.repo} \u2014 run \`git submodule add ${opts.repo} ${relPath}\` manually to finish, or \`git checkout -- ${relPath}\` to abandon the split and restore the original tracked files.`
       );
     }
-    console.log(`[devora] ${relPath} is now a submodule pointing at ${opts.repo}.`);
+    console.log(`[devora] ${relPath} is now a submodule pointing at ${opts.repo}, with its real commit history.`);
     console.log(`[devora] review with \`git status\` / \`git diff --cached\`, then commit yourself.`);
   } finally {
-    await rm3(tempDir, { recursive: true, force: true });
+    git(["branch", "-D", splitBranch], root);
   }
 }
 
@@ -5831,6 +5859,7 @@ async function syncToMain(targetPath, relPath, opts) {
 import path29 from "node:path";
 async function status() {
   const root = process.cwd();
+  const project = await loadProjectConfig(root);
   const submodules = listSubmodules(root);
   if (submodules.length === 0) {
     console.log(`[devora] no split-off apps/backend \u2014 nothing to report (see \`devora split\`).`);
@@ -5840,6 +5869,7 @@ async function status() {
 `);
   for (const sub of submodules) {
     const targetPath = path29.join(root, sub.path);
+    const name = nameForSplitTarget(root, project, sub.path);
     git(["fetch", "origin"], targetPath);
     const { behind, ahead } = revListCounts(targetPath, "origin/main");
     const gitlinkDirty = git(["status", "--porcelain", "--", sub.path], root).stdout.trim() !== "";
@@ -5847,9 +5877,9 @@ async function status() {
     if (ahead > 0 && behind > 0) {
       state = `diverged \u2014 ${ahead} local commit(s), ${behind} remote commit(s) not pulled`;
     } else if (ahead > 0) {
-      state = `${ahead} local commit(s) not pushed \u2014 run \`devora sync ${sub.path} --to-main\``;
+      state = `${ahead} local commit(s) not pushed \u2014 run \`devora sync ${name} --to-main\``;
     } else if (behind > 0) {
-      state = `${behind} remote commit(s) not pulled \u2014 run \`devora sync ${sub.path} --from-main\``;
+      state = `${behind} remote commit(s) not pulled \u2014 run \`devora sync ${name} --from-main\``;
     } else {
       state = `up to date`;
     }

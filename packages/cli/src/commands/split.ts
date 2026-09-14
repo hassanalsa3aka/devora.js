@@ -1,7 +1,6 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, cp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { resolveSplitTarget } from "../build/resolveSplitTarget.js";
 import { git, gitOrThrow, isGitClean, listSubmodules } from "../build/gitHelpers.js";
@@ -18,14 +17,23 @@ import { confirmAction } from "../build/confirmAction.js";
  *
  * Real Git surgery, not something with an atomic single command — the
  * actual sequence:
- *  1. Copy the target directory's current content to a temp dir.
- *  2. Turn that copy into its own fresh repo and push it to `--repo` as the
- *     submodule's real initial history (an empty remote has nothing to
- *     reference otherwise).
- *  3. Untrack + delete the original directory from this repo.
- *  4. `git submodule add` the same `--repo` back at the same path.
+ *  1. `git subtree split` this directory's own history into a real,
+ *     temporary local branch — every commit that ever touched it, rewritten
+ *     so paths are relative to the directory's own root. Not the same
+ *     decision as "use git subtree for ongoing sync" (architecture-v2.md §5
+ *     explicitly rejected that, in favor of submodules) — this is purely
+ *     "how do we seed the new repo," a one-time operation with no bearing
+ *     on how `sync` works afterward.
+ *  2. Push that branch to `--repo` as `main` — the submodule's real initial
+ *     history, not a single flattened "here's a snapshot" commit (a real,
+ *     previously-undiscovered gap this closes: the original version of this
+ *     command discarded every prior commit/author/blame line for the
+ *     directory being split, silently, with no warning anywhere).
+ *  3. Delete the local temporary branch — it already did its job once pushed.
+ *  4. Untrack + delete the original directory from this repo.
+ *  5. `git submodule add` the same `--repo` back at the same path.
  *
- * Deliberately stops short of committing step 3/4's result in the main
+ * Deliberately stops short of committing step 4/5's result in the main
  * repo — same "show a real diff, require confirmation, leave the actual
  * commit to the user" pattern as everywhere else in this CLI. The
  * confirmation happens *before* any of this runs, since steps 2 onward are
@@ -58,7 +66,7 @@ export async function split(name: string, opts: { repo?: string; yes?: boolean }
   }
 
   console.log(`[devora] about to split ${relPath} into its own repo:`);
-  console.log(`  1. Push ${relPath}'s current content to ${opts.repo} as that repo's initial history.`);
+  console.log(`  1. Extract ${relPath}'s real commit history (git subtree split) and push it to ${opts.repo}.`);
   console.log(`  2. Remove ${relPath} from this repo's own tracked files.`);
   console.log(`  3. Re-add it as a git submodule pointing at ${opts.repo}.`);
   console.log(`  Nothing is committed here in this repo — you review and commit yourself afterward.`);
@@ -69,18 +77,19 @@ export async function split(name: string, opts: { repo?: string; yes?: boolean }
     return;
   }
 
-  const tempDir = await mkdtemp(path.join(tmpdir(), "devora-split-"));
+  const splitBranch = `devora-split-${Date.now()}`;
   try {
-    await cp(targetPath, tempDir, { recursive: true });
+    const splitResult = git(["subtree", "split", `--prefix=${relPath}`, "-b", splitBranch], root);
+    if (splitResult.code !== 0) {
+      throw new Error(
+        `[devora] "git subtree split" failed — nothing has changed yet:\n${splitResult.stderr || splitResult.stdout}`
+      );
+    }
 
-    gitOrThrow(["init", "-b", "main"], tempDir);
-    gitOrThrow(["add", "-A"], tempDir);
-    gitOrThrow(["commit", "-m", `Initial split of ${relPath} via devora split`], tempDir);
-    gitOrThrow(["remote", "add", "origin", opts.repo], tempDir);
-    const push = git(["push", "-u", "origin", "main"], tempDir);
+    const push = git(["push", opts.repo, `${splitBranch}:main`], root);
     if (push.code !== 0) {
       throw new Error(
-        `[devora] failed to push the initial split content to ${opts.repo}:\n${push.stderr}\n` +
+        `[devora] failed to push ${relPath}'s extracted history to ${opts.repo}:\n${push.stderr}\n` +
           `Nothing in this repo has changed yet — fix the remote (does it exist? do you have push access?) and retry.`
       );
     }
@@ -93,15 +102,18 @@ export async function split(name: string, opts: { repo?: string; yes?: boolean }
     if (addResult.code !== 0) {
       throw new Error(
         `[devora] "git submodule add" failed after ${relPath} was already removed from this repo's ` +
-          `tracked files:\n${addResult.stderr}\nYour real content is safely pushed to ${opts.repo} — ` +
-          `run \`git submodule add ${opts.repo} ${relPath}\` manually to finish, or \`git checkout -- ` +
-          `${relPath}\` to abandon the split and restore the original tracked files.`
+          `tracked files:\n${addResult.stderr}\nYour real content (with its real history) is safely pushed ` +
+          `to ${opts.repo} — run \`git submodule add ${opts.repo} ${relPath}\` manually to finish, or ` +
+          `\`git checkout -- ${relPath}\` to abandon the split and restore the original tracked files.`
       );
     }
 
-    console.log(`[devora] ${relPath} is now a submodule pointing at ${opts.repo}.`);
+    console.log(`[devora] ${relPath} is now a submodule pointing at ${opts.repo}, with its real commit history.`);
     console.log(`[devora] review with \`git status\` / \`git diff --cached\`, then commit yourself.`);
   } finally {
-    await rm(tempDir, { recursive: true, force: true });
+    // The temporary split branch already did its job once pushed (or the
+    // push failed and it's not needed either way) — always clean it up,
+    // success or failure, so a retry doesn't collide with a stale one.
+    git(["branch", "-D", splitBranch], root);
   }
 }

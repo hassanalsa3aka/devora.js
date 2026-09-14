@@ -37,6 +37,23 @@ describe("defineModule", () => {
     expect(Object.keys(app.getRoutes())).toEqual(["/webhooks/stripe"]);
   });
 
+  it("real bug: the double-slash opt-out survives more than one level of nesting", () => {
+    // Before this fix, joinRoutePath() *consumed* the "//" marker the first
+    // time a parent flattened a child's routes in, so it only survived
+    // exactly one register() call — a webhook module registered into an
+    // intermediate "payments" module, itself registered into the app root,
+    // would have silently come back re-prefixed as "/app/payments/webhooks/
+    // stripe" or similar, defeating the entire point of the escape hatch.
+    const stripeModule = defineModule({
+      name: "stripe",
+      routes: { "//webhooks/stripe": apiRoute(() => ok("stripe")) },
+    });
+    const payments = defineModule({ name: "payments" }, (m) => m.register(stripeModule));
+    const app = defineModule({ name: "app" }, (root) => root.register(payments));
+
+    expect(Object.keys(app.getRoutes())).toEqual(["/webhooks/stripe"]);
+  });
+
   it("two composed modules don't leak each other's internal state", () => {
     let usersCallCount = 0;
     const usersModule = defineModule({

@@ -45,10 +45,17 @@ export function createIslandCollector(): IslandCollector {
 
 export const IslandCollectorContext = createContext<IslandCollector | null>(null);
 
-/** Provided (`true`) only inside renderStreaming.ts's own render — see this
- * file's doc comment. Never provided by the two-pass path, so `<Island>`'s
- * default (`false`) is exactly today's v1 behavior. */
-export const IslandStreamingContext = createContext<boolean>(false);
+/** A mutable tracker `<Island>` marks when it actually renders under the
+ * streaming path — see `StreamingIslandTracker`'s own doc comment for why
+ * this exists (not just a boolean "is this streaming" flag). */
+export interface StreamingIslandTracker {
+  hasIsland: boolean;
+}
+
+/** Provided (non-null) only inside renderStreaming.ts's own render — see
+ * this file's doc comment. Never provided by the two-pass path, so
+ * `<Island>`'s default (`null`) is exactly today's v1 behavior. */
+export const IslandStreamingContext = createContext<StreamingIslandTracker | null>(null);
 
 let islandIdCounter = 0;
 
@@ -69,6 +76,29 @@ interface ModuleCacheEntry {
  * per call site, created once at module load — never per-request.
  */
 const streamingModuleCache = new Map<IslandDescriptor<unknown>, ModuleCacheEntry>();
+
+/**
+ * Real, previously-undiscovered dev-mode regression this exists to fix:
+ * `streamingModuleCache` is keyed by the `descriptor` *object*, created
+ * fresh only when the route file that calls `island(...)` itself
+ * re-evaluates — editing an island's own component file (e.g. `Counter.tsx`)
+ * doesn't necessarily cause Vite to reload the *route* file that imports it
+ * dynamically, so the old descriptor object (and its now-stale cached
+ * resolution) can survive indefinitely across dev-server HMR edits, with a
+ * full server restart as the only way to clear it. The two-pass model
+ * (ssr/ssg/csr/isr) has no equivalent risk, since it never caches a
+ * resolution across requests at all. Wired into every dev server's
+ * `handleHotUpdate` (`moduleDisposePlugin.ts`, alongside the unrelated but
+ * same-lifecycle-event `registerDisposable()` mechanism) — a real, if blunt,
+ * fix: any edit clears every cached island resolution, not just the one
+ * that changed, trading a few unnecessary re-imports of unrelated islands
+ * for guaranteed correctness rather than precise per-descriptor invalidation.
+ * Never called in production — there's no HMR there to trigger it, and a
+ * production process never needs this cache to change after it's warm.
+ */
+export function clearStreamingModuleCache(): void {
+  streamingModuleCache.clear();
+}
 
 /** The real "throw a promise to suspend" idiom React's Suspense contract
  * expects — reads a cached resolution if there is one, otherwise throws the
@@ -119,8 +149,18 @@ export function Island<Props extends Record<string, unknown>>(props: {
   component: IslandDescriptor<Props>;
   props: Props;
 }): ReactNode {
-  const isStreaming = useContext(IslandStreamingContext);
-  if (isStreaming) {
+  const streamingTracker = useContext(IslandStreamingContext);
+  if (streamingTracker) {
+    // Real bug fixed here: this must be set the moment `<Island>` actually
+    // renders under the streaming path — regardless of whether it resolves
+    // in the shell or suspends — not left for renderStreaming.ts to guess.
+    // Previously the streaming tail *always* included the island hydration
+    // script whenever the caller happened to pass an `islandClientUrl` at
+    // all (true for any app that has an island anywhere, on every request),
+    // silently violating html.ts's own documented contract ("Set only when
+    // the page rendered at least one island") for every streaming route
+    // with zero islands in an app that has them elsewhere.
+    streamingTracker.hasIsland = true;
     // A visible fallback attribute (not `data-island`, so the client
     // hydration bootstrap's MutationObserver — see client.ts — never tries
     // to hydrate a placeholder that hasn't suspended-and-resolved yet).

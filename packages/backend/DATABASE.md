@@ -100,6 +100,16 @@ and saw nothing fire — a real reminder that this hook is part of Vite's HMR pi
 not a general file-watch callback; the real `dev.ts` never disables HMR, so this isn't a caveat for
 actual usage, just a note on how the test was debugged.)
 
+**A real gap in the first version of this fix, closed since**: `moduleDisposePlugin.ts` originally
+only disposed `ctx.file` — the literal file Vite reported as saved. The crash this exists to
+prevent happens whenever the module *holding the connection* re-executes, which Vite triggers not
+only when that exact file changes but whenever anything it imports does too (`ctx.modules` carries
+the whole invalidated import chain; `ctx.file` is only the one file actually saved). Editing a
+shared `env.ts` that `db/index.ts` imports re-executes `db/index.ts` the identical way editing
+`db/index.ts` directly does, and the original version silently missed that case — reproducing the
+exact crash this feature exists to prevent, one HMR hop removed from the file it was tested
+against. Fixed by disposing every module in `ctx.modules`, not just `ctx.file`.
+
 **Usage** — register a disposer for your connection right where you create it:
 
 ```ts

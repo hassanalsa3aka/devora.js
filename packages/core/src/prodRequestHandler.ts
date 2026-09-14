@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { matchRoute, listRoutePaths } from "./router.js";
+import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
 import { generateSitemapXml } from "./sitemap.js";
 import { resolveSessionCookieOptions } from "./session.js";
 import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
@@ -232,6 +232,27 @@ export function createProdRequestHandler(
         // and more deterministic than stale-while-revalidate for v1 (see
         // ROADMAP.md). Only reliable under adapter-node's long-lived
         // process/writable disk — see isrCache.ts.
+        //
+        // Real, previously-undiscovered bug closed here: for a DYNAMIC
+        // route, getStaticParams() (architecture-v2.md §3.6) is a real
+        // allowlist at build time — buildAppStatic.ts only ever pre-renders
+        // the concrete values it returns. This runtime regeneration branch
+        // used to render+cache *any* value matching the route's file
+        // pattern, no matter how it got here — an attacker requesting
+        // /posts/<anything> would each get a real render permanently
+        // written to disk via writeCachedRoute, defeating the allowlist
+        // getStaticParams() exists to establish (unbounded disk growth /
+        // cache poisoning from arbitrary attacker-chosen param values).
+        // `ssg`'s sibling branch above never had this hole, since it
+        // already refuses to render anything not already cached.
+        if (isDynamicRouteFile(routesDir, match.filePath) && typeof routeModule.getStaticParams === "function") {
+          const declaredParams = await routeModule.getStaticParams();
+          const allowed = declaredParams.some(
+            (params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath
+          );
+          if (!allowed) return false; // honest 404 — never declared, never rendered.
+        }
+
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || (revalidateSeconds !== undefined && isStale(cached.renderedAt, revalidateSeconds))) {
           const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
@@ -241,10 +262,6 @@ export function createProdRequestHandler(
             ) => Promise<{ html: string }>;
           };
           const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-          // A dynamic route's isr regeneration already has real params from
-          // the live request that triggered it (match.params) — no
-          // getStaticParams() involved here, same reasoning dev mode uses
-          // (see ssrMiddleware.ts).
           const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params: match.params });
           await writeCachedRoute(staticOutDir, match.routePath, html);
           cached = { html, renderedAt: Date.now() };

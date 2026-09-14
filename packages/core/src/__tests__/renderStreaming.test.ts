@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { PassThrough } from "node:stream";
 import { createRenderStreaming } from "../renderStreaming.js";
-import { Island } from "../islandComponent.js";
+import { Island, clearStreamingModuleCache } from "../islandComponent.js";
 import { island } from "../island.js";
 import type { RouteModule } from "../route.js";
 
@@ -29,6 +29,89 @@ function deferredIslandDescriptor(label: string) {
   }, `/assets/${label}.js`);
   return { descriptor, releaseImport: resolve };
 }
+
+describe("clearStreamingModuleCache — real dev-mode staleness fix", () => {
+  it("a cleared cache re-imports the same descriptor instead of reusing a stale resolution", async () => {
+    // Real, previously-undiscovered bug: streamingModuleCache is keyed by
+    // the descriptor *object*, which can survive a dev-mode edit to the
+    // island's own component file (the route file that created the
+    // descriptor isn't necessarily reloaded just because something it
+    // dynamically imports changed) — without clearing it, a stale
+    // resolution would be served forever until a full server restart.
+    let importCount = 0;
+    const descriptor = island(async () => {
+      importCount++;
+      return { default: () => createElement("span", null, `version-${importCount}`) };
+    }, "/assets/versioned.js");
+
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement(Island, { component: descriptor, props: {} }),
+    };
+    const renderStreaming = createRenderStreaming(deps);
+
+    const render = async () => {
+      const result = await renderStreaming(routeModule, {});
+      const { destination, chunks, done } = collectChunks();
+      result!.pipeTo(destination);
+      await done;
+      return chunks().join("");
+    };
+
+    const first = await render();
+    expect(first).toContain("version-1");
+
+    const second = await render();
+    expect(second).toContain("version-1"); // still cached — same descriptor object, no clear yet
+    expect(importCount).toBe(1);
+
+    clearStreamingModuleCache();
+
+    const third = await render();
+    expect(third).toContain("version-2"); // re-imported after the clear
+    expect(importCount).toBe(2);
+  });
+});
+
+describe("createRenderStreaming — destination error handling", () => {
+  it("a destination 'error' event (e.g. a client disconnecting mid-stream) doesn't crash the process", async () => {
+    // Real, previously-undiscovered bug: Node's EventEmitter contract
+    // throws (crashing the whole process, not just this request) if an
+    // "error" event fires with zero listeners attached — pipeTo used to
+    // attach none at all. If this test's `destination.emit("error", ...)`
+    // below were uncaught, it would throw synchronously right here and
+    // fail this test (or crash the whole test process) — the absence of a
+    // thrown/rejected error IS the assertion.
+    const { descriptor, releaseImport } = deferredIslandDescriptor("abort-check");
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement(Island, { component: descriptor, props: {} }),
+    };
+    const renderStreaming = createRenderStreaming(deps);
+    const result = await renderStreaming(routeModule, {});
+
+    const destination = new PassThrough();
+    const chunksAfterError: string[] = [];
+    let sawError = false;
+    destination.on("error", () => (sawError = true));
+    destination.on("data", (chunk: Buffer) => {
+      if (sawError) chunksAfterError.push(chunk.toString("utf-8"));
+    });
+
+    result!.pipeTo(destination);
+    await new Promise((r) => setTimeout(r, 20)); // let the shell flush
+
+    destination.emit("error", new Error("simulated client disconnect"));
+    releaseImport();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(sawError).toBe(true);
+    // The render was aborted — no further chunks (e.g. the island's real
+    // content, which would otherwise arrive once releaseImport() resolves)
+    // should show up after the destination already errored.
+    expect(chunksAfterError).toEqual([]);
+  });
+});
 
 describe("createRenderStreaming — CSP nonce (securityHeaders.ts's addNonceToCsp)", () => {
   it("a real post-shell React patch script carries the request's nonce attribute", async () => {
@@ -136,6 +219,25 @@ describe("createRenderStreaming — real streaming behavior, not just final outp
     expect(full).toContain("<!doctype html>");
     expect(full).toContain("Plain page");
     expect(full).toContain("</html>");
+  });
+
+  it("omits the island client script when the route rendered zero islands, even though the app has one configured", async () => {
+    // Real bug fixed here (see islandComponent.tsx's Island() doc comment):
+    // the tail used to include the hydration script for ANY app that has an
+    // island anywhere, not just routes that actually rendered one.
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement("h1", null, "No islands on this page"),
+    };
+    const renderStreaming = createRenderStreaming(deps);
+    const result = await renderStreaming(routeModule, { islandClientUrl: "/island-client.tsx" });
+    const { destination, chunks, done } = collectChunks();
+    result!.pipeTo(destination);
+    await done;
+
+    const full = chunks().join("");
+    expect(full).not.toContain("/island-client.tsx");
+    expect(full).not.toContain("<script");
   });
 
   it("runs the loader and passes its data to the component", async () => {

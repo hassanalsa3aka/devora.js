@@ -129,7 +129,10 @@ export function createSsrMiddleware(
         ) => Promise<{
           status: number;
           setCookie?: string[];
-          pipeTo: (destination: NodeJS.WritableStream, onError?: (error: unknown) => void) => void;
+          pipeTo: (
+            destination: NodeJS.WritableStream,
+            onError?: (error: unknown, phase: "shell" | "boundary") => void
+          ) => void;
         } | null>;
       };
 
@@ -165,12 +168,25 @@ export function createSsrMiddleware(
         if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
         res.statusCode = result.status;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        result.pipeTo(res, (error) => {
-          // A post-shell error can't change a response already streaming —
-          // this is a reporting hook (renderStreaming.ts's own doc
-          // comment). A shell error, by contrast, means nothing was
-          // written yet; Vite's dev error overlay is the more useful
-          // report there, same as every other render mode's catch below.
+        result.pipeTo(res, (error, phase) => {
+          if (phase === "shell") {
+            // Real, previously-undiscovered bug fixed here: this callback
+            // used to only console.error() a shell error, with no `phase`
+            // even available to branch on — nothing was ever written to
+            // `res` (renderStreaming.ts's own doc comment: a shell error
+            // means `destination.write` is never called), so the request
+            // hung until a client/proxy timeout instead of ever getting a
+            // response. `next(error)` is exactly what every other render
+            // mode's catch block below already does — Vite's dev error
+            // overlay, not a bare console.error with no HTTP response at
+            // all.
+            vite.ssrFixStacktrace(error as Error);
+            next(error);
+            return;
+          }
+          // A post-shell ("boundary") error can't change a response
+          // already streaming — this is a reporting hook only
+          // (renderStreaming.ts's own doc comment).
           console.error(`[devora] streaming error on "${match.routePath}":`, error);
         });
         return;

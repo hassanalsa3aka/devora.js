@@ -1,5 +1,7 @@
 import path from "node:path";
+import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { git, listSubmodules, revListCounts } from "../build/gitHelpers.js";
+import { nameForSplitTarget } from "../build/resolveSplitTarget.js";
 
 /**
  * `devora status --all` (architecture-v2.md §5) — sync state across every
@@ -11,6 +13,7 @@ import { git, listSubmodules, revListCounts } from "../build/gitHelpers.js";
  */
 export async function status(): Promise<void> {
   const root = process.cwd();
+  const project = await loadProjectConfig(root);
   const submodules = listSubmodules(root);
 
   if (submodules.length === 0) {
@@ -21,6 +24,7 @@ export async function status(): Promise<void> {
   console.log(`[devora] sync status:\n`);
   for (const sub of submodules) {
     const targetPath = path.join(root, sub.path);
+    const name = nameForSplitTarget(root, project, sub.path);
     git(["fetch", "origin"], targetPath); // best-effort — a stale/offline remote still reports local state below.
 
     const { behind, ahead } = revListCounts(targetPath, "origin/main");
@@ -30,9 +34,9 @@ export async function status(): Promise<void> {
     if (ahead > 0 && behind > 0) {
       state = `diverged — ${ahead} local commit(s), ${behind} remote commit(s) not pulled`;
     } else if (ahead > 0) {
-      state = `${ahead} local commit(s) not pushed — run \`devora sync ${sub.path} --to-main\``;
+      state = `${ahead} local commit(s) not pushed — run \`devora sync ${name} --to-main\``;
     } else if (behind > 0) {
-      state = `${behind} remote commit(s) not pulled — run \`devora sync ${sub.path} --from-main\``;
+      state = `${behind} remote commit(s) not pulled — run \`devora sync ${name} --from-main\``;
     } else {
       state = `up to date`;
     }

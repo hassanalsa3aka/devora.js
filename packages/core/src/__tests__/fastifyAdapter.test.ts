@@ -48,13 +48,40 @@ describe("fromFastifyPlugin", () => {
       done();
     };
 
-    // "outer" registered "outer-sub" (the auto-named nested plugin) as a
-    // child — outer.getRoutes() prefixes the child's routes by the CHILD's
-    // own name ("outer-sub"), not outer's own name (that prefixing only
-    // happens one level further up, from some other module's point of view
-    // after *it* registers "outer" — see module.ts's doc comment).
+    // "outer" registered "outer-sub-0" (the auto-named nested plugin, with
+    // an incrementing suffix — see the real sibling-naming-collision bug
+    // fixed below) as a child — outer.getRoutes() prefixes the child's
+    // routes by the CHILD's own name ("outer-sub-0"), not outer's own name
+    // (that prefixing only happens one level further up, from some other
+    // module's point of view after *it* registers "outer" — see module.ts's
+    // doc comment).
     const mod = fromFastifyPlugin("outer", parent);
-    expect(Object.keys(mod.getRoutes())).toEqual(["/outer-sub/inner"]);
+    expect(Object.keys(mod.getRoutes())).toEqual(["/outer-sub-0/inner"]);
+  });
+
+  it("real bug: two different sibling sub-plugins registered under the same parent get distinct names, not a collision", () => {
+    const first: FastifyPlugin = (instance, _opts, done) => {
+      instance.get("/first-route", () => "first");
+      done();
+    };
+    const second: FastifyPlugin = (instance, _opts, done) => {
+      instance.get("/second-route", () => "second");
+      done();
+    };
+    const parent: FastifyPlugin = (instance, _opts, done) => {
+      instance.register(first);
+      instance.register(second);
+      done();
+    };
+
+    // Before this fix, both siblings were named "outer-sub" identically —
+    // this either silently merged their namespace or, had they declared a
+    // route at the same relative path, tripped module.ts's duplicate-route
+    // check with a misleading error. Both routes must be reachable, each
+    // under its own distinct prefix.
+    const mod = fromFastifyPlugin("outer", parent);
+    const routes = mod.getRoutes();
+    expect(Object.keys(routes).sort()).toEqual(["/outer-sub-0/first-route", "/outer-sub-1/second-route"]);
   });
 
   it("throws immediately if the plugin uses an unsupported instance method (addHook)", () => {

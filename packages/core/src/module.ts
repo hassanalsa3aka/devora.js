@@ -52,17 +52,44 @@ export interface DevoraModule {
   getRoutes(): Readonly<Record<string, ApiRouteHandler>>;
 }
 
+/**
+ * An explicit "//"-prefixed key opts out of namespacing entirely (see the
+ * module-level doc comment) — used for a route that must live at a fixed
+ * path regardless of which module happens to register it, e.g. a webhook
+ * URL a third party already has on file. Real bug fixed here: this used to
+ * *consume* the marker (`routeKey.slice(1)`) the first time a parent
+ * flattened it in, so it only survived exactly one level of `register()` —
+ * a module nested two or more levels deep (a real, intended use case per
+ * `fromFastifyPlugin`'s own nested `instance.register()` support) silently
+ * got re-prefixed by every level past the first. Fixed by propagating the
+ * marker UNCHANGED through every intermediate join — see `RAW_ROUTES`
+ * below for where it's finally stripped, exactly once, regardless of
+ * nesting depth.
+ */
 function joinRoutePath(prefix: string, routeKey: string): string {
   if (routeKey.startsWith("/") === false) {
     throw new Error(`[devora] module route key "${routeKey}" must start with "/"`);
   }
-  // An explicit "//"-prefixed key opts out of namespacing entirely (see the
-  // module-level doc comment) — used for a route that must live at a fixed
-  // path regardless of which module happens to register it, e.g. a webhook
-  // URL a third party already has on file.
-  if (routeKey.startsWith("//")) return routeKey.slice(1);
+  if (routeKey.startsWith("//")) return routeKey;
   if (routeKey === "/") return `/${prefix}`;
   return `/${prefix}${routeKey}`;
+}
+
+/**
+ * Internal-only (a `Symbol` key, not part of the public `DevoraModule`
+ * interface — explicit, not reflection: every module created by
+ * `defineModule` carries this one extra, deliberately-hidden property so a
+ * parent's `getRoutes()` can ask a child for its *unnormalized* routes,
+ * with any "//"-prefixed marker still intact, during recursion. Only the
+ * outermost `getRoutes()` call (whichever module a real caller actually
+ * invokes it on) normalizes "//" down to "/", exactly once — see the
+ * `joinRoutePath` doc comment for why intermediate levels can't do this
+ * themselves.
+ */
+const RAW_ROUTES = Symbol("devora.module.rawRoutes");
+
+interface ModuleInternal {
+  [RAW_ROUTES](): Record<string, ApiRouteHandler>;
 }
 
 export function defineModule(def: ModuleDefinition, setup?: (m: DevoraModule) => void): DevoraModule {
@@ -71,16 +98,17 @@ export function defineModule(def: ModuleDefinition, setup?: (m: DevoraModule) =>
   const ownRoutes: Record<string, ApiRouteHandler> = { ...(def.routes ?? {}) };
   const children: DevoraModule[] = [];
 
-  const mod: DevoraModule = {
+  const mod: DevoraModule & ModuleInternal = {
     name: def.name,
     functions,
     register(child: DevoraModule): void {
       children.push(child);
     },
-    getRoutes(): Readonly<Record<string, ApiRouteHandler>> {
+    [RAW_ROUTES](): Record<string, ApiRouteHandler> {
       const flattened: Record<string, ApiRouteHandler> = { ...ownRoutes };
       for (const child of children) {
-        for (const [childPath, handler] of Object.entries(child.getRoutes())) {
+        const childRaw = (child as unknown as ModuleInternal)[RAW_ROUTES]();
+        for (const [childPath, handler] of Object.entries(childRaw)) {
           const fullPath = joinRoutePath(child.name, childPath);
           if (flattened[fullPath]) {
             throw new Error(
@@ -91,6 +119,14 @@ export function defineModule(def: ModuleDefinition, setup?: (m: DevoraModule) =>
         }
       }
       return flattened;
+    },
+    getRoutes(): Readonly<Record<string, ApiRouteHandler>> {
+      const raw = mod[RAW_ROUTES]();
+      const normalized: Record<string, ApiRouteHandler> = {};
+      for (const [key, handler] of Object.entries(raw)) {
+        normalized[key.startsWith("//") ? key.slice(1) : key] = handler;
+      }
+      return normalized;
     },
   };
 

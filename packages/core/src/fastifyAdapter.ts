@@ -103,6 +103,16 @@ function toApiHandler(fastifyHandler: FastifyLikeRouteHandler): ApiRouteHandler 
 export function fromFastifyPlugin(name: string, plugin: FastifyPlugin): DevoraModule {
   const routes: Record<string, ApiRouteHandler> = {};
   const children: DevoraModule[] = [];
+  // Real bug fixed here: every nested `instance.register(subPlugin)` used to
+  // name the new module the same fixed `${name}-sub`, so two *different*
+  // sibling sub-plugins registered under the same parent collided under the
+  // identical name — module.ts's route flattening namespaces by `child.name`,
+  // so same-named siblings either silently shared a namespace or (if they
+  // happened to declare a route at the same relative path) tripped module.ts's
+  // duplicate-route check with a misleading "registered by more than one
+  // module" error naming neither plugin distinctly. An incrementing counter,
+  // scoped per parent, gives each sub-plugin a real, distinct name.
+  let subPluginCount = 0;
 
   const instance: FastifyLikeInstance = {
     get: (path, handler) => (routes[path] = toApiHandler(handler)),
@@ -110,7 +120,7 @@ export function fromFastifyPlugin(name: string, plugin: FastifyPlugin): DevoraMo
     put: (path, handler) => (routes[path] = toApiHandler(handler)),
     patch: (path, handler) => (routes[path] = toApiHandler(handler)),
     delete: (path, handler) => (routes[path] = toApiHandler(handler)),
-    register: (subPlugin) => children.push(fromFastifyPlugin(`${name}-sub`, subPlugin)),
+    register: (subPlugin) => children.push(fromFastifyPlugin(`${name}-sub-${subPluginCount++}`, subPlugin)),
   };
 
   for (const unsupported of UNSUPPORTED_METHODS) {

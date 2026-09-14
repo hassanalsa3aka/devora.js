@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
 import { createRequestContext, createNoAuthContext } from "./session.js";
-import { IslandStreamingContext } from "./islandComponent.js";
+import { IslandStreamingContext, type StreamingIslandTracker } from "./islandComponent.js";
 import { renderDocumentHead, renderDocumentTail } from "./html.js";
 import type { RouteModule } from "./route.js";
 import type { SessionCookieOptions } from "./session.js";
@@ -99,9 +99,10 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
     const meta = routeModule.meta?.(data);
 
+    const islandTracker: StreamingIslandTracker = { hasIsland: false };
     const element = deps.createElement(
       IslandStreamingContext.Provider,
-      { value: true },
+      { value: islandTracker },
       deps.createElement(routeModule.default as never, { data, csrfToken: undefined })
     );
 
@@ -110,19 +111,52 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       setCookie: getSetCookie(),
       pipeTo(destination, onError) {
         let shellSent = false;
+        let destinationErrored = false;
+        let passThrough: PassThrough | undefined;
 
-        const { pipe } = deps.renderToPipeableStream(deps.createElement("div", { id: "root" }, element), {
+        // Real bug fixed here: `destination` (a real ServerResponse, or an
+        // EventEmitter shim — see adapter-netlify's response shim) can emit
+        // its own `"error"` event independent of anything React does, most
+        // realistically a client disconnecting mid-stream. Node's own
+        // EventEmitter contract *throws* (crashing the whole process, not
+        // just this request) if an `"error"` event has zero listeners —
+        // there was no listener here at all before this fix. Also stops the
+        // now-pointless render/stream via `abort()` (previously discarded
+        // entirely — `const { pipe } = ...`) instead of letting React keep
+        // rendering output nothing will ever consume, and marks the
+        // destination as gone so the `passThrough` handlers below don't
+        // then try to write React's own abort-reporting output (or the
+        // document tail) to a destination that's already errored.
+        destination.on("error", (error) => {
+          destinationErrored = true;
+          abort(error);
+          passThrough?.destroy();
+        });
+
+        const { pipe, abort } = deps.renderToPipeableStream(deps.createElement("div", { id: "root" }, element), {
           nonce: request.nonce,
           onShellReady() {
             shellSent = true;
             destination.write(renderDocumentHead(meta));
 
-            const passThrough = new PassThrough();
+            passThrough = new PassThrough();
             pipe(passThrough);
-            passThrough.on("data", (chunk: Buffer) => destination.write(chunk));
+            passThrough.on("data", (chunk: Buffer) => {
+              if (!destinationErrored) destination.write(chunk);
+            });
             passThrough.on("end", () => {
+              if (destinationErrored) return;
               destination.write(
-                renderDocumentTail({ islandScriptUrl: request.islandClientUrl, devPreambleUrl: request.devPreambleUrl })
+                renderDocumentTail({
+                  // Only when this render actually used an <Island> — see
+                  // StreamingIslandTracker's doc comment. By the time
+                  // React's stream has fully ended, every <Island> in the
+                  // tree has already run at least once (even a suspended
+                  // one runs up to the point it throws), so islandTracker
+                  // is reliably settled here.
+                  islandScriptUrl: islandTracker.hasIsland ? request.islandClientUrl : undefined,
+                  devPreambleUrl: request.devPreambleUrl,
+                })
               );
               destination.end();
             });
