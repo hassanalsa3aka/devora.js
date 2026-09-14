@@ -71,7 +71,7 @@ under each.
 
 - **Multi-app, one repo** — `devora.config.ts` declares each app; `devora build`/`devora deploy`
   handle each one independently.
-- **SSR, SSG, CSR, ISR** — set per route, explicitly. (`streaming` is planned, see below.)
+- **SSR, SSG, CSR, ISR, streaming** — set per route, explicitly.
 - **Islands** — `island(() => import("./Widget"))` hydrates just that component; the rest of the
   page stays static HTML.
 - **Sessions & CSRF built in** — three auth modes per app: `shared`, `isolated`, or `none` (skip
@@ -89,11 +89,14 @@ under each.
 
 Stated plainly, not buried:
 
-- **Dynamic routes don't support `ssg`/`isr` yet.** `ssr` and `csr` both work on a `[id].tsx`
-  route; pre-rendering one at build time needs a static-params API this doesn't have yet, and
-  fails the build with a clear error rather than silently mis-building.
-- **No streaming SSR yet.** `renderMode: "streaming"` is typed but not implemented — it needs a
-  Suspense-boundary-based rewrite of how islands hydrate, planned for v2.
+- **Dynamic routes need `getStaticParams()` for `ssg`/`isr` (v2).** `ssr`/`csr` work on a
+  `[id].tsx` route with no extra work; `ssg`/`isr` need a `getStaticParams()` export saying which
+  concrete values to pre-render — one static file per entry — and fail the build with a clear
+  error if it's missing, rather than silently mis-building.
+- **Streaming SSR is real (v2).** `renderMode: "streaming"` is a genuine Suspense-boundary
+  rewrite of the island system — the page shell streams immediately, each island's real content
+  patches in as its import resolves, without blocking the response on it. The existing two-pass
+  island model is unchanged for every other render mode.
 - **`isr` is weaker on Vercel/Netlify than on a self-hosted `adapter-node` server.** A serverless
   function's filesystem isn't guaranteed to persist between requests, so ongoing background
   regeneration there hasn't been verified (the initial build's output still serves correctly).

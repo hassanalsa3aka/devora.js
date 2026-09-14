@@ -36,6 +36,9 @@ export interface RenderRouteRequest {
   /** Project/app-level default render mode (AppRuntimeConfig.defaultRenderMode),
    * used only when the route file itself has no explicit `renderMode` export. */
   appDefaultRenderMode?: RenderMode;
+  /** Dev-mode-only React Refresh preamble virtual module URL — see
+   * html.ts's `renderTail` doc comment. Never set in production. */
+  devPreambleUrl?: string;
 }
 
 export interface RenderRouteResult {
@@ -65,7 +68,8 @@ async function renderPage(
   routeModule: RouteModule,
   data: unknown,
   csrfToken: string | undefined,
-  islandClientUrl: string | undefined
+  islandClientUrl: string | undefined,
+  devPreambleUrl: string | undefined
 ): Promise<string> {
   const collector = createIslandCollector();
   const element = deps.createElement(
@@ -84,7 +88,7 @@ async function renderPage(
   const hasHydratableIsland = [...collector.resolved.keys()].some((d) => d.clientUrl);
   const islandScriptUrl = hasHydratableIsland ? islandClientUrl : undefined;
 
-  return renderHtmlDocument({ bodyHtml, meta, islandScriptUrl });
+  return renderHtmlDocument({ bodyHtml, meta, islandScriptUrl, devPreambleUrl: islandScriptUrl ? devPreambleUrl : undefined });
 }
 
 export function createRenderRoute(deps: RenderRouteDeps) {
@@ -117,7 +121,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
     }
 
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
-    const html = await renderPage(deps, routeModule, data, csrfToken, request.islandClientUrl);
+    const html = await renderPage(deps, routeModule, data, csrfToken, request.islandClientUrl, request.devPreambleUrl);
 
     return { status: 200, html, setCookie: getSetCookie() };
   };
@@ -133,6 +137,11 @@ export interface RenderStaticOptions {
    * already have a real value, no `getStaticParams()` involved). Empty for
    * a non-dynamic route. */
   params?: Record<string, string>;
+  /** Dev-mode-only React Refresh preamble virtual module URL — see
+   * html.ts's `renderTail` doc comment. Never set in production (a real
+   * build's ssg/isr pre-render has no Vite dev server/HMR to preamble for
+   * in the first place). */
+  devPreambleUrl?: string;
 }
 
 /**
@@ -151,7 +160,7 @@ export function createRenderStatic(deps: RenderRouteDeps) {
     }
     const ctx = createBuildTimeContext(options.params);
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
-    const html = await renderPage(deps, routeModule, data, undefined, options.islandClientUrl);
+    const html = await renderPage(deps, routeModule, data, undefined, options.islandClientUrl, options.devPreambleUrl);
     return { html };
   };
 }

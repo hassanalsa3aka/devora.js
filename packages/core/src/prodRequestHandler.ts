@@ -6,7 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { matchRoute, listRoutePaths } from "./router.js";
 import { generateSitemapXml } from "./sitemap.js";
 import { resolveSessionCookieOptions } from "./session.js";
-import { resolveSecurityHeaders } from "./securityHeaders.js";
+import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
 import { resolveRenderMode } from "./renderRoute.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
@@ -145,7 +145,69 @@ export function createProdRequestHandler(
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
 
-    if (renderMode === "streaming") return false; // not implemented — see ROADMAP.md.
+    if (renderMode === "streaming") {
+      if (routeModule.action) {
+        throw new Error(
+          `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action — ` +
+            `actions never run for streaming routes.`
+        );
+      }
+      const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
+        renderStreaming: (
+          routeModule: RouteModule,
+          request: {
+            cookieHeader?: string;
+            params?: Record<string, string>;
+            sessionCookieOptions?: typeof sessionCookieOptions;
+            islandClientUrl?: string;
+            nonce?: string;
+          }
+        ) => Promise<{
+          status: number;
+          setCookie?: string[];
+          pipeTo: (destination: NodeJS.WritableStream, onError?: (error: unknown, phase: "shell" | "boundary") => void) => void;
+        } | null>;
+      };
+      const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+      // React's own inline Suspense-boundary-patch script needs this
+      // response's real CSP nonce, in production exactly as much as dev —
+      // it's React's own streaming SSR mechanism, not a Vite/HMR artifact
+      // (see securityHeaders.ts's `addNonceToCsp` doc comment for the full
+      // account). Overwrites the CSP already set unconditionally above.
+      const nonce = generateNonce();
+      res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]!);
+
+      const result = await entryServer.renderStreaming(routeModule, {
+        cookieHeader: req.headers.cookie,
+        params: match.params,
+        sessionCookieOptions,
+        islandClientUrl,
+        nonce,
+      });
+      if (!result) return false; // shouldn't happen — renderMode was resolved to "streaming" above.
+
+      if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+      res.statusCode = result.status;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+
+      // Awaited so this function's own promise doesn't resolve until the
+      // response is genuinely complete — a real Node ServerResponse (what
+      // adapter-node and Vercel's Node runtime both hand this) keeps the
+      // underlying connection open regardless, but making the contract
+      // explicit here is more honest than relying on that implicitly.
+      await new Promise<void>((resolve) => {
+        res.once("finish", resolve);
+        result.pipeTo(res, (error, phase) => {
+          console.error(`[devora] streaming error ("${phase}") on "${match.routePath}":`, error);
+          if (phase === "shell" && !res.headersSent) {
+            res.statusCode = 500;
+            res.end("Internal Server Error");
+            resolve();
+          }
+        });
+      });
+      return true;
+    }
 
     if (renderMode === "csr") {
       const csrManifest = await readCsrManifest(csrManifestPath);

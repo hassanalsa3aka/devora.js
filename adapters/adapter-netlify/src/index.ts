@@ -126,7 +126,8 @@ export async function writeNetlifyConfig(
   await writeFile(
     path.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";\n` +
-      `import { Readable } from "node:stream";\n\n` +
+      `import { Readable } from "node:stream";\n` +
+      `import { EventEmitter } from "node:events";\n\n` +
       `const handleRequest = createProdRequestHandler(\n` +
       `  new URL(".", import.meta.url).pathname,\n` +
       `  ${JSON.stringify(app.name)},\n` +
@@ -145,17 +146,33 @@ export async function writeNetlifyConfig(
       `  req.headers = Object.fromEntries(request.headers);\n\n` +
       `  let statusCode = 200;\n` +
       `  const resHeaders = new Headers();\n` +
-      `  let responseBody = "";\n` +
-      `  const res = {\n` +
-      `    setHeader: (k, v) => resHeaders.set(k, v),\n` +
-      `    get statusCode() { return statusCode; },\n` +
-      `    set statusCode(v) { statusCode = v; },\n` +
-      `    end: (chunk) => { responseBody = chunk ?? ""; },\n` +
+      `  const chunks = [];\n` +
+      // A real EventEmitter, not a plain object — renderMode: "streaming"
+      // (prodRequestHandler.ts) calls res.once("finish", ...) the same way
+      // it would on a real Node ServerResponse (what adapter-node/Vercel's
+      // Node runtime hand it); a Netlify function's own shape is Web
+      // Request/Response, with no equivalent to hand it directly, so this
+      // shim buffers every write() and only becomes a real Response once
+      // the "stream" (from this function's own perspective) is done —
+      // functionally correct HTML, delivered as one response, not
+      // incrementally flushed to the actual client the way adapter-node's
+      // real streaming is. Documented as a known, platform-shape gap, not
+      // silently pretended away.
+      `  const res = new EventEmitter();\n` +
+      `  res.statusCode = statusCode;\n` +
+      `  res.headersSent = false;\n` +
+      `  res.setHeader = (k, v) => resHeaders.set(k, v);\n` +
+      `  res.getHeader = (k) => resHeaders.get(k) ?? undefined;\n` +
+      `  res.write = (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); return true; };\n` +
+      `  res.end = (chunk) => {\n` +
+      `    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));\n` +
+      `    res.headersSent = true;\n` +
+      `    res.emit("finish");\n` +
       `  };\n\n` +
       `  try {\n` +
       `    const handled = await handleRequest(req, res);\n` +
       `    if (!handled) return new Response("Not found", { status: 404 });\n` +
-      `    return new Response(responseBody, { status: statusCode, headers: resHeaders });\n` +
+      `    return new Response(Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });\n` +
       `  } catch (err) {\n` +
       `    console.error(err);\n` +
       `    return new Response("Internal Server Error", { status: 500 });\n` +

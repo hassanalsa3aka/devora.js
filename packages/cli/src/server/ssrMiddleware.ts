@@ -7,11 +7,21 @@ import {
   resolveSessionCookieOptions,
   resolveRenderMode,
   renderCsrShell,
+  resolveSecurityHeaders,
+  generateNonce,
   type AuthMode,
+  type AppRuntimeConfig,
   type RenderMode,
   type RouteModule,
   type SessionCookieOptions,
 } from "@devorajs/core";
+import { REACT_REFRESH_PREAMBLE_VIRTUAL_ID } from "./reactRefreshPreamblePlugin.js";
+
+// See reactRefreshPreamblePlugin.ts's doc comment — "/@id/" is Vite's own
+// documented convention for requesting an arbitrary resolved module id
+// directly by URL (from HTML, not a JS import specifier Vite's import
+// analysis could rewrite for us).
+const DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
 
 /**
  * The SSR request handler (ROADMAP.md #1): matches a request to a route
@@ -39,7 +49,8 @@ export function createSsrMiddleware(
   authMode: AuthMode,
   domain: string,
   sitemapEnabled: boolean,
-  appDefaultRenderMode?: RenderMode
+  appDefaultRenderMode?: RenderMode,
+  security?: AppRuntimeConfig["security"]
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -75,16 +86,12 @@ export function createSsrMiddleware(
       const routeModule = (await vite.ssrLoadModule(match.filePath)) as RouteModule;
       const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
 
-      if (renderMode === "streaming") {
-        return next(); // not implemented — see ROADMAP.md.
-      }
-
       if (renderMode === "csr") {
         // No loader, no session — data fetching for a csr page is the
         // component's own job (see csrRoute.ts). Dev serves the route file
         // itself and csr-client.tsx by path, same trick islandsPlugin.ts
         // uses for islands; production resolves real hashed URLs instead.
-        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx");
+        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL);
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);
@@ -102,13 +109,72 @@ export function createSsrMiddleware(
             sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
             appDefaultRenderMode?: RenderMode;
+            devPreambleUrl?: string;
           }
         ) => Promise<{ status: number; html: string; setCookie?: string[]; redirectTo?: string } | null>;
         renderStatic: (
           routeModule: RouteModule,
-          opts: { islandClientUrl?: string; params?: Record<string, string> }
+          opts: { islandClientUrl?: string; params?: Record<string, string>; devPreambleUrl?: string }
         ) => Promise<{ html: string }>;
+        renderStreaming: (
+          routeModule: RouteModule,
+          request: {
+            cookieHeader?: string;
+            params?: Record<string, string>;
+            sessionCookieOptions?: SessionCookieOptions;
+            islandClientUrl?: string;
+            devPreambleUrl?: string;
+            nonce?: string;
+          }
+        ) => Promise<{
+          status: number;
+          setCookie?: string[];
+          pipeTo: (destination: NodeJS.WritableStream, onError?: (error: unknown) => void) => void;
+        } | null>;
       };
+
+      if (renderMode === "streaming") {
+        // GET-only, same reasoning as ssg/isr's identical guard just below —
+        // see renderStreaming.ts's doc comment for why an action can't
+        // coexist with an already-started stream.
+        if (routeModule.action) {
+          throw new Error(
+            `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action — ` +
+              `actions never run for streaming routes.`
+          );
+        }
+        // React's own inline Suspense-boundary-patch script needs this
+        // response's real CSP nonce (securityHeaders.ts's `addNonceToCsp`
+        // doc comment has the full account of the real bug this fixes) —
+        // overwrites the CSP the earlier securityHeadersMiddleware already
+        // set on `res`, since only *this* render mode needs the nonce and
+        // that middleware runs before renderMode is even known.
+        const nonce = generateNonce();
+        res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]!);
+
+        const result = await entryServer.renderStreaming(routeModule, {
+          cookieHeader: req.headers.cookie,
+          params: match.params,
+          sessionCookieOptions,
+          islandClientUrl: "/island-client.tsx",
+          devPreambleUrl: DEV_PREAMBLE_URL,
+          nonce,
+        });
+        if (!result) return next(); // shouldn't happen — renderMode was resolved to "streaming" above.
+
+        if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+        res.statusCode = result.status;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        result.pipeTo(res, (error) => {
+          // A post-shell error can't change a response already streaming —
+          // this is a reporting hook (renderStreaming.ts's own doc
+          // comment). A shell error, by contrast, means nothing was
+          // written yet; Vite's dev error overlay is the more useful
+          // report there, same as every other render mode's catch below.
+          console.error(`[devora] streaming error on "${match.routePath}":`, error);
+        });
+        return;
+      }
 
       if (renderMode === "ssg" || renderMode === "isr") {
         // Live per-request in dev, on purpose — see this function's doc
@@ -130,6 +196,7 @@ export function createSsrMiddleware(
         const { html } = await entryServer.renderStatic(routeModule, {
           islandClientUrl: "/island-client.tsx",
           params: match.params,
+          devPreambleUrl: DEV_PREAMBLE_URL,
         });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -148,6 +215,7 @@ export function createSsrMiddleware(
         // production resolves a real hashed URL instead, see ROADMAP.md #4.
         islandClientUrl: "/island-client.tsx",
         appDefaultRenderMode,
+        devPreambleUrl: DEV_PREAMBLE_URL,
       });
 
       if (!result) {

@@ -192,47 +192,96 @@ Closes a real, documented v1 gap: `ssg`/`isr` currently fail the build on a dyna
 there's no way to know which concrete values to pre-render. `ssr`/`csr` on dynamic routes already
 work and are unaffected by this addition.
 
-## 4. Streaming render mode
+## 4. Streaming render mode — ✅ done
 
-Deferred from v1 (architecture-v1.md §5, §11). Needs a Suspense-boundary-based rewrite of the
-island system — the current two-pass synchronous render (`IslandCollectorContext`) can't work
-with `renderToPipeableStream`/`renderToReadableStream`, which don't support "render twice."
-Real architectural work, not an incremental patch. Sequenced last in v2, deliberately — the
-riskiest, most invasive item, done once other v2 work has already shipped and been used.
+Deferred from v1 (architecture-v1.md §5, §11). Needed a real Suspense-boundary rewrite of the
+island system, not an incremental patch — the two-pass synchronous render (`IslandCollectorContext`)
+can't work with `renderToPipeableStream` (React never waits for a suspended promise mid-`renderToString`;
+it just shows the fallback), so a second, genuinely different `<Island>` strategy was added
+alongside it (`packages/core/src/islandComponent.tsx`): a real "throw a promise" Suspense idiom,
+selected via `IslandStreamingContext`, which only `renderStreaming.ts`'s own render path ever
+provides. Every other render mode leaves that context at its default (`false`), so the existing
+two-pass model is exactly v1 behavior, unchanged — verified directly (not assumed): the full
+existing test suite plus a real Playwright click test on the pre-existing `ssr` island demo, both
+passing throughout this work.
+
+`renderStreaming.ts` writes the document head immediately, pipes React's own streamed output
+through a `PassThrough` (so the caller controls exactly when the response ends, since piping
+directly to the destination would let React close it before the document's own tail — script
+tags, `</body></html>` — could be written), and writes the tail once React's stream ends.
+GET-only, deliberately: an `action` needs to decide "redirect or re-render" before any HTML is
+sent, which conflicts with a response already streaming — the same restriction `ssg`/`isr` already
+have, for an unrelated reason.
+
+**Two real, previously-undiscovered bugs found verifying this in an actual browser (Playwright),
+not just server-side output** — both affect this framework's *existing* dev-mode islands too, not
+just the new streaming path, since neither is streaming-specific:
+1. **Every island crashed at runtime in dev** with `@vitejs/plugin-react can't detect preamble` —
+   this framework's hand-built HTML never calls Vite's own `transformIndexHtml`, which is what
+   normally injects React Refresh's required preamble automatically. Fixed with a real Vite plugin
+   (`packages/cli/src/server/reactRefreshPreamblePlugin.ts`) serving the preamble as an external,
+   same-origin virtual module (`<script type="module" src="/@id/...">`) rather than the officially
+   documented *inline* injection, which this framework's own default CSP would have blocked anyway.
+2. **React's own inline Suspense-boundary-patch script** (unrelated to Vite — this is React's own
+   streaming SSR mechanism) is blocked outright by the same default CSP, in both dev and
+   production. Fixed with a real per-request nonce (`securityHeaders.ts`'s `generateNonce()`/
+   `addNonceToCsp()`), threaded into both the CSP header and `renderToPipeableStream`'s own `nonce`
+   option — confirmed against real `react-dom/server` output, not mocked.
+
+**Client-side hydration also needed a real change**, not just the server: `island-client.tsx`'s
+old one-shot `document.querySelectorAll("[data-island]")` (correct for v1, where every island is
+already in the DOM by the time the script runs) misses an island that streams in *after* that
+script already executed. `hydrateIslands()` (now shared via `@devorajs/core/client`, replacing
+three identical per-app copies) adds a `MutationObserver` alongside the initial scan — confirmed
+with a real artificially-deferred island (removed after verification): the fallback rendered
+first, the real content patched in after the delay, and a real click on the late-hydrated
+button's counter worked, proving an actual event handler attached, not just correct markup.
+
+**Verified across all four deploy targets**, each with a real, meaningful difference, not treated
+as identical: dev (real Playwright click test, both a fast and an artificially-delayed island) and
+`adapter-node` (real chunked `Transfer-Encoding`, confirmed via a real production server) both
+stream progressively; Vercel's generated function (a real Node `(req, res)` pair, same as
+adapter-node) does too, confirmed by running the actual bundled function standalone. Netlify's
+function shape (Web `Request`/`Response`, no Node stream to hand `pipeTo()`) needed a real fix to
+its response shim — it now buffers into a real `Response` instead of crashing on `res.write is not
+a function` — functionally correct HTML, delivered as one response rather than progressively
+flushed to the actual client the way the other three targets are. Documented as a known,
+platform-shape gap, not silently pretended away.
 
 ## 5. Repo-splitting
 
 Solves a real need without inventing new merge/sync machinery — wraps existing, proven Git
-features (submodules, `git subtree`) rather than building custom conflict-resolution logic.
-Two real use cases this serves: a solo dev wanting cleaner repo boundaries, and a real team where
-different people own different apps/backend independently (one person on backend, one on admin,
-one on the landing page) and integrate via explicit sync.
+features (submodules) rather than building custom conflict-resolution logic. Two real use cases
+this serves: a solo dev wanting cleaner repo boundaries, and a real team where different people own
+different apps/backend independently (one person on backend, one on admin, one on the landing
+page) and integrate via explicit sync.
 
 ```
 devora split <app-name|backend> --repo=<git-url>   # converts to a git submodule
-devora sync <name> [--from-main | --to-main]        # thin wrapper around git subtree push/pull
+devora sync <name> [--from-main | --to-main]        # thin wrapper around submodule fetch/push
 devora status --all                                  # sync state across every split-off piece
 ```
+
+**Resolved: submodules, not `git subtree`.** The draft originally described `split` as creating a
+submodule but `sync` as wrapping `git subtree` — two different, largely incompatible Git
+mechanisms for the same problem (subtree has no defined behavior against a submodule gitlink,
+which by design has no inline content for it to diff/merge). Decided in favor of submodules: the
+split-off directory becomes a real, independent repo — a gitlink in the main repo, checked out via
+`git submodule update --init` — rather than history rewritten and inlined back into the main
+repo's own tree on every sync. This is the better fit for this feature's own stated second use
+case (a team where one person owns `packages/backend`, another owns `apps/admin`, working in
+genuinely separate clones) — a submodule's own remote is a real, independently-clonable repo;
+`git subtree`'s content stays entangled with the main repo's history even after "splitting."
+Concretely, `devora sync`'s two directions now mean: `--from-main` fetches and merges the
+submodule's own remote's latest commits into the local checkout, then stages the updated gitlink
+in the main repo; `--to-main` pushes local commits made directly inside the submodule's checkout
+up to its own remote. Neither auto-commits in the main repo — same "show a real diff, require
+confirmation, leave the actual commit to the user" pattern as everywhere else in this CLI.
 
 `devora sync` must show a real diff before acting and require confirmation; conflict output must
 clearly show which files conflict and what changed on each side. A genuine same-line conflict
 between two contributors is a real Git conflict requiring real manual resolution — this tooling
 surfaces it clearly, it does not attempt to auto-resolve it.
-
-**Flagged, not resolved here: `split` and `sync` currently name two different Git mechanisms
-that don't compose.** `devora split ... ` is described as converting a directory to a **submodule**
-(a `.gitmodules` entry + gitlink — the directory's real content lives in a separate repo/clone,
-checked out via `git submodule update --init`). `devora sync` is described as wrapping **`git
-subtree` push/pull** — but `git subtree` operates on a directory whose content is stored inline in
-the *same* repo's own history; it has no defined behavior against a submodule gitlink, which by
-design has no inline content to diff or merge. These are two established, mutually exclusive Git
-patterns for the same problem, not two steps of one pipeline — picking one changes real,
-user-facing behavior (submodule: contributors run an extra `git submodule update --init` step and
-see a gitlink, not files, in `git status` from the main repo; subtree: the split-off directory
-looks and behaves like normal committed files from the main repo's side, at the cost of `git
-subtree`'s own history-rewriting push/pull semantics). This needs an explicit decision before
-Phase 2 implementation starts, not a default silently picked mid-build — see the question raised
-in this phase's report-back.
 
 **Sequencing:** do not start this until §3's backend work is complete, verified, and used in a
 real project — the backend's shape (shared `packages/backend`, the middleware manifest, API

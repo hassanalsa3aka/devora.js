@@ -7,6 +7,7 @@ import { createApiMiddlewarePlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
+import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 
 export async function dev(opts: { app?: string }) {
@@ -48,6 +49,7 @@ export async function dev(opts: { app?: string }) {
       plugins: [
         islandsPlugin(),
         moduleDisposePlugin(),
+        reactRefreshPreamblePlugin(),
         createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security),
       ],
     });
@@ -69,7 +71,8 @@ export async function dev(opts: { app?: string }) {
           authMode,
           app.domain,
           appConfig.sitemap === true,
-          appConfig.defaultRenderMode
+          appConfig.defaultRenderMode,
+          appConfig.security
         )
       );
     }

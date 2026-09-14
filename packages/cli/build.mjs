@@ -42,6 +42,11 @@ import * as esbuild from "esbuild";
  *   `app.config.ts`, with real side-effecting internals (see
  *   `packages/core/src/configLoader.ts`'s doc comment) that make it
  *   unsafe to assume tree-shakeable; kept external and explicit instead.
+ * - `@vitejs/plugin-react` — `reactRefreshPreamblePlugin.ts` reads its
+ *   exported `preambleCode` string directly (a real, previously-
+ *   undiscovered dev-mode bug fix — see that file's doc comment). Every app
+ *   already depends on it (`^4.3.0`) for its own `vite.config.ts`'s react()
+ *   plugin, so this doesn't add a genuinely new install.
  *
  * `react` is deliberately NOT external: it's pulled in only transitively,
  * through `@devorajs/core`'s barrel (`islandComponent.tsx` imports it for
@@ -59,7 +64,7 @@ const result = await esbuild.build({
   platform: "node",
   format: "esm",
   outfile: "dist/index.js",
-  external: ["commander", "vite", "esbuild", "jiti"],
+  external: ["commander", "vite", "esbuild", "jiti", "@vitejs/plugin-react"],
   logLevel: "info",
   metafile: true,
 });

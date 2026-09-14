@@ -3431,8 +3431,8 @@ code {
 `;
 
 // ../core/src/html.ts
-function renderHtmlDocument(opts) {
-  const { title, description, og } = opts.meta ?? {};
+function renderHead(meta) {
+  const { title, description, og } = meta ?? {};
   const ogTitle = og?.title ?? title;
   const ogDescription = og?.description ?? description;
   return `<!doctype html>
@@ -3451,12 +3451,20 @@ function renderHtmlDocument(opts) {
     ${og?.url ? `<meta property="og:url" content="${escapeHtml(og.url)}" />` : ""}
   </head>
   <body>
-    <div id="root">${opts.bodyHtml}</div>
-    ${opts.islandScriptUrl ? `<script type="module" src="${escapeHtml(opts.islandScriptUrl)}"></script>` : ""}
+`;
+}
+function renderTail(opts) {
+  const preambleScript = opts.devPreambleUrl ? `<script type="module" src="${escapeHtml(opts.devPreambleUrl)}"></script>
+    ` : "";
+  return `    ${preambleScript}${opts.islandScriptUrl ? `<script type="module" src="${escapeHtml(opts.islandScriptUrl)}"></script>` : ""}
     ${opts.csrScriptUrl ? `<script type="module" src="${escapeHtml(opts.csrScriptUrl)}"></script>` : ""}
   </body>
 </html>
 `;
+}
+function renderHtmlDocument(opts) {
+  return `${renderHead(opts.meta)}    <div id="root">${opts.bodyHtml}</div>
+${renderTail(opts)}`;
 }
 function escapeHtml(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -3609,12 +3617,33 @@ function createNoAuthContext(params = {}) {
 }
 
 // ../core/src/securityHeaders.ts
+import { randomBytes as randomBytes2 } from "node:crypto";
 var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
 var DEFAULT_FRAME_OPTIONS = "DENY";
 var DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
-function resolveSecurityHeaders(security) {
+function generateNonce() {
+  return randomBytes2(16).toString("base64");
+}
+function addNonceToCsp(csp, nonce) {
+  const directives = csp.split(";").map((d) => d.trim()).filter(Boolean);
+  const nonceToken = `'nonce-${nonce}'`;
+  let sawScriptSrc = false;
+  const updated = directives.map((directive) => {
+    if (directive === "script-src" || directive.startsWith("script-src ")) {
+      sawScriptSrc = true;
+      return `${directive} ${nonceToken}`;
+    }
+    return directive;
+  });
+  if (!sawScriptSrc) {
+    updated.push(`script-src 'self' ${nonceToken}`);
+  }
+  return updated.join("; ");
+}
+function resolveSecurityHeaders(security, streamingNonce) {
+  const baseCsp = security?.csp ?? DEFAULT_CSP;
   const headers = {
-    "Content-Security-Policy": security?.csp ?? DEFAULT_CSP,
+    "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
     "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS
   };
   if (security?.hsts !== false) {
@@ -3636,6 +3665,7 @@ ${urls}
 // ../core/src/islandComponent.tsx
 var import_react2 = __toESM(require_react(), 1);
 var IslandCollectorContext = (0, import_react2.createContext)(null);
+var IslandStreamingContext = (0, import_react2.createContext)(false);
 
 // ../core/src/buildKey.ts
 import path2 from "node:path";
@@ -3657,11 +3687,16 @@ function resolveRenderMode(routeModule, appDefault) {
 }
 
 // ../core/src/csrRoute.ts
-function renderCsrShell(routeModule, entryUrl, csrClientUrl) {
+function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl) {
   const meta = routeModule.meta?.(void 0);
   const canMount = entryUrl !== void 0 && csrClientUrl !== void 0;
   const bodyHtml = canMount ? `<div data-csr-entry="${escapeHtml(entryUrl)}"></div>` : "";
-  return renderHtmlDocument({ bodyHtml, meta, csrScriptUrl: canMount ? csrClientUrl : void 0 });
+  return renderHtmlDocument({
+    bodyHtml,
+    meta,
+    csrScriptUrl: canMount ? csrClientUrl : void 0,
+    devPreambleUrl: canMount ? devPreambleUrl : void 0
+  });
 }
 
 // ../core/src/isrCache.ts
@@ -3786,7 +3821,40 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     const buildKey = toBuildKey(appRoot, match.filePath);
     const routeModule = await importBuilt(serverOutDir, buildKey);
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
-    if (renderMode === "streaming") return false;
+    if (renderMode === "streaming") {
+      if (routeModule.action) {
+        throw new Error(
+          `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action \u2014 actions never run for streaming routes.`
+        );
+      }
+      const entryServer2 = await importBuilt(serverOutDir, "entry-server");
+      const islandClientUrl2 = await readIslandClientUrl(islandManifestPath);
+      const nonce = generateNonce();
+      res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]);
+      const result2 = await entryServer2.renderStreaming(routeModule, {
+        cookieHeader: req.headers.cookie,
+        params: match.params,
+        sessionCookieOptions,
+        islandClientUrl: islandClientUrl2,
+        nonce
+      });
+      if (!result2) return false;
+      if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
+      res.statusCode = result2.status;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      await new Promise((resolve) => {
+        res.once("finish", resolve);
+        result2.pipeTo(res, (error, phase) => {
+          console.error(`[devora] streaming error ("${phase}") on "${match.routePath}":`, error);
+          if (phase === "shell" && !res.headersSent) {
+            res.statusCode = 500;
+            res.end("Internal Server Error");
+            resolve();
+          }
+        });
+      });
+      return true;
+    }
     if (renderMode === "csr") {
       const csrManifest = await readCsrManifest(csrManifestPath);
       const html = renderCsrShell(routeModule, csrManifest.routes[buildKey], csrManifest.csrClientUrl);
@@ -3968,7 +4036,30 @@ async function loadAppConfig(appRoot) {
 
 // src/server/ssrMiddleware.ts
 import path7 from "node:path";
-function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode) {
+
+// src/server/reactRefreshPreamblePlugin.ts
+import viteReact from "@vitejs/plugin-react";
+var VIRTUAL_ID = "virtual:devora-react-refresh-preamble";
+var RESOLVED_ID = "\0" + VIRTUAL_ID;
+function reactRefreshPreamblePlugin() {
+  return {
+    name: "devora-react-refresh-preamble",
+    resolveId(id) {
+      if (id === VIRTUAL_ID) return RESOLVED_ID;
+      return null;
+    },
+    load(id) {
+      if (id !== RESOLVED_ID) return null;
+      const code = viteReact.preambleCode.replace("__BASE__", "/");
+      return { code, map: null };
+    }
+  };
+}
+var REACT_REFRESH_PREAMBLE_VIRTUAL_ID = VIRTUAL_ID;
+
+// src/server/ssrMiddleware.ts
+var DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
+function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode, security) {
   const routesDir = path7.join(appRoot, "routes");
   const entryServerPath = path7.join(appRoot, "entry-server.tsx");
   const sessionCookieOptions = authMode === "none" ? void 0 : resolveSessionCookieOptions(authMode, appName);
@@ -3991,17 +4082,39 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
     try {
       const routeModule = await vite.ssrLoadModule(match.filePath);
       const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
-      if (renderMode === "streaming") {
-        return next();
-      }
       if (renderMode === "csr") {
-        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx");
+        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL);
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);
         return;
       }
       const entryServer = await vite.ssrLoadModule(entryServerPath);
+      if (renderMode === "streaming") {
+        if (routeModule.action) {
+          throw new Error(
+            `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action \u2014 actions never run for streaming routes.`
+          );
+        }
+        const nonce = generateNonce();
+        res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]);
+        const result2 = await entryServer.renderStreaming(routeModule, {
+          cookieHeader: req.headers.cookie,
+          params: match.params,
+          sessionCookieOptions,
+          islandClientUrl: "/island-client.tsx",
+          devPreambleUrl: DEV_PREAMBLE_URL,
+          nonce
+        });
+        if (!result2) return next();
+        if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
+        res.statusCode = result2.status;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        result2.pipeTo(res, (error) => {
+          console.error(`[devora] streaming error on "${match.routePath}":`, error);
+        });
+        return;
+      }
       if (renderMode === "ssg" || renderMode === "isr") {
         if (routeModule.action) {
           throw new Error(
@@ -4010,7 +4123,8 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         }
         const { html } = await entryServer.renderStatic(routeModule, {
           islandClientUrl: "/island-client.tsx",
-          params: match.params
+          params: match.params,
+          devPreambleUrl: DEV_PREAMBLE_URL
         });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -4027,7 +4141,8 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see ROADMAP.md #4.
         islandClientUrl: "/island-client.tsx",
-        appDefaultRenderMode
+        appDefaultRenderMode,
+        devPreambleUrl: DEV_PREAMBLE_URL
       });
       if (!result) {
         return next();
@@ -4221,6 +4336,7 @@ async function dev(opts) {
       plugins: [
         islandsPlugin(),
         moduleDisposePlugin(),
+        reactRefreshPreamblePlugin(),
         createApiMiddlewarePlugin(appRoot, app.name, authMode, appConfig.security)
       ]
     });
@@ -4234,7 +4350,8 @@ async function dev(opts) {
           authMode,
           app.domain,
           appConfig.sitemap === true,
-          appConfig.defaultRenderMode
+          appConfig.defaultRenderMode,
+          appConfig.security
         )
       );
     }
@@ -4744,6 +4861,7 @@ async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabl
     path19.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 import { Readable } from "node:stream";
+import { EventEmitter } from "node:events";
 
 const handleRequest = createProdRequestHandler(
   new URL(".", import.meta.url).pathname,
@@ -4765,18 +4883,23 @@ export default async (request) => {
 
   let statusCode = 200;
   const resHeaders = new Headers();
-  let responseBody = "";
-  const res = {
-    setHeader: (k, v) => resHeaders.set(k, v),
-    get statusCode() { return statusCode; },
-    set statusCode(v) { statusCode = v; },
-    end: (chunk) => { responseBody = chunk ?? ""; },
+  const chunks = [];
+  const res = new EventEmitter();
+  res.statusCode = statusCode;
+  res.headersSent = false;
+  res.setHeader = (k, v) => resHeaders.set(k, v);
+  res.getHeader = (k) => resHeaders.get(k) ?? undefined;
+  res.write = (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); return true; };
+  res.end = (chunk) => {
+    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    res.headersSent = true;
+    res.emit("finish");
   };
 
   try {
     const handled = await handleRequest(req, res);
     if (!handled) return new Response("Not found", { status: 404 });
-    return new Response(responseBody, { status: statusCode, headers: resHeaders });
+    return new Response(Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });
   } catch (err) {
     console.error(err);
     return new Response("Internal Server Error", { status: 500 });
@@ -5088,8 +5211,8 @@ export default defineConfig({
   await writeFile5(
     path21.join(appDir, "entry-server.tsx"),
     `import { createElement } from "react";
-import { renderToString } from "react-dom/server";
-import { createRenderRoute, createRenderStatic } from "@devorajs/core";
+import { renderToString, renderToPipeableStream } from "react-dom/server";
+import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
 
 // Framework SSR entry point for this app \u2014 loaded via vite.ssrLoadModule
 // so react-dom/server resolves against this app's own node_modules. The
@@ -5098,40 +5221,29 @@ import { createRenderRoute, createRenderStatic } from "@devorajs/core";
 // genuinely can't be shared.
 export const renderRoute = createRenderRoute({ createElement, renderToString });
 export const renderStatic = createRenderStatic({ createElement, renderToString });
+export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });
 `
   );
   await writeFile5(
     path21.join(appDir, "island-client.tsx"),
-    `import { createElement } from "react";
-import { hydrateRoot } from "react-dom/client";
+    `import { hydrateIslands } from "@devorajs/core/client";
 
 // Only requested when a page actually used an island() \u2014 see
-// packages/core/src/islandComponent.tsx.
-for (const node of document.querySelectorAll<HTMLElement>("[data-island]")) {
-  const url = node.getAttribute("data-island-url");
-  if (!url) continue;
-  const propsJson = node.getAttribute("data-island-props");
-  const props = propsJson ? JSON.parse(propsJson) : {};
-  import(/* @vite-ignore */ url).then((mod) => {
-    hydrateRoot(node, createElement(mod.default, props));
-  });
-}
+// packages/core/src/islandComponent.tsx. Real hydration logic lives
+// once in @devorajs/core (shared by every app, including MutationObserver
+// support for an island that streams in after this script runs) \u2014 this
+// file only calls it.
+hydrateIslands();
 `
   );
   await writeFile5(
     path21.join(appDir, "csr-client.tsx"),
-    `import { createElement } from "react";
-import { createRoot } from "react-dom/client";
+    `import { hydrateCsrRoutes } from "@devorajs/core/client";
 
 // Only requested when a page's renderMode is "csr" \u2014 see
-// packages/core/src/csrRoute.ts.
-for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {
-  const url = node.getAttribute("data-csr-entry");
-  if (!url) continue;
-  import(/* @vite-ignore */ url).then((mod) => {
-    createRoot(node).render(createElement(mod.default));
-  });
-}
+// packages/core/src/csrRoute.ts. Real logic lives once in
+// @devorajs/core, shared by every app.
+hydrateCsrRoutes();
 `
   );
   await writeFile5(
@@ -5475,6 +5587,280 @@ async function generateProxy(opts) {
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }
 
+// src/commands/split.ts
+import path27 from "node:path";
+import { existsSync as existsSync14 } from "node:fs";
+import { mkdtemp, rm as rm3, cp as cp4 } from "node:fs/promises";
+import { tmpdir } from "node:os";
+
+// src/build/resolveSplitTarget.ts
+import path26 from "node:path";
+function resolveSplitTarget(root, project, name) {
+  if (name === "backend") {
+    return path26.join(root, project.shared.backend);
+  }
+  const app = project.apps.find((a) => a.name === name);
+  if (!app) {
+    throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
+  }
+  return path26.join(root, app.dir);
+}
+
+// src/build/gitHelpers.ts
+import { execFileSync } from "node:child_process";
+function git(args, cwd) {
+  try {
+    const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
+    return { code: 0, stdout: stdout.toString(), stderr: "" };
+  } catch (err) {
+    const e = err;
+    return { code: e.status ?? 1, stdout: e.stdout?.toString() ?? "", stderr: e.stderr?.toString() ?? "" };
+  }
+}
+function gitOrThrow(args, cwd) {
+  const result = git(args, cwd);
+  if (result.code !== 0) {
+    throw new Error(`[devora] git ${args.join(" ")} failed (cwd: ${cwd}):
+${result.stderr || result.stdout}`);
+  }
+  return result.stdout;
+}
+function isGitClean(pathspec, cwd) {
+  const result = git(["status", "--porcelain", "--", pathspec], cwd);
+  return result.code === 0 && result.stdout.trim() === "";
+}
+function listSubmodules(repoRoot) {
+  const result = git(["config", "--file", ".gitmodules", "--get-regexp", "^submodule\\..*\\.path$"], repoRoot);
+  if (result.code !== 0 || result.stdout.trim() === "") return [];
+  const entries = [];
+  for (const line of result.stdout.trim().split("\n")) {
+    const [key, ...rest] = line.split(" ");
+    const path30 = rest.join(" ");
+    const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
+    const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
+    entries.push({ name, path: path30, url: urlResult.stdout.trim() });
+  }
+  return entries;
+}
+function revListCounts(cwd, theirRef, ourRef = "HEAD") {
+  const result = git(["rev-list", "--left-right", "--count", `${theirRef}...${ourRef}`], cwd);
+  if (result.code !== 0) return { behind: 0, ahead: 0 };
+  const [behind, ahead] = result.stdout.trim().split(/\s+/).map(Number);
+  return { behind: behind ?? 0, ahead: ahead ?? 0 };
+}
+function conflictedFiles(cwd) {
+  const result = git(["diff", "--name-only", "--diff-filter=U"], cwd);
+  return result.stdout.trim() === "" ? [] : result.stdout.trim().split("\n");
+}
+
+// src/build/confirmAction.ts
+import { createInterface as createInterface2 } from "node:readline/promises";
+async function confirmAction(message, opts) {
+  if (opts.yes) return true;
+  if (!process.stdin.isTTY) {
+    console.error(`[devora] ${message} \u2014 refusing without --yes in a non-interactive shell.`);
+    return false;
+  }
+  const rl = createInterface2({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(`${message} [y/N]: `)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
+}
+
+// src/commands/split.ts
+async function split(name, opts) {
+  if (!opts.repo) {
+    console.error(`[devora] --repo=<git-url> is required \u2014 create the empty remote repo yourself first.`);
+    process.exit(1);
+  }
+  const root = process.cwd();
+  const project = await loadProjectConfig(root);
+  const targetPath = resolveSplitTarget(root, project, name);
+  const relPath = path27.relative(root, targetPath);
+  if (!existsSync14(targetPath)) {
+    console.error(`[devora] ${relPath} doesn't exist`);
+    process.exit(1);
+  }
+  if (listSubmodules(root).some((s) => s.path === relPath)) {
+    console.error(`[devora] ${relPath} is already a submodule \u2014 nothing to split.`);
+    process.exit(1);
+  }
+  if (!isGitClean(relPath, root)) {
+    console.error(
+      `[devora] ${relPath} has uncommitted changes \u2014 commit or stash them first, so "split" starts from a known state.`
+    );
+    process.exit(1);
+  }
+  console.log(`[devora] about to split ${relPath} into its own repo:`);
+  console.log(`  1. Push ${relPath}'s current content to ${opts.repo} as that repo's initial history.`);
+  console.log(`  2. Remove ${relPath} from this repo's own tracked files.`);
+  console.log(`  3. Re-add it as a git submodule pointing at ${opts.repo}.`);
+  console.log(`  Nothing is committed here in this repo \u2014 you review and commit yourself afterward.`);
+  const confirmed = await confirmAction(`Proceed?`, opts);
+  if (!confirmed) {
+    console.log(`[devora] aborted \u2014 nothing changed.`);
+    return;
+  }
+  const tempDir = await mkdtemp(path27.join(tmpdir(), "devora-split-"));
+  try {
+    await cp4(targetPath, tempDir, { recursive: true });
+    gitOrThrow(["init", "-b", "main"], tempDir);
+    gitOrThrow(["add", "-A"], tempDir);
+    gitOrThrow(["commit", "-m", `Initial split of ${relPath} via devora split`], tempDir);
+    gitOrThrow(["remote", "add", "origin", opts.repo], tempDir);
+    const push = git(["push", "-u", "origin", "main"], tempDir);
+    if (push.code !== 0) {
+      throw new Error(
+        `[devora] failed to push the initial split content to ${opts.repo}:
+${push.stderr}
+Nothing in this repo has changed yet \u2014 fix the remote (does it exist? do you have push access?) and retry.`
+      );
+    }
+    gitOrThrow(["rm", "-r", "--cached", relPath], root);
+    await rm3(targetPath, { recursive: true, force: true });
+    const addResult = git(["submodule", "add", opts.repo, relPath], root);
+    if (addResult.code !== 0) {
+      throw new Error(
+        `[devora] "git submodule add" failed after ${relPath} was already removed from this repo's tracked files:
+${addResult.stderr}
+Your real content is safely pushed to ${opts.repo} \u2014 run \`git submodule add ${opts.repo} ${relPath}\` manually to finish, or \`git checkout -- ${relPath}\` to abandon the split and restore the original tracked files.`
+      );
+    }
+    console.log(`[devora] ${relPath} is now a submodule pointing at ${opts.repo}.`);
+    console.log(`[devora] review with \`git status\` / \`git diff --cached\`, then commit yourself.`);
+  } finally {
+    await rm3(tempDir, { recursive: true, force: true });
+  }
+}
+
+// src/commands/sync.ts
+import path28 from "node:path";
+async function sync(names, opts) {
+  if (opts.fromMain === opts.toMain) {
+    console.error(`[devora] specify exactly one of --from-main or --to-main.`);
+    process.exit(1);
+  }
+  const root = process.cwd();
+  const project = await loadProjectConfig(root);
+  const targets = opts.all ? listSubmodules(root).map((s) => ({ name: s.path, path: path28.join(root, s.path) })) : names.map((name) => ({ name, path: resolveSplitTarget(root, project, name) }));
+  if (targets.length === 0) {
+    console.log(`[devora] nothing to sync \u2014 no split-off apps/backend found.`);
+    return;
+  }
+  let anyFailed = false;
+  for (const target of targets) {
+    const relPath = path28.relative(root, target.path);
+    console.log(`
+[devora] ${relPath}:`);
+    const fetch = git(["fetch", "origin"], target.path);
+    if (fetch.code !== 0) {
+      console.error(`  fetch failed: ${fetch.stderr}`);
+      anyFailed = true;
+      continue;
+    }
+    if (opts.fromMain) {
+      anyFailed = !await syncFromMain(root, target.path, relPath, opts) || anyFailed;
+    } else {
+      anyFailed = !await syncToMain(target.path, relPath, opts) || anyFailed;
+    }
+  }
+  if (anyFailed) process.exit(1);
+}
+async function syncFromMain(root, targetPath, relPath, opts) {
+  const log = git(["log", "--oneline", "HEAD..origin/main"], targetPath);
+  if (log.stdout.trim() === "") {
+    console.log(`  up to date with origin/main \u2014 nothing to pull.`);
+    return true;
+  }
+  console.log(`  ${log.stdout.trim().split("\n").length} commit(s) to pull from origin/main:`);
+  console.log(
+    log.stdout.trim().split("\n").map((line) => `    ${line}`).join("\n")
+  );
+  const confirmed = await confirmAction(`  Merge these into ${relPath}?`, opts);
+  if (!confirmed) {
+    console.log(`  skipped.`);
+    return true;
+  }
+  const merge = git(["merge", "origin/main", "--no-edit"], targetPath);
+  if (merge.code !== 0) {
+    const conflicts = conflictedFiles(targetPath);
+    if (conflicts.length > 0) {
+      console.error(`  merge conflict \u2014 resolve manually inside ${relPath}:`);
+      for (const file of conflicts) {
+        const diffStat = git(["diff", "--stat", "HEAD", "origin/main", "--", file], targetPath);
+        console.error(`    ${file}${diffStat.stdout ? ` (${diffStat.stdout.trim()})` : ""}`);
+      }
+      console.error(`  this is a real conflict \u2014 not auto-resolved. Fix it inside ${relPath}, then commit there.`);
+    } else {
+      console.error(`  merge failed: ${merge.stderr}`);
+    }
+    return false;
+  }
+  git(["add", relPath], root);
+  console.log(`  merged. Updated gitlink staged in the main repo \u2014 commit there yourself.`);
+  return true;
+}
+async function syncToMain(targetPath, relPath, opts) {
+  const log = git(["log", "--oneline", "origin/main..HEAD"], targetPath);
+  if (log.stdout.trim() === "") {
+    console.log(`  nothing local to push \u2014 up to date with origin/main.`);
+    return true;
+  }
+  console.log(`  ${log.stdout.trim().split("\n").length} local commit(s) to push to origin/main:`);
+  console.log(
+    log.stdout.trim().split("\n").map((line) => `    ${line}`).join("\n")
+  );
+  const confirmed = await confirmAction(`  Push these from ${relPath} to its own origin/main?`, opts);
+  if (!confirmed) {
+    console.log(`  skipped.`);
+    return true;
+  }
+  const push = git(["push", "origin", "HEAD:main"], targetPath);
+  if (push.code !== 0) {
+    console.error(`  push failed (likely diverged \u2014 pull with --from-main first): ${push.stderr}`);
+    return false;
+  }
+  console.log(`  pushed.`);
+  return true;
+}
+
+// src/commands/status.ts
+import path29 from "node:path";
+async function status() {
+  const root = process.cwd();
+  const submodules = listSubmodules(root);
+  if (submodules.length === 0) {
+    console.log(`[devora] no split-off apps/backend \u2014 nothing to report (see \`devora split\`).`);
+    return;
+  }
+  console.log(`[devora] sync status:
+`);
+  for (const sub of submodules) {
+    const targetPath = path29.join(root, sub.path);
+    git(["fetch", "origin"], targetPath);
+    const { behind, ahead } = revListCounts(targetPath, "origin/main");
+    const gitlinkDirty = git(["status", "--porcelain", "--", sub.path], root).stdout.trim() !== "";
+    let state;
+    if (ahead > 0 && behind > 0) {
+      state = `diverged \u2014 ${ahead} local commit(s), ${behind} remote commit(s) not pulled`;
+    } else if (ahead > 0) {
+      state = `${ahead} local commit(s) not pushed \u2014 run \`devora sync ${sub.path} --to-main\``;
+    } else if (behind > 0) {
+      state = `${behind} remote commit(s) not pulled \u2014 run \`devora sync ${sub.path} --from-main\``;
+    } else {
+      state = `up to date`;
+    }
+    if (gitlinkDirty) {
+      state += ` (gitlink change not yet committed in the main repo)`;
+    }
+    console.log(`  ${sub.path} \u2192 ${sub.url}`);
+    console.log(`    ${state}`);
+  }
+}
+
 // src/index.ts
 var program = new Command();
 program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version("0.1.0");
@@ -5488,6 +5874,11 @@ program.command("new <appName>").description("Scaffold a new app inside the proj
 program.command("add <appName>").description("Scaffold a new app inside the project and register it in devora.config.ts (alias for `new`)").option("--domain <domain>", "domain to register in devora.config.ts").option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)').action(async (appName, opts) => scaffoldApp(appName, opts));
 program.command("remove <appName>").alias("rm").description("Delete apps/<name> and its devora.config.ts entry (undoes new/add)").action(async (appName) => removeApp(appName));
 program.command("list").alias("ls").description("List every app registered in devora.config.ts").action(async () => list());
+program.command("split <name>").description(
+  'Convert apps/<name> (or the literal "backend") into a git submodule pointing at --repo (create the empty remote yourself first)'
+).requiredOption("--repo <url>", "the empty remote repo's URL").option("--yes", "skip the confirmation prompt (for scripted use)").action(async (name, opts) => split(name, opts));
+program.command("sync [names...]").description("Pull/push a split-off app or backend against its own remote \u2014 one of --from-main or --to-main is required").option("--from-main", "merge the split repo's latest into the local checkout").option("--to-main", "push local commits made inside the split repo's checkout").option("--all", "every split-off app/backend, instead of naming them").option("--yes", "skip the confirmation prompt (for scripted use)").action(async (names, opts) => sync(names, opts));
+program.command("status").description("Sync state (up to date / unpushed / unpulled / diverged) across every split-off app/backend").action(async () => status());
 program.command("generate:proxy").description("Generate a reverse-proxy config from devora.config.ts domains").requiredOption("--target <target>", "nginx or caddy").option("--out <path>", "output file path").action(async (opts) => generateProxy(opts));
 var argv = process.argv.filter((arg) => arg !== "--");
 program.parseAsync(argv);
