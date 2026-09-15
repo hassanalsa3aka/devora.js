@@ -11,8 +11,17 @@
 # can trace from ssr.mjs's static imports; routes/ and dist/server/ are
 # read at runtime via fs.readdirSync/dynamic import(), invisible to that
 # tracer. See ROADMAP.md #4/#13's "real live deploy" account.
+#
+# `.../ssr/package.json` added for the identical reason, found the same
+# way (a real live deploy, this time on apps/admin — still throwing
+# "Cannot use import statement outside a module" even after adapter-netlify
+# was fixed to write that file): the file exists in every local build, but
+# was neither imported nor listed here, so the tracer never included it in
+# the deployed function either. Anything read at runtime instead of
+# statically imported has to be named in this list explicitly — no
+# exceptions, package.json included.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
 
 [[redirects]]
   from = "/*"
