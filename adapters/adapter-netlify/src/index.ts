@@ -123,6 +123,26 @@ export async function writeNetlifyConfig(
     await cp(staticOutDir, path.join(appRoot, "dist", "client"), { recursive: true });
   }
 
+  // Real bug found from an actual live Netlify deploy of a `renderMode:
+  // "ssr"` app (never surfaced by `marketing`, the only app verified live
+  // before now — it's `"ssg"`, so its homepage is served as a static file
+  // and never invokes the function at all): `bundleForDeploy` below writes
+  // `dist/server/routes/**/*.js` (and api/**) with `format: "esm"`, but
+  // nothing in `funcDir` ever declared `"type": "module"` in a package.json.
+  // `ssr.mjs` itself still loaded fine (Netlify invokes it directly, and a
+  // `.mjs` extension is always ESM to Node regardless of package.json) —
+  // the crash only happens the moment `prodRequestHandler.ts`'s
+  // `importBuilt()` dynamically `import()`s a plain `.js` route file at
+  // *request* time, which is exactly why this was invisible to a build
+  // that "succeeds" and a function that "deploys": `SyntaxError: Cannot use
+  // import statement outside a module` on the first real request to any
+  // ssr route. Node resolves a `.js` file's module type from the nearest
+  // package.json — with none present under `funcDir`, it defaults to
+  // CommonJS. This one file fixes every file under `funcDir`, not just
+  // `dist/server` — Node's lookup walks up from wherever the loaded file
+  // actually is.
+  await writeFile(path.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+
   await writeFile(
     path.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";\n` +
