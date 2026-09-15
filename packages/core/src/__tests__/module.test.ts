@@ -54,6 +54,28 @@ describe("defineModule", () => {
     expect(Object.keys(app.getRoutes())).toEqual(["/webhooks/stripe"]);
   });
 
+  it("known footgun (documented, not fixed at the type level — Phase 4 audit, low severity): " +
+    "feeding getRoutes() output back into another module's `routes` loses the \"//\" opt-out", () => {
+    // The correct composition (register()) preserves the marker — this is
+    // the control case, showing the SAME module composed correctly.
+    const stripeModule = defineModule({
+      name: "stripe",
+      routes: { "//webhooks/stripe": apiRoute(() => ok("stripe")) },
+    });
+    const correctlyComposed = defineModule({ name: "app" }, (root) => root.register(stripeModule));
+    expect(Object.keys(correctlyComposed.getRoutes())).toEqual(["/webhooks/stripe"]);
+
+    // The footgun: feeding the module's own PUBLIC getRoutes() output
+    // (already normalized — the marker is gone) into a new module's
+    // `routes` field instead of using register(). Nothing in the type
+    // system stops this (see ModuleDefinition.routes's doc comment) — the
+    // route silently gets re-prefixed by whatever registers the wrapper,
+    // instead of staying at its fixed path.
+    const wrapper = defineModule({ name: "wrapper", routes: stripeModule.getRoutes() });
+    const misComposed = defineModule({ name: "app" }, (root) => root.register(wrapper));
+    expect(Object.keys(misComposed.getRoutes())).toEqual(["/wrapper/webhooks/stripe"]); // NOT "/webhooks/stripe"
+  });
+
   it("two composed modules don't leak each other's internal state", () => {
     let usersCallCount = 0;
     const usersModule = defineModule({

@@ -50,6 +50,23 @@ export type ApiRouteHandler = (req: ApiRequest, ctx: RequestContext) => Promise<
 /** The shape a file under `apps/<name>/api/**` must export. */
 export interface ApiRouteModule {
   handler: ApiRouteHandler;
+  /**
+   * Optional explicit method allowlist (Phase 4 security-audit follow-up).
+   * Real footgun this closes: with no framework-level method enforcement
+   * at all, every route had to hand-roll its own `if (req.method === ...)`
+   * branching with no default-deny — this codebase's own shipped example
+   * (`apps/dashboard/api/hello.ts`) demonstrated the resulting mistake: a
+   * `PUT`/`PATCH`/`DELETE` fell into an `else` branch meant only for `GET`,
+   * silently skipping the CSRF check written for "the POST case." Declaring
+   * `methods` here makes `dispatchApiRoute` (apiDispatch.ts) itself reject
+   * anything not listed with a real `405`, *before* the handler — and
+   * therefore any of its branch logic — ever runs. Deliberately optional
+   * and additive, not required: a route with no `methods` field behaves
+   * exactly as before (explicit opt-in, same reasoning `sitemap: true`
+   * already uses elsewhere in this codebase — no silent behavior change for
+   * existing routes).
+   */
+  methods?: string[];
 }
 
 /** Identity wrapper, same role `serverFn()` plays for server functions —

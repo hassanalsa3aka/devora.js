@@ -36,6 +36,14 @@ export async function dispatchApiRoute(
     throw new Error("[devora] API route has no exported `handler` (see apiRoute.ts)");
   }
 
+  // See ApiRouteModule.methods's doc comment — checked before any session/
+  // CSRF work runs, so a method a route never declared can't reach the
+  // handler's own branching at all (the real footgun this closes: no
+  // silent fall-through into a branch meant for a different method).
+  if (routeModule.methods && !routeModule.methods.includes(request.method)) {
+    return { status: 405, headers: { Allow: routeModule.methods.join(", ") } };
+  }
+
   const { ctx, getSetCookie } = request.sessionCookieOptions
     ? createRequestContext(request.cookieHeader, request.sessionCookieOptions, request.params)
     : createNoAuthContext(request.params);

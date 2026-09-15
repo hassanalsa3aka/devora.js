@@ -113,4 +113,60 @@ describe("dispatchApiRoute", () => {
     const result = await dispatchApiRoute({ handler }, baseRequest({ sessionCookieOptions: opts }));
     expect(result.setCookie?.some((c) => c.startsWith("devora_session="))).toBe(true);
   });
+
+  describe("methods — real footgun this closes (Phase 4 audit follow-up)", () => {
+    it("a route with no `methods` field behaves exactly as before (no silent behavior change)", async () => {
+      const handler = apiRoute(() => ({ status: 200, body: "ok" }));
+      const result = await dispatchApiRoute({ handler }, baseRequest({ method: "PATCH" }));
+      expect(result.status).toBe(200);
+    });
+
+    it("rejects a method not in the declared allowlist with a real 405, before the handler ever runs", async () => {
+      let handlerRan = false;
+      const handler = apiRoute(() => {
+        handlerRan = true;
+        return { status: 200, body: "should never get here" };
+      });
+      const result = await dispatchApiRoute(
+        { handler, methods: ["GET", "POST"] },
+        baseRequest({ method: "DELETE" })
+      );
+      expect(result.status).toBe(405);
+      expect(result.headers?.Allow).toBe("GET, POST");
+      expect(handlerRan).toBe(false);
+    });
+
+    it("real bug this fixes: a method NOT meant to reach the handler's 'else' branch no longer silently does", async () => {
+      // The exact shape apps/dashboard/api/hello.ts had: `if (method ===
+      // "POST") { csrf-gated mutation } else { assumed-GET read }` — a PUT
+      // used to fall into the "read" branch with no CSRF check at all,
+      // since nothing enforced that only GET/POST could ever reach it.
+      let csrfChecked = false;
+      const handler = apiRoute((req, ctx) => {
+        if (req.method === "POST") {
+          csrfChecked = true;
+          return { status: 200, body: "mutated" };
+        }
+        return { status: 200, body: "read" }; // meant only for GET
+      });
+      const result = await dispatchApiRoute(
+        { handler, methods: ["GET", "POST"] },
+        baseRequest({ method: "PUT" })
+      );
+      expect(result.status).toBe(405);
+      expect(csrfChecked).toBe(false);
+    });
+
+    it("allows every declared method through to the handler", async () => {
+      const seen: string[] = [];
+      const handler = apiRoute((req) => {
+        seen.push(req.method);
+        return { status: 200, body: "ok" };
+      });
+      for (const method of ["GET", "POST"]) {
+        await dispatchApiRoute({ handler, methods: ["GET", "POST"] }, baseRequest({ method }));
+      }
+      expect(seen).toEqual(["GET", "POST"]);
+    });
+  });
 });

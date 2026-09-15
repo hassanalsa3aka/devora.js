@@ -3756,6 +3756,9 @@ async function dispatchApiRoute(routeModule, request) {
   if (typeof routeModule.handler !== "function") {
     throw new Error("[devora] API route has no exported `handler` (see apiRoute.ts)");
   }
+  if (routeModule.methods && !routeModule.methods.includes(request.method)) {
+    return { status: 405, headers: { Allow: routeModule.methods.join(", ") } };
+  }
   const { ctx, getSetCookie } = request.sessionCookieOptions ? createRequestContext(request.cookieHeader, request.sessionCookieOptions, request.params) : createNoAuthContext(request.params);
   const apiReq = {
     method: request.method,

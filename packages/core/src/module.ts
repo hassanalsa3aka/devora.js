@@ -28,9 +28,23 @@ export interface ModuleDefinition {
   name: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   functions?: Record<string, ServerFn<any, any>>;
-  /** Keyed by path relative to this module (e.g. "/webhooks/stripe", or
-   * "/" for the module's own root) — see the doc comment above for
-   * prefixing rules once registered into a parent. */
+  /**
+   * Keyed by path relative to this module (e.g. "/webhooks/stripe", or "/"
+   * for the module's own root) — see the doc comment above for prefixing
+   * rules once registered into a parent.
+   *
+   * Compose modules with `register()`, never by feeding another module's
+   * `getRoutes()` output back in here (Phase 4 audit follow-up, low
+   * severity — availability only, no auth-bypass: this framework has no
+   * path-prefix-based auth gating). `getRoutes()`'s return type is
+   * structurally identical to this field, so nothing stops it compiling,
+   * but its "//" opt-out markers (see `joinRoutePath`) are already stripped
+   * by the time `getRoutes()` returns — a route meant to stay at a fixed
+   * path (e.g. a webhook URL a third party already has on file) silently
+   * gets re-prefixed by whatever registers the wrapping module instead.
+   * `register(child)` preserves the marker correctly through any nesting
+   * depth; this field is for a module's own routes, not another module's.
+   */
   routes?: Record<string, ApiRouteHandler>;
 }
 
@@ -46,9 +60,15 @@ export interface DevoraModule {
    * `/`-prefixed opt-out). Does not expose `child.functions` — a module that
    * needs another module's function imports it directly. */
   register(child: DevoraModule): void;
-  /** This module's own routes plus every registered child's (transitively),
+  /**
+   * This module's own routes plus every registered child's (transitively),
    * fully namespaced/flattened — what a route dispatcher (apiDispatch.ts)
-   * actually needs to resolve `path -> handler`. */
+   * actually needs to resolve `path -> handler`.
+   *
+   * Final output only — never feed this back into another module's
+   * `ModuleDefinition.routes` to compose modules; use `register()` for
+   * that instead. See `ModuleDefinition.routes`'s doc comment for why.
+   */
   getRoutes(): Readonly<Record<string, ApiRouteHandler>>;
 }
 
