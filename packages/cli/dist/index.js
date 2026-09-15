@@ -4794,6 +4794,7 @@ async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnable
     await cp2(staticOutDir, path16.join(outputDir, "static"), { recursive: true });
     await cp2(staticOutDir, path16.join(funcDir, "dist", "static"), { recursive: true });
   }
+  await writeFile3(path16.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile3(
     path16.join(funcDir, "index.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
@@ -4943,6 +4944,7 @@ async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabl
     await cp3(staticOutDir, path19.join(funcDir, "dist", "static"), { recursive: true });
     await cp3(staticOutDir, path19.join(appRoot, "dist", "client"), { recursive: true });
   }
+  await writeFile4(path19.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile4(
     path19.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";

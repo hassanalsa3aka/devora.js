@@ -131,6 +131,22 @@ export async function writeVercelOutput(
     await cp(staticOutDir, path.join(funcDir, "dist", "static"), { recursive: true });
   }
 
+  // Real bug — same root cause as adapter-netlify's identical fix (see that
+  // file's copy of this comment for the full account, found via a live
+  // Netlify deploy): `bundleForDeploy` writes `dist/server/**/*.js` with
+  // `format: "esm"`, but nothing in `funcDir` ever declared `"type":
+  // "module"`. `index.mjs` itself loads fine regardless (Vercel's
+  // `nodejs20.x` runtime invokes it directly, and `.mjs` is always ESM to
+  // Node), but `prodRequestHandler.ts`'s `importBuilt()` dynamically
+  // `import()`s a plain `.js` route file at request time — with no
+  // package.json to say otherwise, Node defaults that to CommonJS and
+  // throws `SyntaxError: Cannot use import statement outside a module` on
+  // the first real request to any `ssr`/`isr`/`csr` route. Never verified
+  // live on Vercel for those render modes, only `ssg` (never invokes the
+  // function for its homepage) — so this was equally live-broken here,
+  // just not yet hit.
+  await writeFile(path.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+
   await writeFile(
     path.join(funcDir, "index.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";\n\n` +
