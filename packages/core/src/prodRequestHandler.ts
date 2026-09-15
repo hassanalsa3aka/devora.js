@@ -11,6 +11,7 @@ import { resolveRenderMode } from "./renderRoute.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
+import { readBodyWithLimit, PayloadTooLargeError } from "./readBody.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
 import type { ApiRouteModule } from "./apiRoute.js";
@@ -96,7 +97,17 @@ export function createProdRequestHandler(
 
       const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
       const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
-      const body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+      let body: Buffer;
+      try {
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return true;
+        }
+        throw err;
+      }
 
       const apiResult = await dispatchApiRoute(apiRouteModule, {
         method: req.method ?? "GET",
@@ -290,7 +301,17 @@ export function createProdRequestHandler(
     };
 
     const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-    const formData = req.method === "POST" ? await parseFormData(req) : undefined;
+    let formData: FormData | undefined;
+    try {
+      formData = req.method === "POST" ? await parseFormData(req) : undefined;
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        res.statusCode = 413;
+        res.end(err.message);
+        return true;
+      }
+      throw err;
+    }
     const result = await entryServer.renderRoute(routeModule, {
       method: req.method ?? "GET",
       formData,
@@ -415,11 +436,7 @@ function unwrapCjsDefaultInterop(mod: Record<string, unknown>): unknown {
 }
 
 async function parseFormData(req: IncomingMessage): Promise<FormData> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  const body = Buffer.concat(chunks).toString("utf-8");
+  const body = (await readBodyWithLimit(req)).toString("utf-8");
   const formData = new FormData();
   // .forEach(), not for-of — @types/node's URLSearchParams and the DOM
   // lib's disagree on its iterator typing when both are in scope, which a
@@ -429,9 +446,5 @@ async function parseFormData(req: IncomingMessage): Promise<FormData> {
 }
 
 async function readRawBody(req: IncomingMessage): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  return Buffer.concat(chunks);
+  return readBodyWithLimit(req);
 }

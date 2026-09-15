@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 /**
  * Real Git plumbing shared by split.ts/sync.ts/status.ts (architecture-v2.md
@@ -74,6 +75,36 @@ export function revListCounts(cwd: string, theirRef: string, ourRef = "HEAD"): {
   if (result.code !== 0) return { behind: 0, ahead: 0 };
   const [behind, ahead] = result.stdout.trim().split(/\s+/).map(Number);
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
+}
+
+/**
+ * Real, previously-undiscovered vulnerability closed here (Phase 4 security
+ * audit): every path this CLI treats as "a submodule/app directory to run
+ * git commands inside, or to delete" — a `.gitmodules` `path` field (read by
+ * `listSubmodules` above, git's own parser but never bounds-checked
+ * afterward) or a `devora.config.ts` app `dir`/`shared.backend` value (used
+ * by `resolveSplitTarget.ts`) — was joined onto `root` with plain
+ * `path.join` and trusted outright. Both are realistic attacker-controlled
+ * inputs (a malicious PR/template's `.gitmodules`; a compromised dependency
+ * or template's `devora.config.ts`), and a `path` like `"../sibling-repo"`
+ * escapes the project entirely. Verified end-to-end: a crafted `.gitmodules`
+ * entry made `devora status`/`devora sync --all` genuinely `fetch`/`push` a
+ * real, unrelated sibling repository outside the project, including
+ * exfiltrating/pushing a private, never-pushed local commit from it; a
+ * crafted app `dir` made `devora split` delete an unrelated tracked
+ * directory outright. One containment check, called from every one of
+ * those consumers before the resolved path is used as a git `cwd` or an
+ * `rm()` target, closes all of them at the single real chokepoint.
+ */
+export function assertInsideRoot(root: string, targetPath: string, label: string): void {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path.sep)) {
+    throw new Error(
+      `[devora] refusing to operate on "${label}" — it resolves to "${resolvedTarget}", outside the ` +
+        `project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
+    );
+  }
 }
 
 /** Files with unresolved merge conflicts — real state, not inferred. */

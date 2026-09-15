@@ -58,9 +58,26 @@ export function resolveSessionCookieOptions(authMode: AuthMode, appName: string)
   return { name: "devora_session", secret: resolveSecret("DEVORA_SESSION_SECRET") };
 }
 
+/**
+ * Real, previously-undiscovered bug fixed here (Phase 4 security audit): the
+ * HMAC used to sign only `payload`, never `opts.name`. An "isolated" app
+ * (e.g. apps/admin) that falls back to the shared secret — an explicitly
+ * supported, documented configuration, see `resolveSecret` above, not a
+ * misuse — produced signatures indistinguishable from the shared app's own
+ * cookie. A valid `devora_session` cookie from the shared app could be
+ * replayed verbatim as `devora_session_admin` and would verify successfully,
+ * completely defeating "isolated" auth's one job. Cookie *name* scoping is a
+ * browser-only convention (`Cookie:` headers are not domain/path-checked by
+ * a server), so nothing before this fix actually enforced isolation at the
+ * protocol level once secrets happened to collide. Binding the cookie name
+ * into the signed input makes the two cookies cryptographically distinct
+ * regardless of whether they share a secret — the real fix, not just relying
+ * on operators to always set a distinct per-app secret (which stays
+ * supported and recommended, but is no longer load-bearing for isolation).
+ */
 export function signSession(data: unknown, opts: SessionCookieOptions): string {
   const payload = Buffer.from(JSON.stringify(data), "utf-8").toString("base64url");
-  const sig = createHmac("sha256", opts.secret).update(payload).digest("base64url");
+  const sig = createHmac("sha256", opts.secret).update(`${opts.name}:${payload}`).digest("base64url");
   return `${payload}.${sig}`;
 }
 
@@ -71,7 +88,7 @@ export function verifySession(cookieValue: string | undefined, opts: SessionCook
   const payload = cookieValue.slice(0, dot);
   const sig = cookieValue.slice(dot + 1);
 
-  const expected = createHmac("sha256", opts.secret).update(payload).digest("base64url");
+  const expected = createHmac("sha256", opts.secret).update(`${opts.name}:${payload}`).digest("base64url");
   const sigBuf = Buffer.from(sig);
   const expectedBuf = Buffer.from(expected);
   if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {

@@ -9,6 +9,8 @@ import {
   renderCsrShell,
   resolveSecurityHeaders,
   generateNonce,
+  readBodyWithLimit,
+  PayloadTooLargeError,
   type AuthMode,
   type AppRuntimeConfig,
   type RenderMode,
@@ -220,7 +222,17 @@ export function createSsrMiddleware(
         return;
       }
 
-      const formData = req.method === "POST" ? await parseFormData(req) : undefined;
+      let formData: FormData | undefined;
+      try {
+        formData = req.method === "POST" ? await parseFormData(req) : undefined;
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return;
+        }
+        throw err;
+      }
       const result = await entryServer.renderRoute(routeModule, {
         method: req.method ?? "GET",
         formData,
@@ -258,11 +270,7 @@ export function createSsrMiddleware(
 }
 
 async function parseFormData(req: Connect.IncomingMessage): Promise<FormData> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  const body = Buffer.concat(chunks).toString("utf-8");
+  const body = (await readBodyWithLimit(req)).toString("utf-8");
   const formData = new FormData();
   // .forEach(), not for-of — see the identical fix + reasoning in
   // packages/core/src/prodRequestHandler.ts.

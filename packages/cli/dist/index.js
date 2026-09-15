@@ -3518,7 +3518,7 @@ function resolveSessionCookieOptions(authMode, appName) {
 }
 function signSession(data, opts) {
   const payload = Buffer.from(JSON.stringify(data), "utf-8").toString("base64url");
-  const sig = createHmac("sha256", opts.secret).update(payload).digest("base64url");
+  const sig = createHmac("sha256", opts.secret).update(`${opts.name}:${payload}`).digest("base64url");
   return `${payload}.${sig}`;
 }
 function verifySession(cookieValue, opts) {
@@ -3527,7 +3527,7 @@ function verifySession(cookieValue, opts) {
   if (dot === -1) return void 0;
   const payload = cookieValue.slice(0, dot);
   const sig = cookieValue.slice(dot + 1);
-  const expected = createHmac("sha256", opts.secret).update(payload).digest("base64url");
+  const expected = createHmac("sha256", opts.secret).update(`${opts.name}:${payload}`).digest("base64url");
   const sigBuf = Buffer.from(sig);
   const expectedBuf = Buffer.from(expected);
   if (sigBuf.length !== expectedBuf.length || !timingSafeEqual2(sigBuf, expectedBuf)) {
@@ -3628,14 +3628,19 @@ function addNonceToCsp(csp, nonce) {
   const directives = csp.split(";").map((d) => d.trim()).filter(Boolean);
   const nonceToken = `'nonce-${nonce}'`;
   let sawScriptSrc = false;
+  let sawScriptSrcElem = false;
   const updated = directives.map((directive) => {
     if (directive === "script-src" || directive.startsWith("script-src ")) {
       sawScriptSrc = true;
       return `${directive} ${nonceToken}`;
     }
+    if (directive === "script-src-elem" || directive.startsWith("script-src-elem ")) {
+      sawScriptSrcElem = true;
+      return `${directive} ${nonceToken}`;
+    }
     return directive;
   });
-  if (!sawScriptSrc) {
+  if (!sawScriptSrc && !sawScriptSrcElem) {
     updated.push(`script-src 'self' ${nonceToken}`);
   }
   return updated.join("; ");
@@ -3706,9 +3711,16 @@ function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl) {
 // ../core/src/isrCache.ts
 import path3 from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 function cachePaths(staticOutDir, routePath) {
-  const dir = routePath === "/" ? staticOutDir : path3.join(staticOutDir, routePath.slice(1));
+  const base = path3.resolve(staticOutDir);
+  const dir = routePath === "/" ? base : path3.resolve(base, routePath.slice(1));
+  if (dir !== base && !dir.startsWith(base + path3.sep)) {
+    throw new Error(
+      `[devora] refusing to write ISR cache for route "${routePath}" \u2014 it resolves outside "${staticOutDir}". Check this route's getStaticParams() for a param value containing "/" or "..".`
+    );
+  }
   return { htmlPath: path3.join(dir, "index.html"), metaPath: path3.join(dir, "index.meta.json") };
 }
 async function readCachedRoute(staticOutDir, routePath) {
@@ -3724,11 +3736,16 @@ async function readCachedRoute(staticOutDir, routePath) {
   }
   return { html, renderedAt };
 }
+async function writeAtomic(filePath, data) {
+  const tempPath = `${filePath}.tmp-${randomUUID()}`;
+  await writeFile(tempPath, data);
+  await rename(tempPath, filePath);
+}
 async function writeCachedRoute(staticOutDir, routePath, html) {
   const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
   await mkdir(path3.dirname(htmlPath), { recursive: true });
-  await writeFile(htmlPath, html);
-  await writeFile(metaPath, JSON.stringify({ renderedAt: Date.now() }));
+  await writeAtomic(htmlPath, html);
+  await writeAtomic(metaPath, JSON.stringify({ renderedAt: Date.now() }));
 }
 function isStale(renderedAt, revalidateSeconds) {
   return Date.now() - renderedAt > revalidateSeconds * 1e3;
@@ -3749,6 +3766,28 @@ async function dispatchApiRoute(routeModule, request) {
   };
   const result = await routeModule.handler(apiReq, ctx);
   return { ...result, setCookie: getSetCookie() };
+}
+
+// ../core/src/readBody.ts
+var MAX_BODY_BYTES = 10 * 1024 * 1024;
+var PayloadTooLargeError = class extends Error {
+  constructor(maxBytes) {
+    super(`[devora] request body exceeds the ${maxBytes}-byte limit`);
+    this.name = "PayloadTooLargeError";
+  }
+};
+async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      req.destroy?.();
+      throw new PayloadTooLargeError(maxBytes);
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 // ../core/src/prodRequestHandler.ts
@@ -3795,7 +3834,17 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       if (!apiMatch) return false;
       const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
       const apiRouteModule = await importBuilt(serverOutDir, apiBuildKey);
-      const body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+      let body;
+      try {
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return true;
+        }
+        throw err;
+      }
       const apiResult = await dispatchApiRoute(apiRouteModule, {
         method: req.method ?? "GET",
         url: req.url,
@@ -3895,7 +3944,17 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     }
     const entryServer = await importBuilt(serverOutDir, "entry-server");
     const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-    const formData = req.method === "POST" ? await parseFormData(req) : void 0;
+    let formData;
+    try {
+      formData = req.method === "POST" ? await parseFormData(req) : void 0;
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        res.statusCode = 413;
+        res.end(err.message);
+        return true;
+      }
+      throw err;
+    }
     const result = await entryServer.renderRoute(routeModule, {
       method: req.method ?? "GET",
       formData,
@@ -3969,21 +4028,13 @@ function unwrapCjsDefaultInterop(mod) {
   return mod;
 }
 async function parseFormData(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  const body = Buffer.concat(chunks).toString("utf-8");
+  const body = (await readBodyWithLimit(req)).toString("utf-8");
   const formData = new FormData();
   new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
   return formData;
 }
 async function readRawBody(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
+  return readBodyWithLimit(req);
 }
 
 // ../core/src/islandCallPattern.ts
@@ -4147,7 +4198,17 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         res.end(html);
         return;
       }
-      const formData = req.method === "POST" ? await parseFormData2(req) : void 0;
+      let formData;
+      try {
+        formData = req.method === "POST" ? await parseFormData2(req) : void 0;
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return;
+        }
+        throw err;
+      }
       const result = await entryServer.renderRoute(routeModule, {
         method: req.method ?? "GET",
         formData,
@@ -4182,11 +4243,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
   };
 }
 async function parseFormData2(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  const body = Buffer.concat(chunks).toString("utf-8");
+  const body = (await readBodyWithLimit(req)).toString("utf-8");
   const formData = new FormData();
   new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
   return formData;
@@ -4217,7 +4274,17 @@ function createApiMiddleware(vite, appRoot, appName, authMode, security) {
     if (!match) return next();
     try {
       const routeModule = await vite.ssrLoadModule(match.filePath);
-      const body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBody(req);
+      let body;
+      try {
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return;
+        }
+        throw err;
+      }
       const result = await dispatchApiRoute(routeModule, {
         method: req.method ?? "GET",
         url: req.url,
@@ -4240,11 +4307,7 @@ function createApiMiddleware(vite, appRoot, appName, authMode, security) {
   };
 }
 async function readBody(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
+  return readBodyWithLimit(req);
 }
 
 // src/server/securityHeadersMiddleware.ts
@@ -5034,6 +5097,7 @@ function assignPorts(apps, basePort = DEFAULT_BASE_PORT) {
 
 // src/commands/start.ts
 async function start(opts) {
+  process.env.NODE_ENV = "production";
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
@@ -5556,6 +5620,14 @@ async function list() {
 // src/commands/generate-proxy.ts
 import path25 from "node:path";
 import { writeFile as writeFile8 } from "node:fs/promises";
+var VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
+function assertValidDomain(app) {
+  if (!VALID_HOSTNAME.test(app.domain)) {
+    throw new Error(
+      `[devora] app "${app.name}" has an invalid domain ("${app.domain}") \u2014 refusing to generate a proxy config from it. A domain must look like a real hostname (letters, digits, hyphens, dots only).`
+    );
+  }
+}
 function nginxBlock(app, appPort) {
   return `server {
     listen 80;
@@ -5595,6 +5667,7 @@ async function generateProxy(opts) {
     console.error(`[devora] --target must be "nginx" or "caddy"`);
     process.exit(1);
   }
+  for (const app of project.apps) assertValidDomain(app);
   const ports = assignPorts(project.apps);
   const blocks = project.apps.map((app) => {
     const appPort = ports.get(app.name);
@@ -5608,32 +5681,16 @@ async function generateProxy(opts) {
 }
 
 // src/commands/split.ts
-import path27 from "node:path";
+import path28 from "node:path";
 import { existsSync as existsSync14 } from "node:fs";
 import { rm as rm3 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
-import path26 from "node:path";
-function resolveSplitTarget(root, project, name) {
-  if (name === "backend") {
-    return path26.join(root, project.shared.backend);
-  }
-  const app = project.apps.find((a) => a.name === name);
-  if (!app) {
-    throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
-  }
-  return path26.join(root, app.dir);
-}
-function nameForSplitTarget(root, project, relativePath) {
-  if (path26.normalize(project.shared.backend) === path26.normalize(relativePath)) {
-    return "backend";
-  }
-  const app = project.apps.find((a) => path26.normalize(a.dir) === path26.normalize(relativePath));
-  return app?.name ?? relativePath;
-}
+import path27 from "node:path";
 
 // src/build/gitHelpers.ts
 import { execFileSync } from "node:child_process";
+import path26 from "node:path";
 function git(args, cwd) {
   try {
     const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
@@ -5661,10 +5718,10 @@ function listSubmodules(repoRoot) {
   const entries = [];
   for (const line of result.stdout.trim().split("\n")) {
     const [key, ...rest] = line.split(" ");
-    const path30 = rest.join(" ");
+    const path31 = rest.join(" ");
     const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
     const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
-    entries.push({ name, path: path30, url: urlResult.stdout.trim() });
+    entries.push({ name, path: path31, url: urlResult.stdout.trim() });
   }
   return entries;
 }
@@ -5674,9 +5731,41 @@ function revListCounts(cwd, theirRef, ourRef = "HEAD") {
   const [behind, ahead] = result.stdout.trim().split(/\s+/).map(Number);
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
 }
+function assertInsideRoot(root, targetPath, label) {
+  const resolvedRoot = path26.resolve(root);
+  const resolvedTarget = path26.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path26.sep)) {
+    throw new Error(
+      `[devora] refusing to operate on "${label}" \u2014 it resolves to "${resolvedTarget}", outside the project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
+    );
+  }
+}
 function conflictedFiles(cwd) {
   const result = git(["diff", "--name-only", "--diff-filter=U"], cwd);
   return result.stdout.trim() === "" ? [] : result.stdout.trim().split("\n");
+}
+
+// src/build/resolveSplitTarget.ts
+function resolveSplitTarget(root, project, name) {
+  if (name === "backend") {
+    const target2 = path27.join(root, project.shared.backend);
+    assertInsideRoot(root, target2, "shared.backend");
+    return target2;
+  }
+  const app = project.apps.find((a) => a.name === name);
+  if (!app) {
+    throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
+  }
+  const target = path27.join(root, app.dir);
+  assertInsideRoot(root, target, `apps.${name}.dir`);
+  return target;
+}
+function nameForSplitTarget(root, project, relativePath) {
+  if (path27.normalize(project.shared.backend) === path27.normalize(relativePath)) {
+    return "backend";
+  }
+  const app = project.apps.find((a) => path27.normalize(a.dir) === path27.normalize(relativePath));
+  return app?.name ?? relativePath;
 }
 
 // src/build/confirmAction.ts
@@ -5705,7 +5794,7 @@ async function split(name, opts) {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const targetPath = resolveSplitTarget(root, project, name);
-  const relPath = path27.relative(root, targetPath);
+  const relPath = path28.relative(root, targetPath);
   if (!existsSync14(targetPath)) {
     console.error(`[devora] ${relPath} doesn't exist`);
     process.exit(1);
@@ -5765,7 +5854,7 @@ Your real content (with its real history) is safely pushed to ${opts.repo} \u201
 }
 
 // src/commands/sync.ts
-import path28 from "node:path";
+import path29 from "node:path";
 async function sync(names, opts) {
   if (opts.fromMain === opts.toMain) {
     console.error(`[devora] specify exactly one of --from-main or --to-main.`);
@@ -5773,14 +5862,30 @@ async function sync(names, opts) {
   }
   const root = process.cwd();
   const project = await loadProjectConfig(root);
-  const targets = opts.all ? listSubmodules(root).map((s) => ({ name: s.path, path: path28.join(root, s.path) })) : names.map((name) => ({ name, path: resolveSplitTarget(root, project, name) }));
+  let anyFailed = false;
+  let targets;
+  if (opts.all) {
+    targets = [];
+    for (const s of listSubmodules(root)) {
+      const targetPath = path29.join(root, s.path);
+      try {
+        assertInsideRoot(root, targetPath, s.path);
+        targets.push({ name: s.path, path: targetPath });
+      } catch (err) {
+        console.error(`[devora] skipping "${s.path}": ${err.message}`);
+        anyFailed = true;
+      }
+    }
+  } else {
+    targets = names.map((name) => ({ name, path: resolveSplitTarget(root, project, name) }));
+  }
   if (targets.length === 0) {
     console.log(`[devora] nothing to sync \u2014 no split-off apps/backend found.`);
+    if (anyFailed) process.exit(1);
     return;
   }
-  let anyFailed = false;
   for (const target of targets) {
-    const relPath = path28.relative(root, target.path);
+    const relPath = path29.relative(root, target.path);
     console.log(`
 [devora] ${relPath}:`);
     const fetch = git(["fetch", "origin"], target.path);
@@ -5856,7 +5961,7 @@ async function syncToMain(targetPath, relPath, opts) {
 }
 
 // src/commands/status.ts
-import path29 from "node:path";
+import path30 from "node:path";
 async function status() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -5868,7 +5973,14 @@ async function status() {
   console.log(`[devora] sync status:
 `);
   for (const sub of submodules) {
-    const targetPath = path29.join(root, sub.path);
+    const targetPath = path30.join(root, sub.path);
+    try {
+      assertInsideRoot(root, targetPath, sub.path);
+    } catch (err) {
+      console.log(`  ${sub.path} \u2192 ${sub.url}`);
+      console.log(`    skipped: ${err.message}`);
+      continue;
+    }
     const name = nameForSplitTarget(root, project, sub.path);
     git(["fetch", "origin"], targetPath);
     const { behind, ahead } = revListCounts(targetPath, "origin/main");

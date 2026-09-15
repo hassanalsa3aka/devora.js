@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { git, gitOrThrow, isGitClean, listSubmodules, revListCounts, conflictedFiles } from "../gitHelpers.js";
+import { git, gitOrThrow, isGitClean, listSubmodules, revListCounts, conflictedFiles, assertInsideRoot } from "../gitHelpers.js";
 
 let repoDir: string;
 
@@ -120,6 +120,36 @@ describe("revListCounts", () => {
     runGit(["add", "-A"]);
     runGit(["commit", "-q", "-m", "main's commit"]);
     expect(revListCounts(repoDir, "other", "main")).toEqual({ behind: 1, ahead: 1 });
+  });
+});
+
+describe("assertInsideRoot — real bug: unbounded .gitmodules/config path traversal", () => {
+  it("allows a real descendant path", () => {
+    expect(() => assertInsideRoot(repoDir, path.join(repoDir, "apps", "widget"), "apps.widget.dir")).not.toThrow();
+  });
+
+  it("rejects a path that escapes the project root via '..'", () => {
+    // The exact shape a malicious .gitmodules `path` or a devora.config.ts
+    // `dir` field can take — verified end-to-end in this session's audit to
+    // let `devora status`/`sync --all` fetch/push a real unrelated sibling
+    // repository, and `devora split` delete an unrelated tracked directory.
+    const escaped = path.join(repoDir, "..", "sibling-repo");
+    expect(() => assertInsideRoot(repoDir, escaped, "apps.evil.dir")).toThrow(/outside the project root/);
+  });
+
+  it("rejects the root itself, not just paths outside it", () => {
+    // "dir: '.'" pointing an app at the whole project has no legitimate use
+    // and was previously only blocked by an incidental git quirk (an empty
+    // pathspec failing isGitClean), not a deliberate check.
+    expect(() => assertInsideRoot(repoDir, repoDir, "apps.evil.dir")).toThrow(/outside the project root/);
+  });
+
+  it("rejects a sibling directory that merely shares the root path as a string prefix", () => {
+    // A naive `startsWith(root)` check (no trailing separator) would wrongly
+    // allow this — "/project" is a string-prefix of "/project-evil" but not
+    // an ancestor of it.
+    const lookalike = `${repoDir}-evil`;
+    expect(() => assertInsideRoot(repoDir, lookalike, "apps.evil.dir")).toThrow(/outside the project root/);
   });
 });
 

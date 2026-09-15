@@ -45,21 +45,40 @@ export function generateNonce(): string {
  * `script-src 'self' 'nonce-<nonce>'` directive if the policy doesn't
  * declare one (in which case `default-src` was covering scripts) — a
  * custom app-provided `security.csp` override is respected either way,
- * not replaced wholesale. */
+ * not replaced wholesale.
+ *
+ * Real bug fixed here (Phase 4 security audit, low severity — no app in
+ * this repo customizes CSP today, so not attacker-reachable, but a real
+ * functional break waiting for the first one that does): CSP3's
+ * `script-src-elem` directive takes precedence over `script-src`
+ * specifically for `<script>` elements. A custom policy declaring ONLY
+ * `script-src-elem` (a real, spec-legal way to scope element vs.
+ * attribute/eval sources separately) used to fall through this function
+ * entirely unrecognized — `sawScriptSrc` stayed false, so it appended a
+ * brand-new, spec-ineffective `script-src 'self' 'nonce-X'` directive that
+ * `script-src-elem`'s precedence makes the browser ignore for script
+ * elements, silently leaving React's own inline Suspense-patch script
+ * blocked on a `renderMode: "streaming"` route. Now recognized and given
+ * the nonce directly, the same way `script-src` already was. */
 export function addNonceToCsp(csp: string, nonce: string): string {
   const directives = csp.split(";").map((d) => d.trim()).filter(Boolean);
   const nonceToken = `'nonce-${nonce}'`;
   let sawScriptSrc = false;
+  let sawScriptSrcElem = false;
 
   const updated = directives.map((directive) => {
     if (directive === "script-src" || directive.startsWith("script-src ")) {
       sawScriptSrc = true;
       return `${directive} ${nonceToken}`;
     }
+    if (directive === "script-src-elem" || directive.startsWith("script-src-elem ")) {
+      sawScriptSrcElem = true;
+      return `${directive} ${nonceToken}`;
+    }
     return directive;
   });
 
-  if (!sawScriptSrc) {
+  if (!sawScriptSrc && !sawScriptSrcElem) {
     updated.push(`script-src 'self' ${nonceToken}`);
   }
   return updated.join("; ");

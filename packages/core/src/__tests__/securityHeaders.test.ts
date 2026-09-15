@@ -70,4 +70,21 @@ describe("addNonceToCsp", () => {
     expect(result).toBe("default-src 'self'; script-src 'self' 'nonce-n2'");
     expect(result.match(/script-src/g)).toHaveLength(1);
   });
+
+  it("real bug: adds the nonce to script-src-elem directly, instead of a spec-ineffective new script-src", () => {
+    // CSP3's script-src-elem takes precedence over script-src for <script>
+    // elements specifically — before this fix, a policy declaring ONLY
+    // script-src-elem fell through unrecognized, and the nonce landed on a
+    // brand-new script-src directive that the browser ignores for script
+    // elements whenever script-src-elem is also present, silently leaving
+    // React's own inline Suspense-patch script blocked.
+    const result = addNonceToCsp("default-src 'self'; script-src-elem 'self'", "n3");
+    expect(result).toBe("default-src 'self'; script-src-elem 'self' 'nonce-n3'");
+    expect(result).not.toContain("script-src '"); // no spurious separate script-src directive
+  });
+
+  it("adds the nonce to both when a policy declares script-src AND script-src-elem separately", () => {
+    const result = addNonceToCsp("script-src 'self'; script-src-elem 'self'", "n4");
+    expect(result).toBe("script-src 'self' 'nonce-n4'; script-src-elem 'self' 'nonce-n4'");
+  });
 });

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { resolveSplitTarget } from "../build/resolveSplitTarget.js";
-import { git, listSubmodules, conflictedFiles } from "../build/gitHelpers.js";
+import { git, listSubmodules, conflictedFiles, assertInsideRoot } from "../build/gitHelpers.js";
 import { confirmAction } from "../build/confirmAction.js";
 
 /**
@@ -30,16 +30,36 @@ export async function sync(
   const root = process.cwd();
   const project = await loadProjectConfig(root);
 
-  const targets: { name: string; path: string }[] = opts.all
-    ? listSubmodules(root).map((s) => ({ name: s.path, path: path.join(root, s.path) }))
-    : names.map((name) => ({ name, path: resolveSplitTarget(root, project, name) }));
+  let anyFailed = false;
+  let targets: { name: string; path: string }[];
+  if (opts.all) {
+    // Real bug fixed here (Phase 4 security audit): unlike resolveSplitTarget
+    // (used by the named-target branch below), this used to trust a
+    // `.gitmodules` `path` field outright — see assertInsideRoot's doc
+    // comment for the real cross-repo fetch/push this allowed. A single bad
+    // entry is skipped (not a hard abort), so one malicious/corrupt gitlink
+    // doesn't prevent syncing every legitimate one.
+    targets = [];
+    for (const s of listSubmodules(root)) {
+      const targetPath = path.join(root, s.path);
+      try {
+        assertInsideRoot(root, targetPath, s.path);
+        targets.push({ name: s.path, path: targetPath });
+      } catch (err) {
+        console.error(`[devora] skipping "${s.path}": ${(err as Error).message}`);
+        anyFailed = true;
+      }
+    }
+  } else {
+    targets = names.map((name) => ({ name, path: resolveSplitTarget(root, project, name) }));
+  }
 
   if (targets.length === 0) {
     console.log(`[devora] nothing to sync — no split-off apps/backend found.`);
+    if (anyFailed) process.exit(1);
     return;
   }
 
-  let anyFailed = false;
   for (const target of targets) {
     const relPath = path.relative(root, target.path);
     console.log(`\n[devora] ${relPath}:`);

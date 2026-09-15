@@ -4,7 +4,31 @@ import type { AppConfig } from "@devorajs/core";
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { assignPorts } from "../build/portScheme.js";
 
-function nginxBlock(app: AppConfig, appPort: number): string {
+// Real bug fixed here (Phase 4 security audit): app.domain used to be
+// interpolated straight into both templates below with no validation at
+// all. Verified: a domain value containing a newline + nginx directives
+// injected a whole extra `return`/`server_name` line into nginx.conf; for
+// Caddy, a value containing `{`/`}` injected an entire extra server block
+// routing a chosen hostname to an attacker-chosen backend. The
+// "devora.config.ts is already fully trusted, executable TypeScript"
+// caveat (this file is `jiti`-loaded, not sandboxed data — see
+// resolveSplitTarget.ts's own equivalent caveat) softens this, but
+// generate:proxy's whole purpose is producing a static config a human may
+// commit and deploy onto a real VPS without re-reading every character —
+// a real, persistent-artifact risk worth failing closed on regardless of
+// how the bad value got into devora.config.ts.
+const VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
+
+export function assertValidDomain(app: AppConfig): void {
+  if (!VALID_HOSTNAME.test(app.domain)) {
+    throw new Error(
+      `[devora] app "${app.name}" has an invalid domain ("${app.domain}") — refusing to generate a proxy ` +
+        `config from it. A domain must look like a real hostname (letters, digits, hyphens, dots only).`
+    );
+  }
+}
+
+export function nginxBlock(app: AppConfig, appPort: number): string {
   return `server {
     listen 80;
     server_name ${app.domain};
@@ -31,7 +55,7 @@ function nginxBlock(app: AppConfig, appPort: number): string {
 `;
 }
 
-function caddyBlock(app: AppConfig, appPort: number): string {
+export function caddyBlock(app: AppConfig, appPort: number): string {
   return `${app.domain} {
     reverse_proxy 127.0.0.1:${appPort}
 }
@@ -46,6 +70,8 @@ export async function generateProxy(opts: { target: string; out?: string }) {
     console.error(`[devora] --target must be "nginx" or "caddy"`);
     process.exit(1);
   }
+
+  for (const app of project.apps) assertValidDomain(app);
 
   // Each app's production port — matches the doc's one-Node-process-per-app
   // model for the self-hosted adapter (§13, adapter-node). Shared with

@@ -73,6 +73,83 @@ describe("clearStreamingModuleCache — real dev-mode staleness fix", () => {
   });
 });
 
+describe("real bug: a rejected island import no longer permanently poisons the cache", () => {
+  it("the request AFTER a failed import retries fresh, instead of replaying the same cached error forever", async () => {
+    // Real, previously-undiscovered bug: a rejected `descriptor.importer()`
+    // used to be cached forever — every future request for that island
+    // threw the exact same stale error, with `descriptor.importer()` never
+    // called again, even once the underlying transient failure (e.g. a
+    // cold-start disk/network hiccup) would have resolved on retry.
+    let attempts = 0;
+    const descriptor = island(async () => {
+      attempts++;
+      if (attempts === 1) throw new Error("transient failure");
+      return { default: () => createElement("span", null, `attempt-${attempts}`) };
+    }, "/assets/flaky.js");
+
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement(Island, { component: descriptor, props: {} }),
+    };
+    const renderStreaming = createRenderStreaming(deps);
+
+    // First request: the import rejects — reported as a boundary error,
+    // never crashes the render.
+    const first = await renderStreaming(routeModule, {});
+    const reports: Array<{ phase: string }> = [];
+    const { destination: dest1, done: done1 } = collectChunks();
+    first!.pipeTo(dest1, (_err, phase) => reports.push({ phase }));
+    await done1;
+    expect(reports).toEqual([{ phase: "boundary" }]);
+    expect(attempts).toBe(1);
+
+    // The failed cache entry's removal is deliberately scheduled on a
+    // macrotask (see islandComponent.tsx's doc comment on why an inline
+    // delete causes a request-hanging retry loop instead) — give it a real
+    // tick to run before the second request.
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Second request, same descriptor, no clearStreamingModuleCache() call
+    // in between — before this fix, this would throw the SAME cached
+    // rejection forever (attempts staying at 1). After the fix, it retries
+    // and succeeds.
+    const second = await renderStreaming(routeModule, {});
+    const { destination: dest2, chunks: chunks2, done: done2 } = collectChunks();
+    second!.pipeTo(dest2);
+    await done2;
+    expect(chunks2().join("")).toContain("attempt-2");
+    expect(attempts).toBe(2);
+  });
+});
+
+describe("real bug: a hung Suspense boundary used to hold the connection open forever", () => {
+  it("aborts and completes the response once streamTimeoutMs elapses, instead of hanging indefinitely", async () => {
+    // A descriptor whose import NEVER resolves or rejects — the exact
+    // real-world case that used to have no bound at all: a genuinely hung
+    // fetch inside a loader, a dependency that never settles. Deliberately
+    // never call releaseImport().
+    const { descriptor } = deferredIslandDescriptor("never-resolves");
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement(Island, { component: descriptor, props: {} }),
+    };
+    const renderStreaming = createRenderStreaming(deps);
+    const result = await renderStreaming(routeModule, { streamTimeoutMs: 30 });
+
+    const { destination, chunks, done } = collectChunks();
+    const reports: Array<{ phase: string }> = [];
+    result!.pipeTo(destination, (_err, phase) => reports.push({ phase }));
+
+    // The real assertion: the response actually completes ("end" fires) —
+    // before this fix, nothing here would ever call destination.end(), and
+    // this await would hang until the test's own timeout killed it.
+    await done;
+
+    expect(reports).toEqual([{ phase: "boundary" }]);
+    expect(chunks().join("")).toContain("</html>"); // a complete document was still sent, not a truncated one
+  });
+});
+
 describe("createRenderStreaming — destination error handling", () => {
   it("a destination 'error' event (e.g. a client disconnecting mid-stream) doesn't crash the process", async () => {
     // Real, previously-undiscovered bug: Node's EventEmitter contract
@@ -110,6 +187,61 @@ describe("createRenderStreaming — destination error handling", () => {
     // content, which would otherwise arrive once releaseImport() resolves)
     // should show up after the destination already errored.
     expect(chunksAfterError).toEqual([]);
+  });
+});
+
+describe("createRenderStreaming — real bug: backpressure was ignored, letting one slow client buffer unbounded memory", () => {
+  function bigRouteModule(): RouteModule {
+    // A route large enough (~400KB of real react-dom output) that "all of
+    // it got buffered anyway" and "the source was genuinely paused" are
+    // clearly distinguishable, not just off-by-a-chunk noise.
+    const bigText = "x".repeat(2000);
+    return {
+      renderMode: "streaming",
+      default: () =>
+        createElement(
+          "div",
+          null,
+          ...Array.from({ length: 200 }, (_, i) => createElement("p", { key: i }, bigText))
+        ),
+    };
+  }
+
+  it("a fast destination receives the full document (sanity baseline for the size used below)", async () => {
+    const renderStreaming = createRenderStreaming(deps);
+    const result = await renderStreaming(bigRouteModule(), {});
+    const { destination, chunks, done } = collectChunks();
+    result!.pipeTo(destination);
+    await done;
+    expect(chunks().join("").length).toBeGreaterThan(300_000);
+  });
+
+  it("pauses the source instead of buffering when the destination's write() returns false", async () => {
+    // A real Writable that never drains — write() always returns false
+    // once its small internal buffer fills, and nothing ever reads it back
+    // out, exactly like a slow/stalled network client. Before this fix (a
+    // hand-rolled `passThrough.on("data", chunk => destination.write
+    // (chunk))` loop that never checked write()'s return value), the
+    // PassThrough kept emitting "data" regardless of that return value, so
+    // bytes piled up in the destination's own internal buffer with nothing
+    // bounding it. A real Writable stays in paused mode (nothing consuming
+    // its readable side) unless something attaches a "data" listener,
+    // calls .resume(), or pipes it elsewhere — none of which this test
+    // does, so its internal buffer genuinely fills and back-pressures the
+    // writer, exactly like a client that has stopped reading its response.
+    const destination = new PassThrough({ highWaterMark: 16 });
+    const renderStreaming = createRenderStreaming(deps);
+    const result = await renderStreaming(bigRouteModule(), {});
+
+    result!.pipeTo(destination);
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The real assertion: destination.writableLength (Node's own internal
+    // buffered-byte count) stays a small fraction of the ~400KB document
+    // (see the baseline test above) instead of growing to fit all of it —
+    // proof the source was actually paused, not "eventually all written
+    // anyway regardless of whether the consumer is reading."
+    expect(destination.writableLength).toBeLessThan(50_000);
   });
 });
 

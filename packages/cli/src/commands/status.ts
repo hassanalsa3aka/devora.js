@@ -1,6 +1,6 @@
 import path from "node:path";
 import { loadProjectConfig } from "@devorajs/core/config-loader";
-import { git, listSubmodules, revListCounts } from "../build/gitHelpers.js";
+import { git, listSubmodules, revListCounts, assertInsideRoot } from "../build/gitHelpers.js";
 import { nameForSplitTarget } from "../build/resolveSplitTarget.js";
 
 /**
@@ -24,6 +24,18 @@ export async function status(): Promise<void> {
   console.log(`[devora] sync status:\n`);
   for (const sub of submodules) {
     const targetPath = path.join(root, sub.path);
+    // Real bug fixed here (Phase 4 security audit): a crafted `.gitmodules`
+    // `path` (e.g. "../sibling-repo") used to be trusted outright, running a
+    // real `git fetch` (and every subsequent git command below) inside
+    // whatever directory it resolved to, including outside this project
+    // entirely — see assertInsideRoot's doc comment for the full account.
+    try {
+      assertInsideRoot(root, targetPath, sub.path);
+    } catch (err) {
+      console.log(`  ${sub.path} → ${sub.url}`);
+      console.log(`    skipped: ${(err as Error).message}`);
+      continue;
+    }
     const name = nameForSplitTarget(root, project, sub.path);
     git(["fetch", "origin"], targetPath); // best-effort — a stale/offline remote still reports local state below.
 

@@ -25,7 +25,23 @@ export interface FastifyLikeRequest {
   url: string;
   params: Record<string, string>;
   headers: Record<string, string | string[] | undefined>;
-  body: Buffer;
+  /**
+   * Real Fastify auto-parses an `application/json` body before a plugin
+   * ever sees it — no opt-in required, every idiomatic Fastify plugin is
+   * written against that assumption (`request.body.someField`, not
+   * `JSON.parse(request.body)`). `apiRoute.ts`'s own `ApiRequest.body` is
+   * deliberately a raw `Buffer` instead (a webhook needs to verify an HMAC
+   * against the *exact* raw bytes before trusting it as JSON) — correct at
+   * that layer, but silently wrong once handed straight through to a
+   * bridged Fastify plugin. Real, previously-undiscovered bug this fixes:
+   * a plugin checking a JSON field (e.g. `if (request.body.dryRun) { ...
+   * safe path ... } else { ... destructive path ... }`) got `undefined` —
+   * a raw `Buffer` has no `.dryRun` — and silently took the destructive
+   * branch for a caller who explicitly asked for the safe one. `unknown`
+   * here (not `Buffer`) matches real Fastify's own `request.body: any` and
+   * is a compile-time signal that this is genuinely parsed, not raw bytes.
+   */
+  body: unknown;
 }
 
 export interface FastifyLikeReply {
@@ -52,6 +68,21 @@ export type FastifyPlugin = (instance: FastifyLikeInstance, options: Record<stri
 
 const UNSUPPORTED_METHODS = ["addHook", "decorate", "decorateRequest", "decorateReply", "addSchema"];
 
+/** Mirrors real Fastify's default JSON body parser, closely enough for the
+ * subset this bridge supports — see `FastifyLikeRequest.body`'s doc comment
+ * for why this exists. An empty body parses to `undefined` (Fastify's own
+ * default parser does the same for a zero-length JSON body); invalid JSON
+ * throws, same as real Fastify (its default parser rejects the request with
+ * a 400 before the handler runs — matched below, rather than silently
+ * falling through to the handler with a half-parsed or raw value). */
+function parseFastifyBody(req: ApiRequest): unknown {
+  const contentType = req.headers["content-type"];
+  const value = Array.isArray(contentType) ? contentType[0] : contentType;
+  if (!value?.includes("application/json")) return req.body;
+  if (req.body.length === 0) return undefined;
+  return JSON.parse(req.body.toString("utf-8"));
+}
+
 function toApiHandler(fastifyHandler: FastifyLikeRouteHandler): ApiRouteHandler {
   return apiRoute(async (req: ApiRequest, _ctx: RequestContext) => {
     let statusCode = 200;
@@ -72,12 +103,19 @@ function toApiHandler(fastifyHandler: FastifyLikeRouteHandler): ApiRouteHandler 
       },
     };
 
+    let parsedBody: unknown;
+    try {
+      parsedBody = parseFastifyBody(req);
+    } catch {
+      return { status: 400, headers: {}, body: "Bad Request: invalid JSON body" };
+    }
+
     const request: FastifyLikeRequest = {
       method: req.method,
       url: req.url,
       params: req.params,
       headers: req.headers,
-      body: req.body,
+      body: parsedBody,
     };
 
     const returned = await fastifyHandler(request, reply);
@@ -101,7 +139,20 @@ function toApiHandler(fastifyHandler: FastifyLikeRouteHandler): ApiRouteHandler 
  * route table first instead of asking module.ts for one).
  */
 export function fromFastifyPlugin(name: string, plugin: FastifyPlugin): DevoraModule {
-  const routes: Record<string, ApiRouteHandler> = {};
+  // Real, previously-undiscovered bug fixed here (Phase 4 security audit):
+  // this used to be `Record<string, ApiRouteHandler>` keyed by path ALONE —
+  // an entirely idiomatic Fastify plugin registering `GET /account` (read)
+  // then `POST /account` (mutate), the standard REST shape this adapter's
+  // own doc comment claims to support, silently collapsed to one entry, the
+  // second overwriting the first with no warning. Since module.ts's route
+  // table (and apiDispatch.ts) is also purely path-keyed and never inspects
+  // `req.method` itself, the survivor handler then answered *every* HTTP
+  // method — verified end-to-end: a plain `GET` (what a browser sends for a
+  // link, a prefetch, an `<img>`) invoked a destructive `POST` handler
+  // registered at the same path. Keyed by path AND method now, with an
+  // explicit per-path dispatcher (below) that 405s a method nobody
+  // registered, instead of silently reusing an unrelated handler.
+  const methodHandlers: Record<string, Partial<Record<string, ApiRouteHandler>>> = {};
   const children: DevoraModule[] = [];
   // Real bug fixed here: every nested `instance.register(subPlugin)` used to
   // name the new module the same fixed `${name}-sub`, so two *different*
@@ -114,12 +165,16 @@ export function fromFastifyPlugin(name: string, plugin: FastifyPlugin): DevoraMo
   // scoped per parent, gives each sub-plugin a real, distinct name.
   let subPluginCount = 0;
 
+  function registerMethod(method: string, path: string, handler: FastifyLikeRouteHandler): void {
+    (methodHandlers[path] ??= {})[method] = toApiHandler(handler);
+  }
+
   const instance: FastifyLikeInstance = {
-    get: (path, handler) => (routes[path] = toApiHandler(handler)),
-    post: (path, handler) => (routes[path] = toApiHandler(handler)),
-    put: (path, handler) => (routes[path] = toApiHandler(handler)),
-    patch: (path, handler) => (routes[path] = toApiHandler(handler)),
-    delete: (path, handler) => (routes[path] = toApiHandler(handler)),
+    get: (path, handler) => registerMethod("GET", path, handler),
+    post: (path, handler) => registerMethod("POST", path, handler),
+    put: (path, handler) => registerMethod("PUT", path, handler),
+    patch: (path, handler) => registerMethod("PATCH", path, handler),
+    delete: (path, handler) => registerMethod("DELETE", path, handler),
     register: (subPlugin) => children.push(fromFastifyPlugin(`${name}-sub-${subPluginCount++}`, subPlugin)),
   };
 
@@ -144,6 +199,17 @@ export function fromFastifyPlugin(name: string, plugin: FastifyPlugin): DevoraMo
       `[devora] fromFastifyPlugin("${name}"): the plugin function must call done() synchronously — ` +
         `an async Fastify plugin (returning a Promise instead of calling done()) isn't supported yet.`
     );
+  }
+
+  const routes: Record<string, ApiRouteHandler> = {};
+  for (const [path, handlers] of Object.entries(methodHandlers)) {
+    routes[path] = (req, ctx) => {
+      const handler = handlers[req.method];
+      if (!handler) {
+        return { status: 405, headers: { Allow: Object.keys(handlers).join(", ") }, body: "Method Not Allowed" };
+      }
+      return handler(req, ctx);
+    };
   }
 
   const mod = defineModule({ name, routes });

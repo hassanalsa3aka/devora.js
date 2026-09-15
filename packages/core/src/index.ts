@@ -32,3 +32,4 @@ export * from "./middleware.js";
 export * from "./fastifyAdapter.js";
 export * from "./disposeRegistry.js";
 export * from "./renderStreaming.js";
+export * from "./readBody.js";

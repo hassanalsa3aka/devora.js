@@ -5,6 +5,8 @@ import {
   dispatchApiRoute,
   resolveSessionCookieOptions,
   resolveSecurityHeaders,
+  readBodyWithLimit,
+  PayloadTooLargeError,
   type AuthMode,
   type AppRuntimeConfig,
   type ApiRouteModule,
@@ -81,7 +83,17 @@ function createApiMiddleware(
 
     try {
       const routeModule = (await vite.ssrLoadModule(match.filePath)) as ApiRouteModule;
-      const body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBody(req);
+      let body: Buffer;
+      try {
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return;
+        }
+        throw err;
+      }
 
       const result = await dispatchApiRoute(routeModule, {
         method: req.method ?? "GET",
@@ -107,9 +119,5 @@ function createApiMiddleware(
 }
 
 async function readBody(req: Connect.IncomingMessage): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  return Buffer.concat(chunks);
+  return readBodyWithLimit(req);
 }

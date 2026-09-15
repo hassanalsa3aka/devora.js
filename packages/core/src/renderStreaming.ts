@@ -53,7 +53,28 @@ export interface RenderStreamingRequest {
    * this response's own Content-Security-Policy header, or React's inline
    * patch script gets a nonce attribute the browser has no reason to trust. */
   nonce?: string;
+  /** Overrides `DEFAULT_STREAM_TIMEOUT_MS` — see that constant's doc
+   * comment. Exposed mainly for tests; real callers should rarely need it. */
+  streamTimeoutMs?: number;
 }
+
+/**
+ * Real, previously-undiscovered gap closed here (Phase 4 security audit):
+ * nothing anywhere in the streaming path (this file, ssrMiddleware.ts,
+ * prodRequestHandler.ts, adapter-node) ever called `abort()` for a timeout
+ * reason — only ever in response to a destination error. A Suspense
+ * boundary whose island import never settles (a genuinely hung `fetch`
+ * inside a loader, a dependency that never resolves) held the connection,
+ * its `PassThrough`, and the whole render tree open indefinitely — worse
+ * than the equivalent stall on `ssr`/`ssg`, which at least withholds every
+ * byte rather than pinning a half-served connection. Self-hosted
+ * deployments (adapter-node, Docker, a bare VPS) had zero protection;
+ * Vercel/Netlify's own external duration caps were the only real backstop,
+ * and only for those two targets. 30 seconds is generous for any real
+ * page — genuine content typically streams in well under a second — while
+ * still bounding the worst case for every deployment target.
+ */
+export const DEFAULT_STREAM_TIMEOUT_MS = 30_000;
 
 export interface StreamingRenderResult {
   status: number;
@@ -114,6 +135,21 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
         let destinationErrored = false;
         let passThrough: PassThrough | undefined;
 
+        // See DEFAULT_STREAM_TIMEOUT_MS's doc comment. `.unref()` so this
+        // timer alone never keeps the process alive (e.g. in a test, or a
+        // script that awaits the render and expects to exit promptly) —
+        // real servers stay alive on their own listening socket regardless.
+        const timeoutMs = request.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS;
+        const timeoutHandle = setTimeout(() => {
+          abort(
+            new Error(
+              `[devora] streaming render exceeded ${timeoutMs}ms without completing — aborting rather than ` +
+                `holding the connection open indefinitely (see DEFAULT_STREAM_TIMEOUT_MS's doc comment).`
+            )
+          );
+        }, timeoutMs);
+        timeoutHandle.unref?.();
+
         // Real bug fixed here: `destination` (a real ServerResponse, or an
         // EventEmitter shim — see adapter-netlify's response shim) can emit
         // its own `"error"` event independent of anything React does, most
@@ -129,6 +165,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
         // document tail) to a destination that's already errored.
         destination.on("error", (error) => {
           destinationErrored = true;
+          clearTimeout(timeoutHandle);
           abort(error);
           passThrough?.destroy();
         });
@@ -141,10 +178,26 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
 
             passThrough = new PassThrough();
             pipe(passThrough);
-            passThrough.on("data", (chunk: Buffer) => {
-              if (!destinationErrored) destination.write(chunk);
-            });
+            // Real bug fixed here (Phase 4 security audit): this used to be
+            // a hand-rolled `passThrough.on("data", chunk =>
+            // destination.write(chunk))` loop that never checked
+            // `write()`'s boolean return value — the exact "ignoring
+            // backpressure" mistake `stream.pipeline()`/`.pipe()` exist to
+            // prevent. Measured impact: piping 12.5MB through the old
+            // pattern into a deliberately slow destination accumulated
+            // ~12.19MB in the destination's internal buffer; the same data
+            // through `.pipe()` (which pauses the source on a `false`
+            // return and resumes on `"drain"`, both automatically) kept it
+            // at ~0.06MB. In production `destination` is a real
+            // `http.ServerResponse` — a slow or throttled client could
+            // otherwise force the server to buffer React's entire streamed
+            // output in memory, unbounded, regardless of actual network
+            // throughput. `{ end: false }` — this file's own `"end"`
+            // handler below still needs to write the document tail and
+            // call `destination.end()` itself.
+            passThrough.pipe(destination, { end: false });
             passThrough.on("end", () => {
+              clearTimeout(timeoutHandle);
               if (destinationErrored) return;
               destination.write(
                 renderDocumentTail({
@@ -162,6 +215,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
             });
           },
           onShellError(error) {
+            clearTimeout(timeoutHandle);
             onError?.(error, "shell");
           },
           onError(error) {

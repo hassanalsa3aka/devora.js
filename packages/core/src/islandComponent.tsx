@@ -116,6 +116,39 @@ function readIslandModuleSuspending(descriptor: IslandDescriptor<unknown>): Reso
         (err: unknown) => {
           newEntry.status = "rejected";
           newEntry.error = err;
+          // Real, previously-undiscovered bug fixed here (Phase 4 security
+          // audit): without this, a single transient import failure (a
+          // disk/network hiccup during a serverless cold start — this
+          // codebase's own docs already worry about exactly that scenario
+          // elsewhere) permanently cached the rejection for the rest of the
+          // process's life — `descriptor.importer()` never called again, so
+          // every request for that island, forever, throws the same stale
+          // error.
+          //
+          // Deliberately a macrotask (`setTimeout`, not deleting inline
+          // here): React re-invokes a component that threw a promise as
+          // soon as that promise settles — including on rejection — and
+          // that re-invocation happens synchronously within the same
+          // microtask turn as this `.then()` callback. Deleting the entry
+          // *inline* was tried and measured to cause exactly the bug it was
+          // meant to fix, worse: the re-invocation would find no cache
+          // entry, immediately call `descriptor.importer()` again, and
+          // throw a fresh pending promise — for a persistently-broken
+          // import this retries in a tight loop with no bound, hanging the
+          // request outright (confirmed: it turned an existing "reports a
+          // boundary error" test from a 1ms pass into a 5-second timeout).
+          // Scheduling the removal on a macrotask lets the CURRENT
+          // request's re-invocation still see `entry.status === "rejected"`
+          // and throw `entry.error` as a plain synchronous value — which
+          // React correctly treats as a real render error (not a suspend),
+          // reported exactly once, no retry — while a *future* request,
+          // necessarily at least one full event-loop turn later, finds the
+          // entry gone and retries fresh.
+          setTimeout(() => {
+            if (streamingModuleCache.get(descriptor) === newEntry) {
+              streamingModuleCache.delete(descriptor);
+            }
+          }, 0);
         }
       ),
     };

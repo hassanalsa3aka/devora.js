@@ -28,6 +28,21 @@ describe("signSession / verifySession", () => {
     expect(verifySession(signed, opts)).toBeUndefined();
   });
 
+  it("real bug fixed: a cookie signed for one cookie name is rejected under a different name, even with the identical secret", () => {
+    // This is exactly what happens when an "isolated" app (e.g. apps/admin)
+    // falls back to the shared secret (resolveSessionCookieOptions already
+    // supports and tests this as valid config) — before this fix, the two
+    // cookies were cryptographically indistinguishable and a shared-app
+    // session cookie could be replayed verbatim as the isolated app's own
+    // cookie, defeating auth-mode isolation entirely.
+    const sharedOpts: SessionCookieOptions = { name: "devora_session", secret: "same-secret-both-apps" };
+    const isolatedOpts: SessionCookieOptions = { name: "devora_session_admin", secret: "same-secret-both-apps" };
+    const forged = signSession({ username: "ordinary-user" }, sharedOpts);
+    expect(verifySession(forged, isolatedOpts)).toBeUndefined();
+    // Sanity check: it still verifies correctly under its own real name.
+    expect(verifySession(forged, sharedOpts)).toEqual({ username: "ordinary-user" });
+  });
+
   it("returns undefined for a missing cookie", () => {
     expect(verifySession(undefined, opts)).toBeUndefined();
   });

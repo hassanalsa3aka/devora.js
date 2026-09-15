@@ -26,6 +26,27 @@ describe("resolveSplitTarget", () => {
   it("throws for an unknown name", () => {
     expect(() => resolveSplitTarget("/root", project, "nope")).toThrow(/no app named "nope"/);
   });
+
+  it("real bug: refuses an app dir that escapes the project root (devora.config.ts path traversal)", () => {
+    const maliciousProject: ProjectConfig = {
+      apps: [{ name: "evil", dir: "../sibling-repo", domain: "evil.example.com" }],
+      shared: { core: "packages/core", backend: "packages/backend", auth: "shared" },
+    };
+    // Verified end-to-end in this session's Phase 4 audit: without this
+    // check, `devora split`/`sync evil` would run real git commands (and, in
+    // split's case, delete a directory) inside "/sibling-repo" — a real
+    // directory completely outside "/root" — from nothing more than a
+    // crafted devora.config.ts.
+    expect(() => resolveSplitTarget("/root", maliciousProject, "evil")).toThrow(/outside the project root/);
+  });
+
+  it("real bug: refuses shared.backend when it escapes the project root", () => {
+    const maliciousProject: ProjectConfig = {
+      apps: [],
+      shared: { core: "packages/core", backend: "../../etc", auth: "shared" },
+    };
+    expect(() => resolveSplitTarget("/root", maliciousProject, "backend")).toThrow(/outside the project root/);
+  });
 });
 
 describe("nameForSplitTarget — the inverse, and the real bug it fixes", () => {
