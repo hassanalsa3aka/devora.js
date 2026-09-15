@@ -5372,7 +5372,7 @@ hydrateCsrRoutes();
   functions = "netlify/functions"
 
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
 
 [[redirects]]
   from = "/*"

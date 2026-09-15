@@ -284,8 +284,15 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       // tracer" problem as routes/api/dist above — confirmed via a real
       // live deploy still throwing "Cannot use import statement outside a
       // module" even after adapter-netlify was fixed to write it.
+      //
+      // `.../ssr/node_modules/**` in the list too — a third real bug, the
+      // next one hit once the two fixes above landed: `Cannot find
+      // package 'react'` at request time. adapter-netlify vendors real,
+      // resolved react/react-dom package trees into the function's own
+      // node_modules (`vendorRuntimeDependency`) — those files exist in
+      // every local build too, but hit the identical tracer blind spot.
       `[functions.ssr]\n` +
-      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]\n\n` +
+      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]\n\n` +
       `[[redirects]]\n` +
       `  from = "/*"\n` +
       `  to = "/.netlify/functions/ssr"\n` +

@@ -20,8 +20,14 @@
 # the deployed function either. Anything read at runtime instead of
 # statically imported has to be named in this list explicitly — no
 # exceptions, package.json included.
+#
+# `.../ssr/node_modules/**` added for a third real bug found the same way
+# on apps/admin: `Cannot find package 'react'` at request time, even
+# after the two fixes above landed — the vendored react/react-dom package
+# trees (`vendorRuntimeDependency`) exist in every local build but hit the
+# identical tracer blind spot.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
 
 [[redirects]]
   from = "/*"

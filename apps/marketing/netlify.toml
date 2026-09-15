@@ -25,8 +25,11 @@
 # marketing's "ssg" render mode never invokes the function for its own
 # homepage — but the same bug applies here the moment any route here uses
 # ssr/isr/csr).
+#
+# `.../ssr/node_modules/**` added for a third real bug, same account —
+# vendored react/react-dom hit the identical tracer blind spot.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
 
 [[redirects]]
   from = "/*"

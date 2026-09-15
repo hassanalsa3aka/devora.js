@@ -20,8 +20,18 @@
 # after that fix landed. Same root cause as the rest of this list: a file
 # read at runtime, not statically imported, is invisible to the tracer
 # unless named here explicitly.
+#
+# `.../ssr/node_modules/**` added for a third real bug, the next one hit
+# once the two fixes above actually landed: the real, resolved react/
+# react-dom package trees adapter-netlify vendors into the function's own
+# node_modules (`vendorRuntimeDependency`) exist in every local build, but
+# still never reached the deployed function either — confirmed via a real
+# deploy throwing `Cannot find package 'react'` at request time even after
+# the ESM fix. Same tracer blind spot as everything else in this list:
+# vendored dependencies aren't a static import target the tracer follows,
+# they're files placed on disk for Node's own runtime resolution to find.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
 
 [[redirects]]
   from = "/*"
