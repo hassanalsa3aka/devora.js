@@ -7,8 +7,21 @@
 
 # See apps/dashboard/netlify.toml for why this exists — a real, confirmed
 # bug from an actual authenticated deploy (ROADMAP.md #4/#13).
+#
+# `.../ssr/package.json` added here for the same underlying reason:
+# Netlify's function packager only zips up what it can statically trace
+# from ssr.mjs's imports, PLUS whatever included_files explicitly lists —
+# the plain `package.json` (`{"type":"module"}`) adapter-netlify writes
+# into the function directory, to make Node treat dist/server/**/*.js as
+# real ESM instead of defaulting to CommonJS, is neither imported nor
+# previously listed here, so it never reached the deployed function at
+# all despite existing in every local build — confirmed via a real deploy
+# still throwing "Cannot use import statement outside a module" even
+# after that fix landed. Same root cause as the rest of this list: a file
+# read at runtime, not statically imported, is invisible to the tracer
+# unless named here explicitly.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
 
 [[redirects]]
   from = "/*"

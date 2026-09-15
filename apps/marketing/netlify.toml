@@ -18,8 +18,15 @@
 # can trace from ssr.mjs's static imports; routes/ and dist/server/ are
 # read at runtime via fs.readdirSync/dynamic import(), invisible to that
 # tracer. See ROADMAP.md #4/#13's "real live deploy" account.
+#
+# `.../ssr/package.json` added for the identical reason — see
+# apps/dashboard/netlify.toml's copy of this comment for the full account
+# (found via a real live deploy of apps/admin, not this app, since
+# marketing's "ssg" render mode never invokes the function for its own
+# homepage — but the same bug applies here the moment any route here uses
+# ssr/isr/csr).
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json"]
 
 [[redirects]]
   from = "/*"
