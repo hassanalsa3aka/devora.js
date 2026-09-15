@@ -73,17 +73,47 @@ export function listRouteFiles(routesDir: string): string[] {
 }
 
 /** The URL *pattern* a given route file corresponds to (e.g. "/users/[id]"
- * for a dynamic route) — used by the ssg/isr build step, which rejects a
- * dynamic route for either mode (see buildAppStatic.ts) since there's no
- * static-params API yet to know which concrete values to pre-render. */
+ * for a dynamic route) — used by the ssg/isr build step: a static route's
+ * pattern IS its real path; a dynamic route's pattern is resolved to one or
+ * more real paths via `resolveStaticRoutePath` + `getStaticParams`
+ * (architecture-v2.md §3.6) instead. */
 export function routeFileToPath(routesDir: string, filePath: string): string {
   return fileToRoutePath(routesDir, filePath);
 }
 
 /** True if any segment of this route file's path is a `[param]` — used to
- * reject ssg/isr on a dynamic route before it silently mis-builds. */
+ * decide whether ssg/isr needs `getStaticParams` (architecture-v2.md §3.6)
+ * before pre-rendering it, since a dynamic route has no single fixed path. */
 export function isDynamicRouteFile(routesDir: string, filePath: string): boolean {
   return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
+}
+
+/**
+ * Substitutes concrete param values into a dynamic route file's pattern —
+ * e.g. `routes/users/[id].tsx` + `{ id: "1" }` → `/users/1`. Used by the
+ * ssg/isr build step (buildAppStatic.ts) to compute the real path to write
+ * each `getStaticParams()` entry under. Throws if `params` is missing a
+ * value for one of the route's own dynamic segments — a mismatched
+ * `getStaticParams()` return is a build-time mistake worth failing loudly
+ * on, not silently writing a literal "undefined" segment into a path.
+ */
+export function resolveStaticRoutePath(
+  routesDir: string,
+  filePath: string,
+  params: Record<string, string>
+): string {
+  const segments = fileToRouteSegments(routesDir, filePath).map((segment) => {
+    if (!isDynamicSegment(segment)) return segment;
+    const name = paramName(segment);
+    const value = params[name];
+    if (value === undefined) {
+      throw new Error(
+        `[devora] getStaticParams() entry is missing "${name}" for dynamic route segment "${segment}"`
+      );
+    }
+    return value;
+  });
+  return segments.length === 0 ? "/" : "/" + segments.join("/");
 }
 
 function isDynamicSegment(segment: string): boolean {

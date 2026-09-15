@@ -1,0 +1,14 @@
+# Static, committed config — see apps/marketing/netlify.toml for the full
+# explanation of why this is committed rather than generated.
+[build]
+  command = "cd ../.. && node packages/cli/dist/index.js build --app=api-only --adapter=netlify"
+  publish = "dist/client"
+  functions = "netlify/functions"
+
+[functions.ssr]
+  included_files = ["netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/ssr"
+  status = 200

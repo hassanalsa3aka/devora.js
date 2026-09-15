@@ -18,8 +18,16 @@ Real Vitest unit tests exist for `@devorajs/core` and one CLI utility — nowher
 | `packages/core/src/__tests__/config.test.ts` | `devora.config.ts` validation |
 | `packages/core/src/__tests__/isrCache.test.ts` | ISR disk cache staleness/regeneration |
 | `packages/core/src/__tests__/renderRoute.test.ts` | Route rendering, redirects, render-mode dispatch |
-| `packages/core/src/__tests__/router.test.ts` | Static + dynamic route matching, params, sitemap filtering |
-| `packages/cli/src/build/__tests__/checkNoAuthUsage.test.ts` | Build-time `auth: "none"` misuse detection |
+| `packages/core/src/__tests__/router.test.ts` | Static + dynamic route matching, params, sitemap filtering, `getStaticParams()` path resolution |
+| `packages/core/src/__tests__/renderStreaming.test.ts` | Real progressive streaming (a genuinely deferred island resolves after the shell, not just correct final output), CSP nonce on React's own post-shell patch script, shell vs. boundary error handling |
+| `packages/core/src/__tests__/module.test.ts` | Explicit domain modules — composition, route namespacing, collision detection |
+| `packages/core/src/__tests__/apiDispatch.test.ts` | Generic API routes — session/CSRF (including the header-based variant), dynamic params |
+| `packages/core/src/__tests__/middleware.test.ts` | Native middleware composition; `fromExpressMiddleware()` against the real published `cors` package |
+| `packages/core/src/__tests__/fastifyAdapter.test.ts` | `fromFastifyPlugin()` route adaptation, unsupported-method rejection |
+| `packages/core/src/__tests__/disposeRegistry.test.ts` | Reload-safety dispose hook registry |
+| `packages/cli/src/build/__tests__/checkNoAuthUsage.test.ts` | Build-time `auth: "none"` misuse detection (routes and API routes) |
+| `packages/cli/src/build/__tests__/gitHelpers.test.ts` | Real git plumbing behind `devora split`/`sync`/`status` — status parsing, ahead/behind counts, real merge-conflict detection |
+| `packages/cli/src/server/__tests__/moduleDisposePlugin.test.ts` | The dispose-hook Vite plugin's own hook logic |
 
 `.github/workflows/ci.yml` also runs a real `devora build` for every app under all three build
 targets (plain, `--adapter=vercel`, `--adapter=netlify`) on every push, which catches build-time
@@ -27,8 +35,9 @@ breakage (missing deps, bad imports, TypeScript errors) even though it isn't a b
 
 **Not covered by any automated test**: `@devorajs/adapter-vercel`, `@devorajs/adapter-netlify`,
 `@devorajs/adapter-node`, `@devorajs/scaffold`, `@devorajs/backend`, `create-devora`, the three
-example apps, Docker, the nginx/Caddy proxy generator, and every CLI command except the one
-build-time check above.
+example apps, Docker, the nginx/Caddy proxy generator, and every CLI command except the build-time
+checks and git-plumbing logic above (`devora split`/`sync`/`status`'s own real-git-repo behavior —
+as opposed to the plumbing functions themselves — is manually verified below, not automated).
 
 ## Manually verified, not automated
 
@@ -38,8 +47,34 @@ once and not committed — not by a test that runs again on the next change. In 
 means a regression here would only be caught by someone (or something) re-running these checks
 by hand. Areas covered this way:
 
-- SSR/SSG/CSR/ISR rendering, per-route, in both dev and a real production build
-- Islands hydrating in dev and production (real hashed asset URLs, real fetched JS)
+- SSR/SSG/CSR/ISR/streaming rendering, per-route, in both dev and a real production build
+- Islands hydrating in dev and production (real hashed asset URLs, real fetched JS), verified with
+  real Playwright click tests (not just markup presence) — a real click genuinely incrementing
+  state is what confirms a live event handler actually attached, not just correct HTML.
+  A genuine, previously-undiscovered dev-mode bug was found this way (not by curl, which never
+  exercises client-side JS execution at all): every island crashed at runtime with "@vitejs/
+  plugin-react can't detect preamble", since this framework's hand-built HTML never goes through
+  Vite's own `transformIndexHtml`. Fixed with a real virtual module (`reactRefreshPreamblePlugin.ts`)
+  serving the Fast Refresh preamble as an external, CSP-compliant script — confirmed by the same
+  Playwright click test passing afterward.
+- Streaming specifically: a real deferred island (an artificially delayed import, removed after
+  verification) confirmed the shell renders before the island resolves and that the client's
+  `MutationObserver`-based hydration (not a one-shot scan) genuinely catches content that streams
+  in *after* the bootstrap script already ran, with a real click confirming the late-hydrated
+  island's event handler actually attached. Verified in dev, a real `devora build && devora start`
+  production server, and both `adapter-vercel`/`adapter-netlify`'s generated functions run
+  standalone — the Netlify path needed a real fix too (its Web Request/Response function shape has
+  no Node stream to hand `pipeTo()`; its response shim now buffers into a real `Response` instead of
+  crashing outright — functionally correct, not progressively flushed to the client the way
+  adapter-node's real streaming is, documented as a known platform-shape gap). Also found and fixed
+  along the way: React's own inline Suspense-boundary-patch script is blocked outright by this
+  framework's default CSP (`default-src 'self'`) — fixed with a real per-request nonce threaded
+  into both the CSP header and `renderToPipeableStream`'s own `nonce` option.
+- Repo-splitting (`devora split`/`sync`/`status`) — a full real multi-contributor scenario: split a
+  real app into its own repo (a local bare repo standing in for GitHub), a second clone pushing a
+  change, pulling it back with `sync --from-main`, pushing a local edit with `sync --to-main`, and
+  a deliberate same-line conflict from both sides, confirmed left as a genuine unresolved git merge
+  (real conflict markers), not silently auto-resolved.
 - Login → session → CSRF → logout → tampered-cookie rejection, for both a shared and an isolated
   auth app
 - `adapter-vercel`/`adapter-netlify`'s generated functions, run standalone outside this repo (no
@@ -71,9 +106,11 @@ by hand. Areas covered this way:
 
 ## Known unsupported, not silently missing
 
-- **Dynamic routes (`[id].tsx`) don't support `ssg`/`isr`.** `ssr`/`csr` both work — verified
-  end-to-end in dev, a real production build, `adapter-node`, and both Vercel/Netlify build
-  targets; `ssg`/`isr` on a dynamic route fails the build with a clear error instead, since there's
-  no static-params API yet to know which concrete values to pre-render.
-- **`renderMode: "streaming"`** — typed and listed, not implemented. Needs a Suspense-boundary
-  island rewrite; planned for v2 (see `ROADMAP.md`).
+- **A dynamic route (`[id].tsx`) without a `getStaticParams()` export can't use `ssg`/`isr`.**
+  `ssr`/`csr` work with no extra step; `ssg`/`isr` need `getStaticParams()` to know which concrete
+  values to pre-render and fail the build with a clear error if it's missing, rather than silently
+  mis-building. `getStaticParams()` itself is verified end-to-end (real build output, real served
+  static files, a real 404 for a value the route never listed).
+- **`isr`'s disk cache is unverified under real serverless conditions specifically** (Vercel/
+  Netlify) — see the "Not verified at all" section above; unrelated to streaming, which is a
+  separate render mode with its own verification above.

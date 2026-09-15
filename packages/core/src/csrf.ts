@@ -21,6 +21,14 @@ import { createElement } from "react";
 
 export const CSRF_COOKIE_NAME = "devora_csrf";
 export const CSRF_FORM_FIELD = "_csrf";
+/**
+ * The header a same-origin API route call (apiRoute.ts) uses instead of a
+ * form field — there's no `<form>` to embed a hidden input into, so the
+ * frontend reads the `csrfToken` its own page render already received as a
+ * prop and sends it back explicitly on this header. `ctx.verifyCsrf()`
+ * accepts either shape (serverFn.ts).
+ */
+export const CSRF_HEADER_NAME = "x-devora-csrf";
 
 export function generateCsrfToken(): string {
   return randomBytes(32).toString("base64url");

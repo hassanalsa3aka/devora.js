@@ -7,8 +7,23 @@ import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
  * Production serve (ROADMAP.md #4) — boots adapter-node against each app's
  * `dist/server` output from `devora build`. Requires a build to already
  * exist; unlike `devora dev` this does not build on the fly.
+ *
+ * Real bug fixed here (Phase 4 security audit): unlike `build.ts`/
+ * `deploy.ts`, this command never set `NODE_ENV` itself, relying entirely on
+ * the invoking shell to have exported `NODE_ENV=production` first — exactly
+ * the "explicit over implicit" trap build.ts's own doc comment already
+ * warns about, just for a different symptom. `session.ts`'s `resolveSecret`
+ * only *requires* a real session secret (refusing to start without one)
+ * when `NODE_ENV === "production"`; anything else — including simply
+ * forgetting to set it on a bare VPS/systemd unit, which the Docker image
+ * happens to set but nothing here enforces — silently signs every app's
+ * session cookie with a public, hardcoded dev secret checked into this
+ * open-source repo. `devora start` is the actual production entrypoint
+ * (adapter-node), so it must guarantee this itself.
  */
 export async function start(opts: { app?: string; port?: string }) {
+  process.env.NODE_ENV = "production";
+
   const root = process.cwd();
   const project = await loadProjectConfig(root);
 

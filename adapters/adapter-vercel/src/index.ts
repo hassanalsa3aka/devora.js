@@ -89,7 +89,25 @@ export async function writeVercelOutput(
   await mkdir(path.join(outputDir, "static"), { recursive: true });
   await mkdir(funcDir, { recursive: true });
 
-  await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
+  // existsSync-guarded, unlike originally (a real gap this surfaced): a
+  // backend-only app (architecture-v2.md §3.4) has no routes/ directory at
+  // all, and `cp` throws ENOENT on a missing source — this used to assume
+  // every app has at least one page route, true before backend-only mode
+  // existed.
+  if (existsSync(path.join(appRoot, "routes"))) {
+    await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
+  }
+  // Generic API routes (architecture-v2.md §3.2) — prodRequestHandler.ts's
+  // matchRoute() needs the *source* api/ files at runtime (same as routes/
+  // above), not just their built dist/server/api/*.js output (copied below
+  // regardless). A real bug found wiring this up: without this, every
+  // /api/* request 404'd in the deployed function even though the built
+  // handler file was present and correctly bundled — matchRoute() had
+  // nothing to match against. existsSync-guarded: most apps have no api/
+  // directory at all.
+  if (existsSync(path.join(appRoot, "api"))) {
+    await cp(path.join(appRoot, "api"), path.join(funcDir, "api"), { recursive: true });
+  }
   await cp(path.join(appRoot, "dist", "server"), path.join(funcDir, "dist", "server"), { recursive: true });
 
   // Island client assets (ROADMAP.md #4) — served directly by Vercel's

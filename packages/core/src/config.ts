@@ -93,6 +93,18 @@ export interface AppRuntimeConfig {
    * marketing) needs to turn this on. See ROADMAP.md #7.
    */
   sitemap?: boolean;
+  /**
+   * Backend-only app mode (architecture-v2.md §3.4) — this app is pure API
+   * (`api/` routes only), no pages, no client build at all. Explicit, not
+   * inferred from "this app's routes/ directory happens to be empty" —
+   * consistent with §2.2's "explicit over implicit": an app can genuinely
+   * have zero page routes temporarily without being backend-only. Default
+   * false. When true: `devora build`/`devora dev` skip the Vite client
+   * build and the `entry-server.tsx` SSR build entry entirely (no
+   * `PageShell`/theme wiring to skip, since there's no page to wrap) —
+   * see buildAppServer.ts and dev.ts.
+   */
+  backendOnly?: boolean;
 }
 
 export function defineApp(config: AppRuntimeConfig): AppRuntimeConfig {

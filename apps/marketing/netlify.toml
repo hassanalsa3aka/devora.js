@@ -19,7 +19,7 @@
 # read at runtime via fs.readdirSync/dynamic import(), invisible to that
 # tracer. See ROADMAP.md #4/#13's "real live deploy" account.
 [functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]
 
 [[redirects]]
   from = "/*"

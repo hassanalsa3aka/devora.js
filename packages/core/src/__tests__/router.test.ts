@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { matchRoute, listRoutePaths, isDynamicRouteFile } from "../router.js";
+import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "../router.js";
 import { generateSitemapXml } from "../sitemap.js";
 
 let routesDir: string;
@@ -102,5 +102,40 @@ describe("listRoutePaths + sitemap — dynamic routes are excluded, not listed l
     const xml = generateSitemapXml(["/", "/settings", "/users/[id]"], "example.com");
     expect(xml).toContain("https://example.com/settings");
     expect(xml).not.toContain("[id]");
+  });
+});
+
+describe("resolveStaticRoutePath — architecture-v2.md §3.6 static-params API", () => {
+  it("substitutes a single dynamic segment", () => {
+    touch("posts/[slug].tsx");
+    const resolved = resolveStaticRoutePath(routesDir, path.join(routesDir, "posts/[slug].tsx"), {
+      slug: "hello-world",
+    });
+    expect(resolved).toBe("/posts/hello-world");
+  });
+
+  it("substitutes multiple dynamic segments, in position", () => {
+    touch("orgs/[org]/users/[id].tsx");
+    const resolved = resolveStaticRoutePath(
+      routesDir,
+      path.join(routesDir, "orgs/[org]/users/[id].tsx"),
+      { org: "acme", id: "42" }
+    );
+    expect(resolved).toBe("/orgs/acme/users/42");
+  });
+
+  it("leaves static segments untouched", () => {
+    touch("blog/posts/[slug].tsx");
+    const resolved = resolveStaticRoutePath(routesDir, path.join(routesDir, "blog/posts/[slug].tsx"), {
+      slug: "x",
+    });
+    expect(resolved).toBe("/blog/posts/x");
+  });
+
+  it("throws if params is missing a value for one of the route's own dynamic segments", () => {
+    touch("posts/[slug].tsx");
+    expect(() =>
+      resolveStaticRoutePath(routesDir, path.join(routesDir, "posts/[slug].tsx"), {})
+    ).toThrow(/missing "slug"/);
   });
 });

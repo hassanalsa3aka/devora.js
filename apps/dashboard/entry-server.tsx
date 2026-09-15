@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { renderToString } from "react-dom/server";
-import { createRenderRoute, createRenderStatic } from "@devorajs/core";
+import { renderToString, renderToPipeableStream } from "react-dom/server";
+import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
 
 /**
  * Framework SSR entry point for this app (see ROADMAP.md #1). Loaded via
@@ -13,3 +13,4 @@ import { createRenderRoute, createRenderStatic } from "@devorajs/core";
  */
 export const renderRoute = createRenderRoute({ createElement, renderToString });
 export const renderStatic = createRenderStatic({ createElement, renderToString });
+export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });

@@ -8,6 +8,9 @@ import { newApp, scaffoldApp } from "./commands/new.js";
 import { removeApp } from "./commands/remove.js";
 import { list } from "./commands/list.js";
 import { generateProxy } from "./commands/generate-proxy.js";
+import { split } from "./commands/split.js";
+import { sync } from "./commands/sync.js";
+import { status } from "./commands/status.js";
 
 const program = new Command();
 
@@ -71,6 +74,29 @@ program
   .alias("ls")
   .description("List every app registered in devora.config.ts")
   .action(async () => list());
+
+program
+  .command("split <name>")
+  .description(
+    "Convert apps/<name> (or the literal \"backend\") into a git submodule pointing at --repo (create the empty remote yourself first)"
+  )
+  .requiredOption("--repo <url>", "the empty remote repo's URL")
+  .option("--yes", "skip the confirmation prompt (for scripted use)")
+  .action(async (name, opts) => split(name, opts));
+
+program
+  .command("sync [names...]")
+  .description("Pull/push a split-off app or backend against its own remote — one of --from-main or --to-main is required")
+  .option("--from-main", "merge the split repo's latest into the local checkout")
+  .option("--to-main", "push local commits made inside the split repo's checkout")
+  .option("--all", "every split-off app/backend, instead of naming them")
+  .option("--yes", "skip the confirmation prompt (for scripted use)")
+  .action(async (names, opts) => sync(names, opts));
+
+program
+  .command("status")
+  .description("Sync state (up to date / unpushed / unpulled / diverged) across every split-off app/backend")
+  .action(async () => status());
 
 program
   .command("generate:proxy")

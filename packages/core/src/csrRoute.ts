@@ -15,10 +15,16 @@ import type { RouteModule } from "./route.js";
 export function renderCsrShell(
   routeModule: RouteModule,
   entryUrl: string | undefined,
-  csrClientUrl: string | undefined
+  csrClientUrl: string | undefined,
+  devPreambleUrl?: string
 ): string {
   const meta = routeModule.meta?.(undefined);
   const canMount = entryUrl !== undefined && csrClientUrl !== undefined;
   const bodyHtml = canMount ? `<div data-csr-entry="${escapeHtml(entryUrl as string)}"></div>` : "";
-  return renderHtmlDocument({ bodyHtml, meta, csrScriptUrl: canMount ? csrClientUrl : undefined });
+  return renderHtmlDocument({
+    bodyHtml,
+    meta,
+    csrScriptUrl: canMount ? csrClientUrl : undefined,
+    devPreambleUrl: canMount ? devPreambleUrl : undefined,
+  });
 }

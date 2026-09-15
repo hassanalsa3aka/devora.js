@@ -29,14 +29,19 @@ export async function buildAppForAdapter(
   // reasoning as the runtime throw in session.ts's createNoAuthContext().
   const authMode = resolveAuthMode(project, app.name);
   if (authMode === "none") {
-    assertNoAuthUsage(app.name, listRouteFiles(path.join(appRoot, "routes")));
+    assertNoAuthUsage(app.name, [
+      ...listRouteFiles(path.join(appRoot, "routes")),
+      ...listRouteFiles(path.join(appRoot, "api")),
+    ]);
   }
 
+  const backendOnly = appConfig.backendOnly === true;
+
   console.log(`[devora] building "${app.name}" (SSR)...`);
-  const { serverOutDir } = await buildAppServer(appRoot);
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly });
   console.log(`[devora] "${app.name}" built → ${serverOutDir}`);
 
-  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode);
+  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, { backendOnly });
   if (staticRoutes.length > 0) {
     console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }

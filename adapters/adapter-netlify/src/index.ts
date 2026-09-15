@@ -95,7 +95,20 @@ export async function writeNetlifyConfig(
   const staticOutDir = path.join(appRoot, "dist", "static");
   await mkdir(funcDir, { recursive: true });
 
-  await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
+  // existsSync-guarded — a backend-only app (architecture-v2.md §3.4) has
+  // no routes/ directory at all; same real gap as adapter-vercel's identical
+  // copy step.
+  if (existsSync(path.join(appRoot, "routes"))) {
+    await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
+  }
+  // Generic API routes (architecture-v2.md §3.2) — same real bug fix as
+  // adapter-vercel's identical copy step: prodRequestHandler.ts's
+  // matchRoute() needs the *source* api/ files at runtime, not just their
+  // built dist/server/api/*.js output. existsSync-guarded: most apps have
+  // no api/ directory at all.
+  if (existsSync(path.join(appRoot, "api"))) {
+    await cp(path.join(appRoot, "api"), path.join(funcDir, "api"), { recursive: true });
+  }
   await cp(path.join(appRoot, "dist", "server"), path.join(funcDir, "dist", "server"), { recursive: true });
 
   // ssg/isr pre-rendered HTML — same caveat as adapter-vercel: copied into
@@ -113,7 +126,8 @@ export async function writeNetlifyConfig(
   await writeFile(
     path.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";\n` +
-      `import { Readable } from "node:stream";\n\n` +
+      `import { Readable } from "node:stream";\n` +
+      `import { EventEmitter } from "node:events";\n\n` +
       `const handleRequest = createProdRequestHandler(\n` +
       `  new URL(".", import.meta.url).pathname,\n` +
       `  ${JSON.stringify(app.name)},\n` +
@@ -132,17 +146,33 @@ export async function writeNetlifyConfig(
       `  req.headers = Object.fromEntries(request.headers);\n\n` +
       `  let statusCode = 200;\n` +
       `  const resHeaders = new Headers();\n` +
-      `  let responseBody = "";\n` +
-      `  const res = {\n` +
-      `    setHeader: (k, v) => resHeaders.set(k, v),\n` +
-      `    get statusCode() { return statusCode; },\n` +
-      `    set statusCode(v) { statusCode = v; },\n` +
-      `    end: (chunk) => { responseBody = chunk ?? ""; },\n` +
+      `  const chunks = [];\n` +
+      // A real EventEmitter, not a plain object — renderMode: "streaming"
+      // (prodRequestHandler.ts) calls res.once("finish", ...) the same way
+      // it would on a real Node ServerResponse (what adapter-node/Vercel's
+      // Node runtime hand it); a Netlify function's own shape is Web
+      // Request/Response, with no equivalent to hand it directly, so this
+      // shim buffers every write() and only becomes a real Response once
+      // the "stream" (from this function's own perspective) is done —
+      // functionally correct HTML, delivered as one response, not
+      // incrementally flushed to the actual client the way adapter-node's
+      // real streaming is. Documented as a known, platform-shape gap, not
+      // silently pretended away.
+      `  const res = new EventEmitter();\n` +
+      `  res.statusCode = statusCode;\n` +
+      `  res.headersSent = false;\n` +
+      `  res.setHeader = (k, v) => resHeaders.set(k, v);\n` +
+      `  res.getHeader = (k) => resHeaders.get(k) ?? undefined;\n` +
+      `  res.write = (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); return true; };\n` +
+      `  res.end = (chunk) => {\n` +
+      `    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));\n` +
+      `    res.headersSent = true;\n` +
+      `    res.emit("finish");\n` +
       `  };\n\n` +
       `  try {\n` +
       `    const handled = await handleRequest(req, res);\n` +
       `    if (!handled) return new Response("Not found", { status: 404 });\n` +
-      `    return new Response(responseBody, { status: statusCode, headers: resHeaders });\n` +
+      `    return new Response(Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });\n` +
       `  } catch (err) {\n` +
       `    console.error(err);\n` +
       `    return new Response("Internal Server Error", { status: 500 });\n` +

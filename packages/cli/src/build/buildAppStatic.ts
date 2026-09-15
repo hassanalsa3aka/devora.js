@@ -4,6 +4,7 @@ import {
   listRouteFiles,
   routeFileToPath,
   isDynamicRouteFile,
+  resolveStaticRoutePath,
   toBuildKey,
   resolveRenderMode,
   writeCachedRoute,
@@ -23,15 +24,28 @@ import {
 export async function buildAppStatic(
   appRoot: string,
   serverOutDir: string,
-  appDefaultRenderMode: RenderMode | undefined
+  appDefaultRenderMode: RenderMode | undefined,
+  options: { backendOnly?: boolean } = {}
 ): Promise<{ staticRoutes: string[] }> {
+  // Backend-only app mode (architecture-v2.md §3.4) — no pages means no
+  // entry-server.tsx build output at all (buildAppServer.ts skips it), so
+  // this must return before ever trying to import it. A real bug found
+  // wiring this up: this function used to import entry-server.js
+  // unconditionally, before even checking whether any ssg/isr route
+  // existed — harmless for a normal app (always has one), but a build-time
+  // crash for a backend-only app that never built one in the first place.
+  if (options.backendOnly) return { staticRoutes: [] };
+
   const routesDir = path.join(appRoot, "routes");
   const staticOutDir = path.join(appRoot, "dist", "static");
   const islandManifestPath = path.join(serverOutDir, "island-manifest.json");
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
 
   const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-    renderStatic: (routeModule: RouteModule, opts: { islandClientUrl?: string }) => Promise<{ html: string }>;
+    renderStatic: (
+      routeModule: RouteModule,
+      opts: { islandClientUrl?: string; params?: Record<string, string> }
+    ) => Promise<{ html: string }>;
   };
 
   const staticRoutes: string[] = [];
@@ -47,16 +61,27 @@ export async function buildAppStatic(
         `[devora] route "${key}" is renderMode: "${mode}" but exports action — actions never run for ${mode} routes.`
       );
     }
-    // A dynamic route (`[id].tsx`) has no fixed set of URLs to pre-render —
-    // there's no static-params API yet to know which values exist (see
-    // router.ts). Fail the build loudly rather than pre-rendering the
-    // literal "[id]" segment as if it were a real page.
+    // A dynamic route (`[id].tsx`) has no single fixed URL — it needs
+    // `getStaticParams()` (architecture-v2.md §3.6) to say which concrete
+    // values to pre-render, one static file per entry. Still fails loudly,
+    // just for a narrower reason now: a dynamic route with no
+    // `getStaticParams()` export, not "dynamic routes don't support this."
     if (isDynamicRouteFile(routesDir, filePath)) {
-      throw new Error(
-        `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: ` +
-          `"${mode}") — dynamic routes don't support ssg/isr yet (no static-params API). Use ` +
-          `renderMode: "ssr" or "csr" instead.`
-      );
+      if (typeof routeModule.getStaticParams !== "function") {
+        throw new Error(
+          `[devora] route "${routeFileToPath(routesDir, filePath)}" is a dynamic route (renderMode: ` +
+            `"${mode}") — needs a getStaticParams() export to know which values to pre-render. Add ` +
+            `one, or use renderMode: "ssr"/"csr" instead.`
+        );
+      }
+      const paramSets = await routeModule.getStaticParams();
+      for (const params of paramSets) {
+        const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params });
+        const routePath = resolveStaticRoutePath(routesDir, filePath, params);
+        await writeCachedRoute(staticOutDir, routePath, html);
+        staticRoutes.push(routePath);
+      }
+      continue;
     }
 
     const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });

@@ -12,6 +12,16 @@ export interface RouteModule<Data = unknown> {
    * (architecture-v1.md §5's `revalidate: { seconds }` syntax). */
   revalidate?: RevalidateConfig;
   loader?: (ctx: RequestContext) => Promise<Data> | Data;
+  /**
+   * Static-params API (architecture-v2.md §3.6) — required for a dynamic
+   * route (`[id].tsx`) to support `ssg`/`isr`: the build step
+   * (buildAppStatic.ts) has no live request to derive `ctx.params` from, so
+   * it needs to be told upfront which concrete values exist, one static
+   * file rendered per entry. Not used for `ssr`/`csr` (both already work on
+   * dynamic routes without this — a live request already carries its own
+   * params) or a non-dynamic route (nothing to enumerate).
+   */
+  getStaticParams?: () => Promise<Record<string, string>[]> | Record<string, string>[];
   /** May return a RedirectResult (see actionResult.ts) instead of ordinary
    * data — renderRoute.ts checks for this and sends a real redirect instead
    * of re-rendering the page with a 200. */

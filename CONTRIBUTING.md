@@ -19,9 +19,11 @@ npm and Yarn also work — see `VERIFICATION.md` for what's actually tested unde
 
 ## Filing a useful issue
 
-- Check `README.md`'s "Current limitations" and `ROADMAP.md`'s status section first — dynamic
-  routes, streaming SSR, and `devora deploy`'s authenticated-deploy path are known gaps, not
-  bugs.
+- Check `README.md`'s "Current limitations" and `ROADMAP.md`'s status section first —
+  `ssg`/`isr` support for dynamic routes, streaming SSR, and `isr` regeneration reliability on
+  Vercel/Netlify's serverless filesystem are known gaps, not bugs. Dynamic routes themselves
+  (`ssr`/`csr`) and `devora deploy`'s authenticated-deploy path are both real and verified — see
+  `ROADMAP.md`.
 - Include: which app/render mode you were using, the exact command, and what you expected vs.
   what happened. A minimal repro (even just `devora new test-app --auth none` plus one added
   file) is the fastest way to get a real fix.

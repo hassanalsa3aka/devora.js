@@ -3,15 +3,18 @@ import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { matchRoute, listRoutePaths } from "./router.js";
+import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
 import { generateSitemapXml } from "./sitemap.js";
 import { resolveSessionCookieOptions } from "./session.js";
-import { resolveSecurityHeaders } from "./securityHeaders.js";
+import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
 import { resolveRenderMode } from "./renderRoute.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
+import { dispatchApiRoute } from "./apiDispatch.js";
+import { readBodyWithLimit, PayloadTooLargeError } from "./readBody.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
+import type { ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -54,6 +57,7 @@ export function createProdRequestHandler(
   appDefaultRenderMode?: RenderMode
 ) {
   const routesDir = path.join(appRoot, "routes");
+  const apiDir = path.join(appRoot, "api");
   const serverOutDir = path.join(appRoot, "dist", "server");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");
@@ -81,6 +85,46 @@ export function createProdRequestHandler(
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
+      return true;
+    }
+
+    // Generic API routes (architecture-v2.md §3.2) — matched and dispatched
+    // before any page-route/asset handling, same "/api/*" convention and
+    // second-call-site reasoning as apiMiddleware.ts (dev's equivalent).
+    if (url.pathname.startsWith("/api/")) {
+      const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
+      if (!apiMatch) return false;
+
+      const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
+      const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
+      let body: Buffer;
+      try {
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.statusCode = 413;
+          res.end(err.message);
+          return true;
+        }
+        throw err;
+      }
+
+      const apiResult = await dispatchApiRoute(apiRouteModule, {
+        method: req.method ?? "GET",
+        url: req.url,
+        headers: req.headers,
+        cookieHeader: req.headers.cookie,
+        params: apiMatch.params,
+        sessionCookieOptions,
+        body,
+      });
+
+      if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+      if (apiResult.headers) {
+        for (const [name, value] of Object.entries(apiResult.headers)) res.setHeader(name, value);
+      }
+      res.statusCode = apiResult.status;
+      res.end(apiResult.body ?? "");
       return true;
     }
 
@@ -112,7 +156,69 @@ export function createProdRequestHandler(
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
 
-    if (renderMode === "streaming") return false; // not implemented — see ROADMAP.md.
+    if (renderMode === "streaming") {
+      if (routeModule.action) {
+        throw new Error(
+          `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action — ` +
+            `actions never run for streaming routes.`
+        );
+      }
+      const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
+        renderStreaming: (
+          routeModule: RouteModule,
+          request: {
+            cookieHeader?: string;
+            params?: Record<string, string>;
+            sessionCookieOptions?: typeof sessionCookieOptions;
+            islandClientUrl?: string;
+            nonce?: string;
+          }
+        ) => Promise<{
+          status: number;
+          setCookie?: string[];
+          pipeTo: (destination: NodeJS.WritableStream, onError?: (error: unknown, phase: "shell" | "boundary") => void) => void;
+        } | null>;
+      };
+      const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+      // React's own inline Suspense-boundary-patch script needs this
+      // response's real CSP nonce, in production exactly as much as dev —
+      // it's React's own streaming SSR mechanism, not a Vite/HMR artifact
+      // (see securityHeaders.ts's `addNonceToCsp` doc comment for the full
+      // account). Overwrites the CSP already set unconditionally above.
+      const nonce = generateNonce();
+      res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]!);
+
+      const result = await entryServer.renderStreaming(routeModule, {
+        cookieHeader: req.headers.cookie,
+        params: match.params,
+        sessionCookieOptions,
+        islandClientUrl,
+        nonce,
+      });
+      if (!result) return false; // shouldn't happen — renderMode was resolved to "streaming" above.
+
+      if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+      res.statusCode = result.status;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+
+      // Awaited so this function's own promise doesn't resolve until the
+      // response is genuinely complete — a real Node ServerResponse (what
+      // adapter-node and Vercel's Node runtime both hand this) keeps the
+      // underlying connection open regardless, but making the contract
+      // explicit here is more honest than relying on that implicitly.
+      await new Promise<void>((resolve) => {
+        res.once("finish", resolve);
+        result.pipeTo(res, (error, phase) => {
+          console.error(`[devora] streaming error ("${phase}") on "${match.routePath}":`, error);
+          if (phase === "shell" && !res.headersSent) {
+            res.statusCode = 500;
+            res.end("Internal Server Error");
+            resolve();
+          }
+        });
+      });
+      return true;
+    }
 
     if (renderMode === "csr") {
       const csrManifest = await readCsrManifest(csrManifestPath);
@@ -137,13 +243,37 @@ export function createProdRequestHandler(
         // and more deterministic than stale-while-revalidate for v1 (see
         // ROADMAP.md). Only reliable under adapter-node's long-lived
         // process/writable disk — see isrCache.ts.
+        //
+        // Real, previously-undiscovered bug closed here: for a DYNAMIC
+        // route, getStaticParams() (architecture-v2.md §3.6) is a real
+        // allowlist at build time — buildAppStatic.ts only ever pre-renders
+        // the concrete values it returns. This runtime regeneration branch
+        // used to render+cache *any* value matching the route's file
+        // pattern, no matter how it got here — an attacker requesting
+        // /posts/<anything> would each get a real render permanently
+        // written to disk via writeCachedRoute, defeating the allowlist
+        // getStaticParams() exists to establish (unbounded disk growth /
+        // cache poisoning from arbitrary attacker-chosen param values).
+        // `ssg`'s sibling branch above never had this hole, since it
+        // already refuses to render anything not already cached.
+        if (isDynamicRouteFile(routesDir, match.filePath) && typeof routeModule.getStaticParams === "function") {
+          const declaredParams = await routeModule.getStaticParams();
+          const allowed = declaredParams.some(
+            (params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath
+          );
+          if (!allowed) return false; // honest 404 — never declared, never rendered.
+        }
+
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || (revalidateSeconds !== undefined && isStale(cached.renderedAt, revalidateSeconds))) {
           const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-            renderStatic: (routeModule: RouteModule, opts: { islandClientUrl?: string }) => Promise<{ html: string }>;
+            renderStatic: (
+              routeModule: RouteModule,
+              opts: { islandClientUrl?: string; params?: Record<string, string> }
+            ) => Promise<{ html: string }>;
           };
           const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-          const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl });
+          const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params: match.params });
           await writeCachedRoute(staticOutDir, match.routePath, html);
           cached = { html, renderedAt: Date.now() };
         }
@@ -171,7 +301,17 @@ export function createProdRequestHandler(
     };
 
     const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-    const formData = req.method === "POST" ? await parseFormData(req) : undefined;
+    let formData: FormData | undefined;
+    try {
+      formData = req.method === "POST" ? await parseFormData(req) : undefined;
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        res.statusCode = 413;
+        res.end(err.message);
+        return true;
+      }
+      throw err;
+    }
     const result = await entryServer.renderRoute(routeModule, {
       method: req.method ?? "GET",
       formData,
@@ -296,15 +436,15 @@ function unwrapCjsDefaultInterop(mod: Record<string, unknown>): unknown {
 }
 
 async function parseFormData(req: IncomingMessage): Promise<FormData> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  const body = Buffer.concat(chunks).toString("utf-8");
+  const body = (await readBodyWithLimit(req)).toString("utf-8");
   const formData = new FormData();
   // .forEach(), not for-of — @types/node's URLSearchParams and the DOM
   // lib's disagree on its iterator typing when both are in scope, which a
   // real tsc build (this package never had one before) caught immediately.
   new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
   return formData;
+}
+
+async function readRawBody(req: IncomingMessage): Promise<Buffer> {
+  return readBodyWithLimit(req);
 }

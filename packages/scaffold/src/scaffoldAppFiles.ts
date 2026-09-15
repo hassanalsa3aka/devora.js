@@ -166,53 +166,56 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  plugins: [react()],\n` +
       `  // Shared brand assets (logo, favicon) — see packages/core/src/theme.ts.\n` +
       `  publicDir: path.resolve(__dirname, "../../assets"),\n` +
+      `  // Explicit modern target — esbuild 0.25+ can no longer down-level\n` +
+      `  // destructuring to Vite's old default multi-browser target list.\n` +
+      `  build: {\n` +
+      `    target: "es2022",\n` +
+      `  },\n` +
       `});\n`
   );
 
   await writeFile(
     path.join(appDir, "entry-server.tsx"),
     `import { createElement } from "react";\n` +
-      `import { renderToString } from "react-dom/server";\n` +
-      `import { createRenderRoute, createRenderStatic } from "@devorajs/core";\n\n` +
+      `import { renderToString, renderToPipeableStream } from "react-dom/server";\n` +
+      `import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";\n\n` +
       `// Framework SSR entry point for this app — loaded via vite.ssrLoadModule\n` +
       `// so react-dom/server resolves against this app's own node_modules. The\n` +
       `// actual render logic lives once in @devorajs/core's renderRoute.ts,\n` +
       `// shared by every app; this file only supplies the React bindings that\n` +
       `// genuinely can't be shared.\n` +
       `export const renderRoute = createRenderRoute({ createElement, renderToString });\n` +
-      `export const renderStatic = createRenderStatic({ createElement, renderToString });\n`
+      `export const renderStatic = createRenderStatic({ createElement, renderToString });\n` +
+      `export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });\n`
   );
 
+  // Both client bootstraps are one-line calls into @devorajs/core's shared
+  // logic — dev mode's own React Refresh preamble requirement (a real,
+  // previously undiscovered bug: without it, any island/csr component
+  // crashed at runtime with "@vitejs/plugin-react can't detect preamble",
+  // since this framework's hand-built HTML never goes through Vite's own
+  // transformIndexHtml, which normally injects it) is handled once, in
+  // the framework's own dev server (packages/cli/src/server/
+  // reactRefreshPreamblePlugin.ts + html.ts's `renderTail`), as a separate
+  // script tag emitted *before* these — nothing app-specific to add here.
   await writeFile(
     path.join(appDir, "island-client.tsx"),
-    `import { createElement } from "react";\n` +
-      `import { hydrateRoot } from "react-dom/client";\n\n` +
+    `import { hydrateIslands } from "@devorajs/core/client";\n\n` +
       `// Only requested when a page actually used an island() — see\n` +
-      `// packages/core/src/islandComponent.tsx.\n` +
-      `for (const node of document.querySelectorAll<HTMLElement>("[data-island]")) {\n` +
-      `  const url = node.getAttribute("data-island-url");\n` +
-      `  if (!url) continue;\n` +
-      `  const propsJson = node.getAttribute("data-island-props");\n` +
-      `  const props = propsJson ? JSON.parse(propsJson) : {};\n` +
-      `  import(/* @vite-ignore */ url).then((mod) => {\n` +
-      `    hydrateRoot(node, createElement(mod.default, props));\n` +
-      `  });\n` +
-      `}\n`
+      `// packages/core/src/islandComponent.tsx. Real hydration logic lives\n` +
+      `// once in @devorajs/core (shared by every app, including MutationObserver\n` +
+      `// support for an island that streams in after this script runs) — this\n` +
+      `// file only calls it.\n` +
+      `hydrateIslands();\n`
   );
 
   await writeFile(
     path.join(appDir, "csr-client.tsx"),
-    `import { createElement } from "react";\n` +
-      `import { createRoot } from "react-dom/client";\n\n` +
+    `import { hydrateCsrRoutes } from "@devorajs/core/client";\n\n` +
       `// Only requested when a page's renderMode is "csr" — see\n` +
-      `// packages/core/src/csrRoute.ts.\n` +
-      `for (const node of document.querySelectorAll<HTMLElement>("[data-csr-entry]")) {\n` +
-      `  const url = node.getAttribute("data-csr-entry");\n` +
-      `  if (!url) continue;\n` +
-      `  import(/* @vite-ignore */ url).then((mod) => {\n` +
-      `    createRoot(node).render(createElement(mod.default));\n` +
-      `  });\n` +
-      `}\n`
+      `// packages/core/src/csrRoute.ts. Real logic lives once in\n` +
+      `// @devorajs/core, shared by every app.\n` +
+      `hydrateCsrRoutes();\n`
   );
 
   await writeFile(
@@ -272,7 +275,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       // had with react/react-dom, ROADMAP.md #4, just missing here for a
       // different reason).
       `[functions.ssr]\n` +
-      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/dist/**"]\n\n` +
+      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**"]\n\n` +
       `[[redirects]]\n` +
       `  from = "/*"\n` +
       `  to = "/.netlify/functions/ssr"\n` +

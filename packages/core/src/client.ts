@@ -19,3 +19,5 @@
  */
 export * from "./theme.js";
 export * from "./branding.js";
+export * from "./hydrateIslands.js";
+export * from "./hydrateCsr.js";

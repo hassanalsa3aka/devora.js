@@ -69,6 +69,7 @@ Each app can be built/deployed independently (`devora build --app=admin`) or all
 - File-based routing per app (`apps/*/routes/`).
 - Route files export `loader` (server-side data), `component` (UI), and optional `action` (mutations) — explicit, not inferred from file naming conventions beyond the path itself.
 - No nested layout caching magic — layouts are explicit React components that wrap children; no hidden revalidation windows.
+- **Dynamic route segments** — `routes/users/[id].tsx` matches `/users/123`, with the matched value available as `ctx.params.id` inside that route's `loader`/`action` (no separate params argument — one context object, consistent with how `ctx` already carries auth/session/CSRF). A static route always wins over a dynamic one at the same path depth, so `routes/users/settings.tsx` is matched before `routes/users/[id].tsx` for `/users/settings` — explicit, deterministic precedence, not longest-match heuristics. `ssr`/`csr` render modes support dynamic routes today; `ssg`/`isr` do not yet, since pre-rendering a dynamic route at build time requires knowing which concrete param values to render ahead of time (a static-params export, planned for v2 — see `ROADMAP.md`).
 
 ## 5. Rendering pipeline
 
@@ -85,6 +86,7 @@ export const renderMode = "ssr";        // default: server-rendered per request
 - **Islands / partial hydration**: components can opt into island rendering — `island(() => import("./ThreeScene"))` — so only that component hydrates on the client; the rest of the page stays static HTML. This is the actual fix for React's hydration-cost problem, achieved without leaving the React ecosystem.
 - No custom RSC-style server/client serialization protocol in v1 (large, security-sensitive undertaking — see §11).
 - Revalidation triggers for ISR are explicit (`revalidate: { seconds: 3600 }` or a manual `revalidatePath()` call) — no hidden multi-layer cache behavior.
+- **`renderMode: "streaming"` is real (v2)**: a genuine Suspense-boundary rewrite of the island system (`packages/core/src/renderStreaming.ts`) — `<Island>` suspends via React's real Suspense contract instead of the two-pass collect-then-rerender model above, so `renderToPipeableStream` can send the page shell immediately and patch in each island's real content as its import resolves, without blocking the response on it. The existing two-pass model is completely unchanged for `ssr`/`ssg`/`csr`/`isr` — which strategy `<Island>` uses is decided by which render path is actively rendering it, not by anything a route author has to opt into per-component. Closed a real, previously-undiscovered gap found wiring this up: React's own inline Suspense-boundary-patch script is blocked outright by this framework's default CSP (`default-src 'self'`, no `unsafe-inline`) — fixed with a real per-request nonce, threaded into both the CSP header and `renderToPipeableStream`'s own `nonce` option, not a blanket CSP weakening.
 
 ## 6. Server functions (the "backend" piece of v1)
 
@@ -175,7 +177,7 @@ This section exists to stop scope creep. If it's listed here, it does not go int
 - **Monorepo tooling**: pnpm/npm/Yarn workspaces (Turborepo was tried early on and dropped — it
   assumes one lockfile/package manager, which conflicts with this project's cross-manager support;
   see README.md's "Cross-package-manager notes")
-- **Rendering**: React (SSR + standard hydration; streaming is v2 — see §5 and ROADMAP.md)
+- **Rendering**: React (SSR + standard hydration; streaming landed in v2 — see §5)
 
 ## 13. Deployment & platform adapters (v1 scope)
 
