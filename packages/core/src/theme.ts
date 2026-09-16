@@ -137,6 +137,44 @@ code {
 .devora-page > p:first-of-type { margin-top: 0; }
 .devora-page p { line-height: 1.65; color: var(--devora-fg-muted); }
 .devora-page p code { color: var(--devora-fg); }
+.devora-page h2 {
+  position: relative;
+  margin: 2.75rem 0 1rem;
+  padding-left: 1rem;
+  font-size: 1.375rem;
+  letter-spacing: -0.005em;
+}
+.devora-page h2:first-of-type { margin-top: 1.75rem; }
+.devora-page h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  bottom: 0.15em;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--devora-accent-from), var(--devora-accent-to));
+}
+.devora-page strong { color: var(--devora-fg); }
+.devora-page ul, .devora-page ol {
+  color: var(--devora-fg-muted);
+  line-height: 1.65;
+  padding-left: 1.15rem;
+}
+.devora-page li { margin: 0.4rem 0; }
+.devora-page li::marker { color: var(--devora-accent-from); }
+.devora-page a { text-underline-offset: 2px; }
+.devora-page pre {
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.devora-page pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 1em;
+}
 
 /* Forms rendered as a card, not bare inputs floating in the page */
 .devora-page form {
@@ -197,6 +235,7 @@ code {
   padding: 1.5rem;
   background: var(--devora-card);
   border: 1px solid var(--devora-border);
+  border-top: 2px solid var(--devora-accent-from);
   border-radius: var(--devora-radius);
   box-shadow: var(--devora-shadow);
   margin-top: 1.25rem;

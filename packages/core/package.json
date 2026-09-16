@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Devora.js framework internals \u2014 SSR/streaming request handling, sessions/CSRF, security headers, islands, backend modules, generic API routes, middleware, config loading. Not a standalone library; used by @devorajs/cli-scaffolded apps.",
   "license": "MIT",
   "repository": {
@@ -17,37 +17,29 @@
   "scripts": {
     "build": "tsc"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./config": "./src/config.ts",
-    "./config-loader": "./src/configLoader.ts",
-    "./client": "./src/client.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./config-loader": {
+      "types": "./dist/configLoader.d.ts",
+      "default": "./dist/configLoader.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    }
   },
   "files": [
     "dist"
   ],
-  "publishConfig": {
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "./config": {
-        "types": "./dist/config.d.ts",
-        "default": "./dist/config.js"
-      },
-      "./config-loader": {
-        "types": "./dist/configLoader.d.ts",
-        "default": "./dist/configLoader.js"
-      },
-      "./client": {
-        "types": "./dist/client.d.ts",
-        "default": "./dist/client.js"
-      }
-    }
-  },
   "dependencies": {
     "jiti": "^2.3.0"
   },
