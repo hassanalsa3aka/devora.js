@@ -3419,13 +3419,25 @@ code {
 /* Footer */
 .devora-footer {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 1rem;
   padding: 1.5rem;
   color: var(--devora-fg-muted);
   font-size: 0.8rem;
   border-top: 1px solid var(--devora-border);
+}
+.devora-footer-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+.devora-footer-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 .devora-footer img { height: 16px; width: 16px; opacity: 0.7; }
 `;

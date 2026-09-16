@@ -225,9 +225,5 @@ code {
   justify-content: center;
   gap: 0.5rem;
 }
-.devora-footer-custom + .devora-footer-brand {
-  padding-top: 1rem;
-  border-top: 1px solid var(--devora-border);
-}
 .devora-footer img { height: 16px; width: 16px; opacity: 0.7; }
 `;
