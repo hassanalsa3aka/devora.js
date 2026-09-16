@@ -47,15 +47,20 @@ export function AppHeader({ appName, nav }: { appName?: string; nav?: NavLink[] 
  * explicit per app rather than guessed from `appName` inside this shared
  * component, consistent with "explicit over implicit" (CLAUDE.md). Routes
  * should render their own content directly (no `<main>` wrapper of their
- * own) — this component supplies that.
+ * own) — this component supplies that. `footer` renders inside the same
+ * `<footer>` element as the "Built with devora.js" line (above it), so an
+ * app's own footer content (copyright, links) doesn't need a second,
+ * separately-bordered footer block.
  */
 export function PageShell({
   appName,
   nav,
+  footer,
   children,
 }: {
   appName?: string;
   nav?: NavLink[];
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -63,8 +68,11 @@ export function PageShell({
       <AppHeader appName={appName} nav={nav} />
       <main className="devora-page">{children}</main>
       <footer className="devora-footer">
-        <img src={DEVORA_LOGO_URL} alt="" />
-        <span>Built with devora.js</span>
+        {footer ? <div className="devora-footer-custom">{footer}</div> : null}
+        <div className="devora-footer-brand">
+          <img src={DEVORA_LOGO_URL} alt="" />
+          <span>Built with devora.js</span>
+        </div>
       </footer>
     </>
   );
