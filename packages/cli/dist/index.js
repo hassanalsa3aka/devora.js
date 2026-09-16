@@ -3096,11 +3096,11 @@ var require_react_jsx_runtime_development = __commonJS({
             return jsxWithValidation(type, props, key, false);
           }
         }
-        var jsx2 = jsxWithValidationDynamic;
-        var jsxs2 = jsxWithValidationStatic;
+        var jsx = jsxWithValidationDynamic;
+        var jsxs = jsxWithValidationStatic;
         exports.Fragment = REACT_FRAGMENT_TYPE;
-        exports.jsx = jsx2;
-        exports.jsxs = jsxs2;
+        exports.jsx = jsx;
+        exports.jsxs = jsxs;
       })();
     }
   }
@@ -3125,14 +3125,15 @@ import { Command } from "commander";
 import path9 from "node:path";
 import { createServer } from "vite";
 
-// ../core/src/config.ts
+// ../core/dist/config.js
 function resolveAuthMode(project, appName) {
   const app = project.apps.find((a) => a.name === appName);
-  if (!app) throw new Error(`[framework.config] unknown app: "${appName}"`);
+  if (!app)
+    throw new Error(`[framework.config] unknown app: "${appName}"`);
   return app.auth ?? project.shared.auth;
 }
 
-// ../core/src/router.ts
+// ../core/dist/router.js
 import fs from "node:fs";
 import path from "node:path";
 var ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
@@ -3141,7 +3142,8 @@ function matchRoute(routesDir, urlPath) {
   let best = null;
   for (const filePath of collectRouteFiles(routesDir)) {
     const routeSegments = fileToRouteSegments(routesDir, filePath);
-    if (routeSegments.length !== urlSegments.length) continue;
+    if (routeSegments.length !== urlSegments.length)
+      continue;
     const params = {};
     let dynamicCount = 0;
     let matched = true;
@@ -3156,12 +3158,14 @@ function matchRoute(routesDir, urlPath) {
         break;
       }
     }
-    if (!matched) continue;
+    if (!matched)
+      continue;
     if (!best || dynamicCount < best.dynamicCount) {
       best = { filePath, params, dynamicCount };
     }
   }
-  if (!best) return null;
+  if (!best)
+    return null;
   return { filePath: best.filePath, routePath: normalizePath(urlPath), params: best.params };
 }
 function listRoutePaths(routesDir) {
@@ -3178,13 +3182,12 @@ function isDynamicRouteFile(routesDir, filePath) {
 }
 function resolveStaticRoutePath(routesDir, filePath, params) {
   const segments = fileToRouteSegments(routesDir, filePath).map((segment) => {
-    if (!isDynamicSegment(segment)) return segment;
+    if (!isDynamicSegment(segment))
+      return segment;
     const name = paramName(segment);
     const value = params[name];
     if (value === void 0) {
-      throw new Error(
-        `[devora] getStaticParams() entry is missing "${name}" for dynamic route segment "${segment}"`
-      );
+      throw new Error(`[devora] getStaticParams() entry is missing "${name}" for dynamic route segment "${segment}"`);
     }
     return value;
   });
@@ -3197,14 +3200,16 @@ function paramName(segment) {
   return segment.slice(1, -1);
 }
 function normalizePath(urlPath) {
-  if (urlPath === "" || urlPath === "/") return "/";
+  if (urlPath === "" || urlPath === "/")
+    return "/";
   return urlPath.replace(/\/+$/, "");
 }
 function segmentsOf(normalized) {
   return normalized === "/" ? [] : normalized.slice(1).split("/");
 }
 function collectRouteFiles(routesDir) {
-  if (!fs.existsSync(routesDir)) return [];
+  if (!fs.existsSync(routesDir))
+    return [];
   const files = [];
   for (const entry of fs.readdirSync(routesDir, { withFileTypes: true })) {
     const full = path.join(routesDir, entry.name);
@@ -3220,7 +3225,8 @@ function fileToRouteSegments(routesDir, filePath) {
   const rel = path.relative(routesDir, filePath);
   const noExt = rel.slice(0, -path.extname(rel).length);
   const segments = noExt.split(path.sep);
-  if (segments[segments.length - 1] === "index") segments.pop();
+  if (segments[segments.length - 1] === "index")
+    segments.pop();
   return segments;
 }
 function fileToRoutePath(routesDir, filePath) {
@@ -3228,7 +3234,7 @@ function fileToRoutePath(routesDir, filePath) {
   return segments.length === 0 ? "/" : "/" + segments.join("/");
 }
 
-// ../core/src/theme.ts
+// ../core/dist/theme.js
 var DEVORA_LOGO_URL = "/icons/devorajs-logo-withoutbg.png";
 var THEME_CSS = `
 :root {
@@ -3351,6 +3357,44 @@ code {
 .devora-page > p:first-of-type { margin-top: 0; }
 .devora-page p { line-height: 1.65; color: var(--devora-fg-muted); }
 .devora-page p code { color: var(--devora-fg); }
+.devora-page h2 {
+  position: relative;
+  margin: 2.75rem 0 1rem;
+  padding-left: 1rem;
+  font-size: 1.375rem;
+  letter-spacing: -0.005em;
+}
+.devora-page h2:first-of-type { margin-top: 1.75rem; }
+.devora-page h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  bottom: 0.15em;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--devora-accent-from), var(--devora-accent-to));
+}
+.devora-page strong { color: var(--devora-fg); }
+.devora-page ul, .devora-page ol {
+  color: var(--devora-fg-muted);
+  line-height: 1.65;
+  padding-left: 1.15rem;
+}
+.devora-page li { margin: 0.4rem 0; }
+.devora-page li::marker { color: var(--devora-accent-from); }
+.devora-page a { text-underline-offset: 2px; }
+.devora-page pre {
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.devora-page pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 1em;
+}
 
 /* Forms rendered as a card, not bare inputs floating in the page */
 .devora-page form {
@@ -3411,6 +3455,7 @@ code {
   padding: 1.5rem;
   background: var(--devora-card);
   border: 1px solid var(--devora-border);
+  border-top: 2px solid var(--devora-accent-from);
   border-radius: var(--devora-radius);
   box-shadow: var(--devora-shadow);
   margin-top: 1.25rem;
@@ -3442,7 +3487,7 @@ code {
 .devora-footer img { height: 16px; width: 16px; opacity: 0.7; }
 `;
 
-// ../core/src/html.ts
+// ../core/dist/html.js
 function renderHead(meta) {
   const { title, description, og } = meta ?? {};
   const ogTitle = og?.title ?? title;
@@ -3482,10 +3527,10 @@ function escapeHtml(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// ../core/src/session.ts
+// ../core/dist/session.js
 import { createHmac, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 
-// ../core/src/csrf.ts
+// ../core/dist/csrf.js
 var import_react = __toESM(require_react(), 1);
 import { randomBytes, timingSafeEqual } from "node:crypto";
 var CSRF_COOKIE_NAME = "devora_csrf";
@@ -3494,29 +3539,28 @@ function generateCsrfToken() {
   return randomBytes(32).toString("base64url");
 }
 function verifyCsrfToken(cookieValue, formValue) {
-  if (!cookieValue || typeof formValue !== "string" || !formValue) return false;
+  if (!cookieValue || typeof formValue !== "string" || !formValue)
+    return false;
   const cookieBuf = Buffer.from(cookieValue);
   const formBuf = Buffer.from(formValue);
-  if (cookieBuf.length !== formBuf.length) return false;
+  if (cookieBuf.length !== formBuf.length)
+    return false;
   return timingSafeEqual(cookieBuf, formBuf);
 }
 
-// ../core/src/session.ts
+// ../core/dist/session.js
 var DEV_INSECURE_SECRET = "dev-insecure-session-secret-do-not-use-in-production";
 var warnedForKey;
 function resolveSecret(envKey) {
   const configured = process.env[envKey] ?? process.env.DEVORA_SESSION_SECRET;
-  if (configured) return configured;
+  if (configured)
+    return configured;
   const label = envKey === "DEVORA_SESSION_SECRET" ? envKey : `${envKey} (or DEVORA_SESSION_SECRET)`;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `[devora] no session secret configured. Set ${label} before running in production \u2014 see ROADMAP.md #2.`
-    );
+    throw new Error(`[devora] no session secret configured. Set ${label} before running in production \u2014 see ROADMAP.md #2.`);
   }
   if (warnedForKey !== envKey) {
-    console.warn(
-      `[devora] no ${label} set \u2014 using an insecure dev-only default. Set this before deploying (see ROADMAP.md #2).`
-    );
+    console.warn(`[devora] no ${label} set \u2014 using an insecure dev-only default. Set this before deploying (see ROADMAP.md #2).`);
     warnedForKey = envKey;
   }
   return DEV_INSECURE_SECRET;
@@ -3534,9 +3578,11 @@ function signSession(data, opts) {
   return `${payload}.${sig}`;
 }
 function verifySession(cookieValue, opts) {
-  if (!cookieValue) return void 0;
+  if (!cookieValue)
+    return void 0;
   const dot = cookieValue.indexOf(".");
-  if (dot === -1) return void 0;
+  if (dot === -1)
+    return void 0;
   const payload = cookieValue.slice(0, dot);
   const sig = cookieValue.slice(dot + 1);
   const expected = createHmac("sha256", opts.secret).update(`${opts.name}:${payload}`).digest("base64url");
@@ -3557,13 +3603,16 @@ function buildCookieAttributes() {
 }
 function parseCookieHeader(header) {
   const cookies = {};
-  if (!header) return cookies;
+  if (!header)
+    return cookies;
   for (const part of header.split(";")) {
     const eq = part.indexOf("=");
-    if (eq === -1) continue;
+    if (eq === -1)
+      continue;
     const key = part.slice(0, eq).trim();
     const value = part.slice(eq + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    if (key)
+      cookies[key] = decodeURIComponent(value);
   }
   return cookies;
 }
@@ -3604,9 +3653,7 @@ function createRequestContext(cookieHeader, cookieOptions, params = {}) {
   return { ctx, csrfToken, getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0 };
 }
 function sessionsDisabledError(method) {
-  return new Error(
-    `[devora] ctx.${method}() was called, but this app has sessions disabled (auth: "none" in devora.config.ts). Set auth: "shared" or "isolated" for this app if it needs login.`
-  );
+  return new Error(`[devora] ctx.${method}() was called, but this app has sessions disabled (auth: "none" in devora.config.ts). Set auth: "shared" or "isolated" for this app if it needs login.`);
 }
 function createNoAuthContext(params = {}) {
   const ctx = {
@@ -3628,7 +3675,7 @@ function createNoAuthContext(params = {}) {
   return { ctx, csrfToken: "", getSetCookie: () => void 0 };
 }
 
-// ../core/src/securityHeaders.ts
+// ../core/dist/securityHeaders.js
 import { randomBytes as randomBytes2 } from "node:crypto";
 var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
 var DEFAULT_FRAME_OPTIONS = "DENY";
@@ -3669,7 +3716,7 @@ function resolveSecurityHeaders(security, streamingNonce) {
   return headers;
 }
 
-// ../core/src/sitemap.ts
+// ../core/dist/sitemap.js
 function generateSitemapXml(routePaths, domain) {
   const urls = routePaths.filter((routePath) => !routePath.includes("[")).map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -3679,7 +3726,7 @@ ${urls}
 `;
 }
 
-// ../core/src/islandComponent.tsx
+// ../core/dist/islandComponent.js
 var import_react2 = __toESM(require_react(), 1);
 var IslandCollectorContext = (0, import_react2.createContext)(null);
 var IslandStreamingContext = (0, import_react2.createContext)(null);
@@ -3688,7 +3735,7 @@ function clearStreamingModuleCache() {
   streamingModuleCache.clear();
 }
 
-// ../core/src/buildKey.ts
+// ../core/dist/buildKey.js
 import path2 from "node:path";
 function toBuildKey(appRoot, filePath) {
   const rel = path2.relative(appRoot, filePath);
@@ -3696,18 +3743,18 @@ function toBuildKey(appRoot, filePath) {
   return noExt.split(path2.sep).join("/").replace(/[[\]]/g, "_");
 }
 
-// ../core/src/prodRequestHandler.ts
+// ../core/dist/prodRequestHandler.js
 import path4 from "node:path";
 import { pathToFileURL } from "node:url";
 import { readFile as readFile2 } from "node:fs/promises";
 import { existsSync as existsSync2 } from "node:fs";
 
-// ../core/src/renderRoute.ts
+// ../core/dist/renderRoute.js
 function resolveRenderMode(routeModule, appDefault) {
   return routeModule.renderMode ?? appDefault ?? "ssr";
 }
 
-// ../core/src/csrRoute.ts
+// ../core/dist/csrRoute.js
 function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl) {
   const meta = routeModule.meta?.(void 0);
   const canMount = entryUrl !== void 0 && csrClientUrl !== void 0;
@@ -3720,7 +3767,7 @@ function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl) {
   });
 }
 
-// ../core/src/isrCache.ts
+// ../core/dist/isrCache.js
 import path3 from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
@@ -3729,15 +3776,14 @@ function cachePaths(staticOutDir, routePath) {
   const base = path3.resolve(staticOutDir);
   const dir = routePath === "/" ? base : path3.resolve(base, routePath.slice(1));
   if (dir !== base && !dir.startsWith(base + path3.sep)) {
-    throw new Error(
-      `[devora] refusing to write ISR cache for route "${routePath}" \u2014 it resolves outside "${staticOutDir}". Check this route's getStaticParams() for a param value containing "/" or "..".`
-    );
+    throw new Error(`[devora] refusing to write ISR cache for route "${routePath}" \u2014 it resolves outside "${staticOutDir}". Check this route's getStaticParams() for a param value containing "/" or "..".`);
   }
   return { htmlPath: path3.join(dir, "index.html"), metaPath: path3.join(dir, "index.meta.json") };
 }
 async function readCachedRoute(staticOutDir, routePath) {
   const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
-  if (!existsSync(htmlPath)) return void 0;
+  if (!existsSync(htmlPath))
+    return void 0;
   const html = await readFile(htmlPath, "utf-8");
   let renderedAt = 0;
   if (existsSync(metaPath)) {
@@ -3763,7 +3809,7 @@ function isStale(renderedAt, revalidateSeconds) {
   return Date.now() - renderedAt > revalidateSeconds * 1e3;
 }
 
-// ../core/src/apiDispatch.ts
+// ../core/dist/apiDispatch.js
 async function dispatchApiRoute(routeModule, request) {
   if (typeof routeModule.handler !== "function") {
     throw new Error("[devora] API route has no exported `handler` (see apiRoute.ts)");
@@ -3783,7 +3829,7 @@ async function dispatchApiRoute(routeModule, request) {
   return { ...result, setCookie: getSetCookie() };
 }
 
-// ../core/src/readBody.ts
+// ../core/dist/readBody.js
 var MAX_BODY_BYTES = 10 * 1024 * 1024;
 var PayloadTooLargeError = class extends Error {
   constructor(maxBytes) {
@@ -3805,7 +3851,7 @@ async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
   return Buffer.concat(chunks);
 }
 
-// ../core/src/prodRequestHandler.ts
+// ../core/dist/prodRequestHandler.js
 var ASSET_CONTENT_TYPES = {
   ".js": "application/javascript; charset=utf-8",
   ".mjs": "application/javascript; charset=utf-8",
@@ -3834,10 +3880,12 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
     }
-    if (!req.url) return false;
+    if (!req.url)
+      return false;
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/sitemap.xml") {
-      if (!sitemapEnabled) return false;
+      if (!sitemapEnabled)
+        return false;
       const xml = generateSitemapXml(listRoutePaths(routesDir), domain);
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
@@ -3846,7 +3894,8 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     }
     if (url.pathname.startsWith("/api/")) {
       const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
-      if (!apiMatch) return false;
+      if (!apiMatch)
+        return false;
       const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
       const apiRouteModule = await importBuilt(serverOutDir, apiBuildKey);
       let body;
@@ -3869,9 +3918,11 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         sessionCookieOptions,
         body
       });
-      if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+      if (apiResult.setCookie)
+        res.setHeader("Set-Cookie", apiResult.setCookie);
       if (apiResult.headers) {
-        for (const [name, value] of Object.entries(apiResult.headers)) res.setHeader(name, value);
+        for (const [name, value] of Object.entries(apiResult.headers))
+          res.setHeader(name, value);
       }
       res.statusCode = apiResult.status;
       res.end(apiResult.body ?? "");
@@ -3880,20 +3931,20 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     if (url.pathname.startsWith("/assets/")) {
       return serveAsset(clientOutDir, url.pathname, res, true);
     }
-    if (url.pathname.startsWith("/@")) return false;
+    if (url.pathname.startsWith("/@"))
+      return false;
     if (url.pathname.includes(".")) {
       return serveAsset(clientOutDir, url.pathname, res, false);
     }
     const match = matchRoute(routesDir, url.pathname);
-    if (!match) return false;
+    if (!match)
+      return false;
     const buildKey = toBuildKey(appRoot, match.filePath);
     const routeModule = await importBuilt(serverOutDir, buildKey);
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
     if (renderMode === "streaming") {
       if (routeModule.action) {
-        throw new Error(
-          `[devora] route "${match.routePath}" is renderMode: "streaming" but exports action \u2014 actions never run for streaming routes.`
-        );
+        throw new Error(`[devora] route "${match.routePath}" is renderMode: "streaming" but exports action \u2014 actions never run for streaming routes.`);
       }
       const entryServer2 = await importBuilt(serverOutDir, "entry-server");
       const islandClientUrl2 = await readIslandClientUrl(islandManifestPath);
@@ -3906,8 +3957,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         islandClientUrl: islandClientUrl2,
         nonce
       });
-      if (!result2) return false;
-      if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
+      if (!result2)
+        return false;
+      if (result2.setCookie)
+        res.setHeader("Set-Cookie", result2.setCookie);
       res.statusCode = result2.status;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       await new Promise((resolve) => {
@@ -3934,14 +3987,14 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     if (renderMode === "ssg" || renderMode === "isr") {
       let cached = await readCachedRoute(staticOutDir, match.routePath);
       if (renderMode === "ssg") {
-        if (!cached) return false;
+        if (!cached)
+          return false;
       } else {
         if (isDynamicRouteFile(routesDir, match.filePath) && typeof routeModule.getStaticParams === "function") {
           const declaredParams = await routeModule.getStaticParams();
-          const allowed = declaredParams.some(
-            (params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath
-          );
-          if (!allowed) return false;
+          const allowed = declaredParams.some((params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath);
+          if (!allowed)
+            return false;
         }
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || revalidateSeconds !== void 0 && isStale(cached.renderedAt, revalidateSeconds)) {
@@ -3979,8 +4032,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       islandClientUrl,
       appDefaultRenderMode
     });
-    if (!result) return false;
-    if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+    if (!result)
+      return false;
+    if (result.setCookie)
+      res.setHeader("Set-Cookie", result.setCookie);
     if (result.redirectTo) {
       res.statusCode = result.status;
       res.setHeader("Location", result.redirectTo);
@@ -3994,7 +4049,8 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   };
 }
 async function readIslandClientUrl(manifestPath) {
-  if (!existsSync2(manifestPath)) return void 0;
+  if (!existsSync2(manifestPath))
+    return void 0;
   try {
     const raw = await readFile2(manifestPath, "utf-8");
     const parsed = JSON.parse(raw);
@@ -4004,7 +4060,8 @@ async function readIslandClientUrl(manifestPath) {
   }
 }
 async function readCsrManifest(manifestPath) {
-  if (!existsSync2(manifestPath)) return { routes: {} };
+  if (!existsSync2(manifestPath))
+    return { routes: {} };
   try {
     const parsed = JSON.parse(await readFile2(manifestPath, "utf-8"));
     return { csrClientUrl: parsed.csrClientUrl ?? void 0, routes: parsed.routes ?? {} };
@@ -4014,16 +4071,15 @@ async function readCsrManifest(manifestPath) {
 }
 async function serveAsset(clientOutDir, pathname, res, immutable) {
   const filePath = path4.join(clientOutDir, pathname);
-  if (!filePath.startsWith(clientOutDir + path4.sep)) return false;
-  if (!existsSync2(filePath)) return false;
+  if (!filePath.startsWith(clientOutDir + path4.sep))
+    return false;
+  if (!existsSync2(filePath))
+    return false;
   const body = await readFile2(filePath);
   const contentType = ASSET_CONTENT_TYPES[path4.extname(filePath)] ?? "application/octet-stream";
   res.statusCode = 200;
   res.setHeader("Content-Type", contentType);
-  res.setHeader(
-    "Cache-Control",
-    immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600"
-  );
+  res.setHeader("Cache-Control", immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600");
   res.end(body);
   return true;
 }
@@ -4052,13 +4108,13 @@ async function readRawBody(req) {
   return readBodyWithLimit(req);
 }
 
-// ../core/src/islandCallPattern.ts
+// ../core/dist/islandCallPattern.js
 var ISLAND_CALL_RE = /\bisland(?:<[^>]*>)?\(\s*\(\)\s*=>\s*import\(\s*(['"])((?:(?!\1).)+)\1\s*\)\s*\)/g;
 
-// ../core/src/branding.tsx
+// ../core/dist/branding.js
 var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 
-// ../core/src/disposeRegistry.ts
+// ../core/dist/disposeRegistry.js
 function registry() {
   if (!globalThis.__devoraDisposables) {
     globalThis.__devoraDisposables = /* @__PURE__ */ new Map();
@@ -4071,21 +4127,20 @@ function normalizeKey(fileUrlOrPath) {
 function runAndClearDisposable(filePath) {
   const key = normalizeKey(filePath);
   const dispose = registry().get(key);
-  if (!dispose) return;
+  if (!dispose)
+    return;
   registry().delete(key);
   dispose();
 }
 
-// ../core/src/loadProjectConfig.ts
+// ../core/dist/loadProjectConfig.js
 import path5 from "node:path";
 import { existsSync as existsSync3 } from "node:fs";
 import { createJiti } from "jiti";
 async function loadProjectConfig(root = process.cwd()) {
   const configPath = path5.join(root, "devora.config.ts");
   if (!existsSync3(configPath)) {
-    throw new Error(
-      `[devora] no devora.config.ts found at ${configPath}. Every Devora.js project must declare its apps here \u2014 see architecture doc \xA73.`
-    );
+    throw new Error(`[devora] no devora.config.ts found at ${configPath}. Every Devora.js project must declare its apps here \u2014 see architecture doc \xA73.`);
   }
   const jiti = createJiti(import.meta.url, { interopDefault: true });
   const mod = await jiti.import(configPath);
@@ -4099,13 +4154,14 @@ function resolveAppDir(root, appDir) {
   return path5.join(root, appDir);
 }
 
-// ../core/src/loadAppConfig.ts
+// ../core/dist/loadAppConfig.js
 import path6 from "node:path";
 import { existsSync as existsSync4 } from "node:fs";
 import { createJiti as createJiti2 } from "jiti";
 async function loadAppConfig(appRoot) {
   const configPath = path6.join(appRoot, "app.config.ts");
-  if (!existsSync4(configPath)) return {};
+  if (!existsSync4(configPath))
+    return {};
   const jiti = createJiti2(import.meta.url, { interopDefault: true });
   const mod = await jiti.import(configPath);
   return mod.default ?? {};
