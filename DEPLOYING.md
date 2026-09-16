@@ -31,16 +31,37 @@ Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain
 2. `apps/<name>/netlify.toml` is already committed and sets the build command, publish directory,
    the SSR redirect, and the functions directory. **Netlify's dashboard Build settings take
    precedence over `netlify.toml` when both are set** — if the site was created by pointing
-   Netlify at a `vite.config.ts` it auto-detected, it likely already has its own saved Build
-   command/Publish directory, which silently overrides the committed file. Fix once, per site:
-   **Site configuration → Build & deploy → Build settings**, and either clear those two fields
-   entirely, or set them to match `netlify.toml`:
+   Netlify at a `vite.config.ts` it auto-detected (or a **Package directory** got set at any
+   point), that stored setting silently overrides the committed file on every future build.
+   Confirmed directly: a stray `Package directory` value produced a build log reading
+   `No config file was defined: using default values` instead of `Config file: .../netlify.toml`,
+   and the deployed function 404'd on every route as a result. Fix once, per site: **Site
+   configuration → Build & deploy → Build settings → Configure**, and clear **Package directory**
+   entirely (leave it blank) — also clear Build command/Publish directory, or set them to match
+   `netlify.toml` exactly, if either was set:
    - Build command: `cd ../.. && node packages/cli/dist/index.js build --app=<name> --adapter=netlify`
    - Publish directory: `dist/client`
+   - Package directory: (leave blank)
+
+   After fixing this, the build log should read `build.command from netlify.toml` — if it still
+   reads `Build command from Netlify app`, the override is still active.
 3. **Environment variables** — same rules as Vercel above (Site configuration → Environment
    variables).
 4. Deploy — use **Trigger deploy → Clear cache and deploy site** the first time after changing
    dashboard build settings.
+5. If the site builds and deploys but the live URL returns a generic 500 rather than your page,
+   check **Cloud compute → Functions → ssr** for the actual error (the browser never shows it).
+   Netlify's function packager only bundles what it can statically trace from the function's own
+   imports, plus whatever `netlify.toml`'s `included_files` explicitly lists. Two real,
+   previously-undiscovered gaps here were found against actual live deploys, one at a time as each
+   error surfaced: `SyntaxError: Cannot use import statement outside a module` (the adapter's own
+   `package.json`, `{"type":"module"}`, wasn't reaching the deployed bundle) and
+   `Error: Cannot find package 'react'` (the vendored `react`/`react-dom` in the function's own
+   `node_modules` hit the identical blind spot). Both are already fixed in every committed
+   `netlify.toml` (`included_files` lists `routes/**`, `api/**`, `dist/**`, `package.json`, and
+   `node_modules/**`) — documented here in case a future platform change reintroduces the same
+   class of gap: anything the function reads from disk at runtime instead of statically importing
+   has to be named in that list explicitly, or it silently never reaches the deployed function.
 
 ## Docker
 

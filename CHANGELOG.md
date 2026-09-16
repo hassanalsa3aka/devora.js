@@ -10,6 +10,50 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## 2026-09-16
+
+- **`@devorajs/core` 0.2.0**, **`@devorajs/cli` 0.2.0**, **`@devorajs/adapter-vercel` 0.1.2**,
+  **`@devorajs/adapter-netlify` 0.1.3**, **`create-devora` 0.1.4**: version bumps for everything
+  below, v2 feature work plus a real internal security audit and its fixes.
+- **v2 backend capability**: `defineModule()` (explicit domain modules, no DI container, ever),
+  generic API routes (`apiRoute()` under `apps/<name>/api/**`, same router as page routes), native
+  middleware (`withMiddleware()`) plus optional `fromExpressMiddleware()`/`fromFastifyPlugin()`
+  ecosystem adapters, backend-only apps (`backendOnly: true`, no client build/routes/ at all), and
+  `getStaticParams()` for `ssg`/`isr` on a dynamic route.
+- **v2 repo-splitting**: `devora split <app|backend> --repo=<url>` converts an app (or the shared
+  backend) into a real git submodule with its full commit history preserved (`git subtree split`,
+  not a flattened snapshot); `devora sync [names...] --from-main|--to-main` and `devora status`
+  round out the workflow.
+- **v2 streaming render mode**: `renderMode: "streaming"` — the page shell sends immediately, each
+  `<Island>`'s real content patches in as its import resolves, using React's own Suspense contract
+  (`renderToPipeableStream`) instead of the two-pass model every other render mode uses.
+- **Security hardening pass**, found and fixed via a real internal audit (every finding
+  independently reproduced, not assumed):
+  - Cross-app session cookies are now cryptographically bound to their own cookie name — an
+    `"isolated"` app stays isolated even if it shares a secret with the shared app, closing a real
+    forged-cookie cross-app replay.
+  - `devora start` now sets `NODE_ENV=production` itself (previously relied on the caller).
+  - Request bodies are capped (10MB default) across every API route and form action, dev and prod.
+  - Streaming connections time out (30s default) instead of holding a connection open indefinitely.
+  - Path traversal closed in the repo-splitting CLI (a crafted `.gitmodules`/`devora.config.ts`
+    path could run git commands, or delete a directory, outside the project root) and in the ISR
+    disk cache (a tainted `getStaticParams()` value could write/delete outside its own output dir).
+  - The Fastify adapter's routes were keyed by path only — registering `GET`/`POST` at the same
+    path silently collapsed to whichever was registered last, answering *every* method. Now keyed
+    by path and method, with a real `405` for anything undeclared.
+  - API routes gained an optional `methods` export — an undeclared HTTP method now gets a `405`
+    before the handler runs, closing a silent-fallthrough footgun the framework's own shipped
+    example (`apps/dashboard/api/hello.ts`) demonstrated.
+- **Real Netlify deploy fixes**, found against actual live deploys, not local simulation — Netlify's
+  function packager only bundles what it can statically trace from the function's own imports, plus
+  whatever `netlify.toml`'s `included_files` explicitly lists. Three things the adapter writes to
+  the function directory hit this blind spot one at a time as each error surfaced in production:
+  a `package.json` (`{"type":"module"}`, fixing `SyntaxError: Cannot use import statement outside a
+  module`), and the vendored `node_modules` (fixing `Cannot find package 'react'`) — both now listed
+  in every app's committed `netlify.toml` and the scaffolder template.
+- **Docs**: `README.md`, `DEPLOYING.md`, `VERIFICATION.md`, and every package's own `README.md`
+  updated for all of the above.
+
 ## 2026-09-09
 
 - **CI**: fixed `.github/workflows/ci.yml`'s pnpm install step, which was failing fast on every

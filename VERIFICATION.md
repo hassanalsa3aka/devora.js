@@ -25,9 +25,22 @@ Real Vitest unit tests exist for `@devorajs/core` and one CLI utility — nowher
 | `packages/core/src/__tests__/middleware.test.ts` | Native middleware composition; `fromExpressMiddleware()` against the real published `cors` package |
 | `packages/core/src/__tests__/fastifyAdapter.test.ts` | `fromFastifyPlugin()` route adaptation, unsupported-method rejection |
 | `packages/core/src/__tests__/disposeRegistry.test.ts` | Reload-safety dispose hook registry |
+| `packages/core/src/__tests__/readBody.test.ts` | Request-body size cap — rejects an oversized body instead of buffering it unbounded, destroys the underlying stream when the limit is hit |
 | `packages/cli/src/build/__tests__/checkNoAuthUsage.test.ts` | Build-time `auth: "none"` misuse detection (routes and API routes) |
-| `packages/cli/src/build/__tests__/gitHelpers.test.ts` | Real git plumbing behind `devora split`/`sync`/`status` — status parsing, ahead/behind counts, real merge-conflict detection |
+| `packages/cli/src/build/__tests__/gitHelpers.test.ts` | Real git plumbing behind `devora split`/`sync`/`status` — status parsing, ahead/behind counts, real merge-conflict detection, path-containment (`assertInsideRoot`) against a crafted `.gitmodules`/config path escaping the project root |
+| `packages/cli/src/build/__tests__/resolveSplitTarget.test.ts` | Resolves `devora split`/`sync <name>` to the right directory, including the same path-containment check |
+| `packages/cli/src/commands/__tests__/generate-proxy.test.ts` | nginx/Caddy reverse-proxy config generation from `devora.config.ts` domains |
 | `packages/cli/src/server/__tests__/moduleDisposePlugin.test.ts` | The dispose-hook Vite plugin's own hook logic |
+
+Several existing files above also gained real regression tests from the v2 security audit worth
+calling out specifically: `session.test.ts` (a cookie signed for one cookie name is rejected under
+a different name, even with an identical secret — the real cross-app forgery fix), `isrCache.test.ts`
+(a route path escaping the static output directory is refused, for both writes and deletes),
+`securityHeaders.test.ts` (`script-src-elem` directive handling), `apiDispatch.test.ts` (the
+`methods` allowlist rejects an undeclared method before the handler runs), `fastifyAdapter.test.ts`
+(two different HTTP methods registered at the same path no longer collapse to one handler), and
+`renderStreaming.test.ts` (a hung Suspense boundary is aborted by the connection timeout instead of
+hanging forever).
 
 `.github/workflows/ci.yml` also runs a real `devora build` for every app under all three build
 targets (plain, `--adapter=vercel`, `--adapter=netlify`) on every push, which catches build-time
@@ -35,9 +48,9 @@ breakage (missing deps, bad imports, TypeScript errors) even though it isn't a b
 
 **Not covered by any automated test**: `@devorajs/adapter-vercel`, `@devorajs/adapter-netlify`,
 `@devorajs/adapter-node`, `@devorajs/scaffold`, `@devorajs/backend`, `create-devora`, the three
-example apps, Docker, the nginx/Caddy proxy generator, and every CLI command except the build-time
-checks and git-plumbing logic above (`devora split`/`sync`/`status`'s own real-git-repo behavior —
-as opposed to the plumbing functions themselves — is manually verified below, not automated).
+example apps, Docker, and every CLI command except the build-time checks and git-plumbing logic
+above (`devora split`/`sync`/`status`'s own real-git-repo behavior — as opposed to the plumbing
+functions themselves — is manually verified below, not automated).
 
 ## Manually verified, not automated
 
@@ -81,7 +94,10 @@ by hand. Areas covered this way:
   ancestor `node_modules`) with `react`/`react-dom` hand-placed to simulate a platform's own
   dependency tracer
 - Real, live production deployments to Vercel and Netlify (all three apps, both platforms — see
-  the live demo links in `README.md`)
+  the live demo links in `README.md`), including the `netlify.toml` `included_files` fixes
+  (`package.json`, `node_modules`) — found and confirmed fixed against the actual live sites'
+  function logs, not a local simulation of Netlify's own packaging step, which no local
+  reproduction fully replicates (see `DEPLOYING.md`'s Netlify section).
 - Docker (`docker build`/`run`/`compose up`), including the full login/CSRF/cookie regression
   re-run inside a running container
 - `devora generate:proxy` against a real local nginx and a real local Caddy binary

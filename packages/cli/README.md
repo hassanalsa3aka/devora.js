@@ -23,6 +23,9 @@ unusual (e.g. scripting against a project without going through `create-devora` 
 | `devora remove <name>` | Delete an app and its `devora.config.ts` entry. |
 | `devora list` | List every app registered in `devora.config.ts`. |
 | `devora generate:proxy --target=nginx\|caddy` | Generate a reverse-proxy config from your apps' domains, for self-hosting. |
+| `devora split <app-name\|backend> --repo=<url>` | Convert an app (or the shared backend) into a real git submodule pointing at an empty remote you created first — preserves its full commit history. |
+| `devora sync [names...] --from-main\|--to-main` | Pull or push a split-off app/backend against its own remote; `--all` targets every split-off piece. |
+| `devora status` | One view across every split-off app/backend: up to date, unpushed, unpulled, or diverged. |
 
 ## Full documentation
 
