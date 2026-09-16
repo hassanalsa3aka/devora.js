@@ -45,9 +45,35 @@ delete merged.publishConfig; // the published package.json shouldn't carry a now
 writeFileSync(pkgJsonPath, JSON.stringify(merged, null, 2) + "\n");
 console.log(`[publish-package] swapped ${pkgJsonPath} to its publish-time shape (main/types/exports -> dist).`);
 
+// Real bug fixed here: a Ctrl+C (or any kill) while `npm publish` is blocked
+// waiting on its interactive browser-based OTP prompt reaches BOTH this
+// script's own process and the spawned npm child at once (same foreground
+// process group) — Node's *default* SIGINT behavior is to terminate
+// immediately, which can win the race against the `finally` below before it
+// ever runs, leaving package.json stuck in its publish-time (dist-pointing)
+// shape. Confirmed this happened for real: two separate publish attempts
+// left package.json swapped with no restore, breaking local/CI builds that
+// need `./src/*.ts` resolution. Registering explicit signal handlers
+// suppresses Node's auto-exit-on-signal behavior, so once the (also-killed)
+// child returns control to this script, the restore below still runs.
+let restored = false;
+function restore() {
+  if (restored) return;
+  restored = true;
+  writeFileSync(pkgJsonPath, original);
+  console.log(`[publish-package] restored ${pkgJsonPath} to its local-dev shape (main/types/exports -> src).`);
+}
+process.on("SIGINT", () => {
+  restore();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  restore();
+  process.exit(143);
+});
+
 try {
   execFileSync("npm", ["publish", ...rest], { cwd: pkgDir, stdio: "inherit" });
 } finally {
-  writeFileSync(pkgJsonPath, original);
-  console.log(`[publish-package] restored ${pkgJsonPath} to its local-dev shape (main/types/exports -> src).`);
+  restore();
 }

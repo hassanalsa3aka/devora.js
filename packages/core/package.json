@@ -17,29 +17,37 @@
   "scripts": {
     "build": "tsc"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./dist/config.js"
-    },
-    "./config-loader": {
-      "types": "./dist/configLoader.d.ts",
-      "default": "./dist/configLoader.js"
-    },
-    "./client": {
-      "types": "./dist/client.d.ts",
-      "default": "./dist/client.js"
-    }
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./config-loader": "./src/configLoader.ts",
+    "./client": "./src/client.ts"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "default": "./dist/config.js"
+      },
+      "./config-loader": {
+        "types": "./dist/configLoader.d.ts",
+        "default": "./dist/configLoader.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "default": "./dist/client.js"
+      }
+    }
+  },
   "dependencies": {
     "jiti": "^2.3.0"
   },
