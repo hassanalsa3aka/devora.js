@@ -10,7 +10,11 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## Unreleased — scaffolder scope (hotfix #12), not yet published
+## Unreleased — scaffolder scope (hotfix #12)
+
+- **`@devorajs/core` 0.3.1**, **`@devorajs/cli` 0.3.1**, **`@devorajs/adapter-vercel` 0.2.1**,
+  **`@devorajs/adapter-netlify` 0.2.1**, **`create-devora` 0.3.0**: version bumps for everything
+  below. `devora --version` now reports the real CLI version (it was hard-coded to `0.1.0`).
 
 - **`create-devora`**: new "What do you need?" prompt / `--scope=fullstack|frontend|backend`
   (default full-stack). Frontend-only projects get no `packages/backend`; backend-only projects get

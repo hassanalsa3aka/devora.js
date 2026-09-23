@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The devora CLI \u2014 dev/build/start/deploy for a devora.js project, plus repo-splitting (split/sync/status).",
   "license": "MIT",
   "repository": {

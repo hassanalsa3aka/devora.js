@@ -1,4 +1,4 @@
-import { chmod } from "node:fs/promises";
+import { chmod, readFile } from "node:fs/promises";
 import * as esbuild from "esbuild";
 
 /**
@@ -58,8 +58,14 @@ import * as esbuild from "esbuild";
  * confirmed by inspecting the actual bundled output below rather than
  * assuming either way.
  */
+// The CLI's --version comes from package.json at build time — it used to be
+// a hard-coded "0.1.0" that nobody updated, so `devora --version` reported
+// 0.1.0 on the published 0.3.0.
+const { version } = JSON.parse(await readFile(new URL("./package.json", import.meta.url), "utf-8"));
+
 const result = await esbuild.build({
   entryPoints: ["src/index.ts"],
+  define: { __DEVORA_CLI_VERSION__: JSON.stringify(version) },
   bundle: true,
   platform: "node",
   format: "esm",

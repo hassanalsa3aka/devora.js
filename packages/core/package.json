@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/core",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Devora.js framework internals \u2014 SSR/streaming request handling, sessions/CSRF, security headers, islands, backend modules, generic API routes, middleware, config loading. Not a standalone library; used by @devorajs/cli-scaffolded apps.",
   "license": "MIT",
   "repository": {

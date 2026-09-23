@@ -12,12 +12,16 @@ import { split } from "./commands/split.js";
 import { sync } from "./commands/sync.js";
 import { status } from "./commands/status.js";
 
+// Replaced with package.json's version by build.mjs (esbuild `define`);
+// undefined only when running from source via tsx.
+declare const __DEVORA_CLI_VERSION__: string | undefined;
+
 const program = new Command();
 
 program
   .name("devora")
   .description("Devora.js CLI — the multi-app, security-first framework")
-  .version("0.1.0");
+  .version(typeof __DEVORA_CLI_VERSION__ === "string" ? __DEVORA_CLI_VERSION__ : "0.0.0-source");
 
 program
   .command("dev")

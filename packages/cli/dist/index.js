@@ -6580,7 +6580,7 @@ async function status() {
 
 // src/index.ts
 var program = new Command();
-program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version("0.1.0");
+program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version(true ? "0.3.1" : "0.0.0-source");
 program.command("dev").description("Run all apps in dev mode (or one with --app)").option("--app <name>", "run only this app").option(
   "--host",
   "listen on all network interfaces (so a phone/other device on your LAN can reach it) \u2014 off by default"
