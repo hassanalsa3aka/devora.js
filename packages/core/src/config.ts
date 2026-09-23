@@ -33,6 +33,38 @@ export interface AppConfig {
    * called, and no session-related env var is ever required or read.
    */
   auth?: AuthMode;
+  /**
+   * Preferred `devora dev` port for this app. Default: 10000 + this app's
+   * index in `apps` (declaration order). If the port is taken, dev moves to
+   * the next free one and says so. Doesn't affect `devora start`.
+   */
+  devPort?: number;
+}
+
+/**
+ * Server-side session storage for every app with auth "shared"/"isolated"
+ * (session.ts, sessionStore.ts). Ignored by "none" apps.
+ */
+export interface SessionsConfig {
+  /**
+   * Where session records live:
+   * - a path, relative to the project root, to a module whose default
+   *   export is a `SessionStore` (`defineSessionStore({ get, set, delete })`)
+   *   backed by your own DB/cache — what production should use;
+   * - `"memory"` — an in-process map. Fine for dev and a single long-lived
+   *   `devora start` process; wrong for serverless (Vercel/Netlify), where
+   *   each instance would have its own empty map.
+   *
+   * Unset: dev falls back to memory with a warning; a production server
+   * refuses to start (same posture as a missing session secret) rather
+   * than silently picking memory.
+   */
+  store?: "memory" | (string & {});
+  /** Seconds a new or just-renewed session stays "active". Default 86400 (1 day). */
+  activeSeconds?: number;
+  /** Seconds after that it stays usable ("idle", renewed on use) before it's
+   * "dead". Default 1209600 (14 days). */
+  idleSeconds?: number;
 }
 
 export interface SharedConfig {
@@ -44,6 +76,7 @@ export interface SharedConfig {
    * including overriding a "none" project default up to "shared"/"isolated"
    * for one app that does need login, or vice versa. */
   auth: AuthMode;
+  sessions?: SessionsConfig;
 }
 
 export interface ProjectConfig {

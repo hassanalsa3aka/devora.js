@@ -73,6 +73,12 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
   // skips it — nothing to render). existsSync-guarded the same way.
   const entryServerPath = path.join(serverOutDir, "entry-server.js");
   const entryPoints = existsSync(entryServerPath) ? [entryServerPath] : [];
+  // The project's session store module (buildAppServer.ts bundles it as
+  // dist/server/session-store.js when shared.sessions.store is a module
+  // path). Bundled in the same splitting pass as the routes, so a DB client
+  // module both it and an API route import is one shared instance, not two.
+  const sessionStorePath = path.join(serverOutDir, "session-store.js");
+  if (existsSync(sessionStorePath)) entryPoints.push(sessionStorePath);
   await esbuild.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,

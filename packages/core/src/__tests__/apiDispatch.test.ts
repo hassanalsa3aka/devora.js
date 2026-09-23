@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { dispatchApiRoute } from "../apiDispatch.js";
 import { apiRoute } from "../apiRoute.js";
+import { HttpError } from "../httpError.js";
 import { createRequestContext } from "../session.js";
+import { createMemorySessionStore } from "../sessionStore.js";
 import { CSRF_COOKIE_NAME } from "../csrf.js";
 import type { SessionCookieOptions } from "../session.js";
 
-const opts: SessionCookieOptions = { name: "devora_session", secret: "test-secret" };
+const opts: SessionCookieOptions = { name: "devora_session", secret: "test-secret", store: createMemorySessionStore() };
 
 function baseRequest(overrides: Partial<Parameters<typeof dispatchApiRoute>[1]> = {}) {
   return {
@@ -47,13 +49,13 @@ describe("dispatchApiRoute", () => {
     expect(result.body).toBe("created");
   });
 
-  it("a real session-carrying app: requireAuth() reflects an actual signed cookie", async () => {
-    // Build a real signed session cookie the same way session.test.ts does,
-    // then confirm dispatchApiRoute's ctx sees it as authenticated — this is
-    // the "sessions apply correctly to API routes too" requirement
+  it("a real session-carrying app: requireAuth() reflects an actual session cookie", async () => {
+    // Establish a real session the same way session.test.ts does, then
+    // confirm dispatchApiRoute's ctx sees it as authenticated — this is the
+    // "sessions apply correctly to API routes too" requirement
     // (architecture-v2.md §3.2.2), exercised for real, not just via ctx's type.
-    const established = createRequestContext(undefined, opts);
-    established.ctx.setSession({ userId: "u1" });
+    const established = await createRequestContext({}, opts);
+    await established.ctx.setSession({ userId: "u1" });
     const setCookies = established.getSetCookie() ?? [];
     const sessionCookie = setCookies.find((c) => c.startsWith("devora_session="))!;
     const cookieHeader = sessionCookie.split(";")[0];
@@ -72,7 +74,7 @@ describe("dispatchApiRoute", () => {
 
   it("ctx.verifyCsrf() accepts a header-token string (not just FormData) for a same-origin API call", async () => {
     // First "request" establishes the CSRF cookie (same as a page render would).
-    const first = createRequestContext(undefined, opts);
+    const first = await createRequestContext({}, opts);
     const csrfCookie = (first.getSetCookie() ?? []).find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`))!;
     const csrfCookieValue = csrfCookie.split(";")[0];
 
@@ -97,12 +99,12 @@ describe("dispatchApiRoute", () => {
       ctx.verifyCsrf("not-the-real-token");
       return { status: 200, body: "should not reach here" };
     });
-    await expect(
-      dispatchApiRoute(
-        { handler: badHandler },
-        baseRequest({ method: "POST", cookieHeader: `${csrfCookieValue}`, sessionCookieOptions: opts })
-      )
-    ).rejects.toThrow(/missing or invalid CSRF token/);
+    const badResult = await dispatchApiRoute(
+      { handler: badHandler },
+      baseRequest({ method: "POST", cookieHeader: `${csrfCookieValue}`, sessionCookieOptions: opts })
+    );
+    expect(badResult.status).toBe(403);
+    expect(JSON.parse(String(badResult.body))).toEqual({ message: "Missing or invalid CSRF token" });
   });
 
   it("collects Set-Cookie from a handler that calls ctx.setSession()", async () => {
@@ -167,6 +169,95 @@ describe("dispatchApiRoute", () => {
         await dispatchApiRoute({ handler, methods: ["GET", "POST"] }, baseRequest({ method }));
       }
       expect(seen).toEqual(["GET", "POST"]);
+    });
+  });
+
+  describe("JSON error contract (devora-pre-v3-hotfixes.md #2)", () => {
+    const parse = (body: unknown) => JSON.parse(String(body)) as { message: string };
+
+    it("apiRoute() itself is no longer a no-op: calling the wrapped handler directly turns a throw into JSON", async () => {
+      const wrapped = apiRoute(() => {
+        throw new Error("kaboom");
+      });
+      const { ctx } = await createRequestContext({}, opts);
+      const result = await wrapped(
+        { method: "GET", url: "/api/x", headers: {}, params: {}, body: Buffer.from("") },
+        ctx
+      );
+      expect(result.status).toBe(500);
+      expect(result.headers?.["Content-Type"]).toMatch(/^application\/json/);
+      expect(parse(result.body)).toEqual({ message: "kaboom" });
+    });
+
+    it("a handler exported WITHOUT apiRoute() still gets JSON — the dispatcher is its own chokepoint", async () => {
+      const result = await dispatchApiRoute(
+        {
+          handler: () => {
+            throw new Error("unwrapped kaboom");
+          },
+        },
+        baseRequest()
+      );
+      expect(result.status).toBe(500);
+      expect(parse(result.body)).toEqual({ message: "unwrapped kaboom" });
+    });
+
+    it("an HttpError keeps its status and message", async () => {
+      const handler = apiRoute(() => {
+        throw new HttpError(409, "already exists");
+      });
+      const result = await dispatchApiRoute({ handler }, baseRequest());
+      expect(result.status).toBe(409);
+      expect(parse(result.body)).toEqual({ message: "already exists" });
+    });
+
+    it("an app's own error class with a numeric `status` (duck-typed) keeps it too, not flattened to 500", async () => {
+      class ApiError extends Error {
+        constructor(
+          public readonly status: number,
+          message: string
+        ) {
+          super(message);
+        }
+      }
+      const handler = apiRoute(() => {
+        throw new ApiError(401, "Authentication required");
+      });
+      const result = await dispatchApiRoute({ handler }, baseRequest());
+      expect(result.status).toBe(401);
+      expect(parse(result.body)).toEqual({ message: "Authentication required" });
+    });
+
+    it("ctx.requireAuth() failing is a 401 JSON response, not a 500", async () => {
+      const handler = apiRoute((_req, ctx) => {
+        ctx.requireAuth();
+        return { status: 200 };
+      });
+      const result = await dispatchApiRoute({ handler }, baseRequest({ sessionCookieOptions: opts }));
+      expect(result.status).toBe(401);
+      expect(parse(result.body)).toEqual({ message: "Authentication required" });
+    });
+
+    it("in production an unexpected error's message is hidden (logged server-side, not leaked)", async () => {
+      const original = process.env.NODE_ENV;
+      process.env.NODE_ENV = "production";
+      try {
+        const handler = apiRoute(() => {
+          throw new Error("SELECT * FROM users -- internal detail");
+        });
+        const result = await dispatchApiRoute({ handler }, baseRequest());
+        expect(result.status).toBe(500);
+        expect(parse(result.body)).toEqual({ message: "Internal Server Error" });
+      } finally {
+        process.env.NODE_ENV = original;
+      }
+    });
+
+    it("a 405 carries a JSON body too", async () => {
+      const handler = apiRoute(() => ({ status: 200 }));
+      const result = await dispatchApiRoute({ handler, methods: ["GET"] }, baseRequest({ method: "POST" }));
+      expect(result.status).toBe(405);
+      expect(parse(result.body)).toEqual({ message: "Method Not Allowed" });
     });
   });
 });

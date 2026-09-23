@@ -40,6 +40,8 @@ export interface RenderStreamingDeps {
 
 export interface RenderStreamingRequest {
   cookieHeader?: string;
+  /** The raw `Authorization` header, if any — see RenderRouteRequest's. */
+  authorizationHeader?: string | string[];
   params?: Record<string, string>;
   sessionCookieOptions?: SessionCookieOptions;
   islandClientUrl?: string;
@@ -107,8 +109,12 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, getSetCookie } = request.sessionCookieOptions
-      ? createRequestContext(request.cookieHeader, request.sessionCookieOptions, request.params)
+    const { ctx, getSetCookie, settle } = request.sessionCookieOptions
+      ? await createRequestContext(
+          { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
+          request.sessionCookieOptions,
+          request.params
+        )
       : createNoAuthContext(request.params);
 
     // Awaited before any HTML is written — real headers (including
@@ -118,6 +124,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     // one; only setSession()/clearSession() can, and those aren't
     // reachable without an `action`, which this render mode doesn't run).
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+    await settle();
     const meta = routeModule.meta?.(data);
 
     const islandTracker: StreamingIslandTracker = { hasIsland: false };

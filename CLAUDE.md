@@ -44,9 +44,10 @@ Scaffolded and structurally real:
   `action` then `loader` run, component rendered to HTML). Verified end-to-end against
   `apps/dashboard/routes/settings.tsx` and `apps/admin/routes/bulk-import.tsx`. See `ROADMAP.md`
   #1 for what it does and doesn't cover.
-- Request context / sessions — `ctx.setSession()`/`ctx.requireAuth()`/`ctx.session` are backed by a
-  real signed cookie (`packages/core/src/session.ts`, HMAC via Node's built-in `crypto`, no new
-  dependency). This is where "shared auth by default, per-app isolated override" (the locked
+- Request context / sessions — `ctx.setSession()`/`ctx.requireAuth()`/`ctx.session` are backed by an
+  opaque, server-side, revocable session (`packages/core/src/session.ts` + `sessionStore.ts`; was a
+  signed cookie until the pre-v3 hotfixes — see `devora-pre-v3-hotfixes.md`), carried by HttpOnly
+  cookie or `Authorization: Bearer`, no new dependency. This is where "shared auth by default, per-app isolated override" (the locked
   decision above) stops being config-shape and starts being enforced: shared apps get one
   project-wide cookie, `apps/admin` (`auth: "isolated"`) gets its own cookie name and can be given
   its own secret. Verified end-to-end, including that a tampered cookie is rejected. Checking who
@@ -345,6 +346,14 @@ turned out to be 100% framework internals now (not the user-space code its old `
 implied), while `packages/backend` and every scaffolded app genuinely are user-owned and correctly
 kept `@project/*`. Full regression (all CLI commands, all three apps, cross-package calls) re-run
 under both pnpm and a fresh npm install after the rename.
+
+**Pre-v3 hotfixes (staged, not committed/published)** — `devora-pre-v3-hotfixes.md` is the source
+of truth. In short: `api/**` always returns JSON (`apiRoute()` really wraps now; unmatched
+`/api/**` is a JSON 404); unified session auth (opaque IDs in a bring-your-own `SessionStore`,
+cookie + Bearer through one lookup, `ctx.revokeSession()`, active/idle/dead, CSRF only for cookie
+auth — `shared.sessions.store` in `devora.config.ts`, production refuses to start without it);
+`devora dev --host`, LAN URLs + exposure warning, route table on boot, dev ports 10000+index.
+Covered by real-server integration tests in `packages/cli/src/server/__tests__/`.
 
 ## Suggested next task
 

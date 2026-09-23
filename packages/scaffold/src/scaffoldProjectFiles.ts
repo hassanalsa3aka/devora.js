@@ -46,6 +46,10 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
         version: "0.1.0",
         scripts: {
           dev: "devora dev",
+          // Opt-in LAN exposure (phone/device testing) — never the default
+          // `dev` script; see the generated README's "Testing on another
+          // device" section for what it exposes.
+          "dev:host": "devora dev --host",
           build: "devora build",
           start: "devora start",
         },
@@ -140,6 +144,12 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
       `    core: "packages/core",\n` +
       `    backend: "packages/backend",\n` +
       `    auth: "shared",\n` +
+      `    // Where login sessions are stored server-side. Unset, \`devora dev\` uses\n` +
+      `    // an in-memory store (with a warning) and a production server refuses to\n` +
+      `    // start. Set it to a module path whose default export is a SessionStore\n` +
+      `    // backed by your database (defineSessionStore from @devorajs/core), or to\n` +
+      `    // "memory" for a single long-lived \`devora start\` process (not serverless).\n` +
+      `    // sessions: { store: "packages/backend/sessionStore.ts" },\n` +
       `  },\n` +
       `});\n`
   );
@@ -151,7 +161,18 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
       `## Apps\n\n` +
       apps.map((a) => `- **${a.name}** (\`apps/${a.name}\`) — auth: \`${a.auth}\`, domain: \`${a.domain}\`\n`).join("") +
       `\n## Getting started\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n\n` +
-      `See \`devora.config.ts\` to add/remove apps, or run \`npx devora add <name>\`.\n`
+      `Each app gets its own port, starting at 10000 in \`devora.config.ts\` order (set \`devPort\` on an\n` +
+      `app to pick one). \`devora dev\` prints every app's URL and route table on boot.\n\n` +
+      `See \`devora.config.ts\` to add/remove apps, or run \`npx devora add <name>\`.\n\n` +
+      `## Testing on another device (phone, tablet)\n\n` +
+      `By default the dev server only listens on this machine (\`localhost\`). To reach it from a phone\n` +
+      `on the same Wi-Fi, opt in explicitly:\n\n` +
+      `\`\`\`bash\nnpm run dev:host   # same as: npx devora dev --host\n\`\`\`\n\n` +
+      `This binds all network interfaces and prints a \`Network:\` URL (your LAN IP) and the API base URL\n` +
+      `for each app — use those on the other device. It also prints a warning, because while it's on,\n` +
+      `**anyone on the same network can reach your dev server** (on shared/office/café Wi-Fi, that's\n` +
+      `strangers too). Use it on networks you trust, and stop it when you're done. This is a dev-only\n` +
+      `concern: production goes through \`devora build\` + an adapter, not the dev server.\n`
   );
 
   // Shared backend — same starter shape apps/*'s own package.json already

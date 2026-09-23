@@ -11,11 +11,15 @@ export function createBuildTimeContext(params: Record<string, string> = {}): Req
   return {
     params,
     session: undefined,
+    sessionTransport: undefined,
     requireAuth: () => {
       throw new Error("[devora] requireAuth() is not available at build time (ssg/isr routes render without a request)");
     },
     setSession: () => {
       throw new Error("[devora] setSession() is not available at build time (ssg/isr routes render without a request)");
+    },
+    revokeSession: () => {
+      throw new Error("[devora] revokeSession() is not available at build time (ssg/isr routes render without a request)");
     },
     clearSession: () => {
       throw new Error("[devora] clearSession() is not available at build time (ssg/isr routes render without a request)");

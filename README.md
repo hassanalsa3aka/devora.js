@@ -58,6 +58,10 @@ pnpm install
 pnpm exec devora dev --app=dashboard
 ```
 
+Each app gets its own port starting at `10000` (in `devora.config.ts` order), and `devora dev`
+prints every app's URL and route table when it boots. To test from a phone on the same Wi-Fi, add
+`--host` — it's off by default because it exposes the dev server to everyone on that network.
+
 Or start a brand-new standalone project, outside this repo:
 
 ```bash
@@ -74,8 +78,14 @@ under each.
 - **SSR, SSG, CSR, ISR, streaming** — set per route, explicitly.
 - **Islands** — `island(() => import("./Widget"))` hydrates just that component; the rest of the
   page stays static HTML.
-- **Sessions & CSRF built in** — three auth modes per app: `shared`, `isolated`, or `none` (skip
-  the whole cookie/session carrier for apps that don't need login, like a marketing site).
+- **Sessions & CSRF built in** — one opaque, server-side, revocable session primitive for both
+  browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF enforced
+  only where cookies are involved. Three auth modes per app: `shared`, `isolated`, or `none` (no
+  sessions at all, for apps that don't need login, like a marketing site). Session storage is
+  bring-your-own — see `packages/backend/AUTH.md`.
+- **API routes speak JSON, always** — a thrown error in an `api/**` handler is a `{ message }`
+  JSON response with the right status (never an HTML error page), and an unmatched `/api/**` path
+  is a JSON 404.
 - **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
@@ -103,8 +113,9 @@ cookie, a crafted `.gitmodules` path, an oversized request body) before being fi
 from a description:
 
 - **Cross-app session isolation is cryptographically real**, not just cookie-name-based — the
-  cookie name is now bound into the signed session's HMAC input, so an `"isolated"` app stays
-  isolated from the shared app even if the two happen to share a secret.
+  app's cookie name (its auth scope) is bound into the HMAC that derives a session's store key, so
+  an `"isolated"` app stays isolated from the shared app even if the two share a secret and a store,
+  on the cookie *and* the Bearer transport.
 - **Request bodies are capped** (10MB default) across every API route and form action.
 - **Streaming connections time out** (30s default) instead of holding a connection open
   indefinitely if a Suspense boundary never resolves.

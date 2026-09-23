@@ -10,6 +10,29 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased (pre-v3 hotfixes — staged, not yet published)
+
+See `devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly what changed.
+
+- **`@devorajs/core`, BREAKING — unified session auth.** Sessions are now opaque random IDs backed
+  by a server-side `SessionStore` (bring your own; `"memory"` for dev/single-process), replacing
+  the signed-payload cookie. One lookup serves both `Authorization: Bearer` and the HttpOnly
+  cookie; `ctx.revokeSession()` kills a session on both immediately; sessions go active → idle
+  (silently renewed on use) → dead; `ctx.verifyCsrf()` is skipped for Bearer-authenticated
+  requests. `setSession`/`clearSession` now return promises; `requireAuth()`/`verifyCsrf()` throw a
+  401/403 `HttpError`. Production refuses to start without `shared.sessions.store` in
+  `devora.config.ts`. Existing signed session cookies are treated as dead (users log in once more).
+  `signSession`/`verifySession` are deprecated.
+- **`@devorajs/core`/`@devorajs/cli` — `api/**` always speaks JSON.** `apiRoute()` now wraps its
+  handler (it was a runtime no-op), and the dispatcher catches too: any throw becomes
+  `{ message }` JSON with the error's status (message hidden for unexpected errors in
+  production); an unmatched `/api/**` path (including bare `/api`) is a JSON 404. Page routes are
+  unchanged.
+- **`@devorajs/cli` — dev experience.** `devora dev --host` (opt-in) binds all interfaces, prints
+  LAN URLs plus each app's API base URL, and warns that the server is reachable on the network.
+  Dev ports default to 10000 + the app's index (`devPort` overrides), falling forward past taken
+  ports with a log line. Boot output now includes each app's route table.
+
 ## 2026-09-16
 
 - **`@devorajs/core` 0.2.0**, **`@devorajs/cli` 0.2.0**, **`@devorajs/adapter-vercel` 0.1.2**,

@@ -4,7 +4,6 @@ import {
   matchRoute,
   listRoutePaths,
   generateSitemapXml,
-  resolveSessionCookieOptions,
   resolveRenderMode,
   renderCsrShell,
   resolveSecurityHeaders,
@@ -17,6 +16,8 @@ import {
   type RouteModule,
   type SessionCookieOptions,
 } from "@devorajs/core";
+import type { SessionsConfig } from "@devorajs/core";
+import { createDevSessionOptionsResolver } from "./devSessionOptions.js";
 import { REACT_REFRESH_PREAMBLE_VIRTUAL_ID } from "./reactRefreshPreamblePlugin.js";
 
 // See reactRefreshPreamblePlugin.ts's doc comment — "/@id/" is Vite's own
@@ -51,8 +52,9 @@ export function createSsrMiddleware(
   authMode: AuthMode,
   domain: string,
   sitemapEnabled: boolean,
-  appDefaultRenderMode?: RenderMode,
-  security?: AppRuntimeConfig["security"]
+  appDefaultRenderMode: RenderMode | undefined,
+  security: AppRuntimeConfig["security"] | undefined,
+  sessions: { projectRoot: string; config: SessionsConfig | undefined }
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -61,7 +63,7 @@ export function createSsrMiddleware(
   // configured secret; an app with sessions disabled must never reach that
   // call, not just avoid using its result. See renderRoute.ts's
   // createNoAuthContext() for the ctx a "none" app gets instead.
-  const sessionCookieOptions = authMode === "none" ? undefined : resolveSessionCookieOptions(authMode, appName);
+  const resolveSessionOptions = createDevSessionOptionsResolver(vite, sessions.projectRoot, sessions.config, authMode, appName);
 
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
@@ -107,6 +109,7 @@ export function createSsrMiddleware(
             method: string;
             formData?: FormData;
             cookieHeader?: string;
+            authorizationHeader?: string | string[];
             params?: Record<string, string>;
             sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
@@ -122,6 +125,7 @@ export function createSsrMiddleware(
           routeModule: RouteModule,
           request: {
             cookieHeader?: string;
+            authorizationHeader?: string | string[];
             params?: Record<string, string>;
             sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
@@ -159,8 +163,9 @@ export function createSsrMiddleware(
 
         const result = await entryServer.renderStreaming(routeModule, {
           cookieHeader: req.headers.cookie,
+          authorizationHeader: req.headers.authorization,
           params: match.params,
-          sessionCookieOptions,
+          sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
           islandClientUrl: "/island-client.tsx",
           devPreambleUrl: DEV_PREAMBLE_URL,
           nonce,
@@ -237,8 +242,9 @@ export function createSsrMiddleware(
         method: req.method ?? "GET",
         formData,
         cookieHeader: req.headers.cookie,
+        authorizationHeader: req.headers.authorization,
         params: match.params,
-        sessionCookieOptions,
+        sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see ROADMAP.md #4.
         islandClientUrl: "/island-client.tsx",

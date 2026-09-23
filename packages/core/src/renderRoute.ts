@@ -25,6 +25,10 @@ export interface RenderRouteRequest {
   method: string;
   formData?: FormData;
   cookieHeader?: string;
+  /** The raw `Authorization` header, if any — the Bearer transport
+   * (session.ts). Browsers navigating to a page won't send one, but the
+   * lookup is the same single function either way. */
+  authorizationHeader?: string | string[];
   /** Values captured from any `[param]` segments the route matched on
    * (router.ts) — empty/absent for a route with no dynamic segments. */
   params?: Record<string, string>;
@@ -106,13 +110,18 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, csrfToken, getSetCookie } = request.sessionCookieOptions
-      ? createRequestContext(request.cookieHeader, request.sessionCookieOptions, request.params)
+    const { ctx, csrfToken, getSetCookie, settle } = request.sessionCookieOptions
+      ? await createRequestContext(
+          { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
+          request.sessionCookieOptions,
+          request.params
+        )
       : createNoAuthContext(request.params);
 
     if (request.method === "POST" && request.formData && routeModule.action) {
       const actionResult = await routeModule.action(request.formData, ctx);
       if (isRedirectResult(actionResult)) {
+        await settle();
         // Skip loader and rendering entirely — nothing downstream of a
         // redirect (e.g. login setting a session cookie) needs the page's
         // own HTML in this response.
@@ -122,6 +131,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
 
     const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
     const html = await renderPage(deps, routeModule, data, csrfToken, request.islandClientUrl, request.devPreambleUrl);
+    await settle();
 
     return { status: 200, html, setCookie: getSetCookie() };
   };

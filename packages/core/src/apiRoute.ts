@@ -20,6 +20,7 @@
  * (a webhook only that app receives).
  */
 import type { RequestContext } from "./serverFn.js";
+import { apiErrorResponse } from "./httpError.js";
 
 export interface ApiRequest {
   method: string;
@@ -69,8 +70,38 @@ export interface ApiRouteModule {
   methods?: string[];
 }
 
-/** Identity wrapper, same role `serverFn()` plays for server functions —
- * exists for the type inference, not runtime behavior. */
+/**
+ * Wraps `handler` so an uncaught throw becomes a JSON `{ message }` response
+ * (httpError.ts) instead of propagating to the dev server's HTML error
+ * overlay (devora-pre-v3-hotfixes.md #2). This used to be a pure identity
+ * wrapper (`return handler`) that only existed for type inference, which is
+ * what let a thrown error in an `api/**` handler leak HTML to API clients.
+ *
+ * A thrown `HttpError` (or any error with a numeric 4xx/5xx `status`) keeps
+ * its status and message; anything else is a 500 whose message is shown in
+ * dev and hidden in production. The dispatcher (apiDispatch.ts) applies the
+ * same translation around the whole request too, so a handler that skips
+ * `apiRoute()` — or an error thrown by middleware wrapped *outside* it —
+ * still never produces HTML; this wrapper just makes the contract hold for
+ * the handler itself, wherever it ends up being called from.
+ */
 export function apiRoute(handler: ApiRouteHandler): ApiRouteHandler {
-  return handler;
+  return async function apiRouteWithJsonErrors(req, ctx) {
+    try {
+      return await handler(req, ctx);
+    } catch (err) {
+      return apiErrorResponse(err);
+    }
+  };
+}
+
+/**
+ * Whether a request path belongs to the `api/**` namespace — `/api` itself
+ * included, not just `/api/...`: a bare `curl /api` used to slip past a
+ * `startsWith("/api/")` check and get an HTML 404 instead of the JSON one
+ * (devora-pre-v3-hotfixes.md #6). Shared by dev (apiMiddleware.ts) and
+ * production (prodRequestHandler.ts) so the two can't disagree.
+ */
+export function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
 }

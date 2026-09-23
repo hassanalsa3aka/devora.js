@@ -331,16 +331,16 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `export function meta() {\n` +
         `  return { title: "Log in", description: "${appName} login (demo)" };\n` +
         `}\n\n` +
-        `// Demo only: the framework provides the session *carrier* (signing/cookie\n` +
-        `// storage — see packages/core/src/session.ts). Checking who someone is\n` +
+        `// Demo only: the framework provides the session itself (an opaque ID in an\n` +
+        `// HttpOnly cookie, stored server-side and revocable). Checking who someone is\n` +
         `// stays bring-your-own (§6/§11): a real app verifies a password/token\n` +
         `// against its own DB/provider before calling ctx.setSession(); this route\n` +
-        `// trusts any submitted username so the carrier can be exercised end to end.\n` +
+        `// trusts any submitted username so the session flow can be exercised end to end.\n` +
         `export async function action(formData: FormData, ctx: RequestContext) {\n` +
         `  ctx.verifyCsrf(formData);\n` +
         `  const username = String(formData.get("username") ?? "");\n` +
         `  if (!username) throw new Error("username required");\n` +
-        `  ctx.setSession({ username });\n` +
+        `  await ctx.setSession({ username });\n` +
         `  return redirect("/");\n` +
         `}\n\n` +
         `export default function Login({ csrfToken }: { csrfToken?: string }) {\n` +
@@ -368,7 +368,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `}\n\n` +
         `export async function action(formData: FormData, ctx: RequestContext) {\n` +
         `  ctx.verifyCsrf(formData);\n` +
-        `  ctx.clearSession();\n` +
+        `  // Revoked server-side — dead everywhere, not just in this browser.\n` +
+        `  await ctx.revokeSession();\n` +
         `  return redirect("/login");\n` +
         `}\n\n` +
         `export default function Logout({ csrfToken }: { csrfToken?: string }) {\n` +

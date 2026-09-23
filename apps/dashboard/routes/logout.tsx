@@ -13,7 +13,9 @@ export function meta() {
 // this needs no wiring beyond the route file itself.
 export async function action(formData: FormData, ctx: RequestContext) {
   ctx.verifyCsrf(formData);
-  ctx.clearSession();
+  // Revoked server-side, not just a cookie deleted from this browser — the
+  // session ID is dead everywhere (including as a Bearer token) from here on.
+  await ctx.revokeSession();
   return redirect("/login");
 }
 

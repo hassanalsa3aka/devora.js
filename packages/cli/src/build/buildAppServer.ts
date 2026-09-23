@@ -1,7 +1,13 @@
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { build as viteBuild } from "vite";
-import { listRouteFiles, toBuildKey } from "@devorajs/core";
+import {
+  listRouteFiles,
+  toBuildKey,
+  SESSION_MANIFEST_FILE,
+  SESSION_STORE_BUILD_KEY,
+  type SessionManifest,
+} from "@devorajs/core";
 import { buildAppClient } from "./buildAppClient.js";
 import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
 
@@ -45,7 +51,11 @@ import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
  */
 export async function buildAppServer(
   appRoot: string,
-  options: { backendOnly?: boolean } = {}
+  options: {
+    backendOnly?: boolean;
+    /** Absent for an auth: "none" app (no sessions at all). */
+    sessions?: { manifest: SessionManifest; storeModulePath?: string };
+  } = {}
 ): Promise<{ serverOutDir: string }> {
   const routesDir = path.join(appRoot, "routes");
   const apiDir = path.join(appRoot, "api");
@@ -72,6 +82,13 @@ export async function buildAppServer(
   for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
+  // The project's session store module (shared.sessions.store), bundled as
+  // its own named entry so prodRequestHandler.ts can import() it by a fixed
+  // key — same trick as routes above. It lives outside appRoot (usually
+  // packages/backend), which Rollup handles fine for an explicit input.
+  if (options.sessions?.storeModulePath) {
+    input[SESSION_STORE_BUILD_KEY] = options.sessions.storeModulePath;
+  }
 
   await viteBuild({
     root: appRoot,
@@ -84,6 +101,10 @@ export async function buildAppServer(
       rollupOptions: { input },
     },
   });
+
+  if (options.sessions) {
+    await writeFile(path.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
+  }
 
   await writeFile(
     path.join(serverOutDir, "island-manifest.json"),

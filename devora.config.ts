@@ -18,5 +18,12 @@ export default defineProject({
     // project-level default — apps share one auth/session context
     // unless a given app overrides it with auth: "isolated"
     auth: "shared",
+    // Where server-side session records live (packages/core/src/session.ts).
+    // "memory" is an explicit choice here because this demo repo has no real
+    // database (packages/backend/db is a stub) — fine for `devora dev` and a
+    // single `devora start` process, NOT for serverless: point this at a
+    // module default-exporting a DB-backed SessionStore before deploying to
+    // Vercel/Netlify (see packages/backend/AUTH.md).
+    sessions: { store: "memory" },
   },
 });

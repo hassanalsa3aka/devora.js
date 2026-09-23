@@ -18,7 +18,7 @@ export async function action(formData: FormData, ctx: RequestContext) {
   ctx.verifyCsrf(formData);
   const username = String(formData.get("username") ?? "");
   if (!username) throw new Error("username required");
-  ctx.setSession({ username });
+  await ctx.setSession({ username });
   return redirect("/bulk-import");
 }
 

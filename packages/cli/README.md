@@ -15,7 +15,7 @@ unusual (e.g. scripting against a project without going through `create-devora` 
 
 | Command | What it does |
 |---|---|
-| `devora dev [--app=<name>]` | Run all apps in dev mode, or just one. |
+| `devora dev [--app=<name>] [--host]` | Run all apps in dev mode, or just one. Ports start at 10000 in `devora.config.ts` order (or each app's `devPort`), moving to the next free port if taken; prints each app's URLs and route table on boot. `--host` (off by default) listens on all interfaces and prints LAN URLs for testing from a phone — with a warning, since anyone on that network can then reach it. |
 | `devora build [--app=<name>] [--adapter=vercel\|netlify]` | Build all apps or one; add `--adapter` to also produce that platform's deploy output. |
 | `devora start [--app=<name>]` | Serve a production build (adapter-node) — run `devora build` first. |
 | `devora deploy --adapter=vercel\|netlify [--app=<name>] [--prod]` | Build and deploy to a linked Vercel project or Netlify site. |

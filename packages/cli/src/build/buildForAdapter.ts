@@ -1,5 +1,5 @@
 import path from "node:path";
-import { listRouteFiles, resolveAuthMode, type AppConfig, type ProjectConfig } from "@devorajs/core";
+import { listRouteFiles, resolveAuthMode, toSessionManifest, type AppConfig, type ProjectConfig } from "@devorajs/core";
 import { loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { buildAppServer } from "./buildAppServer.js";
 import { buildAppStatic } from "./buildAppStatic.js";
@@ -38,7 +38,18 @@ export async function buildAppForAdapter(
   const backendOnly = appConfig.backendOnly === true;
 
   console.log(`[devora] building "${app.name}" (SSR)...`);
-  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly });
+  const sessionsConfig = project.shared.sessions;
+  const sessions =
+    authMode === "none"
+      ? undefined
+      : {
+          manifest: toSessionManifest(sessionsConfig),
+          storeModulePath:
+            sessionsConfig?.store && sessionsConfig.store !== "memory"
+              ? path.resolve(root, sessionsConfig.store)
+              : undefined,
+        };
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions });
   console.log(`[devora] "${app.name}" built → ${serverOutDir}`);
 
   const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, { backendOnly });

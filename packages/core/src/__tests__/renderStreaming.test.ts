@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { PassThrough } from "node:stream";
 import { createRenderStreaming } from "../renderStreaming.js";
+import { createMemorySessionStore } from "../sessionStore.js";
 import { Island, clearStreamingModuleCache } from "../islandComponent.js";
 import { island } from "../island.js";
 import type { RouteModule } from "../route.js";
@@ -387,14 +388,14 @@ describe("createRenderStreaming — real streaming behavior, not just final outp
     expect(chunks().join("")).toContain("real data");
   });
 
-  it("propagates a real Set-Cookie from a signed session context", async () => {
+  it("propagates a real Set-Cookie from a session-carrying context", async () => {
     const routeModule: RouteModule = {
       renderMode: "streaming",
       default: () => createElement("p", null, "x"),
     };
     const renderStreaming = createRenderStreaming(deps);
     const result = await renderStreaming(routeModule, {
-      sessionCookieOptions: { name: "devora_session", secret: "test-secret" },
+      sessionCookieOptions: { name: "devora_session", secret: "test-secret", store: createMemorySessionStore() },
     });
     // No incoming cookie and no existing CSRF cookie — a fresh CSRF cookie
     // is issued even on a plain GET (same as the two-pass ssr path).

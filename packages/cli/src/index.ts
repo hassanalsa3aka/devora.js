@@ -23,6 +23,10 @@ program
   .command("dev")
   .description("Run all apps in dev mode (or one with --app)")
   .option("--app <name>", "run only this app")
+  .option(
+    "--host",
+    "listen on all network interfaces (so a phone/other device on your LAN can reach it) — off by default"
+  )
   .action(async (opts) => dev(opts));
 
 program

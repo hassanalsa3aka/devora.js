@@ -15,8 +15,9 @@ export function meta() {
   };
 }
 
-// Demo only: the framework provides the session *carrier* (signing/cookie
-// storage, see packages/core/src/session.ts) — checking who someone is
+// Demo only: the framework provides the session itself (an opaque ID in an
+// HttpOnly cookie, backed by a server-side store — see
+// packages/core/src/session.ts) — checking who someone is
 // stays bring-your-own per §6/§11. A real app verifies a password/token
 // against its own DB/provider before calling ctx.setSession(); this route
 // trusts any submitted username so the carrier can be exercised end to end.
@@ -24,7 +25,7 @@ export async function action(formData: FormData, ctx: RequestContext) {
   ctx.verifyCsrf(formData);
   const username = String(formData.get("username") ?? "");
   if (!username) throw new Error("username required");
-  ctx.setSession({ username });
+  await ctx.setSession({ username });
   return redirect("/");
 }
 

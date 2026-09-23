@@ -1,8 +1,9 @@
 # Wiring in a real auth provider
 
 Guides, not built-in integrations — `architecture-v1.md` §6/§11's boundary holds in v2: this
-framework provides the session *carrier* (a signed cookie, CSRF protection —
-`packages/core/src/session.ts`/`csrf.ts`), not an identity provider. "Checking who someone is"
+framework provides the session itself (an opaque, server-side, revocable session ID carried in an
+HttpOnly cookie or an `Authorization: Bearer` header, plus CSRF protection —
+`packages/core/src/session.ts`/`sessionStore.ts`/`csrf.ts`), not an identity provider. "Checking who someone is"
 stays bring-your-own; `ctx.setSession()` is what makes the result of that check survive across
 requests. Every existing login route (`apps/dashboard/routes/login.tsx`,
 `apps/admin/routes/login.tsx`) already says this explicitly — these guides just cover two popular
@@ -13,13 +14,81 @@ is illustrative, matching the framework's real, current `ctx`/`serverFn`/`Reques
 (`packages/core/src/serverFn.ts`), not verified end-to-end the way this project's own session/CSRF
 carrier is (see `VERIFICATION.md`).
 
+## Sessions: storage, browsers, and API/mobile clients
+
+A session is a random 256-bit ID. The client holds only the ID; the record (whatever you passed to
+`ctx.setSession(data)`, plus two expiry timestamps) lives in a `SessionStore` on the server, so
+`ctx.revokeSession()` kills it everywhere at once.
+
+**Pick a store** in `devora.config.ts` (`shared.sessions.store`). `"memory"` is fine for dev and a
+single `devora start` process; for anything else — and always on Vercel/Netlify — point it at a
+module backed by your own database. The store only needs three methods; it receives an HMAC of the
+session ID as `key`, never the raw ID, so a leaked table contains no usable tokens:
+
+```ts
+// packages/backend/sessionStore.ts   →   sessions: { store: "packages/backend/sessionStore.ts" }
+import { defineSessionStore } from "@devorajs/core";
+import { eq } from "drizzle-orm";
+import { db } from "./db/index.js";
+import { sessions } from "./db/schema.js"; // key text PK, data json, active_expires_at / expires_at bigint
+
+export default defineSessionStore({
+  async get(key) {
+    const row = await db.query.sessions.findFirst({ where: eq(sessions.key, key) });
+    return row ? { data: row.data, activeExpiresAt: row.activeExpiresAt, expiresAt: row.expiresAt } : undefined;
+  },
+  async set(key, r) {
+    const values = { data: r.data, activeExpiresAt: r.activeExpiresAt, expiresAt: r.expiresAt };
+    await db.insert(sessions).values({ key, ...values }).onConflictDoUpdate({ target: sessions.key, set: values });
+  },
+  async delete(key) {
+    await db.delete(sessions).where(eq(sessions.key, key));
+  },
+});
+```
+
+(Illustrative — adapt to your schema/driver. Expired rows are deleted when someone presents them;
+add a periodic `DELETE ... WHERE expires_at < now` for ones nobody ever presents again.)
+
+**States.** A session is *active* for `activeSeconds` (default 1 day), then *idle* for
+`idleSeconds` more (default 14 days). Using an idle session silently extends both windows — same
+ID, so clients never need a refresh-token flow. Past that it's *dead*: log in again.
+
+**Browsers** use the cookie: `await ctx.setSession({ userId })` in a login action sets it.
+**API/mobile clients** use a Bearer token — same primitive, different transport:
+
+```ts
+// apps/<app>/api/session.ts — see apps/dashboard/api/session.ts for the full example
+const token = await ctx.setSession({ userId: user.id }, { transport: "bearer" }); // no cookie set
+return { status: 201, body: JSON.stringify({ token }) }; // client sends `Authorization: Bearer <token>`
+```
+
+`ctx.requireAuth()`/`ctx.session` accept either transport through the same lookup, with no extra
+code in the route. A request that sends a Bearer header is never authenticated by a cookie.
+`ctx.verifyCsrf()` is enforced for cookie (and unauthenticated) requests and skipped for
+Bearer-authenticated ones — a cross-site page can make a browser send cookies, not an
+`Authorization` header. On the client side, keep the token in secure storage (e.g.
+`expo-secure-store`, i.e. Keychain/Keystore), not AsyncStorage.
+
+**Logout / password change:** `await ctx.revokeSession()` revokes the current session;
+`ctx.revokeSession(otherId)` revokes another one you recorded (e.g. from `setSession()`'s return
+value) — "sign out my other devices."
+
+**Migrating a hand-rolled Bearer scheme** (e.g. `signSession()`-signed `{ userId, role }`
+tokens under a separate secret): issue tokens with `ctx.setSession(payload, { transport: "bearer" })`
+instead of `signSession()`, replace `verifyAuthToken(header)`/`requireBearerAuth(req)` with
+`ctx.requireAuth()` + `ctx.session`, and call `ctx.revokeSession()` in logout. Old tokens stop
+working at that point (they were never revocable, which is the point); clients log in once more.
+`signSession`/`verifySession` remain exported but deprecated.
+
 ## Lucia
 
 Lucia (v3+) is a set of small, framework-agnostic primitives for session/user management — it
 already separates "does this session exist" from "how is it stored," so it composes naturally with
-this framework's own cookie carrier rather than replacing it. Two reasonable ways to combine them:
+this framework's own sessions rather than replacing it. (Devora's own session model — opaque IDs,
+active/idle states, server-side revocation — is itself modeled on Lucia's.) Two reasonable ways to combine them:
 
-**Option A — Lucia owns session storage, this framework's cookie carrier is unused.** Lucia
+**Option A — Lucia owns session storage, this framework's sessions are unused.** Lucia
 manages its own session table/cookie directly; a route's `loader`/`action` calls Lucia's APIs to
 validate a session from the incoming request's cookie header, and never calls
 `ctx.setSession()`/`ctx.session` at all. Simplest to reason about, but you lose this framework's
@@ -37,10 +106,10 @@ import { lucia } from "../auth/lucia.js"; // your Lucia instance, configured wit
 
 export const login = serverFn(async (input: { username: string; password: string }, ctx) => {
   const user = await verifyCredentials(input); // your own password check, e.g. against Lucia's adapter's user table
-  // Reuse this framework's own signed-cookie session (not Lucia's own
-  // cookie) — ctx.setSession() is the carrier already wired through
-  // session.ts's HMAC signing and this app's auth mode (shared/isolated).
-  ctx.setSession({ userId: user.id });
+  // Reuse this framework's own session (not Lucia's own cookie) —
+  // ctx.setSession() already handles storage, revocation, both transports,
+  // and this app's auth mode (shared/isolated).
+  await ctx.setSession({ userId: user.id });
 });
 ```
 

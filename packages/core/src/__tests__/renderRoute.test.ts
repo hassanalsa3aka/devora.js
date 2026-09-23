@@ -8,6 +8,7 @@ import { Island } from "../islandComponent.js";
 import { island } from "../island.js";
 import type { RouteModule } from "../route.js";
 import type { SessionCookieOptions } from "../session.js";
+import { createMemorySessionStore } from "../sessionStore.js";
 
 /**
  * `RenderRouteDeps`'s `createElement`/`renderToString` params are typed
@@ -26,7 +27,11 @@ function deps(): RenderRouteDeps {
   return { createElement, renderToString } as unknown as RenderRouteDeps;
 }
 
-const sessionCookieOptions: SessionCookieOptions = { name: "devora_session", secret: "test-secret" };
+const sessionCookieOptions: SessionCookieOptions = {
+  name: "devora_session",
+  secret: "test-secret",
+  store: createMemorySessionStore(),
+};
 
 /**
  * The real SSR request-handler logic (route matched -> action/loader ->

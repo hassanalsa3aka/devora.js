@@ -5,16 +5,19 @@ import { existsSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
 import { generateSitemapXml } from "./sitemap.js";
-import { resolveSessionCookieOptions } from "./session.js";
+import type { SessionCookieOptions } from "./session.js";
+import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
 import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
 import { resolveRenderMode } from "./renderRoute.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
 import { readBodyWithLimit, PayloadTooLargeError } from "./readBody.js";
+import { apiErrorResponse, apiNotFoundResponse, jsonMessageResponse } from "./httpError.js";
+import { isApiPath } from "./apiRoute.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
-import type { ApiRouteModule } from "./apiRoute.js";
+import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -63,8 +66,17 @@ export function createProdRequestHandler(
   const staticOutDir = path.join(appRoot, "dist", "static");
   // Not called at all for a "none"-auth app — see the identical comment in
   // ssrMiddleware.ts; this is exactly the call that throws in production
-  // without a configured secret, and a "none" app must never reach it.
-  const sessionCookieOptions = authMode === "none" ? undefined : resolveSessionCookieOptions(authMode, appName);
+  // without a configured secret (or session store), and a "none" app must
+  // never reach it. The store module, if the build bundled one
+  // (buildAppServer.ts), is imported on first use — see sessionConfig.ts.
+  const resolveSessionOptions =
+    authMode === "none"
+      ? undefined
+      : createSessionOptionsResolver(authMode, appName, readSessionManifest(serverOutDir), () =>
+          importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
+        );
+  const sessionOptionsForRequest = async (): Promise<SessionCookieOptions | undefined> =>
+    resolveSessionOptions ? resolveSessionOptions() : undefined;
   const securityHeaders = resolveSecurityHeaders(security);
   // Written by buildAppServer.ts after the client build (ROADMAP.md #4) —
   // absent (and islandClientUrl undefined) for an app with no islands.
@@ -91,40 +103,47 @@ export function createProdRequestHandler(
     // Generic API routes (architecture-v2.md §3.2) — matched and dispatched
     // before any page-route/asset handling, same "/api/*" convention and
     // second-call-site reasoning as apiMiddleware.ts (dev's equivalent).
-    if (url.pathname.startsWith("/api/")) {
+    //
+    // Every outcome under /api/** is a JSON response, including "no route
+    // matched" (a JSON 404, not `return false` → the adapter's plain 404)
+    // and any error (a JSON `{ message }`, not the adapter's generic 500) —
+    // devora-pre-v3-hotfixes.md #2/#6.
+    if (isApiPath(url.pathname)) {
       const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
-      if (!apiMatch) return false;
+      if (!apiMatch) {
+        sendApiResponse(res, apiNotFoundResponse());
+        return true;
+      }
 
-      const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
-      const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
-      let body: Buffer;
       try {
-        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
-      } catch (err) {
-        if (err instanceof PayloadTooLargeError) {
-          res.statusCode = 413;
-          res.end(err.message);
-          return true;
+        const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
+        const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
+        let body: Buffer;
+        try {
+          body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+        } catch (err) {
+          if (err instanceof PayloadTooLargeError) {
+            sendApiResponse(res, jsonMessageResponse(413, err.message));
+            return true;
+          }
+          throw err;
         }
-        throw err;
-      }
 
-      const apiResult = await dispatchApiRoute(apiRouteModule, {
-        method: req.method ?? "GET",
-        url: req.url,
-        headers: req.headers,
-        cookieHeader: req.headers.cookie,
-        params: apiMatch.params,
-        sessionCookieOptions,
-        body,
-      });
+        const apiResult = await dispatchApiRoute(apiRouteModule, {
+          method: req.method ?? "GET",
+          url: req.url,
+          headers: req.headers,
+          cookieHeader: req.headers.cookie,
+          params: apiMatch.params,
+          sessionCookieOptions: await sessionOptionsForRequest(),
+          body,
+        });
 
-      if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
-      if (apiResult.headers) {
-        for (const [name, value] of Object.entries(apiResult.headers)) res.setHeader(name, value);
+        if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+        sendApiResponse(res, apiResult);
+      } catch (err) {
+        sendApiResponse(res, apiErrorResponse(err));
       }
-      res.statusCode = apiResult.status;
-      res.end(apiResult.body ?? "");
       return true;
     }
 
@@ -169,7 +188,8 @@ export function createProdRequestHandler(
           request: {
             cookieHeader?: string;
             params?: Record<string, string>;
-            sessionCookieOptions?: typeof sessionCookieOptions;
+            authorizationHeader?: string | string[];
+            sessionCookieOptions?: SessionCookieOptions;
             islandClientUrl?: string;
             nonce?: string;
           }
@@ -190,8 +210,9 @@ export function createProdRequestHandler(
 
       const result = await entryServer.renderStreaming(routeModule, {
         cookieHeader: req.headers.cookie,
+        authorizationHeader: req.headers.authorization,
         params: match.params,
-        sessionCookieOptions,
+        sessionCookieOptions: await sessionOptionsForRequest(),
         islandClientUrl,
         nonce,
       });
@@ -293,7 +314,8 @@ export function createProdRequestHandler(
           formData?: FormData;
           cookieHeader?: string;
           params?: Record<string, string>;
-          sessionCookieOptions: typeof sessionCookieOptions;
+          authorizationHeader?: string | string[];
+          sessionCookieOptions?: SessionCookieOptions;
           islandClientUrl?: string;
           appDefaultRenderMode?: RenderMode;
         }
@@ -316,8 +338,9 @@ export function createProdRequestHandler(
       method: req.method ?? "GET",
       formData,
       cookieHeader: req.headers.cookie,
+      authorizationHeader: req.headers.authorization,
       params: match.params,
-      sessionCookieOptions,
+      sessionCookieOptions: await sessionOptionsForRequest(),
       islandClientUrl,
       appDefaultRenderMode,
     });
@@ -336,6 +359,14 @@ export function createProdRequestHandler(
     res.end(result.html);
     return true;
   };
+}
+
+function sendApiResponse(res: ServerResponse, result: ApiResponse): void {
+  if (result.headers) {
+    for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
+  }
+  res.statusCode = result.status;
+  res.end(result.body ?? "");
 }
 
 /** Exported for buildAppStatic.ts's ssg/isr build step, which needs the

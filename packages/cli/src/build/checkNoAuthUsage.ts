@@ -21,7 +21,7 @@ import fs from "node:fs";
  * `ISLAND_CALL_RE` already accepts for island() calls; the runtime throw in
  * `createNoAuthContext()` is what catches that case instead.
  */
-const SESSION_METHOD_CALL_RE = /\bctx\.(requireAuth|setSession|clearSession|verifyCsrf)\s*\(/g;
+const SESSION_METHOD_CALL_RE = /\bctx\.(requireAuth|setSession|revokeSession|clearSession|verifyCsrf)\s*\(/g;
 
 export interface NoAuthUsageViolation {
   file: string;
