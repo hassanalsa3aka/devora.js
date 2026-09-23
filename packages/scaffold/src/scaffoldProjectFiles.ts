@@ -2,8 +2,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, cp } from "node:fs/promises";
 import type { AuthChoice } from "./resolveAuthChoice.js";
+import type { ProjectScope } from "./resolveScopeChoice.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Where the "one shared backend, app-specific logic per app" pattern is
+ * documented — printed by create-devora after scaffolding, and linked from
+ * the generated README. */
+export const MULTI_BACKEND_DOCS_URL = "https://devorajs-docs-docs.vercel.app/core-concepts#shared-backend";
+
+const SCOPE_LABEL: Record<ProjectScope, string> = {
+  fullstack: "full-stack (page apps + one shared backend)",
+  frontend: "frontend only (page apps, no shared backend)",
+  backend: "backend only (API apps + one shared backend)",
+};
 
 export interface ScaffoldProjectApp {
   name: string;
@@ -20,6 +32,9 @@ export interface ScaffoldProjectOptions {
    * devora.js monorepo itself. */
   coreVersion: string;
   cliVersion: string;
+  /** Default "fullstack". "frontend" skips `packages/backend` entirely — see
+   * resolveScopeChoice.ts. */
+  scope?: ProjectScope;
 }
 
 /**
@@ -34,6 +49,8 @@ export interface ScaffoldProjectOptions {
  */
 export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldProjectOptions): Promise<void> {
   const { projectName, apps, coreVersion, cliVersion } = opts;
+  const scope = opts.scope ?? "fullstack";
+  const hasBackend = scope !== "frontend";
 
   await mkdir(projectRoot, { recursive: true });
 
@@ -142,14 +159,17 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
       `  apps: [\n${appEntries}\n  ],\n` +
       `  shared: {\n` +
       `    core: "packages/core",\n` +
-      `    backend: "packages/backend",\n` +
+      // A frontend-only project has no shared backend — leaving the field
+      // out (rather than pointing it at a directory that doesn't exist)
+      // keeps `devora split backend` from acting on nothing.
+      (hasBackend ? `    backend: "packages/backend",\n` : "") +
       `    auth: "shared",\n` +
       `    // Where login sessions are stored server-side. Unset, \`devora dev\` uses\n` +
       `    // an in-memory store (with a warning) and a production server refuses to\n` +
       `    // start. Set it to a module path whose default export is a SessionStore\n` +
       `    // backed by your database (defineSessionStore from @devorajs/core), or to\n` +
       `    // "memory" for a single long-lived \`devora start\` process (not serverless).\n` +
-      `    // sessions: { store: "packages/backend/sessionStore.ts" },\n` +
+      `    // sessions: { store: "${hasBackend ? "packages/backend/sessionStore.ts" : "sessionStore.ts"}" },\n` +
       `  },\n` +
       `});\n`
   );
@@ -159,7 +179,13 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
     `# ${projectName}\n\n` +
       `A [devora.js](https://github.com/hassanalsa3aka/devora.js) project.\n\n` +
       `## Apps\n\n` +
+      `Scope: **${SCOPE_LABEL[scope]}**.\n\n` +
       apps.map((a) => `- **${a.name}** (\`apps/${a.name}\`) — auth: \`${a.auth}\`, domain: \`${a.domain}\`\n`).join("") +
+      (hasBackend
+        ? `\nShared backend logic lives in \`packages/backend\`, used by every app. Logic only one app\n` +
+          `needs can live in that app instead — see "The shared backend pattern" in the docs:\n` +
+          `${MULTI_BACKEND_DOCS_URL}\n`
+        : `\nNo shared backend (\`packages/backend\`) was generated for this frontend-only project.\n`) +
       `\n## Getting started\n\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\`\n\n` +
       `Each app gets its own port, starting at 10000 in \`devora.config.ts\` order (set \`devPort\` on an\n` +
       `app to pick one). \`devora dev\` prints every app's URL and route table on boot.\n\n` +
@@ -182,45 +208,47 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
   // choices above — see packages/backend/db/index.ts in the devora.js repo
   // itself for the fuller, dashboard-settings-wired example this
   // intentionally does NOT duplicate here.
-  await mkdir(path.join(projectRoot, "packages", "backend", "db"), { recursive: true });
-  await writeFile(
-    path.join(projectRoot, "packages", "backend", "package.json"),
-    JSON.stringify(
-      {
-        // Matches scaffoldAppFiles.ts's hardcoded `"@devorajs/backend": "*"`
-        // dependency exactly — that function is shared, unchanged, with
-        // `devora new`/`add` (which must keep producing byte-identical
-        // output, see this package's own regression test), so this name
-        // has to match what it already expects rather than the other way
-        // around. A real bug caught by an actual `pnpm install`, not just
-        // reading the code: naming this "@project/backend" here while
-        // scaffoldAppFiles.ts's apps depend on "@devorajs/backend" left every
-        // scaffolded app's install 404ing against the real npm registry.
-        name: "@devorajs/backend",
-        version: "0.1.0",
-        private: true,
-        type: "module",
-        exports: { "./db": "./db/index.ts" },
-        dependencies: { "@devorajs/core": coreVersion },
-      },
-      null,
-      2
-    ) + "\n"
-  );
-  await writeFile(
-    path.join(projectRoot, "packages", "backend", "tsconfig.json"),
-    `{\n  "extends": "../../tsconfig.base.json",\n  "compilerOptions": { "outDir": "dist", "rootDir": "." },\n  "include": ["**/*.ts", "**/*.tsx"],\n  "exclude": ["dist", "node_modules"]\n}\n`
-  );
-  await writeFile(
-    path.join(projectRoot, "packages", "backend", "db", "index.ts"),
-    `/**\n * No built-in ORM (bring your own — Prisma, Drizzle, etc.). This stub\n` +
-      ` * exists so the rest of the skeleton has something to import against.\n */\n` +
-      `export const db = {\n` +
-      `  async example(): Promise<unknown> {\n` +
-      `    throw new Error("[backend/db] no DB client configured yet — wire up Prisma/Drizzle/etc. here.");\n` +
-      `  },\n` +
-      `};\n`
-  );
+  if (hasBackend) {
+    await mkdir(path.join(projectRoot, "packages", "backend", "db"), { recursive: true });
+    await writeFile(
+      path.join(projectRoot, "packages", "backend", "package.json"),
+      JSON.stringify(
+        {
+          // Matches scaffoldAppFiles.ts's hardcoded `"@devorajs/backend": "*"`
+          // dependency exactly — that function is shared, unchanged, with
+          // `devora new`/`add` (which must keep producing byte-identical
+          // output, see this package's own regression test), so this name
+          // has to match what it already expects rather than the other way
+          // around. A real bug caught by an actual `pnpm install`, not just
+          // reading the code: naming this "@project/backend" here while
+          // scaffoldAppFiles.ts's apps depend on "@devorajs/backend" left every
+          // scaffolded app's install 404ing against the real npm registry.
+          name: "@devorajs/backend",
+          version: "0.1.0",
+          private: true,
+          type: "module",
+          exports: { "./db": "./db/index.ts" },
+          dependencies: { "@devorajs/core": coreVersion },
+        },
+        null,
+        2
+      ) + "\n"
+    );
+    await writeFile(
+      path.join(projectRoot, "packages", "backend", "tsconfig.json"),
+      `{\n  "extends": "../../tsconfig.base.json",\n  "compilerOptions": { "outDir": "dist", "rootDir": "." },\n  "include": ["**/*.ts", "**/*.tsx"],\n  "exclude": ["dist", "node_modules"]\n}\n`
+    );
+    await writeFile(
+      path.join(projectRoot, "packages", "backend", "db", "index.ts"),
+      `/**\n * No built-in ORM (bring your own — Prisma, Drizzle, etc.). This stub\n` +
+        ` * exists so the rest of the skeleton has something to import against.\n */\n` +
+        `export const db = {\n` +
+        `  async example(): Promise<unknown> {\n` +
+        `    throw new Error("[backend/db] no DB client configured yet — wire up Prisma/Drizzle/etc. here.");\n` +
+        `  },\n` +
+        `};\n`
+    );
+  }
 
   // Shared brand assets (logo/favicon) every scaffolded app's vite.config.ts
   // already points its publicDir at ("../../assets", see

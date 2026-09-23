@@ -22,17 +22,28 @@ generated project to use.
 ## What it asks
 
 1. **Project name** — the directory it creates.
-2. **App names** — comma-separated, defaults to `marketing,dashboard,admin` as a starting preset.
+2. **What do you need?** — `full-stack` (default), `frontend`, or `backend` (see `--scope` below).
+3. **App names** — comma-separated, defaults to `marketing,dashboard,admin` as a starting preset
+   (`api` for a backend-only project).
    You can list just one, or a dozen — a devora.js project can hold any number of independently
    built and deployed apps.
-3. **Per-app auth** — for each app, whether it needs sessions at all: `shared` (one login across
+4. **Per-app auth** — for each app, whether it needs sessions at all: `shared` (one login across
    every app that uses it — the common case), `isolated` (its own separate session context, e.g.
    an admin panel with a different identity provider), or `none` (no login on this app at all —
    skips generating a login/logout flow entirely, and the app never needs a session secret
    configured). Asked per app, not once for the whole project, since a marketing site and a
    dashboard in the same project often need different answers.
 
-Non-interactive use (CI, scripting) is supported: `create-devora my-app --apps=a,b --auth=a:none,b:shared --skip-install`.
+Non-interactive use (CI, scripting) is supported: `create-devora my-app --scope=fullstack --apps=a,b --auth=a:none,b:shared --skip-install`.
+
+`--scope` (or the "What do you need?" prompt) picks what's generated:
+
+- `fullstack` (default) — page apps plus one shared backend, `packages/backend`.
+- `frontend` — page apps only; no `packages/backend`.
+- `backend` — backend-only API apps (`api/` routes, no pages or React) plus `packages/backend`.
+
+Every project gets at most one shared backend. Backend logic only one app needs can live inside that
+app — see "The shared backend pattern" in the docs.
 
 ## What you get
 

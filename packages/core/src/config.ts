@@ -70,8 +70,9 @@ export interface SessionsConfig {
 export interface SharedConfig {
   /** Path to the shared core package. */
   core: string;
-  /** Path to the shared backend package (packages/backend). */
-  backend: string;
+  /** Path to the shared backend package (packages/backend). Absent for a
+   * project with no shared backend (create-devora's "frontend only" scope). */
+  backend?: string;
   /** Project-level default auth mode. Individual apps may override it —
    * including overriding a "none" project default up to "shared"/"isolated"
    * for one app that does need login, or vice versa. */

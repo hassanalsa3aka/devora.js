@@ -91,6 +91,9 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
     coreVersion: context.coreVersion,
     cliInvocation: context.cliInvocation,
     cliVersion: context.cliVersion,
+    // A create-devora "frontend only" project has no packages/backend —
+    // depending on @devorajs/backend there would break every install.
+    withBackend: existsSync(path.join(root, "packages", "backend", "package.json")),
   });
 
   const configPath = path.join(root, "devora.config.ts");

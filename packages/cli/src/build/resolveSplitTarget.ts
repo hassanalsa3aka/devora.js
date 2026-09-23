@@ -13,6 +13,9 @@ import { assertInsideRoot } from "./gitHelpers.js";
  */
 export function resolveSplitTarget(root: string, project: ProjectConfig, name: string): string {
   if (name === "backend") {
+    if (!project.shared.backend) {
+      throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
+    }
     const target = path.join(root, project.shared.backend);
     assertInsideRoot(root, target, "shared.backend");
     return target;
@@ -42,7 +45,7 @@ export function resolveSplitTarget(root: string, project: ProjectConfig, name: s
  * failing to print a garbage suggestion beats throwing here).
  */
 export function nameForSplitTarget(root: string, project: ProjectConfig, relativePath: string): string {
-  if (path.normalize(project.shared.backend) === path.normalize(relativePath)) {
+  if (project.shared.backend && path.normalize(project.shared.backend) === path.normalize(relativePath)) {
     return "backend";
   }
   const app = project.apps.find((a) => path.normalize(a.dir) === path.normalize(relativePath));

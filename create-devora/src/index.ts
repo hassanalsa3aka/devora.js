@@ -5,8 +5,11 @@ import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import {
   resolveAuthChoice,
+  resolveScopeChoice,
   scaffoldAppFiles,
   scaffoldProjectFiles,
+  MULTI_BACKEND_DOCS_URL,
+  type ProjectScope,
   type ScaffoldProjectApp,
 } from "@devorajs/scaffold";
 import { detectPackageManager, installCommand, runScriptCommand } from "./detectPackageManager.js";
@@ -41,6 +44,13 @@ function formatCommand([cmd, args]: [string, string[]]): string {
  * packages (see `ScaffoldAppOptions`'s doc comment in `@devorajs/scaffold`
  * for the same distinction from the other direction).
  */
+/** Default app names per scope — a backend-only project's apps are APIs. */
+const DEFAULT_APPS: Record<ProjectScope, string> = {
+  fullstack: "marketing,dashboard,admin",
+  frontend: "marketing,dashboard,admin",
+  backend: "api",
+};
+
 const CORE_VERSION = "^0.3.0";
 const CLI_VERSION = "^0.3.0";
 
@@ -86,8 +96,9 @@ async function main() {
     process.exit(1);
   }
 
-  const appNamesRaw =
-    flags.apps ?? (await prompt("App names (comma-separated)?", "marketing,dashboard,admin"));
+  const scope = await resolveScopeChoice(flags.scope);
+
+  const appNamesRaw = flags.apps ?? (await prompt("App names (comma-separated)?", DEFAULT_APPS[scope]));
   const appNames = appNamesRaw
     .split(",")
     .map((s) => s.trim())
@@ -113,13 +124,16 @@ async function main() {
     apps.push({ name, domain: `${name}.example.com`, auth });
   }
 
-  console.log(`\n[create-devora] scaffolding "${projectName}" (${apps.length} app${apps.length === 1 ? "" : "s"})...`);
+  console.log(
+    `\n[create-devora] scaffolding "${projectName}" (${scope}, ${apps.length} app${apps.length === 1 ? "" : "s"})...`
+  );
 
   await scaffoldProjectFiles(projectRoot, {
     projectName,
     apps,
     coreVersion: CORE_VERSION,
     cliVersion: CLI_VERSION,
+    scope,
   });
 
   for (const app of apps) {
@@ -128,10 +142,17 @@ async function main() {
       coreVersion: CORE_VERSION,
       cliInvocation: "standalone",
       cliVersion: CLI_VERSION,
+      kind: scope === "backend" ? "api" : "pages",
+      withBackend: scope !== "frontend",
     });
   }
 
   console.log(`[create-devora] wrote ${projectRoot}`);
+  // One shared backend is the default; per-app backend logic is a
+  // documented pattern, not a first-run question (see resolveScopeChoice.ts).
+  if (scope !== "frontend") {
+    console.log(`[create-devora] one shared backend (packages/backend) — need app-specific backend logic? ${MULTI_BACKEND_DOCS_URL}`);
+  }
 
   const pm = (flags.pm as "npm" | "yarn" | "pnpm" | undefined) ?? detectPackageManager();
 

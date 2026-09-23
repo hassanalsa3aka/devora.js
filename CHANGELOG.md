@@ -10,6 +10,18 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — scaffolder scope (hotfix #12), not yet published
+
+- **`create-devora`**: new "What do you need?" prompt / `--scope=fullstack|frontend|backend`
+  (default full-stack). Frontend-only projects get no `packages/backend`; backend-only projects get
+  API-only apps (`backendOnly: true`, no React). One shared backend either way — after scaffolding,
+  a one-line note points to the documented per-app backend pattern.
+- **`@devorajs/core`**: `shared.backend` in `devora.config.ts` is now optional (a frontend-only
+  project has none).
+- **`@devorajs/cli`**: the Vercel and Netlify adapters no longer fail on a backend-only app (they
+  vendored `react-dom` unconditionally); `devora add` in a project without `packages/backend` no
+  longer adds a dependency on it; `devora split backend` explains when a project has no backend.
+
 ## Unreleased — pre-v3 hotfixes
 
 - **`@devorajs/core` 0.3.0**, **`@devorajs/cli` 0.3.0**, **`@devorajs/adapter-vercel` 0.2.0**,

@@ -69,6 +69,23 @@ export interface ScaffoldAppOptions {
    * to survive either kind of install.
    */
   cliVersion?: string;
+  /**
+   * `"pages"` (default) — a normal app: `routes/`, SSR entry, island/csr
+   * client bootstraps, React. `"api"` — a backend-only app
+   * (`backendOnly: true` in its app.config.ts, architecture-v2.md §3.4): an
+   * `api/` directory and nothing that renders a page, so no React, no
+   * entry-server.tsx, no client bootstraps. Same shape as this repo's own
+   * apps/api-only. create-devora's "backend only" scope uses this.
+   */
+  kind?: "pages" | "api";
+  /**
+   * Whether the project has a shared `packages/backend` for this app to
+   * depend on (default true). False for a create-devora "frontend only"
+   * project, which never generates one — declaring `"@devorajs/backend": "*"`
+   * there would make every install fail looking for a package that exists
+   * neither locally nor on npm.
+   */
+  withBackend?: boolean;
 }
 
 /**
@@ -90,12 +107,14 @@ export interface ScaffoldAppOptions {
  */
 export async function scaffoldAppFiles(appDir: string, appName: string, opts: ScaffoldAppOptions): Promise<void> {
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
+  const kind = opts.kind ?? "pages";
+  const withBackend = opts.withBackend ?? true;
   const devoraCmd =
     cliInvocation === "monorepo"
       ? "cd ../.. && node packages/cli/dist/index.js"
       : "cd ../.. && ./node_modules/.bin/devora";
 
-  await mkdir(path.join(appDir, "routes"), { recursive: true });
+  await mkdir(path.join(appDir, kind === "api" ? "api" : "routes"), { recursive: true });
 
   await writeFile(
     path.join(appDir, "package.json"),
@@ -118,10 +137,12 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         // build that produces dist/.
         dependencies: {
           "@devorajs/core": coreVersion,
-          "@devorajs/backend": "*",
-          react: "^18.3.0",
-          "react-dom": "^18.3.0",
-          "@vitejs/plugin-react": "^4.3.0",
+          ...(withBackend ? { "@devorajs/backend": "*" } : {}),
+          // A backend-only app renders no pages, so it needs no React at
+          // all; it still needs vite, which runs its dev server and build.
+          ...(kind === "pages"
+            ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" }
+            : {}),
           vite: "^5.4.0",
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
@@ -144,79 +165,98 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `}\n`
   );
 
-  await writeFile(
-    path.join(appDir, "app.config.ts"),
-    `import { defineApp } from "@devorajs/core/config";\n\n` +
-      `export default defineApp({\n` +
-      `  defaultRenderMode: "ssr",\n` +
-      `  // Opt-in, off by default — see ROADMAP.md #7. Turn on for a\n` +
-      `  // public-facing app; leave off for an internal one.\n` +
-      `  sitemap: false,\n` +
-      `});\n`
-  );
+  if (kind === "api") {
+    await writeFile(
+      path.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";\n\n` +
+        `// Backend-only app: API routes under api/, no pages and no client build.\n` +
+        `export default defineApp({\n` +
+        `  backendOnly: true,\n` +
+        `});\n`
+    );
+    await writeFile(
+      path.join(appDir, "vite.config.ts"),
+      `import { defineConfig } from "vite";\n\n` +
+        `// Backend-only app — nothing here ever ships to a browser, so no React\n` +
+        `// plugin and no public assets. Vite still runs this app's dev server.\n` +
+        `export default defineConfig({});\n`
+    );
+  } else {
+    await writeFile(
+      path.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";\n\n` +
+        `export default defineApp({\n` +
+        `  defaultRenderMode: "ssr",\n` +
+        `  // Opt-in, off by default — see ROADMAP.md #7. Turn on for a\n` +
+        `  // public-facing app; leave off for an internal one.\n` +
+        `  sitemap: false,\n` +
+        `});\n`
+    );
 
-  await writeFile(
-    path.join(appDir, "vite.config.ts"),
-    `import path from "node:path";\n` +
-      `import { fileURLToPath } from "node:url";\n` +
-      `import { defineConfig } from "vite";\n` +
-      `import react from "@vitejs/plugin-react";\n\n` +
-      `const __dirname = path.dirname(fileURLToPath(import.meta.url));\n\n` +
-      `export default defineConfig({\n` +
-      `  plugins: [react()],\n` +
-      `  // Shared brand assets (logo, favicon) — see packages/core/src/theme.ts.\n` +
-      `  publicDir: path.resolve(__dirname, "../../assets"),\n` +
-      `  // Explicit modern target — esbuild 0.25+ can no longer down-level\n` +
-      `  // destructuring to Vite's old default multi-browser target list.\n` +
-      `  build: {\n` +
-      `    target: "es2022",\n` +
-      `  },\n` +
-      `});\n`
-  );
+    await writeFile(
+      path.join(appDir, "vite.config.ts"),
+      `import path from "node:path";\n` +
+        `import { fileURLToPath } from "node:url";\n` +
+        `import { defineConfig } from "vite";\n` +
+        `import react from "@vitejs/plugin-react";\n\n` +
+        `const __dirname = path.dirname(fileURLToPath(import.meta.url));\n\n` +
+        `export default defineConfig({\n` +
+        `  plugins: [react()],\n` +
+        `  // Shared brand assets (logo, favicon) — see packages/core/src/theme.ts.\n` +
+        `  publicDir: path.resolve(__dirname, "../../assets"),\n` +
+        `  // Explicit modern target — esbuild 0.25+ can no longer down-level\n` +
+        `  // destructuring to Vite's old default multi-browser target list.\n` +
+        `  build: {\n` +
+        `    target: "es2022",\n` +
+        `  },\n` +
+        `});\n`
+    );
 
-  await writeFile(
-    path.join(appDir, "entry-server.tsx"),
-    `import { createElement } from "react";\n` +
-      `import { renderToString, renderToPipeableStream } from "react-dom/server";\n` +
-      `import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";\n\n` +
-      `// Framework SSR entry point for this app — loaded via vite.ssrLoadModule\n` +
-      `// so react-dom/server resolves against this app's own node_modules. The\n` +
-      `// actual render logic lives once in @devorajs/core's renderRoute.ts,\n` +
-      `// shared by every app; this file only supplies the React bindings that\n` +
-      `// genuinely can't be shared.\n` +
-      `export const renderRoute = createRenderRoute({ createElement, renderToString });\n` +
-      `export const renderStatic = createRenderStatic({ createElement, renderToString });\n` +
-      `export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });\n`
-  );
+    await writeFile(
+      path.join(appDir, "entry-server.tsx"),
+      `import { createElement } from "react";\n` +
+        `import { renderToString, renderToPipeableStream } from "react-dom/server";\n` +
+        `import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";\n\n` +
+        `// Framework SSR entry point for this app — loaded via vite.ssrLoadModule\n` +
+        `// so react-dom/server resolves against this app's own node_modules. The\n` +
+        `// actual render logic lives once in @devorajs/core's renderRoute.ts,\n` +
+        `// shared by every app; this file only supplies the React bindings that\n` +
+        `// genuinely can't be shared.\n` +
+        `export const renderRoute = createRenderRoute({ createElement, renderToString });\n` +
+        `export const renderStatic = createRenderStatic({ createElement, renderToString });\n` +
+        `export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });\n`
+    );
 
-  // Both client bootstraps are one-line calls into @devorajs/core's shared
-  // logic — dev mode's own React Refresh preamble requirement (a real,
-  // previously undiscovered bug: without it, any island/csr component
-  // crashed at runtime with "@vitejs/plugin-react can't detect preamble",
-  // since this framework's hand-built HTML never goes through Vite's own
-  // transformIndexHtml, which normally injects it) is handled once, in
-  // the framework's own dev server (packages/cli/src/server/
-  // reactRefreshPreamblePlugin.ts + html.ts's `renderTail`), as a separate
-  // script tag emitted *before* these — nothing app-specific to add here.
-  await writeFile(
-    path.join(appDir, "island-client.tsx"),
-    `import { hydrateIslands } from "@devorajs/core/client";\n\n` +
-      `// Only requested when a page actually used an island() — see\n` +
-      `// packages/core/src/islandComponent.tsx. Real hydration logic lives\n` +
-      `// once in @devorajs/core (shared by every app, including MutationObserver\n` +
-      `// support for an island that streams in after this script runs) — this\n` +
-      `// file only calls it.\n` +
-      `hydrateIslands();\n`
-  );
+    // Both client bootstraps are one-line calls into @devorajs/core's shared
+    // logic — dev mode's own React Refresh preamble requirement (a real,
+    // previously undiscovered bug: without it, any island/csr component
+    // crashed at runtime with "@vitejs/plugin-react can't detect preamble",
+    // since this framework's hand-built HTML never goes through Vite's own
+    // transformIndexHtml, which normally injects it) is handled once, in
+    // the framework's own dev server (packages/cli/src/server/
+    // reactRefreshPreamblePlugin.ts + html.ts's `renderTail`), as a separate
+    // script tag emitted *before* these — nothing app-specific to add here.
+    await writeFile(
+      path.join(appDir, "island-client.tsx"),
+      `import { hydrateIslands } from "@devorajs/core/client";\n\n` +
+        `// Only requested when a page actually used an island() — see\n` +
+        `// packages/core/src/islandComponent.tsx. Real hydration logic lives\n` +
+        `// once in @devorajs/core (shared by every app, including MutationObserver\n` +
+        `// support for an island that streams in after this script runs) — this\n` +
+        `// file only calls it.\n` +
+        `hydrateIslands();\n`
+    );
 
-  await writeFile(
-    path.join(appDir, "csr-client.tsx"),
-    `import { hydrateCsrRoutes } from "@devorajs/core/client";\n\n` +
-      `// Only requested when a page's renderMode is "csr" — see\n` +
-      `// packages/core/src/csrRoute.ts. Real logic lives once in\n` +
-      `// @devorajs/core, shared by every app.\n` +
-      `hydrateCsrRoutes();\n`
-  );
+    await writeFile(
+      path.join(appDir, "csr-client.tsx"),
+      `import { hydrateCsrRoutes } from "@devorajs/core/client";\n\n` +
+        `// Only requested when a page's renderMode is "csr" — see\n` +
+        `// packages/core/src/csrRoute.ts. Real logic lives once in\n` +
+        `// @devorajs/core, shared by every app.\n` +
+        `hydrateCsrRoutes();\n`
+    );
+
+  }
 
   await writeFile(
     path.join(appDir, "vercel.json"),
@@ -298,6 +338,11 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  to = "/.netlify/functions/ssr"\n` +
       `  status = 200\n`
   );
+
+  if (kind === "api") {
+    await scaffoldApiRoutes(appDir, authMode);
+    return;
+  }
 
   await writeFile(
     path.join(appDir, "routes", "index.tsx"),
@@ -413,4 +458,74 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `}\n`
     );
   }
+}
+
+/**
+ * A backend-only app's starter routes. `health.ts` always; for an app with
+ * sessions, a token login/logout (`session.ts`) and a protected route
+ * (`me.ts`) — the API counterpart of a page app's login.tsx/account.tsx,
+ * using Bearer sessions since an API's clients (mobile apps, other
+ * services) don't keep cookies. Same pattern as the framework's own
+ * apps/dashboard/api/session.ts.
+ */
+async function scaffoldApiRoutes(appDir: string, authMode: AuthChoice): Promise<void> {
+  await writeFile(
+    path.join(appDir, "api", "health.ts"),
+    `import { apiRoute } from "@devorajs/core";\n\n` +
+      `// GET /api/health\n` +
+      `export const methods = ["GET"];\n` +
+      `export const handler = apiRoute(() => ({\n` +
+      `  status: 200,\n` +
+      `  headers: { "Content-Type": "application/json" },\n` +
+      `  body: JSON.stringify({ ok: true }),\n` +
+      `}));\n`
+  );
+
+  if (authMode === "none") return;
+
+  await writeFile(
+    path.join(appDir, "api", "session.ts"),
+    `import { apiRoute, HttpError } from "@devorajs/core";\n\n` +
+      `// POST /api/session   { "username": "..." } -> { "token": "..." }\n` +
+      `// DELETE /api/session (Authorization: Bearer <token>) -> revokes it\n` +
+      `//\n` +
+      `// Demo only: accepts any username with no password check. A real app\n` +
+      `// verifies credentials against its own database before setSession().\n` +
+      `export const methods = ["POST", "DELETE"];\n\n` +
+      `export const handler = apiRoute(async (req, ctx) => {\n` +
+      `  if (req.method === "DELETE") {\n` +
+      `    ctx.requireAuth();\n` +
+      `    await ctx.revokeSession();\n` +
+      `    return { status: 204 };\n` +
+      `  }\n\n` +
+      `  let username: unknown;\n` +
+      `  try {\n` +
+      `    username = JSON.parse(req.body.toString("utf-8") || "{}").username;\n` +
+      `  } catch {\n` +
+      `    throw new HttpError(400, "Request body must be valid JSON");\n` +
+      `  }\n` +
+      `  if (typeof username !== "string" || !username) throw new HttpError(400, "username required");\n\n` +
+      `  const token = await ctx.setSession({ username }, { transport: "bearer" });\n` +
+      `  return {\n` +
+      `    status: 201,\n` +
+      `    headers: { "Content-Type": "application/json" },\n` +
+      `    body: JSON.stringify({ token }),\n` +
+      `  };\n` +
+      `});\n`
+  );
+
+  await writeFile(
+    path.join(appDir, "api", "me.ts"),
+    `import { apiRoute } from "@devorajs/core";\n\n` +
+      `// GET /api/me (Authorization: Bearer <token>) — 401 without a valid session.\n` +
+      `export const methods = ["GET"];\n` +
+      `export const handler = apiRoute((_req, ctx) => {\n` +
+      `  ctx.requireAuth();\n` +
+      `  return {\n` +
+      `    status: 200,\n` +
+      `    headers: { "Content-Type": "application/json" },\n` +
+      `    body: JSON.stringify({ session: ctx.session }),\n` +
+      `  };\n` +
+      `});\n`
+  );
 }

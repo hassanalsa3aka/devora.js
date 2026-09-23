@@ -5284,7 +5284,9 @@ export default async function handler(req, res) {
   const funcNodeModules = path18.join(funcDir, "node_modules");
   await mkdir2(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
-  await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
+  if (existsSync9(path18.join(funcDir, "dist", "server", "entry-server.js"))) {
+    await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
+  }
   await writeFile3(
     path18.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime: "nodejs20.x", handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
@@ -5455,7 +5457,9 @@ export default async (request) => {
   const funcNodeModules = path21.join(funcDir, "node_modules");
   await mkdir3(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency2(appRoot, "react", funcNodeModules);
-  await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
+  if (existsSync12(path21.join(funcDir, "dist", "server", "entry-server.js"))) {
+    await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
+  }
   console.log(
     `[adapter-netlify] wrote ${funcDir} for "${app.name}" (${app.domain}) \u2014 verified locally in isolation, NOT deployed to real Netlify infrastructure (no platform access here), see ROADMAP.md #4`
   );
@@ -5672,13 +5676,18 @@ async function resolveAuthChoice(explicit, appName) {
   }
 }
 
+// ../scaffold/src/resolveScopeChoice.ts
+import { createInterface as createInterface2 } from "node:readline/promises";
+
 // ../scaffold/src/scaffoldAppFiles.ts
 import path23 from "node:path";
 import { mkdir as mkdir4, writeFile as writeFile5 } from "node:fs/promises";
 async function scaffoldAppFiles(appDir, appName, opts) {
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
+  const kind = opts.kind ?? "pages";
+  const withBackend = opts.withBackend ?? true;
   const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
-  await mkdir4(path23.join(appDir, "routes"), { recursive: true });
+  await mkdir4(path23.join(appDir, kind === "api" ? "api" : "routes"), { recursive: true });
   await writeFile5(
     path23.join(appDir, "package.json"),
     JSON.stringify(
@@ -5700,10 +5709,10 @@ async function scaffoldAppFiles(appDir, appName, opts) {
         // build that produces dist/.
         dependencies: {
           "@devorajs/core": coreVersion,
-          "@devorajs/backend": "*",
-          react: "^18.3.0",
-          "react-dom": "^18.3.0",
-          "@vitejs/plugin-react": "^4.3.0",
+          ...withBackend ? { "@devorajs/backend": "*" } : {},
+          // A backend-only app renders no pages, so it needs no React at
+          // all; it still needs vite, which runs its dev server and build.
+          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
           vite: "^5.4.0",
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
@@ -5725,9 +5734,30 @@ async function scaffoldAppFiles(appDir, appName, opts) {
 }
 `
   );
-  await writeFile5(
-    path23.join(appDir, "app.config.ts"),
-    `import { defineApp } from "@devorajs/core/config";
+  if (kind === "api") {
+    await writeFile5(
+      path23.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";
+
+// Backend-only app: API routes under api/, no pages and no client build.
+export default defineApp({
+  backendOnly: true,
+});
+`
+    );
+    await writeFile5(
+      path23.join(appDir, "vite.config.ts"),
+      `import { defineConfig } from "vite";
+
+// Backend-only app \u2014 nothing here ever ships to a browser, so no React
+// plugin and no public assets. Vite still runs this app's dev server.
+export default defineConfig({});
+`
+    );
+  } else {
+    await writeFile5(
+      path23.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";
 
 export default defineApp({
   defaultRenderMode: "ssr",
@@ -5736,10 +5766,10 @@ export default defineApp({
   sitemap: false,
 });
 `
-  );
-  await writeFile5(
-    path23.join(appDir, "vite.config.ts"),
-    `import path from "node:path";
+    );
+    await writeFile5(
+      path23.join(appDir, "vite.config.ts"),
+      `import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -5757,10 +5787,10 @@ export default defineConfig({
   },
 });
 `
-  );
-  await writeFile5(
-    path23.join(appDir, "entry-server.tsx"),
-    `import { createElement } from "react";
+    );
+    await writeFile5(
+      path23.join(appDir, "entry-server.tsx"),
+      `import { createElement } from "react";
 import { renderToString, renderToPipeableStream } from "react-dom/server";
 import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
 
@@ -5773,10 +5803,10 @@ export const renderRoute = createRenderRoute({ createElement, renderToString });
 export const renderStatic = createRenderStatic({ createElement, renderToString });
 export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });
 `
-  );
-  await writeFile5(
-    path23.join(appDir, "island-client.tsx"),
-    `import { hydrateIslands } from "@devorajs/core/client";
+    );
+    await writeFile5(
+      path23.join(appDir, "island-client.tsx"),
+      `import { hydrateIslands } from "@devorajs/core/client";
 
 // Only requested when a page actually used an island() \u2014 see
 // packages/core/src/islandComponent.tsx. Real hydration logic lives
@@ -5785,17 +5815,18 @@ export const renderStreaming = createRenderStreaming({ createElement, renderToPi
 // file only calls it.
 hydrateIslands();
 `
-  );
-  await writeFile5(
-    path23.join(appDir, "csr-client.tsx"),
-    `import { hydrateCsrRoutes } from "@devorajs/core/client";
+    );
+    await writeFile5(
+      path23.join(appDir, "csr-client.tsx"),
+      `import { hydrateCsrRoutes } from "@devorajs/core/client";
 
 // Only requested when a page's renderMode is "csr" \u2014 see
 // packages/core/src/csrRoute.ts. Real logic lives once in
 // @devorajs/core, shared by every app.
 hydrateCsrRoutes();
 `
-  );
+    );
+  }
   await writeFile5(
     path23.join(appDir, "vercel.json"),
     JSON.stringify(
@@ -5841,6 +5872,10 @@ hydrateCsrRoutes();
   status = 200
 `
   );
+  if (kind === "api") {
+    await scaffoldApiRoutes(appDir, authMode);
+    return;
+  }
   await writeFile5(
     path23.join(appDir, "routes", "index.tsx"),
     `import { PageShell } from "@devorajs/core";
@@ -5970,6 +6005,73 @@ export default function Account({ data }: { data?: { session: unknown } }) {
     );
   }
 }
+async function scaffoldApiRoutes(appDir, authMode) {
+  await writeFile5(
+    path23.join(appDir, "api", "health.ts"),
+    `import { apiRoute } from "@devorajs/core";
+
+// GET /api/health
+export const methods = ["GET"];
+export const handler = apiRoute(() => ({
+  status: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ok: true }),
+}));
+`
+  );
+  if (authMode === "none") return;
+  await writeFile5(
+    path23.join(appDir, "api", "session.ts"),
+    `import { apiRoute, HttpError } from "@devorajs/core";
+
+// POST /api/session   { "username": "..." } -> { "token": "..." }
+// DELETE /api/session (Authorization: Bearer <token>) -> revokes it
+//
+// Demo only: accepts any username with no password check. A real app
+// verifies credentials against its own database before setSession().
+export const methods = ["POST", "DELETE"];
+
+export const handler = apiRoute(async (req, ctx) => {
+  if (req.method === "DELETE") {
+    ctx.requireAuth();
+    await ctx.revokeSession();
+    return { status: 204 };
+  }
+
+  let username: unknown;
+  try {
+    username = JSON.parse(req.body.toString("utf-8") || "{}").username;
+  } catch {
+    throw new HttpError(400, "Request body must be valid JSON");
+  }
+  if (typeof username !== "string" || !username) throw new HttpError(400, "username required");
+
+  const token = await ctx.setSession({ username }, { transport: "bearer" });
+  return {
+    status: 201,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  };
+});
+`
+  );
+  await writeFile5(
+    path23.join(appDir, "api", "me.ts"),
+    `import { apiRoute } from "@devorajs/core";
+
+// GET /api/me (Authorization: Bearer <token>) \u2014 401 without a valid session.
+export const methods = ["GET"];
+export const handler = apiRoute((_req, ctx) => {
+  ctx.requireAuth();
+  return {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: ctx.session }),
+  };
+});
+`
+  );
+}
 
 // ../scaffold/src/scaffoldProjectFiles.ts
 import path24 from "node:path";
@@ -6007,7 +6109,10 @@ async function scaffoldApp(appName, opts) {
     authMode,
     coreVersion: context.coreVersion,
     cliInvocation: context.cliInvocation,
-    cliVersion: context.cliVersion
+    cliVersion: context.cliVersion,
+    // A create-devora "frontend only" project has no packages/backend —
+    // depending on @devorajs/backend there would break every install.
+    withBackend: existsSync13(path25.join(root, "packages", "backend", "package.json"))
   });
   const configPath = path25.join(root, "devora.config.ts");
   if (existsSync13(configPath)) {
@@ -6215,6 +6320,9 @@ function conflictedFiles(cwd) {
 // src/build/resolveSplitTarget.ts
 function resolveSplitTarget(root, project, name) {
   if (name === "backend") {
+    if (!project.shared.backend) {
+      throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
+    }
     const target2 = path29.join(root, project.shared.backend);
     assertInsideRoot(root, target2, "shared.backend");
     return target2;
@@ -6228,7 +6336,7 @@ function resolveSplitTarget(root, project, name) {
   return target;
 }
 function nameForSplitTarget(root, project, relativePath) {
-  if (path29.normalize(project.shared.backend) === path29.normalize(relativePath)) {
+  if (project.shared.backend && path29.normalize(project.shared.backend) === path29.normalize(relativePath)) {
     return "backend";
   }
   const app = project.apps.find((a) => path29.normalize(a.dir) === path29.normalize(relativePath));
@@ -6236,14 +6344,14 @@ function nameForSplitTarget(root, project, relativePath) {
 }
 
 // src/build/confirmAction.ts
-import { createInterface as createInterface2 } from "node:readline/promises";
+import { createInterface as createInterface3 } from "node:readline/promises";
 async function confirmAction(message, opts) {
   if (opts.yes) return true;
   if (!process.stdin.isTTY) {
     console.error(`[devora] ${message} \u2014 refusing without --yes in a non-interactive shell.`);
     return false;
   }
-  const rl = createInterface2({ input: process.stdin, output: process.stdout });
+  const rl = createInterface3({ input: process.stdin, output: process.stdout });
   try {
     const answer = (await rl.question(`${message} [y/N]: `)).trim().toLowerCase();
     return answer === "y" || answer === "yes";

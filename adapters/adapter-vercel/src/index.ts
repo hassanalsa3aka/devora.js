@@ -180,8 +180,17 @@ export async function writeVercelOutput(
 
   const funcNodeModules = path.join(funcDir, "node_modules");
   await mkdir(funcNodeModules, { recursive: true });
+  // `react` is always needed: @devorajs/core's own server code imports it
+  // (csrf.ts, islandComponent.tsx). `react-dom` only renders pages — a
+  // backend-only app (no dist/server/entry-server.js, same signal
+  // bundleForDeploy uses) never imports it, and never installs it either,
+  // so vendoring it unconditionally failed that app's build outright with
+  // "Cannot find module 'react-dom/package.json'" (found scaffolding a real
+  // create-devora --scope=backend project).
   await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
-  await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
+  if (existsSync(path.join(funcDir, "dist", "server", "entry-server.js"))) {
+    await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
+  }
 
   await writeFile(
     path.join(funcDir, ".vc-config.json"),
