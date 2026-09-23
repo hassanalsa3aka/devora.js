@@ -41,8 +41,8 @@ function formatCommand([cmd, args]: [string, string[]]): string {
  * packages (see `ScaffoldAppOptions`'s doc comment in `@devorajs/scaffold`
  * for the same distinction from the other direction).
  */
-const CORE_VERSION = "^0.1.0";
-const CLI_VERSION = "^0.1.0";
+const CORE_VERSION = "^0.3.0";
+const CLI_VERSION = "^0.3.0";
 
 function parseArgs(argv: string[]) {
   const flags: Record<string, string> = {};

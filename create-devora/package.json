@@ -1,6 +1,6 @@
 {
   "name": "create-devora",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Scaffold a new devora.js project \u2014 npx create-devora, yarn create devora, or pnpm create devora.",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,7 @@
   "keywords": ["devora", "create-devora", "scaffold", "framework", "ssr", "vite", "multi-app"],
   "type": "module",
   "bin": {
-    "create-devora": "./dist/index.js"
+    "create-devora": "dist/index.js"
   },
   "files": [
     "dist",

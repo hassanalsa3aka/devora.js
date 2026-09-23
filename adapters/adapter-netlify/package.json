@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/adapter-netlify",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Outputs to Netlify's Frameworks API / build plugin format \u2014 one site per app in devora.config.ts.",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,7 @@
     }
   },
   "dependencies": {
-    "@devorajs/core": "^0.2.0",
+    "@devorajs/core": "^0.3.0",
     "esbuild": "^0.28.2"
   },
   "devDependencies": {

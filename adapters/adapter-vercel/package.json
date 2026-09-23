@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/adapter-vercel",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Outputs to Vercel's Build Output API (.vercel/output spec) \u2014 one output dir per app in devora.config.ts.",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,7 @@
     }
   },
   "dependencies": {
-    "@devorajs/core": "^0.2.0",
+    "@devorajs/core": "^0.3.0",
     "esbuild": "^0.28.2"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The devora CLI \u2014 dev/build/start/deploy for a devora.js project, plus repo-splitting (split/sync/status).",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,7 @@
   "keywords": ["devora", "cli", "framework", "ssr", "vite", "multi-app", "typescript"],
   "type": "module",
   "bin": {
-    "devora": "./dist/index.js"
+    "devora": "dist/index.js"
   },
   "files": [
     "dist"

@@ -10,7 +10,13 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## Unreleased (pre-v3 hotfixes — staged, not yet published)
+## Unreleased — pre-v3 hotfixes
+
+- **`@devorajs/core` 0.3.0**, **`@devorajs/cli` 0.3.0**, **`@devorajs/adapter-vercel` 0.2.0**,
+  **`@devorajs/adapter-netlify` 0.2.0**, **`create-devora` 0.2.0**: version bumps for everything
+  below (minor bumps: the session change is breaking). `create-devora` also now pins new projects
+  to `@devorajs/core`/`@devorajs/cli` `^0.3.0` — it was still pinning `^0.1.0`, which is how new
+  projects ended up on a core without `defineModule`/`apiRoute` (hotfix #1).
 
 See `devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly what changed.
 
