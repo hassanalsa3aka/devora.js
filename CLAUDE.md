@@ -373,6 +373,9 @@ only with `PageShell`, route CSS linked, islands discovered by the SSR build (AS
 uploads + `maxBodyBytes`, build imports only ssg/isr routes, fresh-scaffold typecheck in CI.
 Phase 4: dev ignores build/adapter output, client deps pre-bundled, `.env` loading, `cors` for
 API routes, backend-only `/` status, `devora add --kind`, `engines`, React 19 and Vite 6 allowed.
+Phase 5: footer fixed via `.devora-shell` (the `#root` wrapper broke the old body-flex layout),
+shell redesign with tokens/contrast/focus rings, `footerLinks`, built-in error + backend status
+pages in the shell, new default landing page.
 
 ## Suggested next task
 

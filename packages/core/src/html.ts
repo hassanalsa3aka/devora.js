@@ -245,3 +245,24 @@ export function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/**
+ * PageShell's markup as a plain string, for the framework's own pages that
+ * render without React (the built-in error page, a backend-only app's
+ * status page). `logo: false` for apps that have no public assets.
+ */
+export function renderShellMarkup(mainHtml: string, options: { mainClass?: string; badge?: string; logo?: boolean } = {}): string {
+  const logo = options.logo === false ? "" : `<img src="${DEVORA_LOGO_URL}" alt="" width="28" height="28" />`;
+  const badge = options.badge ? `<span class="devora-app-badge">${escapeHtml(options.badge)}</span>` : "";
+  return (
+    `<div class="devora-shell">` +
+    `<header class="devora-header"><div class="devora-header-inner">` +
+    `<a href="/" class="devora-brand" aria-label="Home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}` +
+    `</div></header>` +
+    `<main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main>` +
+    `<footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row">` +
+    `<div class="devora-footer-brand"><span>Built with <a href="https://github.com/hassanalsa3aka/devora.js">devora.js</a></span></div>` +
+    `</div></div></footer>` +
+    `</div>`
+  );
+}

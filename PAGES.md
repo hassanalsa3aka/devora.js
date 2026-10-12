@@ -165,3 +165,28 @@ them, e.g. a Docker build stage. Two cases still run at build:
 
 For those, don't do work that needs request-time secrets at import time: create the client lazily,
 on first use.
+
+## The shell: `PageShell` and its classes
+
+`PageShell` renders a sticky header, a centred content column and a footer that stays at the
+bottom of short pages. Its props:
+
+- `appName` — the badge next to the logo;
+- `nav` — header links, which wrap onto their own row on narrow screens;
+- `footerLinks` — links next to the footer logo;
+- `footer` — any footer content (copyright, links).
+
+Classes you can use inside it:
+
+| Class | For |
+|---|---|
+| `devora-lead` | a larger intro paragraph |
+| `devora-card` | a bordered card |
+| `devora-grid` | a responsive grid of `devora-card`s |
+| `devora-button` | a link styled as the primary button (`<button>`s already are) |
+| `devora-error` / `devora-status` | the centred error / status layout |
+| `devora-gradient-text`, `devora-pill` | the brand gradient on text; a small status pill |
+
+Forms inside the page are styled as cards, with full-width fields and labels above them.
+Everything is plain CSS custom properties (`--devora-*`), dark by default with a light variant
+from `prefers-color-scheme`. Override any token in your own stylesheet.

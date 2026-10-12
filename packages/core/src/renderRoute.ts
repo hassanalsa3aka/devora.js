@@ -1,4 +1,4 @@
-import { escapeHtml, renderHtmlDocument, type HeadConfig } from "./html.js";
+import { escapeHtml, renderHtmlDocument, renderShellMarkup, type HeadConfig } from "./html.js";
 import { createRequestContext, createNoAuthContext } from "./session.js";
 import { createIslandCollector, IslandCollectorContext } from "./islandComponent.js";
 import { ShellUsageContext } from "./branding.js";
@@ -171,10 +171,12 @@ function renderErrorDocument(deps: RenderRouteDeps, options: RenderErrorOptions)
   }
   const showStack =
     process.env.NODE_ENV !== "production" && options.error instanceof Error && getHttpErrorStatus(options.error) === undefined;
-  const bodyHtml =
-    `<main class="devora-page devora-error"><h1>${options.status}</h1><p>${escapeHtml(message)}</p>` +
-    (showStack ? `<pre>${escapeHtml((options.error as Error).stack ?? "")}</pre>` : "") +
-    `</main>`;
+  const bodyHtml = renderShellMarkup(
+    `<h1>${options.status}</h1><p>${escapeHtml(message)}</p>` +
+      `<p><a class="devora-button" href="/">Back to the home page</a></p>` +
+      (showStack ? `<pre>${escapeHtml((options.error as Error).stack ?? "")}</pre>` : ""),
+    { mainClass: "devora-error" }
+  );
   // The built-in page is framework UI, so it uses the framework theme unless the app turned it off.
   return renderHtmlDocument({
     bodyHtml,

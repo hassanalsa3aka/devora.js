@@ -17,6 +17,7 @@
  * — the same "logged, not leaked" behavior prod page routes already have.
  */
 import type { ApiResponse } from "./apiRoute.js";
+import { escapeHtml, renderHtmlDocument, renderShellMarkup } from "./html.js";
 
 export class HttpError extends Error {
   readonly status: number;
@@ -94,4 +95,32 @@ export function backendStatusResponse(appName: string): ApiResponse {
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
     body: JSON.stringify({ app: appName, status: "ok", api: "/api" }),
   };
+}
+
+/**
+ * The same status for a browser (`Accept: text/html`): a small page in the
+ * framework's shell, so opening a backend-only app's URL shows something
+ * readable. Built without React (a backend-only app has none) and without
+ * the logo image (it has no public assets).
+ */
+export function backendStatusPage(appName: string): ApiResponse {
+  const main =
+    `<span class="devora-pill">API is running</span>` +
+    `<h1>${escapeHtml(appName)}</h1>` +
+    `<p class="devora-lead">This app serves JSON under <code>/api</code>. Its routes live in the app's API folder.</p>`;
+  return {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    body: renderHtmlDocument({
+      bodyHtml: renderShellMarkup(main, { mainClass: "devora-status", badge: appName, logo: false }),
+      meta: { title: `${appName} — API` },
+      head: { appHead: { theme: true } },
+    }),
+  };
+}
+
+/** HTML for a browser, JSON for everything else. */
+export function backendStatusFor(appName: string, accept: string | string[] | undefined): ApiResponse {
+  const value = Array.isArray(accept) ? accept.join(",") : (accept ?? "");
+  return /\btext\/html\b/i.test(value) ? backendStatusPage(appName) : backendStatusResponse(appName);
 }

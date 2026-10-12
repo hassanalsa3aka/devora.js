@@ -10,7 +10,7 @@ import {
   resolveAuthMode,
   resolveSessionManifest,
   validateCorsConfig,
-  backendStatusResponse,
+  backendStatusFor,
   type AppConfig,
   type AppRuntimeConfig,
   type AuthMode,
@@ -134,7 +134,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // No pages: GET / gets the same small JSON status as in production.
     server.middlewares.use((req, res, next) => {
       if ((req.method !== "GET" && req.method !== "HEAD") || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
-      const status = backendStatusResponse(app.name);
+      const status = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status.status;
       for (const [name, value] of Object.entries(status.headers ?? {})) res.setHeader(name, value);
       res.end(status.body);

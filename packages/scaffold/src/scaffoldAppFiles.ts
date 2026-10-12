@@ -267,9 +267,11 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `export default function ErrorPage({ status, message }: ErrorPageProps) {\n` +
         `  return (\n` +
         `    <PageShell appName="${appName}">\n` +
-        `      <h1>{status}</h1>\n` +
-        `      <p>{message}</p>\n` +
-        `      <p><a href="/">Back to the home page</a></p>\n` +
+        `      <div className="devora-error">\n` +
+        `        <h1>{status}</h1>\n` +
+        `        <p>{message}</p>\n` +
+        `        <p><a className="devora-button" href="/">Back to the home page</a></p>\n` +
+        `      </div>\n` +
         `    </PageShell>\n` +
         `  );\n` +
         `}\n`
@@ -397,7 +399,23 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  return (\n` +
       `    <PageShell appName="${appName}">\n` +
       `      <h1>Welcome to ${appName}</h1>\n` +
-      `      <p>Edit apps/${appName}/routes/index.tsx to get started.</p>\n` +
+      `      <p className="devora-lead">\n` +
+      `        This page is <code>apps/${appName}/routes/index.tsx</code>. Edit it and the dev server reloads.\n` +
+      `      </p>\n` +
+      `      <div className="devora-grid">\n` +
+      `        <div className="devora-card">\n` +
+      `          <h3>Add a page</h3>\n` +
+      `          <p>Every file in <code>routes/</code> is a page: <code>routes/about.tsx</code> serves <code>/about</code>.</p>\n` +
+      `        </div>\n` +
+      `        <div className="devora-card">\n` +
+      `          <h3>Add an API route</h3>\n` +
+      `          <p><code>${SCAFFOLD_API_DIR}/hello.ts</code> serves <code>/api/hello</code> as JSON.</p>\n` +
+      `        </div>\n` +
+      `        <div className="devora-card">\n` +
+      `          <h3>Deploy</h3>\n` +
+      `          <p><code>npm run build</code>, then <code>npm start</code> — or Vercel, Netlify, Docker.</p>\n` +
+      `        </div>\n` +
+      `      </div>\n` +
       `    </PageShell>\n` +
       `  );\n` +
       `}\n`
@@ -434,7 +452,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `      <p><strong>Demo only</strong> — accepts any username with no password check.</p>\n` +
         `      <form method="post">\n` +
         `        <CsrfField token={csrfToken} />\n` +
-        `        <input name="username" placeholder="username" />\n` +
+        `        <label htmlFor="username">Username</label>\n` +
+        `        <input id="username" name="username" autoComplete="username" required />\n` +
         `        <button type="submit">Log in</button>\n` +
         `      </form>\n` +
         `    </PageShell>\n` +

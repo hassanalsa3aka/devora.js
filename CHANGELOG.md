@@ -10,6 +10,36 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 5 (design pass)
+
+Not yet version-bumped.
+
+- **`@devorajs/core` — fix: the footer stays at the bottom of short pages.** The cause wasn't a
+  missing `flex: 1` (`.devora-page` had one); it was the `<div id="root">` every document wraps
+  content in, so `main`'s parent was never the flex `body`. `PageShell` now renders its own
+  full-height `.devora-shell` column. Measured with Playwright at 375/768/1440, light and dark:
+  footer gap to the viewport bottom on short pages went from 452–478 px to 0.
+- **`@devorajs/core` — shell redesign** (theme.ts, branding.tsx), still dependency-free and
+  CSP-safe (no scripts):
+  - tokens for type scale, spacing, radii, borders, shadows and focus rings, in both themes;
+  - one centred grid shared by header, content (760 px reading column) and footer;
+  - a blurred sticky header with the app badge next to the logo and a nav that wraps onto its own
+    row on narrow screens (before, links past the first were hidden in a sideways scroll);
+  - styled code blocks, cards and a `.devora-grid` of cards, full-width form fields with labels;
+  - visible focus rings on every interactive element;
+  - logo images with intrinsic sizes (measured CLS 0);
+  - button text contrast raised from 3.7–4.0:1 to 5.2–5.7:1, and all text tokens at or above
+    5.5:1 in both themes.
+- **`PageShell` props stay compatible** (`appName`, `nav`, `footer`); new optional `footerLinks`.
+  Markup change: the shell now wraps its content in `<div class="devora-shell">`. The theme no
+  longer sets `body { display: flex }`.
+- **Built-in pages use the shell:** the built-in error page (status, message, a "Back to the home
+  page" button), and a backend-only app's `GET /`, which now serves a small HTML status page to
+  browsers and keeps JSON for API clients.
+- **`create-devora`/`devora add` — new default pages:** a landing page with a lead paragraph and
+  "next steps" cards, an error page using the error layout, and a login form with a real
+  `<label>` and `autocomplete`.
+
 ## Unreleased — hotfix round 3, phase 4 (dev experience and quick wins)
 
 Not yet version-bumped.

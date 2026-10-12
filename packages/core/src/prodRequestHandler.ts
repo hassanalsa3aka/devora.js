@@ -21,7 +21,7 @@ import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
 import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, MAX_BODY_BYTES } from "./readBody.js";
-import { apiErrorResponse, apiNotFoundResponse, backendStatusResponse, jsonMessageResponse } from "./httpError.js";
+import { apiErrorResponse, apiNotFoundResponse, backendStatusFor, jsonMessageResponse } from "./httpError.js";
 import { isApiPath } from "./apiRoute.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
@@ -244,7 +244,7 @@ export function createProdRequestHandler(
     const match = matchRoute(routesDir, url.pathname);
     if (!match) {
       if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
-        sendApiResponse(res, backendStatusResponse(appName));
+        sendApiResponse(res, backendStatusFor(appName, req.headers.accept));
         return true;
       }
       return sendErrorPage(res, 404);
