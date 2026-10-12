@@ -10,19 +10,120 @@ Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain
 
 ## Vercel
 
-1. In the Vercel dashboard: **Add New → Project**, import this repo, set **Root Directory** to
-   `apps/<name>`. Repeat as a separate project per app.
-2. Nothing else to configure — `apps/<name>/vercel.json` is already committed and handles it:
-   `"framework": null` disables Vercel's zero-config Vite detection (which would otherwise run a
-   plain `vite build` and fail), and `"buildCommand"` runs `devora build --adapter=vercel` for
-   that app.
-3. **Environment variables** (Project Settings → Environment Variables → Production) — only
-   needed if the app's `auth` mode in `devora.config.ts` is `"shared"` or `"isolated"`:
+**N Devora apps in one repo = N Vercel projects.** Each app in `devora.config.ts` is its own Vercel
+project, importing the same repo with a different Root Directory. Each one deploys as a single
+function (pages and API routes together) plus static files.
+
+> **⚠️ Don't keep API routes in a top-level `api/` folder of the Vercel project.**
+> `api/` at the root of a Vercel project is Vercel's own reserved functions folder. With Root
+> Directory set to `apps/<name>`, Vercel turns every file in `apps/<name>/api/` into **its own**
+> serverless function on top of the one Devora builds (25 route files hit the Hobby plan's
+> 12-function limit), or type-checks them with its own tsconfig (hundreds of `TS2835`/`TS2834`
+> errors after Devora's build already passed). **Put API routes in a different folder and set
+> `apiDir` in `app.config.ts`** — URLs don't change, `endpoints/health.ts` still serves
+> `/api/health`:
+>
+> ```ts
+> // apps/<name>/app.config.ts
+> export default defineApp({ apiDir: "endpoints" });
+> ```
+>
+> Apps scaffolded by `create-devora` or `devora add` already use `apiDir: "endpoints"`. Older apps
+> keep the `api/` default; `devora build --adapter=vercel` prints a preflight warning when the
+> Vercel project root has an `api/` folder. Don't rely on `.vercelignore` for this — it's not
+> confirmed to be honored for git-integration builds.
+
+### Setup (Root Directory = the app — recommended)
+
+1. **Add New → Project**, import the repo, set **Root Directory** to `apps/<name>`. Repeat for each
+   app.
+2. Leave **Build Command** and **Output Directory** unset in the dashboard. The committed
+   `apps/<name>/vercel.json` sets `"framework": null` (so Vercel doesn't run a plain `vite build`)
+   and a build command that goes up to the repo root and runs the locally installed CLI:
+
+   ```json
+   { "framework": null, "buildCommand": "cd ../.. && ./node_modules/.bin/devora build --app=<name> --adapter=vercel" }
+   ```
+
+   (Inside the devora.js repo itself the command is `node packages/cli/dist/index.js` instead.)
+   This works in a workspace because the `devora` bin is installed at the repo root, and the
+   output lands in `apps/<name>/.vercel/output`, which is where Vercel looks when the Root
+   Directory is `apps/<name>`. Keep **"Include files outside the Root Directory in the Build
+   Step"** on (the default): the build reads `devora.config.ts` and `packages/*`.
+3. **Environment variables** (Project Settings → Environment Variables → Production), only for
+   apps whose `auth` is `"shared"` or `"isolated"`:
    - `auth: "shared"` → `DEVORA_SESSION_SECRET` (`openssl rand -base64 32`)
-   - `auth: "isolated"` → `DEVORA_SESSION_SECRET_<APPNAME>` (uppercase app name)
-   - An app with `auth: "none"` needs none of this.
-   - Changing an env var doesn't apply to an already-built deployment — redeploy after saving it.
+   - `auth: "isolated"` → `DEVORA_SESSION_SECRET_<APPNAME>` (uppercase app name), or
+     `DEVORA_SESSION_SECRET` as a fallback. An app name containing `-` produces a name most
+     platforms won't accept, so use the fallback for those.
+   - `shared.sessions.store` in `devora.config.ts` must point at a DB-backed store. `"memory"`
+     doesn't work on serverless (every instance has its own empty store).
+   - Changing an env var doesn't apply to an existing deployment. Redeploy after saving it.
 4. Deploy.
+
+### Alternative: Root Directory = the repo root
+
+Use this if you can't move an existing `api/` folder yet. Vercel then looks for
+`<repo>/.vercel/output`, so write the output there with `--out`:
+
+- **Root Directory**: *(empty — the repo root)*
+- **Framework Preset**: Other
+- **Build Command**: `./node_modules/.bin/devora build --app=<name> --adapter=vercel --out=.vercel/output`
+- **Output Directory**: *(leave unset — Vercel picks up `.vercel/output` automatically)*
+
+Set the build command per project in the dashboard; one repo-root `vercel.json` can't hold N
+different build commands. The repo root itself must not have an `api/` folder (the preflight check
+warns if it does). `--out` needs `--app` (one output per Vercel project).
+
+### Node.js runtime
+
+The function runtime is no longer hardcoded (it used to be `nodejs20.x`, which Vercel now
+rejects). `devora build --adapter=vercel` prints the runtime it picked and why:
+
+1. `vercel: { runtime: "nodejs22.x" }` in `app.config.ts`, if set.
+2. Otherwise the Node major running the build, if Vercel supports it and it fits `engines.node`.
+   On Vercel's build image this is the version the project selected, so build and runtime match.
+3. Otherwise the newest Vercel-supported major allowed by `engines.node` (the app's
+   `package.json`, then the repo root's).
+4. With no `engines.node`, Vercel's default (`nodejs24.x`).
+
+Supported today: `nodejs24.x`, `nodejs22.x`. An `engines.node` that allows neither (e.g. `20.x`)
+fails the build with a clear message.
+
+### Codegen before the build (`prebuild`)
+
+A clean checkout doesn't have git-ignored generated files (a Prisma client, compiled CSS, copied
+fonts). Run those steps as part of the build:
+
+```ts
+// apps/<name>/app.config.ts
+export default defineApp({
+  prebuild: ["prisma generate --schema ../../packages/backend/prisma/schema.prisma", "npm run build:css"],
+});
+```
+
+Commands run in the app's directory, in order, before the build, with the app's and the repo
+root's `node_modules/.bin` on `PATH` (like an npm script). A non-zero exit stops the build. They
+run for every `devora build` / `devora deploy` (any adapter), not for `devora dev`.
+
+### Preflight checks
+
+Before building, `devora build --adapter=vercel` checks:
+
+- the runtime resolves to one Vercel supports (error otherwise);
+- the Vercel project root (the folder containing `.vercel/output`) has no `api/` folder (warning);
+- `--out`, if given, is a `.vercel/output` directory (warning otherwise);
+- session secrets and `shared.sessions.store` for the app's auth mode. A missing secret is an
+  **error** when building on Vercel (`VERCEL=1`), where the project's env vars are present, and a
+  warning for a local build (`vercel deploy --prebuilt` reads secrets at runtime). A missing store is
+  always an error; `"memory"` is a warning.
+
+### CommonJS dependencies
+
+The function is bundled as ESM. Bundled CommonJS packages that `require()` Node built-ins (`pg`
+requires `events`) used to crash on the first request with `Dynamic require of "events" is not
+supported`. The bundle now defines `require` for them (same for Netlify). Packages with native
+addons (`argon2`, `better-sqlite3`) or engine binaries haven't been verified inside the function.
 
 ## Netlify
 
@@ -58,7 +159,8 @@ Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain
    `package.json`, `{"type":"module"}`, wasn't reaching the deployed bundle) and
    `Error: Cannot find package 'react'` (the vendored `react`/`react-dom` in the function's own
    `node_modules` hit the identical blind spot). Both are already fixed in every committed
-   `netlify.toml` (`included_files` lists `routes/**`, `api/**`, `dist/**`, `package.json`, and
+   `netlify.toml` (`included_files` lists `routes/**`, the app's API folder (`api/**`, or
+   `endpoints/**` for newer apps — it must match `apiDir`), `dist/**`, `package.json`, and
    `node_modules/**`) — documented here in case a future platform change reintroduces the same
    class of gap: anything the function reads from disk at runtime instead of statically importing
    has to be named in that list explicitly, or it silently never reaches the deployed function.
@@ -122,8 +224,9 @@ rebuilds an app and shells out to the real platform CLI (`vercel deploy --prebui
 `netlify deploy`) via `npx`, once you've run `vercel link`/`netlify link` in that app's directory.
 An app that isn't linked is skipped with a clear instruction rather than failing the whole run.
 
-Confirmed with a real, authenticated deploy on both platforms — not just link-detection and
-error-message correctness. Two real bugs were found and fixed getting a genuinely clean run,
+Confirmed with a real, authenticated deploy on both platforms at the time — not just
+link-detection and error-message correctness. That was before Vercel discontinued `nodejs20.x`,
+which the adapter then hardcoded; the runtime fix above hasn't been re-deployed live yet. Two real bugs were found and fixed getting a genuinely clean run,
 both the same class as ROADMAP.md #4's `react`/`react-dom` and `NODE_ENV` bugs — something that
 only surfaces on an actual platform, never in local simulation:
 - `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did) — the same

@@ -38,6 +38,10 @@ program
   .description("Build all apps (or one with --app)")
   .option("--app <name>", "build only this app")
   .option("--adapter <target>", "also write output for this adapter: vercel or netlify")
+  .option(
+    "--out <dir>",
+    "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
+  )
   .action(async (opts) => build(opts));
 
 program

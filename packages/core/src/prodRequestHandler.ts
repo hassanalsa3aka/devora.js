@@ -19,6 +19,14 @@ import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
 import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
+import { resolveApiDir } from "./apiDir.js";
+
+/** Trailing options for `createProdRequestHandler` — optional so existing
+ * generated Vercel/Netlify functions keep working unchanged. */
+export interface ProdRequestHandlerOptions {
+  /** app.config.ts `apiDir` (default "api") — see apiDir.ts. */
+  apiDir?: string;
+}
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ".js": "application/javascript; charset=utf-8",
@@ -57,10 +65,11 @@ export function createProdRequestHandler(
   domain: string,
   security: AppRuntimeConfig["security"],
   sitemapEnabled: boolean,
-  appDefaultRenderMode?: RenderMode
+  appDefaultRenderMode?: RenderMode,
+  options: ProdRequestHandlerOptions = {}
 ) {
   const routesDir = path.join(appRoot, "routes");
-  const apiDir = path.join(appRoot, "api");
+  const apiDir = resolveApiDir(appRoot, options.apiDir);
   const serverOutDir = path.join(appRoot, "dist", "server");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");

@@ -1,4 +1,3 @@
-import path from "node:path";
 import type { ServerResponse } from "node:http";
 import type { Connect, Plugin, ViteDevServer } from "vite";
 import {
@@ -11,6 +10,7 @@ import {
   apiNotFoundResponse,
   jsonMessageResponse,
   isApiPath,
+  resolveApiDir,
   type AuthMode,
   type AppRuntimeConfig,
   type ApiRouteModule,
@@ -54,6 +54,8 @@ export interface ApiMiddlewareOptions {
   security: AppRuntimeConfig["security"];
   projectRoot: string;
   sessions: SessionsConfig | undefined;
+  /** app.config.ts `apiDir` (default "api"). */
+  apiDir?: string;
 }
 
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {
@@ -67,7 +69,7 @@ export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin
 
 function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions): Connect.NextHandleFunction {
   const { appRoot, appName, authMode, security } = options;
-  const apiDir = path.join(appRoot, "api");
+  const apiDir = resolveApiDir(appRoot, options.apiDir);
   const resolveSessionOptions = createDevSessionOptionsResolver(vite, options.projectRoot, options.sessions, authMode, appName);
   const securityHeaders = resolveSecurityHeaders(security);
 
@@ -80,8 +82,8 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
       res.setHeader(name, value);
     }
 
-    // Strip the leading "/api" before matching against apps/<name>/api/ —
-    // a file at api/webhooks/stripe.ts serves /api/webhooks/stripe.
+    // Strip the leading "/api" before matching against the app's apiDir —
+    // a file at <apiDir>/webhooks/stripe.ts serves /api/webhooks/stripe.
     const match = matchRoute(apiDir, url.pathname.slice(4) || "/");
     // Unmatched /api/** is a JSON 404, never `next()` — falling through is
     // exactly what used to hand API clients Connect's HTML "Cannot GET"

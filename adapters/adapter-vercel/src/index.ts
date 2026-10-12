@@ -1,11 +1,37 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
+import { mkdir, writeFile, cp, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
+import { resolveVercelRuntime, readEnginesNode } from "./runtime.js";
 
 export { isVercelLinked, deployToVercel } from "./deploy.js";
+export {
+  resolveVercelRuntime,
+  readEnginesNode,
+  VERCEL_SUPPORTED_NODE_MAJORS,
+  VERCEL_DEFAULT_NODE_MAJOR,
+  type ResolvedVercelRuntime,
+} from "./runtime.js";
+export { CJS_REQUIRE_BANNER } from "./bundleForDeploy.js";
+
+/** Public docs page for deploying — the npm package doesn't ship ROADMAP.md. */
+export const VERCEL_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
+
+export interface VercelOutputOptions {
+  /** app.config.ts `apiDir`, normalized (default "api"). */
+  apiDir?: string;
+  /**
+   * Where to write the Build Output API directory. Default
+   * `<appRoot>/.vercel/output` — right when the Vercel project's Root
+   * Directory is the app. `devora build --out` sets it when the Root
+   * Directory is somewhere else (e.g. the repo root).
+   */
+  outputDir?: string;
+  /** `.vc-config.json` runtime (e.g. "nodejs22.x"). Default: resolveVercelRuntime(). */
+  runtime?: string;
+}
 
 const require = createRequire(import.meta.url);
 
@@ -79,13 +105,23 @@ export async function writeVercelOutput(
   authMode: AuthMode,
   security: AppRuntimeConfig["security"],
   sitemapEnabled: boolean,
-  defaultRenderMode?: RenderMode
+  defaultRenderMode?: RenderMode,
+  options: VercelOutputOptions = {}
 ): Promise<void> {
-  const outputDir = path.join(appRoot, ".vercel", "output");
+  const apiDir = options.apiDir ?? "api";
+  const outputDir = options.outputDir ?? path.join(appRoot, ".vercel", "output");
+  const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
   const funcDir = path.join(outputDir, "functions", "index.func");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");
 
+  // Start from an empty output dir so files from an earlier build (or, with
+  // --out at a shared repo root, from a different app) can't ship with this
+  // one. Only ever a directory literally named `.vercel/output` — never
+  // whatever path --out happened to be given.
+  if (path.basename(outputDir) === "output" && path.basename(path.dirname(outputDir)) === ".vercel") {
+    await rm(outputDir, { recursive: true, force: true });
+  }
   await mkdir(path.join(outputDir, "static"), { recursive: true });
   await mkdir(funcDir, { recursive: true });
 
@@ -98,15 +134,16 @@ export async function writeVercelOutput(
     await cp(path.join(appRoot, "routes"), path.join(funcDir, "routes"), { recursive: true });
   }
   // Generic API routes (architecture-v2.md §3.2) — prodRequestHandler.ts's
-  // matchRoute() needs the *source* api/ files at runtime (same as routes/
+  // matchRoute() needs the *source* API files (app.config.ts `apiDir`,
+  // default api/) at runtime (same as routes/
   // above), not just their built dist/server/api/*.js output (copied below
   // regardless). A real bug found wiring this up: without this, every
   // /api/* request 404'd in the deployed function even though the built
   // handler file was present and correctly bundled — matchRoute() had
   // nothing to match against. existsSync-guarded: most apps have no api/
   // directory at all.
-  if (existsSync(path.join(appRoot, "api"))) {
-    await cp(path.join(appRoot, "api"), path.join(funcDir, "api"), { recursive: true });
+  if (existsSync(path.join(appRoot, apiDir))) {
+    await cp(path.join(appRoot, apiDir), path.join(funcDir, apiDir), { recursive: true });
   }
   await cp(path.join(appRoot, "dist", "server"), path.join(funcDir, "dist", "server"), { recursive: true });
 
@@ -135,8 +172,8 @@ export async function writeVercelOutput(
   // file's copy of this comment for the full account, found via a live
   // Netlify deploy): `bundleForDeploy` writes `dist/server/**/*.js` with
   // `format: "esm"`, but nothing in `funcDir` ever declared `"type":
-  // "module"`. `index.mjs` itself loads fine regardless (Vercel's
-  // `nodejs20.x` runtime invokes it directly, and `.mjs` is always ESM to
+  // "module"`. `index.mjs` itself loads fine regardless (Vercel's Node
+  // runtime invokes it directly, and `.mjs` is always ESM to
   // Node), but `prodRequestHandler.ts`'s `importBuilt()` dynamically
   // `import()`s a plain `.js` route file at request time — with no
   // package.json to say otherwise, Node defaults that to CommonJS and
@@ -159,7 +196,8 @@ export async function writeVercelOutput(
       `  ${JSON.stringify(app.domain)},\n` +
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
-      `  ${JSON.stringify(defaultRenderMode ?? null)}\n` +
+      `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
+      `  ${JSON.stringify({ apiDir })}\n` +
       `);\n\n` +
       `export default async function handler(req, res) {\n` +
       `  try {\n` +
@@ -176,7 +214,7 @@ export async function writeVercelOutput(
       `}\n`
   );
 
-  await bundleForDeploy(path.join(funcDir, "index.mjs"), path.join(funcDir, "dist", "server"));
+  await bundleForDeploy(path.join(funcDir, "index.mjs"), path.join(funcDir, "dist", "server"), { apiDir });
 
   const funcNodeModules = path.join(funcDir, "node_modules");
   await mkdir(funcNodeModules, { recursive: true });
@@ -194,7 +232,7 @@ export async function writeVercelOutput(
 
   await writeFile(
     path.join(funcDir, ".vc-config.json"),
-    JSON.stringify({ runtime: "nodejs20.x", handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
+    JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
 
   // "handle": "filesystem" first — try a static file (island assets under
@@ -209,7 +247,18 @@ export async function writeVercelOutput(
   await writeFile(path.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
 
   console.log(
-    `[adapter-vercel] wrote ${outputDir} for "${app.name}" (${app.domain}) — verified locally in isolation, ` +
-      `NOT deployed to real Vercel infrastructure (no platform access here), see ROADMAP.md #4`
+    `[adapter-vercel] wrote ${outputDir} for "${app.name}" (${runtime}). ` +
+      `Deploy it with your Vercel project or \`vercel deploy --prebuilt\` — guide: ${VERCEL_DOCS_URL}`
   );
+}
+
+/** For direct callers of writeVercelOutput that don't pass `runtime`
+ * (`devora build` always does, after printing its preflight). */
+function resolveDefaultRuntime(appRoot: string): string {
+  const resolved = resolveVercelRuntime({
+    enginesNode: readEnginesNode(appRoot, appRoot),
+    runningNodeVersion: process.versions.node,
+  });
+  if (resolved.error) throw new Error(`[adapter-vercel] ${resolved.error}`);
+  return resolved.runtime;
 }

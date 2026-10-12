@@ -6,6 +6,16 @@ import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devoraj
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
+export { CJS_REQUIRE_BANNER } from "./bundleForDeploy.js";
+
+/** Public docs page for deploying — the npm package doesn't ship ROADMAP.md. */
+export const NETLIFY_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
+
+export interface NetlifyOutputOptions {
+  /** app.config.ts `apiDir`, normalized (default "api"). netlify.toml's
+   * `included_files` must list `netlify/functions/ssr/<apiDir>/**`. */
+  apiDir?: string;
+}
 
 const require = createRequire(import.meta.url);
 
@@ -89,8 +99,10 @@ export async function writeNetlifyConfig(
   authMode: AuthMode,
   security: AppRuntimeConfig["security"],
   sitemapEnabled: boolean,
-  defaultRenderMode?: RenderMode
+  defaultRenderMode?: RenderMode,
+  options: NetlifyOutputOptions = {}
 ): Promise<void> {
+  const apiDir = options.apiDir ?? "api";
   const funcDir = path.join(appRoot, "netlify", "functions", "ssr");
   const staticOutDir = path.join(appRoot, "dist", "static");
   await mkdir(funcDir, { recursive: true });
@@ -106,8 +118,8 @@ export async function writeNetlifyConfig(
   // matchRoute() needs the *source* api/ files at runtime, not just their
   // built dist/server/api/*.js output. existsSync-guarded: most apps have
   // no api/ directory at all.
-  if (existsSync(path.join(appRoot, "api"))) {
-    await cp(path.join(appRoot, "api"), path.join(funcDir, "api"), { recursive: true });
+  if (existsSync(path.join(appRoot, apiDir))) {
+    await cp(path.join(appRoot, apiDir), path.join(funcDir, apiDir), { recursive: true });
   }
   await cp(path.join(appRoot, "dist", "server"), path.join(funcDir, "dist", "server"), { recursive: true });
 
@@ -155,7 +167,8 @@ export async function writeNetlifyConfig(
       `  ${JSON.stringify(app.domain)},\n` +
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
-      `  ${JSON.stringify(defaultRenderMode ?? null)}\n` +
+      `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
+      `  ${JSON.stringify({ apiDir })}\n` +
       `);\n\n` +
       `export default async (request) => {\n` +
       `  const bodyBuf = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);\n` +
@@ -200,7 +213,7 @@ export async function writeNetlifyConfig(
       `};\n`
   );
 
-  await bundleForDeploy(path.join(funcDir, "ssr.mjs"), path.join(funcDir, "dist", "server"));
+  await bundleForDeploy(path.join(funcDir, "ssr.mjs"), path.join(funcDir, "dist", "server"), { apiDir });
 
   const funcNodeModules = path.join(funcDir, "node_modules");
   await mkdir(funcNodeModules, { recursive: true });
@@ -230,7 +243,7 @@ export async function writeNetlifyConfig(
   // regenerated here, so there's nothing for this build step to overwrite.
 
   console.log(
-    `[adapter-netlify] wrote ${funcDir} for "${app.name}" (${app.domain}) — verified locally in ` +
-      `isolation, NOT deployed to real Netlify infrastructure (no platform access here), see ROADMAP.md #4`
+    `[adapter-netlify] wrote ${funcDir} for "${app.name}". Netlify picks it up via this app's ` +
+      `netlify.toml — guide: ${NETLIFY_DOCS_URL}`
   );
 }

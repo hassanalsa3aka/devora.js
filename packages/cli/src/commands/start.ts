@@ -54,6 +54,7 @@ export async function start(opts: { app?: string; port?: string }) {
       security: appConfig.security,
       sitemapEnabled: appConfig.sitemap === true,
       defaultRenderMode: appConfig.defaultRenderMode,
+      apiDir: appConfig.apiDir,
       port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
     });
   }

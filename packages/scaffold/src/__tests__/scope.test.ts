@@ -59,6 +59,8 @@ describe("scaffold scope (devora-pre-v3-hotfixes.md #12)", () => {
     const root = await scaffold("frontend");
     expect(exists(root, "packages/backend")).toBe(false);
     expect(exists(root, "apps/one/routes/index.tsx")).toBe(true);
+    // A page app gets apiDir too, so its first API route doesn't land in api/.
+    expect(fs.readFileSync(path.join(root, "apps/one/app.config.ts"), "utf-8")).toContain(`apiDir: "endpoints"`);
     expect(deps(root)).not.toContain("@devorajs/backend");
     expect(config(root)).not.toMatch(/backend:/);
     expect(fs.readFileSync(path.join(root, "README.md"), "utf-8")).toContain("frontend only");
@@ -67,9 +69,13 @@ describe("scaffold scope (devora-pre-v3-hotfixes.md #12)", () => {
   it("backend only: an API app (no pages, no React) + packages/backend", async () => {
     const root = await scaffold("backend");
     expect(exists(root, "packages/backend/package.json")).toBe(true);
-    expect(exists(root, "apps/one/api/health.ts")).toBe(true);
-    expect(exists(root, "apps/one/api/session.ts")).toBe(true);
-    expect(exists(root, "apps/one/api/me.ts")).toBe(true);
+    // endpoints/, not api/ — Vercel's reserved functions folder (round 3 V2).
+    expect(exists(root, "apps/one/endpoints/health.ts")).toBe(true);
+    expect(exists(root, "apps/one/endpoints/session.ts")).toBe(true);
+    expect(exists(root, "apps/one/endpoints/me.ts")).toBe(true);
+    expect(exists(root, "apps/one/api"), "no Vercel-reserved api/ folder").toBe(false);
+    expect(fs.readFileSync(path.join(root, "apps/one/app.config.ts"), "utf-8")).toContain(`apiDir: "endpoints"`);
+    expect(fs.readFileSync(path.join(root, "apps/one/netlify.toml"), "utf-8")).toContain("netlify/functions/ssr/endpoints/**");
     for (const pageFile of ["routes", "entry-server.tsx", "island-client.tsx", "csr-client.tsx"]) {
       expect(exists(root, `apps/one/${pageFile}`), pageFile).toBe(false);
     }
@@ -80,6 +86,6 @@ describe("scaffold scope (devora-pre-v3-hotfixes.md #12)", () => {
 
   it("backend only with auth none: just the health route, no session routes", async () => {
     const root = await scaffold("backend", "none");
-    expect(fs.readdirSync(path.join(root, "apps/one/api"))).toEqual(["health.ts"]);
+    expect(fs.readdirSync(path.join(root, "apps/one/endpoints"))).toEqual(["health.ts"]);
   });
 });

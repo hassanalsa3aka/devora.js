@@ -18,6 +18,8 @@ export function createNodeServer(opts: {
   security: AppRuntimeConfig["security"];
   sitemapEnabled: boolean;
   defaultRenderMode?: RenderMode;
+  /** app.config.ts `apiDir` (default "api"). */
+  apiDir?: string;
   port: number;
 }): http.Server {
   const handleRequest = createProdRequestHandler(
@@ -27,7 +29,8 @@ export function createNodeServer(opts: {
     opts.domain,
     opts.security,
     opts.sitemapEnabled,
-    opts.defaultRenderMode
+    opts.defaultRenderMode,
+    { apiDir: opts.apiDir }
   );
 
   const server = http.createServer((req, res) => {

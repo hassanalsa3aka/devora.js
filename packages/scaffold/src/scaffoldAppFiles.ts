@@ -89,6 +89,19 @@ export interface ScaffoldAppOptions {
 }
 
 /**
+ * API route folder for every newly scaffolded app (app.config.ts `apiDir`).
+ * Not `api/`: that name at the root of a Vercel project is Vercel's own
+ * functions folder, and the scaffold's Vercel layout makes the app the
+ * project root (see @devorajs/core's apiDir.ts). URLs are still /api/**.
+ */
+export const SCAFFOLD_API_DIR = "endpoints";
+
+const API_DIR_CONFIG_LINES =
+  `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) — not api/, which\n` +
+  `  // Vercel would turn into separate functions. See DEPLOYING.md.\n` +
+  `  apiDir: "${SCAFFOLD_API_DIR}",\n`;
+
+/**
  * Writes every file for ONE app (`entry-server.tsx`, `vite.config.ts`,
  * `vercel.json`/`netlify.toml`, `routes/`, etc.) into `appDir` — the exact
  * template `devora new`/`add` has always generated, extracted here so
@@ -114,7 +127,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       ? "cd ../.. && node packages/cli/dist/index.js"
       : "cd ../.. && ./node_modules/.bin/devora";
 
-  await mkdir(path.join(appDir, kind === "api" ? "api" : "routes"), { recursive: true });
+  await mkdir(path.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
 
   await writeFile(
     path.join(appDir, "package.json"),
@@ -169,9 +182,10 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
     await writeFile(
       path.join(appDir, "app.config.ts"),
       `import { defineApp } from "@devorajs/core/config";\n\n` +
-        `// Backend-only app: API routes under api/, no pages and no client build.\n` +
+        `// Backend-only app: API routes under ${SCAFFOLD_API_DIR}/, no pages and no client build.\n` +
         `export default defineApp({\n` +
         `  backendOnly: true,\n` +
+        API_DIR_CONFIG_LINES +
         `});\n`
     );
     await writeFile(
@@ -190,6 +204,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `  // Opt-in, off by default — see ROADMAP.md #7. Turn on for a\n` +
         `  // public-facing app; leave off for an internal one.\n` +
         `  sitemap: false,\n` +
+        API_DIR_CONFIG_LINES +
         `});\n`
     );
 
@@ -332,7 +347,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       // node_modules (`vendorRuntimeDependency`) — those files exist in
       // every local build too, but hit the identical tracer blind spot.
       `[functions.ssr]\n` +
-      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/api/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]\n\n` +
+      `  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/${SCAFFOLD_API_DIR}/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]\n\n` +
       `[[redirects]]\n` +
       `  from = "/*"\n` +
       `  to = "/.netlify/functions/ssr"\n` +
@@ -470,7 +485,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
  */
 async function scaffoldApiRoutes(appDir: string, authMode: AuthChoice): Promise<void> {
   await writeFile(
-    path.join(appDir, "api", "health.ts"),
+    path.join(appDir, SCAFFOLD_API_DIR, "health.ts"),
     `import { apiRoute } from "@devorajs/core";\n\n` +
       `// GET /api/health\n` +
       `export const methods = ["GET"];\n` +
@@ -484,7 +499,7 @@ async function scaffoldApiRoutes(appDir: string, authMode: AuthChoice): Promise<
   if (authMode === "none") return;
 
   await writeFile(
-    path.join(appDir, "api", "session.ts"),
+    path.join(appDir, SCAFFOLD_API_DIR, "session.ts"),
     `import { apiRoute, HttpError } from "@devorajs/core";\n\n` +
       `// POST /api/session   { "username": "..." } -> { "token": "..." }\n` +
       `// DELETE /api/session (Authorization: Bearer <token>) -> revokes it\n` +
@@ -515,7 +530,7 @@ async function scaffoldApiRoutes(appDir: string, authMode: AuthChoice): Promise<
   );
 
   await writeFile(
-    path.join(appDir, "api", "me.ts"),
+    path.join(appDir, SCAFFOLD_API_DIR, "me.ts"),
     `import { apiRoute } from "@devorajs/core";\n\n` +
       `// GET /api/me (Authorization: Bearer <token>) — 401 without a valid session.\n` +
       `export const methods = ["GET"];\n` +

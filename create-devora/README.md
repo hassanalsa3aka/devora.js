@@ -40,7 +40,7 @@ Non-interactive use (CI, scripting) is supported: `create-devora my-app --scope=
 
 - `fullstack` (default) — page apps plus one shared backend, `packages/backend`.
 - `frontend` — page apps only; no `packages/backend`.
-- `backend` — backend-only API apps (`api/` routes, no pages or React) plus `packages/backend`.
+- `backend` — backend-only API apps (routes in `endpoints/`, served under `/api`; no pages or React) plus `packages/backend`.
 
 Every project gets at most one shared backend. Backend logic only one app needs can live inside that
 app — see "The shared backend pattern" in the docs.

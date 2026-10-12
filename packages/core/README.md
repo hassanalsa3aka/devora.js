@@ -25,8 +25,9 @@ installing it into an unrelated project won't do much on its own.
 - **Security headers** — CSP, HSTS, X-Frame-Options on by default, overridable per app.
 - **Backend modules** — `defineModule()` organizes shared backend logic into scoped, composable
   units with no DI container, ever.
-- **Generic API routes** — `apiRoute()` handlers under `apps/<name>/api/**`, matched by the same
-  file-based router as page routes. An optional `methods` export rejects any undeclared HTTP
+- **Generic API routes** — `apiRoute()` handlers in the app's `apiDir` folder (`api/` by default;
+  `endpoints/` in newly scaffolded apps, since `api/` is Vercel's reserved folder), served under
+  `/api/**` and matched by the same file-based router as page routes. An optional `methods` export rejects any undeclared HTTP
   method with a real `405` before the handler runs.
 - **Middleware** — native `withMiddleware()` composition, plus optional `fromExpressMiddleware()`/
   `fromFastifyPlugin()` adapters for the wider npm ecosystem.

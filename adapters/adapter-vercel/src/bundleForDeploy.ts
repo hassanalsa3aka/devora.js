@@ -46,7 +46,27 @@ import * as esbuild from "esbuild";
  *    fixed it (confirmed by re-running the isolated test and seeing the
  *    island's real markup appear).
  */
-export async function bundleForDeploy(wrapperPath: string, serverOutDir: string): Promise<void> {
+/**
+ * Prepended to every file both esbuild passes write. `format: "esm"` output
+ * has no `require`, so when esbuild inlines a CommonJS package that calls
+ * `require("events")` (or any Node built-in) — `pg` is the real example, from
+ * a production function that built green and then 500'd on its first request
+ * with `Dynamic require of "events" is not supported` — esbuild's `__require`
+ * shim throws. That shim checks for a global `require` at call time, so
+ * defining one here is enough. Aliased (`__devoraCreateRequire`) rather than
+ * the plain `createRequire` name so it can't collide with a bundled module's
+ * own top-level `import { createRequire }`, which would be a SyntaxError.
+ * Exported for the smoke test.
+ */
+export const CJS_REQUIRE_BANNER =
+  'import { createRequire as __devoraCreateRequire } from "node:module"; ' +
+  "globalThis.require ??= __devoraCreateRequire(import.meta.url);";
+
+export async function bundleForDeploy(
+  wrapperPath: string,
+  serverOutDir: string,
+  options: { apiDir?: string } = {}
+): Promise<void> {
   await esbuild.build({
     entryPoints: [wrapperPath],
     bundle: true,
@@ -54,6 +74,7 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
     format: "esm",
     outfile: wrapperPath,
     allowOverwrite: true,
+    banner: { js: CJS_REQUIRE_BANNER },
     logLevel: "silent",
   });
 
@@ -67,8 +88,10 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
   // — bundle them the same way, or a deployed function would 500 on
   // `Cannot find module` the first time any API route is actually hit.
   // existsSync-guarded: most apps have no api/ directory at all.
-  const apiDir = path.join(serverOutDir, "api");
-  const apiFiles = existsSync(apiDir) ? await findJsFiles(apiDir) : [];
+  // `apiDir` (app.config.ts) — the build key, and so the output path,
+  // follows the source folder name: endpoints/health.ts → dist/server/endpoints/health.js.
+  const apiOutDir = path.join(serverOutDir, options.apiDir ?? "api");
+  const apiFiles = existsSync(apiOutDir) ? await findJsFiles(apiOutDir) : [];
   // A backend-only app never builds entry-server.js either (buildAppServer.ts
   // skips it — nothing to render). existsSync-guarded the same way.
   const entryServerPath = path.join(serverOutDir, "entry-server.js");
@@ -89,6 +112,7 @@ export async function bundleForDeploy(wrapperPath: string, serverOutDir: string)
     outdir: serverOutDir,
     outbase: serverOutDir,
     allowOverwrite: true,
+    banner: { js: CJS_REQUIRE_BANNER },
     logLevel: "silent",
   });
 }

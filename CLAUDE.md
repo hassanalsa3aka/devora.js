@@ -277,7 +277,13 @@ session cookie correctly rejected (falls back to `undefined` session, `requireAu
 both the shared cookie (`dashboard`) and the isolated one (`admin`, its own `devora_session_admin`
 cookie name and `DEVORA_SESSION_SECRET_ADMIN`).
 
-**Real Vercel AND Netlify deployment — both now confirmed live, not just built.** The user did
+**Real Vercel AND Netlify deployment — confirmed live at the time; NOT currently true for new Vercel
+deploys until the round-3 fixes ship.** Vercel has since discontinued `nodejs20.x`, which the adapter
+hardcoded, so every new Vercel deploy of a released version fails; the demo apps also never
+exercised a CommonJS dependency (`pg`-style `require("events")` crashed real functions) or the
+`api/` folder collision. Round 3 phase 1 (`devora-hotfix-round3.md`, `CHANGELOG.md`) fixes all
+three, verified by running the generated functions outside the monorepo — not re-deployed live.
+History of the original confirmation: the user did
 real, live deployments of all three apps to both platforms (not this environment; no platform
 access here) and confirmed all three working in production on each. Three real bugs surfaced along
 the way that no amount of local simulation had caught, each fixed and each verified against the
@@ -358,8 +364,8 @@ Covered by real-server integration tests in `packages/cli/src/server/__tests__/`
 ## Suggested next task
 
 Every `ROADMAP.md` item now has real work behind it, and real Vercel/Netlify deployment — the one
-item that used to need platform access this environment doesn't have — is now done, confirmed live
-on both platforms (see above). What's left of the locally-closeable work is `"streaming"` (deferred
+item that used to need platform access this environment doesn't have — was confirmed live
+on both platforms at the time (see the round-3 note above — Vercel needs the phase 1 fixes released again). What's left of the locally-closeable work is `"streaming"` (deferred
 to v2, see above) and the disk-cache/serverless mismatch for `isr` specifically (not yet
 re-exercised under real serverless conditions on either platform). Confirm with me before starting
 something not on that list.

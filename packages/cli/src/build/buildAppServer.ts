@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { build as viteBuild } from "vite";
 import {
   listRouteFiles,
+  resolveApiDir,
   toBuildKey,
   SESSION_MANIFEST_FILE,
   SESSION_STORE_BUILD_KEY,
@@ -55,10 +56,12 @@ export async function buildAppServer(
     backendOnly?: boolean;
     /** Absent for an auth: "none" app (no sessions at all). */
     sessions?: { manifest: SessionManifest; storeModulePath?: string };
+    /** app.config.ts `apiDir`, normalized (default "api"). */
+    apiDir?: string;
   } = {}
 ): Promise<{ serverOutDir: string }> {
   const routesDir = path.join(appRoot, "routes");
-  const apiDir = path.join(appRoot, "api");
+  const apiDir = resolveApiDir(appRoot, options.apiDir);
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
   const serverOutDir = path.join(appRoot, "dist", "server");
 
@@ -78,7 +81,7 @@ export async function buildAppServer(
   // trick as page routes above, so prodRequestHandler.ts can compute an API
   // route's built file the same way it already does for a page route, no
   // separate manifest needed. `listRouteFiles` returns [] if an app has no
-  // `api/` directory at all — the common case, and free.
+  // API folder at all — the common case, and free.
   for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }

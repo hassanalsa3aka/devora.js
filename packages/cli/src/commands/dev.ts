@@ -4,6 +4,8 @@ import { createServer, type ViteDevServer } from "vite";
 import {
   listRouteFiles,
   listRoutePaths,
+  normalizeApiDir,
+  resolveApiDir,
   resolveAuthMode,
   type AppConfig,
   type AppRuntimeConfig,
@@ -73,6 +75,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         security: appConfig.security,
         projectRoot: opts.projectRoot,
         sessions: opts.sessions,
+        apiDir: appConfig.apiDir,
       }),
     ],
   });
@@ -108,6 +111,7 @@ interface BootedApp {
   app: AppConfig;
   authMode: AuthMode;
   appRoot: string;
+  apiDir: string | undefined;
   server: ViteDevServer;
 }
 
@@ -132,13 +136,13 @@ export async function dev(opts: { app?: string; host?: boolean }) {
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
+    const appConfig = await loadAppConfig(appRoot);
     if (authMode === "none") {
       assertNoAuthUsage(app.name, [
         ...listRouteFiles(path.join(appRoot, "routes")),
-        ...listRouteFiles(path.join(appRoot, "api")),
+        ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir)),
       ]);
     }
-    const appConfig = await loadAppConfig(appRoot);
 
     const preferred = app.devPort ?? DEV_BASE_PORT + project.apps.indexOf(app);
     const port = await findFreePort(preferred, claimed, opts.host ? undefined : "localhost");
@@ -158,7 +162,7 @@ export async function dev(opts: { app?: string; host?: boolean }) {
       port,
       host: opts.host,
     });
-    booted.push({ app, authMode, appRoot, server });
+    booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
   }
 
   printBootSummary(booted);
@@ -178,7 +182,7 @@ function printBootSummary(booted: BootedApp[]): void {
   const exposedUrls: string[] = [];
   const lines: string[] = [""];
 
-  for (const { app, authMode, appRoot, server } of booted) {
+  for (const { app, authMode, appRoot, apiDir, server } of booted) {
     const address = server.httpServer?.address() as AddressInfo | null;
     const port = address?.port ?? server.config.server.port;
     const boundHost = address?.address ?? "localhost";
@@ -192,7 +196,7 @@ function printBootSummary(booted: BootedApp[]): void {
     if (!isLoopbackAddress(boundHost)) exposedUrls.push(networkUrls[0] ?? `port ${port}`);
 
     const pages = listRoutePaths(path.join(appRoot, "routes")).sort();
-    const apis = listRoutePaths(path.join(appRoot, "api"))
+    const apis = listRoutePaths(resolveApiDir(appRoot, apiDir))
       .sort()
       .map((p) => (p === "/" ? "/api" : `/api${p}`));
 
@@ -214,7 +218,7 @@ function printBootSummary(booted: BootedApp[]): void {
       lines.push(`    Routes:`);
       for (const [kind, routePath] of routeRows) lines.push(`      ${kind!.padEnd(5)}${routePath}`);
     } else {
-      lines.push(`    Routes:   (none yet — add a file under routes/ or api/)`);
+      lines.push(`    Routes:   (none yet — add a file under routes/ or ${normalizeApiDir(apiDir)}/)`);
     }
     lines.push("");
   }

@@ -10,6 +10,49 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 1 (deployment adapters)
+
+See `devora-hotfix-round3.md` for the evidence (real Vercel deploys of two products that failed).
+Not yet version-bumped; staged for the coordinated round-3 release.
+
+- **`@devorajs/adapter-vercel` — runtime no longer hardcoded (V1).** `.vc-config.json` used
+  `nodejs20.x`, which Vercel now rejects for every new deploy. The runtime now comes from
+  `vercel: { runtime }` in `app.config.ts`, else the running Node major (if Vercel supports it and
+  it fits `engines.node`), else the newest supported major `engines.node` allows, else Vercel's
+  default (`nodejs24.x`). An `engines.node` no supported major satisfies fails the build. The
+  build prints which runtime it picked and why. `adapter-netlify` never hardcoded one (Netlify
+  picks the function runtime from the site's Node version).
+- **`@devorajs/adapter-vercel`, `@devorajs/adapter-netlify` — CommonJS dependencies work (V8).**
+  Both esbuild passes in both adapters now prepend a `createRequire` banner. Before, any bundled
+  CommonJS package calling `require("events")` (`pg`) built green and then failed every request
+  with `Dynamic require of "events" is not supported`.
+- **`@devorajs/core`, `@devorajs/cli`, adapters, `create-devora` — `apiDir` (V2).** `defineApp({
+  apiDir: "endpoints" })` moves an app's API route folder; URLs stay under `/api`. Default stays
+  `"api"`, so existing apps don't change. New apps from `create-devora` / `devora add` get
+  `apiDir: "endpoints"` (and a matching `netlify.toml` `included_files` entry), because a
+  top-level `api/` is Vercel's reserved functions folder. `createProdRequestHandler` takes an
+  optional trailing `{ apiDir }`; `writeVercelOutput`/`writeNetlifyConfig`/`createNodeServer` pass
+  it through. All additions are optional, so already-generated functions keep working.
+- **`@devorajs/cli` — `devora build --out <dir>` (V3).** With `--adapter=vercel --app=<name>`,
+  writes the Build Output API directory somewhere other than `apps/<name>/.vercel/output` — e.g.
+  `--out=.vercel/output` when the Vercel project's Root Directory is the repo root. The adapter
+  now clears an existing `.vercel/output` before writing, so files from an earlier build (or
+  another app) can't ship with this one; it only ever deletes a directory literally named
+  `.vercel/output`.
+- **`@devorajs/cli` — preflight checks (V7).** Before building for Vercel/Netlify: runtime
+  supported (error); `api/` folder at the Vercel project root (warning); `--out` not a
+  `.vercel/output` directory (warning); session secret per auth mode (error when building on the
+  platform, warning locally); `shared.sessions.store` unset (error) or `"memory"` (warning);
+  isolated app whose `DEVORA_SESSION_SECRET_<APP>` isn't a valid env var name (warning); Netlify
+  `apiDir` missing from `netlify.toml` `included_files` (warning).
+- **`@devorajs/core`, `@devorajs/cli` — `prebuild` hook (V4).** `defineApp({ prebuild: [...] })`
+  runs shell commands in the app directory before `devora build`/`devora deploy` builds it
+  (`prisma generate`, a CSS build), with `node_modules/.bin` on `PATH`; a non-zero exit stops the
+  build. Not run by `devora dev`.
+- **Adapters — log line (V5).** The "verified locally in isolation, NOT deployed … see ROADMAP.md
+  #4" line is gone (it read like a failure, and `ROADMAP.md` isn't in the npm package). It now says
+  what was written, the runtime, and links the docs site's deployment guide.
+
 ## Unreleased — scaffolder scope (hotfix #12)
 
 - **`@devorajs/core` 0.3.1**, **`@devorajs/cli` 0.3.1**, **`@devorajs/adapter-vercel` 0.2.1**,

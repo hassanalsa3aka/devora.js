@@ -139,6 +139,31 @@ export interface AppRuntimeConfig {
    * see buildAppServer.ts and dev.ts.
    */
   backendOnly?: boolean;
+  /**
+   * Folder (relative to this app) holding its API route files. Default
+   * `"api"`; new apps are scaffolded with `"endpoints"`. Only the folder
+   * changes — URLs stay under `/api` (`endpoints/health.ts` → `/api/health`).
+   * Use anything but `"api"` if this app deploys to Vercel with its Root
+   * Directory set to the app: Vercel treats a top-level `api/` folder as its
+   * own functions (see DEPLOYING.md). See apiDir.ts.
+   */
+  apiDir?: string;
+  /**
+   * Shell command(s) `devora build` (and `devora deploy`) runs in this app's
+   * directory before building it — for codegen and asset steps a clean
+   * checkout doesn't have yet (`prisma generate`, a Tailwind/CSS build).
+   * Run in order; a non-zero exit fails the build. Not run by `devora dev`.
+   */
+  prebuild?: string | string[];
+  /** Options for `devora build --adapter=vercel`. */
+  vercel?: {
+    /**
+     * Function runtime written to `.vc-config.json`, e.g. `"nodejs22.x"`.
+     * Default: picked from the running Node major / `engines.node` among the
+     * runtimes Vercel supports — see adapter-vercel's runtime.ts.
+     */
+    runtime?: string;
+  };
 }
 
 export function defineApp(config: AppRuntimeConfig): AppRuntimeConfig {
