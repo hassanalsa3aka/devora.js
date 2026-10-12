@@ -361,6 +361,14 @@ auth — `shared.sessions.store` in `devora.config.ts`, production refuses to st
 `devora dev --host`, LAN URLs + exposure warning, route table on boot, dev ports 10000+index.
 Covered by real-server integration tests in `packages/cli/src/server/__tests__/`.
 
+**Hotfix round 3 (staged, not committed/published)** — `devora-hotfix-round3.md` is the source of
+truth; `CHANGELOG.md` has the per-phase list. Phase 1: Vercel runtime no longer hardcoded
+(`nodejs20.x` was rejected), `createRequire` banner for CommonJS deps in both adapters, `apiDir`
+(new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
+`secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
+false` (validated per app into `session-manifest.json`), `devora start` PORT/HOST, `--adapter`
+validation, a Netlify multi-`Set-Cookie` fix.
+
 ## Suggested next task
 
 Every `ROADMAP.md` item now has real work behind it, and real Vercel/Netlify deployment — the one

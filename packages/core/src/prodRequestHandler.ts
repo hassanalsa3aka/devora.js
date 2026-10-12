@@ -20,12 +20,17 @@ import type { RouteModule } from "./route.js";
 import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 import { resolveApiDir } from "./apiDir.js";
+import { isHttpsRequest } from "./trustProxy.js";
 
 /** Trailing options for `createProdRequestHandler` — optional so existing
  * generated Vercel/Netlify functions keep working unchanged. */
 export interface ProdRequestHandlerOptions {
   /** app.config.ts `apiDir` (default "api") — see apiDir.ts. */
   apiDir?: string;
+  /** app.config.ts `trustProxy` — believe `X-Forwarded-Proto` (trustProxy.ts).
+   * Default false here; the generated Vercel/Netlify functions pass true
+   * unless the app sets it to false. */
+  trustProxy?: boolean;
 }
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -84,8 +89,10 @@ export function createProdRequestHandler(
       : createSessionOptionsResolver(authMode, appName, readSessionManifest(serverOutDir), () =>
           importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
         );
-  const sessionOptionsForRequest = async (): Promise<SessionCookieOptions | undefined> =>
-    resolveSessionOptions ? resolveSessionOptions() : undefined;
+  const trustProxy = options.trustProxy === true;
+  const sessionOptionsForRequest = async (req: IncomingMessage): Promise<SessionCookieOptions | undefined> =>
+    resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : undefined;
+  const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
   // Written by buildAppServer.ts after the client build (ROADMAP.md #4) —
   // absent (and islandClientUrl undefined) for an app with no islands.
@@ -144,11 +151,14 @@ export function createProdRequestHandler(
           headers: req.headers,
           cookieHeader: req.headers.cookie,
           params: apiMatch.params,
-          sessionCookieOptions: await sessionOptionsForRequest(),
+          sessionCookieOptions: await sessionOptionsForRequest(req),
           body,
         });
 
-        if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+        if (apiResult.setCookie) {
+          res.setHeader("Set-Cookie", apiResult.setCookie);
+          warnIfSecureCookieOverHttp(req, apiResult.setCookie);
+        }
         sendApiResponse(res, apiResult);
       } catch (err) {
         sendApiResponse(res, apiErrorResponse(err));
@@ -221,13 +231,16 @@ export function createProdRequestHandler(
         cookieHeader: req.headers.cookie,
         authorizationHeader: req.headers.authorization,
         params: match.params,
-        sessionCookieOptions: await sessionOptionsForRequest(),
+        sessionCookieOptions: await sessionOptionsForRequest(req),
         islandClientUrl,
         nonce,
       });
       if (!result) return false; // shouldn't happen — renderMode was resolved to "streaming" above.
 
-      if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+      if (result.setCookie) {
+        res.setHeader("Set-Cookie", result.setCookie);
+        warnIfSecureCookieOverHttp(req, result.setCookie);
+      }
       res.statusCode = result.status;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
 
@@ -349,14 +362,17 @@ export function createProdRequestHandler(
       cookieHeader: req.headers.cookie,
       authorizationHeader: req.headers.authorization,
       params: match.params,
-      sessionCookieOptions: await sessionOptionsForRequest(),
+      sessionCookieOptions: await sessionOptionsForRequest(req),
       islandClientUrl,
       appDefaultRenderMode,
     });
 
     if (!result) return false; // shouldn't happen — renderMode was resolved to "ssr" above.
 
-    if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+    if (result.setCookie) {
+      res.setHeader("Set-Cookie", result.setCookie);
+      warnIfSecureCookieOverHttp(req, result.setCookie);
+    }
     if (result.redirectTo) {
       res.statusCode = result.status;
       res.setHeader("Location", result.redirectTo);
@@ -367,6 +383,31 @@ export function createProdRequestHandler(
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(result.html);
     return true;
+  };
+}
+
+/**
+ * Makes the round-3 "every login breaks over plain HTTP" failure visible:
+ * browsers silently drop a `Secure` cookie on a plain-HTTP origin (except
+ * localhost), so the server looked fine while no login ever stuck. Warns
+ * once per app when a Secure cookie goes out on a request that looks like
+ * plain HTTP — no TLS socket and no `X-Forwarded-Proto: https`, read here
+ * even without trustProxy since it only decides whether to log.
+ */
+function createPlainHttpCookieWarning(appName: string): (req: IncomingMessage, setCookie: string[]) => void {
+  let warned = false;
+  return (req, setCookie) => {
+    if (warned || !setCookie.some((cookie) => /;\s*Secure\s*(;|$)/i.test(cookie))) return;
+    if (isHttpsRequest(req, true)) return;
+    const host = (req.headers.host ?? "").toLowerCase().replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+    if (host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host === "::1") return;
+    warned = true;
+    console.warn(
+      `[devora] "${appName}": sent a Secure cookie on what looks like a plain-HTTP request (Host: ${req.headers.host ?? "?"}). ` +
+        `Browsers drop Secure cookies over HTTP, so logins here won't stick. Serve the app over HTTPS, or set ` +
+        `shared.sessions.cookie.secure in devora.config.ts to "auto" (with trustProxy: true in app.config.ts behind ` +
+        `an HTTPS proxy) or false.`
+    );
   };
 }
 

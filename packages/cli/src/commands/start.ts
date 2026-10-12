@@ -2,6 +2,7 @@ import { resolveAuthMode } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createNodeServer } from "@devorajs/adapter-node";
 import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
+import { forceProductionNodeEnv, parsePort } from "../build/productionEnv.js";
 
 /**
  * Production serve (ROADMAP.md #4) — boots adapter-node against each app's
@@ -19,10 +20,15 @@ import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
  * happens to set but nothing here enforces — silently signs every app's
  * session cookie with a public, hardcoded dev secret checked into this
  * open-source repo. `devora start` is the actual production entrypoint
- * (adapter-node), so it must guarantee this itself.
+ * (adapter-node), so it must guarantee this itself — and says so when it
+ * changes the value (round 3: it used to overwrite it silently).
+ *
+ * Port: `--port`, else `PORT` (what hosting platforms and Docker setups
+ * set), else 4173. Host: `--host`, else `HOST`, else every interface.
+ * Either way the port is the *first* app's when several apps start.
  */
-export async function start(opts: { app?: string; port?: string }) {
-  process.env.NODE_ENV = "production";
+export async function start(opts: { app?: string; port?: string; host?: string }) {
+  forceProductionNodeEnv("start");
 
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -34,7 +40,17 @@ export async function start(opts: { app?: string; port?: string }) {
     process.exit(1);
   }
 
-  const explicitPort = opts.port ? Number.parseInt(opts.port, 10) : undefined;
+  // Values taken from the environment are logged: a PORT/HOST nobody
+  // remembers setting is exactly the kind of thing that should be visible.
+  let explicitPort: number | undefined;
+  if (opts.port !== undefined || process.env.PORT) {
+    const fromEnv = opts.port === undefined;
+    explicitPort = parsePort(fromEnv ? process.env.PORT! : opts.port!, fromEnv ? "PORT" : "--port");
+    if (explicitPort === undefined) process.exit(1);
+    if (fromEnv) console.log(`[devora] port ${explicitPort} (from PORT)`);
+  }
+  const host = (opts.host ?? process.env.HOST)?.trim() || undefined;
+  if (host !== undefined && opts.host === undefined) console.log(`[devora] binding ${host} (from HOST)`);
   // `--app` + `--port` (or `--app` alone) is a literal port for that one
   // process, unchanged from before. Starting every app together assigns
   // each a real sequential port from the shared scheme `generate-proxy.ts`
@@ -55,7 +71,9 @@ export async function start(opts: { app?: string; port?: string }) {
       sitemapEnabled: appConfig.sitemap === true,
       defaultRenderMode: appConfig.defaultRenderMode,
       apiDir: appConfig.apiDir,
+      trustProxy: appConfig.trustProxy,
       port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
+      host,
     });
   }
 }

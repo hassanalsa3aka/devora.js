@@ -28,7 +28,8 @@ generated project to use.
    You can list just one, or a dozen — a devora.js project can hold any number of independently
    built and deployed apps.
 4. **Per-app auth** — for each app, whether it needs sessions at all: `shared` (one login across
-   every app that uses it — the common case), `isolated` (its own separate session context, e.g.
+   every app that uses it — the common case; for apps on different subdomains, set
+   `shared.sessions.cookie.domain` in `devora.config.ts`, or the browser keeps a separate login per host), `isolated` (its own separate session context, e.g.
    an admin panel with a different identity provider), or `none` (no login on this app at all —
    skips generating a login/logout flow entirely, and the app never needs a session secret
    configured). Asked per app, not once for the whole project, since a marketing site and a

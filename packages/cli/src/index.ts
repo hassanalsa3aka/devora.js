@@ -48,7 +48,8 @@ program
   .command("start")
   .description("Serve a production build (adapter-node) — run `devora build` first")
   .option("--app <name>", "serve only this app")
-  .option("--port <port>", "starting port (default 4173, increments per app)")
+  .option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)")
+  .option("--host <host>", "interface to bind (default: $HOST, else all interfaces)")
   .action(async (opts) => start(opts));
 
 program

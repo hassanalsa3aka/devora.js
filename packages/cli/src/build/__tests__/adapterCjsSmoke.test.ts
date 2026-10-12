@@ -152,3 +152,71 @@ console.log(JSON.stringify({ status: res.status, body: await res.text() }));
     expect(JSON.parse(result.body)).toEqual({ message: "pong from a CommonJS module" });
   }, 60_000);
 });
+
+describe("generated functions — sessions and headers (round 3 phase 2)", () => {
+  let sessionFixture: FixtureProject;
+
+  beforeAll(() => {
+    sessionFixture = createFixtureProject();
+    fs.rmSync(path.join(sessionFixture.appRoot, "routes"), { recursive: true, force: true });
+    fs.rmSync(path.join(sessionFixture.appRoot, "entry-server.tsx"));
+    // Built output for the fixture's api/me.ts (any session lookup will do).
+    write(
+      path.join(sessionFixture.appRoot, "dist", "server", "api", "me.js"),
+      `export const handler = (_req, ctx) => ({ status: 200, body: JSON.stringify({ session: ctx.session ?? null }) });\n`
+    );
+    write(path.join(sessionFixture.appRoot, "dist", "server", "session-manifest.json"), JSON.stringify({ store: "memory" }));
+  });
+
+  afterAll(() => sessionFixture?.cleanup());
+
+  it("Netlify: two cookies in one response stay two Set-Cookie headers (they used to be comma-joined into one)", async () => {
+    await writeNetlifyConfig(APP, sessionFixture.appRoot, "shared", { noindex: true }, false, undefined, { apiDir: "api" });
+    const funcDir = path.join(sessionFixture.appRoot, "netlify", "functions", "ssr");
+    expect(fs.readFileSync(path.join(funcDir, "ssr.mjs"), "utf-8")).toMatch(/trustProxy"?:\s*true/);
+    // noindex reaches statically served files through Netlify's _headers.
+    expect(fs.readFileSync(path.join(sessionFixture.appRoot, "dist", "client", "_headers"), "utf-8")).toContain(
+      "X-Robots-Tag: noindex"
+    );
+
+    const isolated = copyOutsideRepo(funcDir);
+    const out = execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+const { default: handler } = await import("./ssr.mjs");
+// A dead session cookie (cleared) and no CSRF cookie yet (issued): two cookies.
+const res = await handler(new Request("https://site.example/api/me", { headers: { cookie: "devora_session=not-a-session" } }));
+console.log(JSON.stringify({ status: res.status, cookies: res.headers.getSetCookie(), robots: res.headers.get("x-robots-tag") }));
+`,
+      ],
+      { cwd: isolated, env: { ...process.env, NODE_ENV: "production", DEVORA_SESSION_SECRET: "smoke" }, encoding: "utf-8" }
+    );
+    const result = JSON.parse(out.trim().split("\n").pop()!);
+    expect(result.status).toBe(200);
+    expect(result.cookies).toHaveLength(2);
+    expect(result.cookies[0]).toMatch(/^devora_session=; .*Max-Age=0; Secure$/);
+    expect(result.cookies[1]).toMatch(/^devora_csrf=[^;]+; Path=\/; HttpOnly; SameSite=Lax; Secure$/);
+    expect(result.robots).toBe("noindex");
+  }, 60_000);
+
+  it("Vercel: trustProxy defaults to true in the function, an explicit false is kept; noindex adds a header route", async () => {
+    await writeVercelOutput(APP, sessionFixture.appRoot, "shared", { noindex: true }, false, undefined, { runtime: "nodejs22.x" });
+    const outputDir = path.join(sessionFixture.appRoot, ".vercel", "output");
+    const wrapper = fs.readFileSync(path.join(outputDir, "functions", "index.func", "index.mjs"), "utf-8");
+    expect(wrapper).toMatch(/trustProxy"?:\s*true/);
+    const config = JSON.parse(fs.readFileSync(path.join(outputDir, "config.json"), "utf-8"));
+    expect(config.routes[0]).toEqual({ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true });
+    expect(config.routes[1]).toEqual({ handle: "filesystem" });
+
+    await writeVercelOutput(APP, sessionFixture.appRoot, "shared", undefined, false, undefined, {
+      runtime: "nodejs22.x",
+      trustProxy: false,
+    });
+    expect(fs.readFileSync(path.join(outputDir, "functions", "index.func", "index.mjs"), "utf-8")).toMatch(/trustProxy"?:\s*false/);
+    const plainConfig = JSON.parse(fs.readFileSync(path.join(outputDir, "config.json"), "utf-8"));
+    expect(plainConfig.routes[0]).toEqual({ handle: "filesystem" });
+  }, 60_000);
+});

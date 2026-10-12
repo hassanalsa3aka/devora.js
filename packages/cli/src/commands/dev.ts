@@ -7,6 +7,7 @@ import {
   normalizeApiDir,
   resolveApiDir,
   resolveAuthMode,
+  resolveSessionManifest,
   type AppConfig,
   type AppRuntimeConfig,
   type AuthMode,
@@ -20,6 +21,7 @@ import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
 import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
+import { isDevoraError } from "../build/devoraError.js";
 import {
   DEV_BASE_PORT,
   findFreePort,
@@ -47,6 +49,16 @@ export interface AppDevServerOptions {
  */
 export async function createAppDevServer(opts: AppDevServerOptions): Promise<ViteDevServer> {
   const { app, appRoot, authMode, appConfig } = opts;
+  // Same validation `devora build` runs — a cookie setting browsers would
+  // reject fails here, at boot, not on the first login.
+  const sessionManifest = resolveSessionManifest({
+    appName: app.name,
+    appDomain: app.domain,
+    authMode,
+    sessions: opts.sessions,
+    appSessions: appConfig.sessions,
+    csrf: appConfig.csrf,
+  });
   const server = await createServer({
     root: appRoot,
     appType: "custom", // we own the HTML response — see ../server/ssrMiddleware.ts
@@ -76,6 +88,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         projectRoot: opts.projectRoot,
         sessions: opts.sessions,
         apiDir: appConfig.apiDir,
+        sessionManifest,
       }),
     ],
   });
@@ -99,7 +112,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         appConfig.sitemap === true,
         appConfig.defaultRenderMode,
         appConfig.security,
-        { projectRoot: opts.projectRoot, config: opts.sessions }
+        { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest }
       )
     );
   }
@@ -152,16 +165,25 @@ export async function dev(opts: { app?: string; host?: boolean }) {
     }
     claimed.add(port);
 
-    const server = await createAppDevServer({
-      projectRoot: root,
-      app,
-      appRoot,
-      authMode,
-      appConfig,
-      sessions: project.shared.sessions,
-      port,
-      host: opts.host,
-    });
+    let server: ViteDevServer;
+    try {
+      server = await createAppDevServer({
+        projectRoot: root,
+        app,
+        appRoot,
+        authMode,
+        appConfig,
+        sessions: project.shared.sessions,
+        port,
+        host: opts.host,
+      });
+    } catch (err) {
+      // A config validation error (e.g. a cookie setting browsers would
+      // reject) reads better as one line than as a stack trace.
+      if (!isDevoraError(err)) throw err;
+      console.error((err as Error).message);
+      process.exit(1);
+    }
     booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
   }
 

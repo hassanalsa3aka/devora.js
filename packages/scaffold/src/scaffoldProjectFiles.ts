@@ -170,6 +170,10 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
       `    // backed by your database (defineSessionStore from @devorajs/core), or to\n` +
       `    // "memory" for a single long-lived \`devora start\` process (not serverless).\n` +
       `    // sessions: { store: "${hasBackend ? "packages/backend/sessionStore.ts" : "sessionStore.ts"}" },\n` +
+      `    // Cookie settings (production only; defaults shown), see\n` +
+      `    // https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md\n` +
+      `    // domain: "example.com" shares one login across subdomains.\n` +
+      `    // sessions: { cookie: { secure: true, sameSite: "lax" } },\n` +
       `  },\n` +
       `});\n`
   );

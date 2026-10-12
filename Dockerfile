@@ -61,5 +61,8 @@ COPY --from=build /repo/apps/${APP_NAME} ./apps/${APP_NAME}
 # service instead of varying this; a real bare-VPS deployment (no per-app
 # container isolation) is what portScheme.ts's shared sequential-port scheme
 # is actually for, see packages/cli/src/build/portScheme.ts.
+# PORT (not a hardcoded --port) so `docker run -e PORT=3000` / a compose
+# `PORT:` setting actually applies — devora start reads PORT itself.
+ENV PORT=4173
 EXPOSE 4173
-CMD ["sh", "-c", "node packages/cli/dist/index.js start --app=${APP_NAME} --port=4173"]
+CMD ["sh", "-c", "node packages/cli/dist/index.js start --app=${APP_NAME}"]

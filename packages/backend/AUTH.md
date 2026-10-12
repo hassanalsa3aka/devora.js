@@ -81,6 +81,72 @@ instead of `signSession()`, replace `verifyAuthToken(header)`/`requireBearerAuth
 working at that point (they were never revocable, which is the point); clients log in once more.
 `signSession`/`verifySession` remain exported but deprecated.
 
+## Cookies, CSRF and proxies in production
+
+Session and CSRF cookies are configured in `devora.config.ts` (`shared.sessions.cookie`, for every
+app with sessions) and can be overridden per app in `app.config.ts` (`sessions.cookie`). These
+settings apply in production (`devora start`, the Vercel/Netlify functions). **`devora dev` keeps
+its cookies as they always were: never `Secure`, never `Domain`** (SameSite `lax`/`strict` do
+apply in dev; `none` falls back to Lax there, with a warning).
+
+| Setting | Default | What it does |
+|---|---|---|
+| `cookie.secure` | `true` | `true`: always `Secure`. `"auto"`: only on HTTPS requests (a TLS connection, or `X-Forwarded-Proto: https` when the app has `trustProxy: true`). `false`: never. |
+| `cookie.sameSite` | `"lax"` | `"lax"`, `"strict"` or `"none"` (`"none"` requires `secure: true`). Applies to the session and CSRF cookies. |
+| `cookie.domain` | unset (host-only) | `Domain` on the session cookie, e.g. `"example.com"` to share one login across subdomains. |
+| `activeSeconds` / `idleSeconds` | 86400 / 1209600 | Session lifetimes (see *States* above). |
+| `csrf` (app.config.ts) | `true` | `false`: never set the `devora_csrf` cookie. |
+| `trustProxy` (app.config.ts) | `false`; `true` in Vercel/Netlify functions | Believe `X-Forwarded-Proto` from the proxy in front of the app. |
+| `security.noindex` (app.config.ts) | `false` | Send `X-Robots-Tag: noindex` on every response. |
+
+```ts
+// devora.config.ts
+shared: {
+  auth: "shared",
+  sessions: {
+    store: "packages/backend/sessionStore.ts",
+    cookie: { domain: "example.com" }, // one login across app.example.com, admin.example.com, ...
+  },
+}
+
+// apps/admin/app.config.ts — an auth: "isolated" admin panel
+export default defineApp({
+  security: { noindex: true },
+  sessions: { activeSeconds: 900, idleSeconds: 3600, cookie: { sameSite: "strict" } },
+});
+```
+
+**Logins over plain HTTP.** Browsers drop `Secure` cookies on plain-HTTP origins (localhost
+excepted), so with the default `secure: true` a login served over plain HTTP never sticks. The
+server now logs a warning the first time it sends a `Secure` cookie on what looks like a plain-HTTP
+request. Fix it by serving the app over HTTPS (Caddy, or nginx + certbot — see `DEPLOYING.md`), or
+set `secure: "auto"` (plus `trustProxy: true` when an HTTPS proxy sits in front of `devora start`),
+or `secure: false` for a deployment that is deliberately plain HTTP.
+
+**`trustProxy`.** Behind nginx/Caddy/a load balancer, `devora start` only sees the proxy's
+plain-HTTP connection; `X-Forwarded-Proto` says what the browser used. Turn on `trustProxy` only
+when the app can be reached *only* through that proxy (bind it to `127.0.0.1` with `HOST`),
+otherwise any client can send the header itself. The Vercel/Netlify functions default it to `true`
+because only the platform's edge can reach them; set `trustProxy: false` to opt out.
+
+**Shared login across subdomains.** Without `cookie.domain`, the session cookie is host-only: a
+login on `app.example.com` is not sent to `admin.example.com`, even when both apps are
+`auth: "shared"`. Shared login then only works for apps served from the same host (path-based
+routing). With `cookie.domain: "example.com"`, every `auth: "shared"` app writes one cookie for the
+whole domain. Each of them must be served from that domain or a subdomain of it — checked at
+`devora build`/`devora dev`. Their cookie attributes can't differ per app, and an isolated app's
+cookie stays host-only unless its own `app.config.ts` sets a domain. The CSRF cookie is always
+host-only. Turning `domain` on can make existing users log in once more.
+
+**Per-app lifetimes** (`sessions.activeSeconds/idleSeconds` in `app.config.ts`) are for
+`auth: "isolated"` apps only. A shared session is one session across every shared app, so its
+lifetimes are set once in `shared.sessions`.
+
+**`csrf: false`** is for Bearer-only APIs: their unauthenticated calls (the login itself) no
+longer get a `devora_csrf` cookie. Bearer-*authenticated* requests never got one. With CSRF off,
+`ctx.verifyCsrf()` still passes for Bearer-authenticated requests and rejects every other request
+with 403 — it never passes silently.
+
 ## Lucia
 
 Lucia (v3+) is a set of small, framework-agnostic primitives for session/user management — it

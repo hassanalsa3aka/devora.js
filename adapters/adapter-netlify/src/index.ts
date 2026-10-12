@@ -15,6 +15,9 @@ export interface NetlifyOutputOptions {
   /** app.config.ts `apiDir`, normalized (default "api"). netlify.toml's
    * `included_files` must list `netlify/functions/ssr/<apiDir>/**`. */
   apiDir?: string;
+  /** app.config.ts `trustProxy`. Default true here: the function is only
+   * reachable through Netlify's edge. An explicit false is respected. */
+  trustProxy?: boolean;
 }
 
 const require = createRequire(import.meta.url);
@@ -103,6 +106,7 @@ export async function writeNetlifyConfig(
   options: NetlifyOutputOptions = {}
 ): Promise<void> {
   const apiDir = options.apiDir ?? "api";
+  const trustProxy = options.trustProxy ?? true;
   const funcDir = path.join(appRoot, "netlify", "functions", "ssr");
   const staticOutDir = path.join(appRoot, "dist", "static");
   await mkdir(funcDir, { recursive: true });
@@ -168,7 +172,7 @@ export async function writeNetlifyConfig(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy })}\n` +
       `);\n\n` +
       `export default async (request) => {\n` +
       `  const bodyBuf = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);\n` +
@@ -176,7 +180,11 @@ export async function writeNetlifyConfig(
       `  const reqUrl = new URL(request.url);\n` +
       `  req.url = reqUrl.pathname + reqUrl.search;\n` +
       `  req.method = request.method;\n` +
-      `  req.headers = Object.fromEntries(request.headers);\n\n` +
+      `  req.headers = Object.fromEntries(request.headers);\n` +
+      // The request URL is Netlify's own record of the scheme the client
+      // used, so it stands in for a TLS socket (trustProxy.ts reads
+      // req.socket.encrypted) — no header needed for sessions.cookie.secure "auto".
+      `  req.socket = { encrypted: reqUrl.protocol === "https:" };\n\n` +
       `  let statusCode = 200;\n` +
       `  const resHeaders = new Headers();\n` +
       `  const chunks = [];\n` +
@@ -194,7 +202,13 @@ export async function writeNetlifyConfig(
       `  const res = new EventEmitter();\n` +
       `  res.statusCode = statusCode;\n` +
       `  res.headersSent = false;\n` +
-      `  res.setHeader = (k, v) => resHeaders.set(k, v);\n` +
+      // An array value (several Set-Cookie headers) must become one header
+      // each: Headers.set() would join it with commas into a single, broken
+      // Set-Cookie (e.g. a session cookie and a CSRF cookie in one response).
+      `  res.setHeader = (k, v) => {\n` +
+      `    if (Array.isArray(v)) { resHeaders.delete(k); for (const item of v) resHeaders.append(k, String(item)); }\n` +
+      `    else resHeaders.set(k, v);\n` +
+      `  };\n` +
       `  res.getHeader = (k) => resHeaders.get(k) ?? undefined;\n` +
       `  res.write = (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); return true; };\n` +
       `  res.end = (chunk) => {\n` +
@@ -227,6 +241,21 @@ export async function writeNetlifyConfig(
   await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
   if (existsSync(path.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
+  }
+
+  // security.noindex: static files (ssg pages, assets) are served from the
+  // publish directory without invoking the function, so they'd miss the
+  // X-Robots-Tag it sets. Netlify's `_headers` file covers them — appended
+  // to, never overwritten, in case the app ships its own.
+  if (security?.noindex === true) {
+    const clientOutDir = path.join(appRoot, "dist", "client");
+    await mkdir(clientOutDir, { recursive: true });
+    const headersPath = path.join(clientOutDir, "_headers");
+    const existing = existsSync(headersPath) ? await readFile(headersPath, "utf-8") : "";
+    const rule = "/*\n  X-Robots-Tag: noindex\n";
+    if (!existing.includes("X-Robots-Tag: noindex")) {
+      await writeFile(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}\n${rule}` : rule);
+    }
   }
 
   // `netlify.toml` is NOT written here — real bug found via an actual live

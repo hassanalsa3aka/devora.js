@@ -10,6 +10,48 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 2 (sessions, cookies, security config)
+
+Not yet version-bumped; staged for the coordinated round-3 release. Every setting below is
+optional and defaults to the previous behavior, except where noted.
+
+- **`@devorajs/core` — cookie `Secure` is configurable.** `shared.sessions.cookie.secure:
+  true | "auto" | false` (default `true` in production, as before; `devora dev` never sets it, as
+  before). `"auto"` sets `Secure` only on HTTPS requests: a TLS socket, or `X-Forwarded-Proto:
+  https` when the app has `trustProxy: true`. The production handler logs a one-time warning when
+  it sends a `Secure` cookie on what looks like a plain-HTTP request — the failure mode that broke
+  every production login over plain HTTP (browsers silently drop such cookies).
+- **`@devorajs/core` — `trustProxy`** (app.config.ts, default false). The generated Vercel/Netlify
+  functions pass `true` unless the app sets `false` — only the platform's edge can reach them. The
+  Netlify shim now reports the request's real scheme (from the request URL).
+- **`@devorajs/core` — per-app cookie/session settings (K1).** `shared.sessions.cookie.sameSite`
+  (`"lax"` default, `"strict"`, `"none"` — `"none"` requires `secure: true`); app.config.ts
+  `sessions.cookie` overrides; per-app `sessions.activeSeconds/idleSeconds` for `auth: "isolated"`
+  apps; `security.noindex` (`X-Robots-Tag: noindex` on every response, plus a Vercel header route /
+  Netlify `_headers` rule so statically served files carry it too). Resolved and validated once
+  per app (`resolveSessionManifest`) at `devora build`/`devora dev`, written into
+  `dist/server/session-manifest.json`, which is where production reads them from.
+- **`@devorajs/core` — `shared.sessions.cookie.domain`** for one login across subdomains (session
+  cookie only; the CSRF cookie stays host-only; the clearing cookie carries the same `Domain`).
+  Must cover every `auth: "shared"` app's domain (checked); isolated apps stay host-only unless
+  they set their own. Docs that claim "shared login" now state the subdomain condition.
+- **`@devorajs/core` — `csrf: false`** (app.config.ts): never issue the `devora_csrf` cookie (for
+  Bearer-only APIs, whose unauthenticated calls such as the login used to get one).
+  `ctx.verifyCsrf()` then rejects every non-Bearer-authenticated request (403) — it never passes
+  silently. Bearer-*authenticated* requests already got no CSRF cookie before this.
+- **`@devorajs/core` — invalid session config is an error, not a silent no-op:** session settings
+  on an `auth: "none"` app, a `cookie.domain` that doesn't cover the app, per-app lifetimes on a
+  shared app, conflicting attributes on a shared domain-wide cookie, non-positive lifetimes.
+- **`@devorajs/cli` — `devora start` reads `PORT` and `HOST`** (`--port`/`--host` win; new
+  `--host` flag), logs values it took from the environment, rejects an invalid port, and logs when
+  it changes `NODE_ENV` (`build`/`deploy` log only when overriding an explicit non-production
+  value). The Dockerfile now relies on `PORT` instead of a hardcoded `--port`.
+- **`@devorajs/cli` — `devora build --adapter=<unknown>` fails** with the valid values instead of
+  silently building without the requested output (`--adapter=node` used to exit 0).
+- **`@devorajs/adapter-netlify` — fix: several `Set-Cookie` headers in one response** (e.g. a
+  cleared session cookie plus a new CSRF cookie) were comma-joined into one malformed header by the
+  function's response shim.
+
 ## Unreleased — hotfix round 3, phase 1 (deployment adapters)
 
 See `devora-hotfix-round3.md` for the evidence (real Vercel deploys of two products that failed).

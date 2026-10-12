@@ -103,5 +103,11 @@ export function resolveSecurityHeaders(
     headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
   }
 
+  // Opt-in (app.config.ts security.noindex) — keeps an internal app (admin,
+  // staging) out of search results without each app adding the header.
+  if (security?.noindex === true) {
+    headers["X-Robots-Tag"] = "noindex";
+  }
+
   return headers;
 }

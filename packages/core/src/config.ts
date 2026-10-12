@@ -41,6 +41,45 @@ export interface AppConfig {
   devPort?: number;
 }
 
+/** SameSite for the session and CSRF cookies. */
+export type CookieSameSite = "lax" | "strict" | "none";
+
+/**
+ * Attributes of the cookies sessions use (session.ts). Every field applies
+ * in production only (`devora start`, the Vercel/Netlify functions —
+ * anything with NODE_ENV=production); `devora dev` keeps its cookies exactly
+ * as before: never `Secure`, never `Domain`. Defaults reproduce the cookies
+ * every earlier release set.
+ */
+export interface SessionCookieConfig {
+  /**
+   * `Secure` attribute (on the session and CSRF cookies):
+   * - `true` (default): always. Browsers refuse a `Secure` cookie over plain
+   *   HTTP (except on localhost), so a login served over plain HTTP won't
+   *   stick — the server logs a warning when that happens.
+   * - `"auto"`: only on HTTPS requests — a TLS connection, or
+   *   `X-Forwarded-Proto: https` when the app has `trustProxy: true`
+   *   (app.config.ts). For a deployment reachable over both.
+   * - `false`: never. Only for a deliberately plain-HTTP deployment.
+   */
+  secure?: "auto" | boolean;
+  /** `SameSite` attribute (session and CSRF cookies). Default `"lax"`.
+   * `"none"` requires `secure: true` (browsers reject it otherwise). */
+  sameSite?: CookieSameSite;
+  /**
+   * `Domain` attribute of the *session* cookie (the CSRF cookie always stays
+   * host-only). Unset (default): host-only — a login on app.example.com is
+   * not sent to admin.example.com. Set e.g. `"example.com"` to share one
+   * login across subdomains: every app using it must be served from that
+   * domain or a subdomain of it (checked at build/dev start).
+   *
+   * In `shared.sessions` it applies to the `auth: "shared"` apps only — an
+   * isolated app's cookie stays host-only unless its own app.config.ts sets
+   * one.
+   */
+  domain?: string;
+}
+
 /**
  * Server-side session storage for every app with auth "shared"/"isolated"
  * (session.ts, sessionStore.ts). Ignored by "none" apps.
@@ -65,6 +104,20 @@ export interface SessionsConfig {
   /** Seconds after that it stays usable ("idle", renewed on use) before it's
    * "dead". Default 1209600 (14 days). */
   idleSeconds?: number;
+  /** Cookie attributes — see SessionCookieConfig. */
+  cookie?: SessionCookieConfig;
+}
+
+/**
+ * Per-app session overrides (app.config.ts `sessions`), merged over
+ * `shared.sessions`. Lifetimes and `cookie.domain` are for `auth: "isolated"`
+ * apps only: a shared app's session is one session across every shared app,
+ * so those live in devora.config.ts.
+ */
+export interface AppSessionsConfig {
+  activeSeconds?: number;
+  idleSeconds?: number;
+  cookie?: SessionCookieConfig;
 }
 
 export interface SharedConfig {
@@ -119,7 +172,36 @@ export interface AppRuntimeConfig {
     csp?: string;
     hsts?: boolean;
     frameOptions?: "DENY" | "SAMEORIGIN";
+    /**
+     * Send `X-Robots-Tag: noindex` on every response, so search engines
+     * don't index this app (an admin panel, an internal tool). Default
+     * false. On Vercel/Netlify it's also set on statically served files.
+     */
+    noindex?: boolean;
   };
+  /**
+   * Session overrides for this app, merged over devora.config.ts
+   * `shared.sessions` — see AppSessionsConfig.
+   */
+  sessions?: AppSessionsConfig;
+  /**
+   * `false` turns off CSRF cookies for this app: no `devora_csrf` cookie is
+   * ever set (useful for an API whose clients use Bearer tokens and keep no
+   * cookies). `ctx.verifyCsrf()` then passes only for Bearer-authenticated
+   * requests and rejects everything else with 403 — it never silently
+   * passes. Default true.
+   */
+  csrf?: boolean;
+  /**
+   * Trust the `X-Forwarded-Proto` header from a reverse proxy in front of
+   * this app (nginx/Caddy from `devora generate:proxy`, a load balancer).
+   * Only enable it when the app is reachable *only* through that proxy —
+   * otherwise a client can send the header itself. Used for
+   * `sessions.cookie.secure: "auto"`. Default false for `devora start`;
+   * true inside the generated Vercel/Netlify functions, which only the
+   * platform's own edge can reach (set it to false to opt out).
+   */
+  trustProxy?: boolean;
   /**
    * Serve /sitemap.xml for this app (§8). Opt-in, default false — a safer
    * default than opt-out: a newly scaffolded internal/admin app stays

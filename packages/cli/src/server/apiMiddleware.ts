@@ -15,6 +15,7 @@ import {
   type AppRuntimeConfig,
   type ApiRouteModule,
   type ApiResponse,
+  type SessionManifest,
   type SessionsConfig,
 } from "@devorajs/core";
 import { createDevSessionOptionsResolver } from "./devSessionOptions.js";
@@ -56,6 +57,8 @@ export interface ApiMiddlewareOptions {
   sessions: SessionsConfig | undefined;
   /** app.config.ts `apiDir` (default "api"). */
   apiDir?: string;
+  /** This app's resolved session settings (resolveSessionManifest). */
+  sessionManifest?: SessionManifest;
 }
 
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {
@@ -70,7 +73,14 @@ export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin
 function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions): Connect.NextHandleFunction {
   const { appRoot, appName, authMode, security } = options;
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const resolveSessionOptions = createDevSessionOptionsResolver(vite, options.projectRoot, options.sessions, authMode, appName);
+  const resolveSessionOptions = createDevSessionOptionsResolver(
+    vite,
+    options.projectRoot,
+    options.sessions,
+    authMode,
+    appName,
+    options.sessionManifest
+  );
   const securityHeaders = resolveSecurityHeaders(security);
 
   return async function apiMiddleware(req, res, next) {

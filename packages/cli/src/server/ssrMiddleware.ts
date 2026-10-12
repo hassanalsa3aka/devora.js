@@ -16,7 +16,7 @@ import {
   type RouteModule,
   type SessionCookieOptions,
 } from "@devorajs/core";
-import type { SessionsConfig } from "@devorajs/core";
+import type { SessionManifest, SessionsConfig } from "@devorajs/core";
 import { createDevSessionOptionsResolver } from "./devSessionOptions.js";
 import { REACT_REFRESH_PREAMBLE_VIRTUAL_ID } from "./reactRefreshPreamblePlugin.js";
 
@@ -54,7 +54,7 @@ export function createSsrMiddleware(
   sitemapEnabled: boolean,
   appDefaultRenderMode: RenderMode | undefined,
   security: AppRuntimeConfig["security"] | undefined,
-  sessions: { projectRoot: string; config: SessionsConfig | undefined }
+  sessions: { projectRoot: string; config: SessionsConfig | undefined; manifest?: SessionManifest }
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -63,7 +63,14 @@ export function createSsrMiddleware(
   // configured secret; an app with sessions disabled must never reach that
   // call, not just avoid using its result. See renderRoute.ts's
   // createNoAuthContext() for the ctx a "none" app gets instead.
-  const resolveSessionOptions = createDevSessionOptionsResolver(vite, sessions.projectRoot, sessions.config, authMode, appName);
+  const resolveSessionOptions = createDevSessionOptionsResolver(
+    vite,
+    sessions.projectRoot,
+    sessions.config,
+    authMode,
+    appName,
+    sessions.manifest
+  );
 
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();

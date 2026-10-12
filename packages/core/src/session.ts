@@ -50,6 +50,23 @@ export interface SessionCookieOptions {
   /** How long after the active window it stays usable ("idle") before it's
    * "dead". Default 14 days. */
   idlePeriodMs?: number;
+  /**
+   * Attributes for the cookies this request sets, already resolved for it
+   * (sessionConfig.ts — e.g. `secure: "auto"` against whether this request
+   * came over HTTPS). Absent: the defaults every earlier release used —
+   * SameSite=Lax, Secure exactly when NODE_ENV=production, no Domain.
+   */
+  cookie?: ResolvedCookieAttributes;
+  /** false = never issue the CSRF cookie (app.config.ts `csrf: false`). Default true. */
+  csrfCookie?: boolean;
+}
+
+/** Cookie attributes for one request's Set-Cookie headers. */
+export interface ResolvedCookieAttributes {
+  secure: boolean;
+  sameSite: "Lax" | "Strict" | "None";
+  /** Session cookie only — the CSRF cookie is always host-only. */
+  domain?: string;
 }
 
 export const DEFAULT_SESSION_ACTIVE_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -181,19 +198,27 @@ export function verifySession(cookieValue: string | undefined, opts: SessionCook
 }
 
 /**
- * Shared cookie attributes for every cookie this module sets (session and
- * CSRF alike). `Secure` is conditional on NODE_ENV, not unconditional: it's
- * a real gap that it was missing even in production before, but browsers
- * silently *drop* a `Secure` cookie sent over plain HTTP — sending it
- * unconditionally would break the entire dev workflow (`http://localhost`).
- * This mirrors the exact conditional-on-NODE_ENV pattern `resolveSecret()`
- * above already uses for the insecure-dev-secret fallback.
+ * Attributes for every cookie this module sets (session and CSRF alike).
+ * They come resolved per request from sessionConfig.ts (devora.config.ts
+ * `shared.sessions.cookie` + app.config.ts overrides; Secure can depend on
+ * whether this request was HTTPS). `Domain` goes on the session cookie
+ * only (`withDomain`), and must also be on the cookie that clears it — a
+ * browser only deletes a cookie whose Domain matches.
+ *
+ * Without resolved attributes (options built by an older caller) this keeps
+ * the old rule: Secure exactly when NODE_ENV=production. That rule was the
+ * bug behind round-3 "logins break over plain HTTP": browsers drop Secure
+ * cookies on plain-HTTP origins, and there was no way to turn it off.
  */
-function buildCookieAttributes(maxAgeSeconds?: number): string {
-  let attrs = "Path=/; HttpOnly; SameSite=Lax";
+function buildCookieAttributes(cookie: ResolvedCookieAttributes | undefined, maxAgeSeconds?: number, withDomain = false): string {
+  const attributes: ResolvedCookieAttributes = cookie ?? { secure: process.env.NODE_ENV === "production", sameSite: "Lax" };
+  let attrs = `Path=/; HttpOnly; SameSite=${attributes.sameSite}`;
+  if (withDomain && attributes.domain) attrs += `; Domain=${attributes.domain}`;
   if (maxAgeSeconds !== undefined) attrs += `; Max-Age=${maxAgeSeconds}`;
-  return process.env.NODE_ENV === "production" ? `${attrs}; Secure` : attrs;
+  return attributes.secure ? `${attrs}; Secure` : attrs;
 }
+
+let warnedCsrfDisabled = false;
 
 export function parseCookieHeader(header: string | undefined): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -326,8 +351,8 @@ export async function createRequestContext(
   let transport: SessionTransport | undefined = currentRecord ? resolved.presentedTransport : undefined;
 
   const sessionCookie = (sessionId: string, record: SessionRecord) =>
-    `${opts.name}=${sessionId}; ${buildCookieAttributes(Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1000)))}`;
-  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(0)}`;
+    `${opts.name}=${sessionId}; ${buildCookieAttributes(opts.cookie, Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1000)), true)}`;
+  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(opts.cookie, 0, true)}`;
 
   if (resolved.presentedTransport === "cookie") {
     if (resolved.state === "dead") pendingSetCookies.push(clearedSessionCookie());
@@ -340,11 +365,16 @@ export async function createRequestContext(
   // has something real to embed into a form and compare against even
   // before any session exists (e.g. the login form itself). Not issued to a
   // request that sent a Bearer header — that's an API/mobile client, which
-  // neither needs CSRF protection nor keeps cookies.
-  const incomingCsrfCookie = cookies[CSRF_COOKIE_NAME];
-  const csrfToken = incomingCsrfCookie ?? generateCsrfToken();
-  if (!incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes()}`);
+  // neither needs CSRF protection nor keeps cookies — and never for an app
+  // with `csrf: false` (a Bearer-only API, whose *unauthenticated* calls,
+  // like the login itself, would otherwise each get one). With CSRF off, an
+  // incoming CSRF cookie (left over from before) is ignored too, so
+  // verifyCsrf can't pass against it.
+  const csrfEnabled = opts.csrfCookie !== false;
+  const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : undefined;
+  const csrfToken = csrfEnabled ? (incomingCsrfCookie ?? generateCsrfToken()) : "";
+  if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes(opts.cookie)}`);
   }
 
   // Every store write goes through here: wrapped so a store whose methods
@@ -418,6 +448,18 @@ export async function createRequestContext(
       // gets this pass; an unauthenticated one (including one whose Bearer
       // token was invalid) is checked like any other.
       if (transport === "bearer" && currentRecord !== undefined) return;
+      if (!csrfEnabled) {
+        // Fail closed with the usual client-facing message; the reason goes
+        // to the server log, where the developer can act on it.
+        if (!warnedCsrfDisabled) {
+          console.warn(
+            `[devora] ctx.verifyCsrf() rejected a request that isn't Bearer-authenticated: this app has csrf: false ` +
+              `in app.config.ts, so no CSRF cookie exists to verify against.`
+          );
+          warnedCsrfDisabled = true;
+        }
+        throw new HttpError(403, "Missing or invalid CSRF token");
+      }
       // Verified against the cookie actually sent on *this* request, not
       // the possibly-freshly-generated `csrfToken` above — a POST arriving
       // with no CSRF cookie at all has nothing legitimate to verify against

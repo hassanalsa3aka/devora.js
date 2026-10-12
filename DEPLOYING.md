@@ -59,6 +59,9 @@ function (pages and API routes together) plus static files.
    - `shared.sessions.store` in `devora.config.ts` must point at a DB-backed store. `"memory"`
      doesn't work on serverless (every instance has its own empty store).
    - Changing an env var doesn't apply to an existing deployment. Redeploy after saving it.
+   - Cookies: inside the function `trustProxy` defaults to `true` (only Vercel's edge can reach
+     it), so `shared.sessions.cookie.secure: "auto"` works there. Sharing one login across
+     subdomains needs `shared.sessions.cookie.domain` (see `packages/backend/AUTH.md`).
 4. Deploy.
 
 ### Alternative: Root Directory = the repo root
@@ -182,6 +185,9 @@ cp .env.example .env   # fill in the session-secret vars
 docker compose up --build
 ```
 
+Inside the container the app listens on `PORT` (4173 unless you set it — `docker run -e PORT=3000`
+works). `devora start` reads `PORT` and `HOST` itself; `--port`/`--host` override them.
+
 The image does a full monorepo `pnpm install` in both build and runtime stages (no hand-pruned
 dependency list) on one base image throughout — no alpine swap, to avoid native-addon
 compatibility issues if you later add a DB driver with native bindings.
@@ -197,6 +203,18 @@ devora generate:proxy --target=nginx      # or --target=caddy
 ```
 
 `devora generate:proxy` reads every app's domain straight out of `devora.config.ts`.
+
+**Behind the proxy:**
+
+- Bind each app to loopback so it's only reachable through the proxy: `HOST=127.0.0.1 devora
+  start` (or `--host=127.0.0.1`). `PORT`/`--port` set the first app's port.
+- Session cookies are `Secure` by default in production. That's right once the proxy serves HTTPS
+  (certbot/Caddy below). **Until then, logins over plain HTTP won't stick** — browsers drop
+  `Secure` cookies on HTTP, and the server logs a warning when it happens. For a mixed or plain-HTTP
+  setup, set `shared.sessions.cookie.secure` in `devora.config.ts` to `"auto"` and
+  `trustProxy: true` in each app's `app.config.ts` (the generated configs send
+  `X-Forwarded-Proto`), or to `false` for a deployment that is deliberately plain HTTP. Details and
+  every default: `packages/backend/AUTH.md`, "Cookies, CSRF and proxies in production".
 
 nginx's generated config is plain HTTP only (`listen 80`) — there's no way to issue a real TLS
 certificate without a real, DNS-resolving domain. The next step on a real VPS is

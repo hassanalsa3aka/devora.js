@@ -3,7 +3,7 @@ import {
   listRouteFiles,
   normalizeApiDir,
   resolveAuthMode,
-  toSessionManifest,
+  resolveSessionManifest,
   type AppConfig,
   type ProjectConfig,
 } from "@devorajs/core";
@@ -52,6 +52,19 @@ export async function buildAppForAdapter(
     ]);
   }
 
+  // Validated before any build work (an invalid cookie/session setting is an
+  // error here, not a cookie browsers silently reject in production) — and
+  // then written into the build as dist/server/session-manifest.json, the
+  // only place production reads these settings from.
+  const sessionManifest = resolveSessionManifest({
+    appName: app.name,
+    appDomain: app.domain,
+    authMode,
+    sessions: project.shared.sessions,
+    appSessions: appConfig.sessions,
+    csrf: appConfig.csrf,
+  });
+
   // Preflight before any build work, so a deploy that can't work fails in
   // seconds with a reason instead of building green and 500ing at runtime.
   const issues: PreflightIssue[] = [];
@@ -85,10 +98,10 @@ export async function buildAppForAdapter(
   console.log(`[devora] building "${app.name}" (SSR)...`);
   const sessionsConfig = project.shared.sessions;
   const sessions =
-    authMode === "none"
+    sessionManifest === undefined
       ? undefined
       : {
-          manifest: toSessionManifest(sessionsConfig),
+          manifest: sessionManifest,
           storeModulePath:
             sessionsConfig?.store && sessionsConfig.store !== "memory"
               ? path.resolve(root, sessionsConfig.store)
@@ -111,10 +124,12 @@ export async function buildAppForAdapter(
         apiDir,
         outputDir: vercelOutputDir,
         runtime: vercelRuntime,
+        trustProxy: appConfig.trustProxy,
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
         apiDir,
+        trustProxy: appConfig.trustProxy,
       });
     }
   }

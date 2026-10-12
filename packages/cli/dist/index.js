@@ -3664,11 +3664,14 @@ function generateSessionId() {
   return randomBytes2(32).toString("base64url");
 }
 var SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-function buildCookieAttributes(maxAgeSeconds) {
-  let attrs = "Path=/; HttpOnly; SameSite=Lax";
+function buildCookieAttributes(cookie, maxAgeSeconds, withDomain = false) {
+  const attributes = cookie ?? { secure: process.env.NODE_ENV === "production", sameSite: "Lax" };
+  let attrs = `Path=/; HttpOnly; SameSite=${attributes.sameSite}`;
+  if (withDomain && attributes.domain) attrs += `; Domain=${attributes.domain}`;
   if (maxAgeSeconds !== void 0) attrs += `; Max-Age=${maxAgeSeconds}`;
-  return process.env.NODE_ENV === "production" ? `${attrs}; Secure` : attrs;
+  return attributes.secure ? `${attrs}; Secure` : attrs;
 }
+var warnedCsrfDisabled = false;
 function parseCookieHeader(header) {
   const cookies = {};
   if (!header) return cookies;
@@ -3722,18 +3725,19 @@ async function createRequestContext(request, opts, params = {}) {
   let currentSessionId = resolved.sessionId;
   let currentRecord = resolved.record;
   let transport = currentRecord ? resolved.presentedTransport : void 0;
-  const sessionCookie = (sessionId, record) => `${opts.name}=${sessionId}; ${buildCookieAttributes(Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1e3)))}`;
-  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(0)}`;
+  const sessionCookie = (sessionId, record) => `${opts.name}=${sessionId}; ${buildCookieAttributes(opts.cookie, Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1e3)), true)}`;
+  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(opts.cookie, 0, true)}`;
   if (resolved.presentedTransport === "cookie") {
     if (resolved.state === "dead") pendingSetCookies.push(clearedSessionCookie());
     else if (resolved.renewed && currentSessionId && currentRecord) {
       pendingSetCookies.push(sessionCookie(currentSessionId, currentRecord));
     }
   }
-  const incomingCsrfCookie = cookies[CSRF_COOKIE_NAME];
-  const csrfToken = incomingCsrfCookie ?? generateCsrfToken();
-  if (!incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes()}`);
+  const csrfEnabled = opts.csrfCookie !== false;
+  const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : void 0;
+  const csrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
+  if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes(opts.cookie)}`);
   }
   const track = (write) => {
     const promise = (async () => write())();
@@ -3790,6 +3794,15 @@ async function createRequestContext(request, opts, params = {}) {
     clearSession: () => revokeSession(),
     verifyCsrf: (submitted) => {
       if (transport === "bearer" && currentRecord !== void 0) return;
+      if (!csrfEnabled) {
+        if (!warnedCsrfDisabled) {
+          console.warn(
+            `[devora] ctx.verifyCsrf() rejected a request that isn't Bearer-authenticated: this app has csrf: false in app.config.ts, so no CSRF cookie exists to verify against.`
+          );
+          warnedCsrfDisabled = true;
+        }
+        throw new HttpError(403, "Missing or invalid CSRF token");
+      }
       const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
       if (!verifyCsrfToken(incomingCsrfCookie, value)) {
         throw new HttpError(403, "Missing or invalid CSRF token");
@@ -3848,6 +3861,126 @@ function toSessionManifest(sessions) {
     idlePeriodMs: sessions?.idleSeconds !== void 0 ? sessions.idleSeconds * 1e3 : void 0
   };
 }
+function resolveSessionManifest(input) {
+  const { appName, authMode, sessions, appSessions } = input;
+  const fail = (message) => new Error(`[devora] "${appName}": ${message}`);
+  if (authMode === "none") {
+    if (appSessions !== void 0 || input.csrf !== void 0) {
+      throw fail(
+        `app.config.ts sets ${appSessions !== void 0 ? "`sessions`" : "`csrf`"}, but this app has auth: "none" (no sessions at all). Remove it, or give the app auth: "shared"/"isolated" in devora.config.ts.`
+      );
+    }
+    return void 0;
+  }
+  for (const [where, config] of [
+    ["shared.sessions", sessions],
+    ["app.config.ts sessions", appSessions]
+  ]) {
+    for (const key of ["activeSeconds", "idleSeconds"]) {
+      const value = config?.[key];
+      if (value !== void 0 && !(typeof value === "number" && Number.isFinite(value) && value > 0)) {
+        throw fail(`${where}.${key} must be a positive number of seconds (got ${JSON.stringify(value)}).`);
+      }
+    }
+  }
+  if (authMode === "shared") {
+    if (appSessions?.activeSeconds !== void 0 || appSessions?.idleSeconds !== void 0) {
+      throw fail(
+        `per-app session lifetimes are only for auth: "isolated" apps \u2014 a shared session is one session across every shared app. Set shared.sessions.activeSeconds/idleSeconds in devora.config.ts instead.`
+      );
+    }
+    if (appSessions?.cookie?.domain !== void 0) {
+      throw fail(
+        `sessions.cookie.domain in app.config.ts is only for auth: "isolated" apps \u2014 shared apps use shared.sessions.cookie.domain in devora.config.ts.`
+      );
+    }
+  }
+  const projectCookie = sessions?.cookie ?? {};
+  const appCookie = appSessions?.cookie ?? {};
+  const domainSource = authMode === "shared" ? projectCookie.domain : appCookie.domain;
+  const domain = domainSource === void 0 ? void 0 : normalizeCookieDomain(domainSource, fail);
+  if (authMode === "shared" && domain !== void 0) {
+    for (const key of ["secure", "sameSite"]) {
+      if (appCookie[key] !== void 0 && appCookie[key] !== projectCookie[key]) {
+        throw fail(
+          `sessions.cookie.${key} in app.config.ts differs from shared.sessions.cookie, but shared apps share one cookie across ${domain} \u2014 set it once in devora.config.ts.`
+        );
+      }
+    }
+  }
+  const secure = appCookie.secure ?? projectCookie.secure;
+  if (secure !== void 0 && secure !== true && secure !== false && secure !== "auto") {
+    throw fail(`sessions.cookie.secure must be true, false or "auto" (got ${JSON.stringify(secure)}).`);
+  }
+  const rawSameSite = appCookie.sameSite ?? projectCookie.sameSite;
+  let sameSite;
+  if (rawSameSite !== void 0) {
+    const lowered = String(rawSameSite).toLowerCase();
+    if (lowered !== "lax" && lowered !== "strict" && lowered !== "none") {
+      throw fail(`sessions.cookie.sameSite must be "lax", "strict" or "none" (got ${JSON.stringify(rawSameSite)}).`);
+    }
+    sameSite = lowered;
+  }
+  if (sameSite === "none" && secure !== void 0 && secure !== true) {
+    throw fail(`sessions.cookie.sameSite "none" requires secure: true \u2014 browsers reject SameSite=None without Secure.`);
+  }
+  if (domain !== void 0) {
+    const appDomain = input.appDomain.trim().toLowerCase().replace(/:\d+$/, "");
+    if (appDomain !== domain && !appDomain.endsWith(`.${domain}`)) {
+      throw fail(
+        `sessions.cookie.domain "${domain}" doesn't cover this app's domain "${input.appDomain}" \u2014 browsers would reject the cookie. Use a domain the app is served from (or a parent of it).`
+      );
+    }
+  }
+  const active = authMode === "isolated" ? appSessions?.activeSeconds ?? sessions?.activeSeconds : sessions?.activeSeconds;
+  const idle = authMode === "isolated" ? appSessions?.idleSeconds ?? sessions?.idleSeconds : sessions?.idleSeconds;
+  const cookie = {};
+  if (secure !== void 0) cookie.secure = secure;
+  if (sameSite !== void 0) cookie.sameSite = sameSite;
+  if (domain !== void 0) cookie.domain = domain;
+  return {
+    store: sessions?.store === void 0 ? null : sessions.store === "memory" ? "memory" : "module",
+    ...active !== void 0 ? { activePeriodMs: active * 1e3 } : {},
+    ...idle !== void 0 ? { idlePeriodMs: idle * 1e3 } : {},
+    ...Object.keys(cookie).length > 0 ? { cookie } : {},
+    ...input.csrf === false ? { csrfCookie: false } : {}
+  };
+}
+function normalizeCookieDomain(raw, fail) {
+  const domain = String(raw).trim().toLowerCase().replace(/^\./, "");
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
+    throw fail(
+      `sessions.cookie.domain "${raw}" must be a plain domain like "example.com" (no scheme, port or path, and not a single label like "localhost").`
+    );
+  }
+  return domain;
+}
+var SAME_SITE_ATTRIBUTE = {
+  lax: "Lax",
+  strict: "Strict",
+  none: "None"
+};
+var warnedDevSameSiteNone = false;
+function createCookieAttributesResolver(manifest, appName) {
+  const sameSite = manifest.cookie?.sameSite ?? "lax";
+  if (process.env.NODE_ENV !== "production") {
+    if (sameSite === "none" && !warnedDevSameSiteNone) {
+      console.warn(
+        `[devora] "${appName}": sessions.cookie.sameSite "none" needs Secure, which dev never sets \u2014 dev cookies use SameSite=Lax.`
+      );
+      warnedDevSameSiteNone = true;
+    }
+    const devAttributes = { secure: false, sameSite: sameSite === "none" ? "Lax" : SAME_SITE_ATTRIBUTE[sameSite] };
+    return () => devAttributes;
+  }
+  const secure = manifest.cookie?.secure ?? true;
+  const domain = manifest.cookie?.domain;
+  return (isHttps) => ({
+    secure: secure === "auto" ? isHttps : secure,
+    sameSite: SAME_SITE_ATTRIBUTE[sameSite],
+    ...domain !== void 0 ? { domain } : {}
+  });
+}
 function readSessionManifest(serverOutDir) {
   const manifestPath = path2.join(serverOutDir, SESSION_MANIFEST_FILE);
   if (!existsSync(manifestPath)) return { store: null };
@@ -3872,6 +4005,8 @@ function createSessionOptionsResolver(authMode, appName, manifest, loadModule) {
   assertSessionStoreConfigured(manifest);
   const scope = resolveSessionScope(authMode, appName);
   const periods = { activePeriodMs: manifest.activePeriodMs, idlePeriodMs: manifest.idlePeriodMs };
+  const cookieAttributes = createCookieAttributesResolver(manifest, appName);
+  const csrfCookie = manifest.csrfCookie !== false;
   const loadStore = async () => {
     if (manifest.store !== "module") return getProcessMemorySessionStore();
     let store = (await loadModule()).default;
@@ -3884,7 +4019,13 @@ function createSessionOptionsResolver(authMode, appName, manifest, loadModule) {
     }
     return store;
   };
-  return async () => ({ ...scope, ...periods, store: await loadStore() });
+  return async (request) => ({
+    ...scope,
+    ...periods,
+    store: await loadStore(),
+    cookie: cookieAttributes(request?.isHttps === true),
+    csrfCookie
+  });
 }
 
 // ../core/src/securityHeaders.ts
@@ -3924,6 +4065,9 @@ function resolveSecurityHeaders(security, streamingNonce) {
   };
   if (security?.hsts !== false) {
     headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
+  }
+  if (security?.noindex === true) {
+    headers["X-Robots-Tag"] = "noindex";
   }
   return headers;
 }
@@ -4100,6 +4244,18 @@ function resolveApiDir(appRoot, apiDir) {
   return path5.join(appRoot, normalizeApiDir(apiDir));
 }
 
+// ../core/src/trustProxy.ts
+function forwardedProto(headers) {
+  const raw = headers["x-forwarded-proto"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const first = value?.split(",")[0]?.trim().toLowerCase();
+  return first || void 0;
+}
+function isHttpsRequest(req, trustProxy) {
+  if (req.socket?.encrypted === true) return true;
+  return trustProxy && forwardedProto(req.headers) === "https";
+}
+
 // ../core/src/prodRequestHandler.ts
 var ASSET_CONTENT_TYPES = {
   ".js": "application/javascript; charset=utf-8",
@@ -4127,7 +4283,9 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     readSessionManifest(serverOutDir),
     () => importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
   );
-  const sessionOptionsForRequest = async () => resolveSessionOptions ? resolveSessionOptions() : void 0;
+  const trustProxy = options.trustProxy === true;
+  const sessionOptionsForRequest = async (req) => resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : void 0;
+  const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
   const islandManifestPath = path6.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path6.join(serverOutDir, "csr-route-manifest.json");
@@ -4170,10 +4328,13 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
           headers: req.headers,
           cookieHeader: req.headers.cookie,
           params: apiMatch.params,
-          sessionCookieOptions: await sessionOptionsForRequest(),
+          sessionCookieOptions: await sessionOptionsForRequest(req),
           body
         });
-        if (apiResult.setCookie) res.setHeader("Set-Cookie", apiResult.setCookie);
+        if (apiResult.setCookie) {
+          res.setHeader("Set-Cookie", apiResult.setCookie);
+          warnIfSecureCookieOverHttp(req, apiResult.setCookie);
+        }
         sendApiResponse(res, apiResult);
       } catch (err) {
         sendApiResponse(res, apiErrorResponse(err));
@@ -4206,12 +4367,15 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         cookieHeader: req.headers.cookie,
         authorizationHeader: req.headers.authorization,
         params: match.params,
-        sessionCookieOptions: await sessionOptionsForRequest(),
+        sessionCookieOptions: await sessionOptionsForRequest(req),
         islandClientUrl: islandClientUrl2,
         nonce
       });
       if (!result2) return false;
-      if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
+      if (result2.setCookie) {
+        res.setHeader("Set-Cookie", result2.setCookie);
+        warnIfSecureCookieOverHttp(req, result2.setCookie);
+      }
       res.statusCode = result2.status;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       await new Promise((resolve) => {
@@ -4280,12 +4444,15 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       cookieHeader: req.headers.cookie,
       authorizationHeader: req.headers.authorization,
       params: match.params,
-      sessionCookieOptions: await sessionOptionsForRequest(),
+      sessionCookieOptions: await sessionOptionsForRequest(req),
       islandClientUrl,
       appDefaultRenderMode
     });
     if (!result) return false;
-    if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+    if (result.setCookie) {
+      res.setHeader("Set-Cookie", result.setCookie);
+      warnIfSecureCookieOverHttp(req, result.setCookie);
+    }
     if (result.redirectTo) {
       res.statusCode = result.status;
       res.setHeader("Location", result.redirectTo);
@@ -4296,6 +4463,19 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(result.html);
     return true;
+  };
+}
+function createPlainHttpCookieWarning(appName) {
+  let warned = false;
+  return (req, setCookie) => {
+    if (warned || !setCookie.some((cookie) => /;\s*Secure\s*(;|$)/i.test(cookie))) return;
+    if (isHttpsRequest(req, true)) return;
+    const host = (req.headers.host ?? "").toLowerCase().replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+    if (host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host === "::1") return;
+    warned = true;
+    console.warn(
+      `[devora] "${appName}": sent a Secure cookie on what looks like a plain-HTTP request (Host: ${req.headers.host ?? "?"}). Browsers drop Secure cookies over HTTP, so logins here won't stick. Serve the app over HTTPS, or set shared.sessions.cookie.secure in devora.config.ts to "auto" (with trustProxy: true in app.config.ts behind an HTTPS proxy) or false.`
+    );
   };
 }
 function sendApiResponse(res, result) {
@@ -4428,15 +4608,11 @@ import path10 from "node:path";
 
 // src/server/devSessionOptions.ts
 import path9 from "node:path";
-function createDevSessionOptionsResolver(vite, projectRoot, sessions, authMode, appName) {
+function createDevSessionOptionsResolver(vite, projectRoot, sessions, authMode, appName, manifest = toSessionManifest(sessions)) {
   if (authMode === "none") return void 0;
   const storeModule = sessions?.store && sessions.store !== "memory" ? path9.resolve(projectRoot, sessions.store) : void 0;
-  return createSessionOptionsResolver(
-    authMode,
-    appName,
-    toSessionManifest(sessions),
-    () => vite.ssrLoadModule(storeModule)
-  );
+  const resolve = createSessionOptionsResolver(authMode, appName, manifest, () => vite.ssrLoadModule(storeModule));
+  return () => resolve();
 }
 
 // src/server/reactRefreshPreamblePlugin.ts
@@ -4464,7 +4640,14 @@ var DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
 function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode, security, sessions) {
   const routesDir = path10.join(appRoot, "routes");
   const entryServerPath = path10.join(appRoot, "entry-server.tsx");
-  const resolveSessionOptions = createDevSessionOptionsResolver(vite, sessions.projectRoot, sessions.config, authMode, appName);
+  const resolveSessionOptions = createDevSessionOptionsResolver(
+    vite,
+    sessions.projectRoot,
+    sessions.config,
+    authMode,
+    appName,
+    sessions.manifest
+  );
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
     const url = new URL(req.url, "http://localhost");
@@ -4603,7 +4786,14 @@ function createApiMiddlewarePlugin(options) {
 function createApiMiddleware(vite, options) {
   const { appRoot, appName, authMode, security } = options;
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const resolveSessionOptions = createDevSessionOptionsResolver(vite, options.projectRoot, options.sessions, authMode, appName);
+  const resolveSessionOptions = createDevSessionOptionsResolver(
+    vite,
+    options.projectRoot,
+    options.sessions,
+    authMode,
+    appName,
+    options.sessionManifest
+  );
   const securityHeaders = resolveSecurityHeaders(security);
   return async function apiMiddleware(req, res, next) {
     if (!req.url) return next();
@@ -4726,6 +4916,11 @@ Set auth: "shared" or "isolated" for "${appName}" if it needs login, or remove t
   );
 }
 
+// src/build/devoraError.ts
+function isDevoraError(err) {
+  return err instanceof Error && err.message.startsWith("[devora]");
+}
+
 // src/server/devNetwork.ts
 import net from "node:net";
 import os from "node:os";
@@ -4780,6 +4975,14 @@ function isWildcardAddress(address) {
 // src/commands/dev.ts
 async function createAppDevServer(opts) {
   const { app, appRoot, authMode, appConfig } = opts;
+  const sessionManifest = resolveSessionManifest({
+    appName: app.name,
+    appDomain: app.domain,
+    authMode,
+    sessions: opts.sessions,
+    appSessions: appConfig.sessions,
+    csrf: appConfig.csrf
+  });
   const server = await createServer({
     root: appRoot,
     appType: "custom",
@@ -4809,7 +5012,8 @@ async function createAppDevServer(opts) {
         security: appConfig.security,
         projectRoot: opts.projectRoot,
         sessions: opts.sessions,
-        apiDir: appConfig.apiDir
+        apiDir: appConfig.apiDir,
+        sessionManifest
       })
     ]
   });
@@ -4825,7 +5029,7 @@ async function createAppDevServer(opts) {
         appConfig.sitemap === true,
         appConfig.defaultRenderMode,
         appConfig.security,
-        { projectRoot: opts.projectRoot, config: opts.sessions }
+        { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest }
       )
     );
   }
@@ -4859,16 +5063,23 @@ async function dev(opts) {
       console.log(`[devora] port ${preferred} ${reason} \u2014 "${app.name}" moved to ${port}`);
     }
     claimed.add(port);
-    const server = await createAppDevServer({
-      projectRoot: root,
-      app,
-      appRoot,
-      authMode,
-      appConfig,
-      sessions: project.shared.sessions,
-      port,
-      host: opts.host
-    });
+    let server;
+    try {
+      server = await createAppDevServer({
+        projectRoot: root,
+        app,
+        appRoot,
+        authMode,
+        appConfig,
+        sessions: project.shared.sessions,
+        port,
+        host: opts.host
+      });
+    } catch (err) {
+      if (!isDevoraError(err)) throw err;
+      console.error(err.message);
+      process.exit(1);
+    }
     booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
   }
   printBootSummary(booted);
@@ -5534,6 +5745,7 @@ async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnable
   const apiDir = options.apiDir ?? "api";
   const outputDir = options.outputDir ?? path21.join(appRoot, ".vercel", "output");
   const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
+  const trustProxy = options.trustProxy ?? true;
   const funcDir = path21.join(outputDir, "functions", "index.func");
   const clientOutDir = path21.join(appRoot, "dist", "client");
   const staticOutDir = path21.join(appRoot, "dist", "static");
@@ -5571,7 +5783,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir })}
+  ${JSON.stringify({ apiDir, trustProxy })}
 );
 
 export default async function handler(req, res) {
@@ -5602,7 +5814,11 @@ export default async function handler(req, res) {
   );
   const config = {
     version: 3,
-    routes: [{ handle: "filesystem" }, { src: "/(.*)", dest: "/index" }]
+    routes: [
+      ...security?.noindex === true ? [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true }] : [],
+      { handle: "filesystem" },
+      { src: "/(.*)", dest: "/index" }
+    ]
   };
   await writeFile3(path21.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
   console.log(
@@ -5710,6 +5926,7 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
 }
 async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
+  const trustProxy = options.trustProxy ?? true;
   const funcDir = path24.join(appRoot, "netlify", "functions", "ssr");
   const staticOutDir = path24.join(appRoot, "dist", "static");
   await mkdir3(funcDir, { recursive: true });
@@ -5739,7 +5956,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir })}
+  ${JSON.stringify({ apiDir, trustProxy })}
 );
 
 export default async (request) => {
@@ -5749,6 +5966,7 @@ export default async (request) => {
   req.url = reqUrl.pathname + reqUrl.search;
   req.method = request.method;
   req.headers = Object.fromEntries(request.headers);
+  req.socket = { encrypted: reqUrl.protocol === "https:" };
 
   let statusCode = 200;
   const resHeaders = new Headers();
@@ -5756,7 +5974,10 @@ export default async (request) => {
   const res = new EventEmitter();
   res.statusCode = statusCode;
   res.headersSent = false;
-  res.setHeader = (k, v) => resHeaders.set(k, v);
+  res.setHeader = (k, v) => {
+    if (Array.isArray(v)) { resHeaders.delete(k); for (const item of v) resHeaders.append(k, String(item)); }
+    else resHeaders.set(k, v);
+  };
   res.getHeader = (k) => resHeaders.get(k) ?? undefined;
   res.write = (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); return true; };
   res.end = (chunk) => {
@@ -5783,6 +6004,17 @@ export default async (request) => {
   if (existsSync14(path24.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
+  if (security?.noindex === true) {
+    const clientOutDir = path24.join(appRoot, "dist", "client");
+    await mkdir3(clientOutDir, { recursive: true });
+    const headersPath = path24.join(clientOutDir, "_headers");
+    const existing = existsSync14(headersPath) ? await readFile5(headersPath, "utf-8") : "";
+    const rule = "/*\n  X-Robots-Tag: noindex\n";
+    if (!existing.includes("X-Robots-Tag: noindex")) {
+      await writeFile4(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
+${rule}` : rule);
+    }
+  }
   console.log(
     `[adapter-netlify] wrote ${funcDir} for "${app.name}". Netlify picks it up via this app's netlify.toml \u2014 guide: ${NETLIFY_DOCS_URL}`
   );
@@ -5800,6 +6032,14 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
       ...listRouteFiles(path25.join(appRoot, apiDir))
     ]);
   }
+  const sessionManifest = resolveSessionManifest({
+    appName: app.name,
+    appDomain: app.domain,
+    authMode,
+    sessions: project.shared.sessions,
+    appSessions: appConfig.sessions,
+    csrf: appConfig.csrf
+  });
   const issues = [];
   let vercelRuntime;
   const vercelOutputDir = options.out ? path25.resolve(root, options.out) : path25.join(appRoot, ".vercel", "output");
@@ -5827,8 +6067,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const backendOnly = appConfig.backendOnly === true;
   console.log(`[devora] building "${app.name}" (SSR)...`);
   const sessionsConfig = project.shared.sessions;
-  const sessions = authMode === "none" ? void 0 : {
-    manifest: toSessionManifest(sessionsConfig),
+  const sessions = sessionManifest === void 0 ? void 0 : {
+    manifest: sessionManifest,
     storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path25.resolve(root, sessionsConfig.store) : void 0
   };
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
@@ -5843,20 +6083,50 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
       await writeVercelOutput(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
         apiDir,
         outputDir: vercelOutputDir,
-        runtime: vercelRuntime
+        runtime: vercelRuntime,
+        trustProxy: appConfig.trustProxy
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
-        apiDir
+        apiDir,
+        trustProxy: appConfig.trustProxy
       });
     }
   }
   return { appRoot, serverOutDir, staticRoutes };
 }
 
-// src/commands/build.ts
-async function build3(opts) {
+// src/build/productionEnv.ts
+function forceProductionNodeEnv(command) {
+  const previous = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
+  if (previous === "production") return;
+  const wasUnset = previous === void 0 || previous === "";
+  if (wasUnset && command !== "start") return;
+  console.log(
+    `[devora] NODE_ENV=production (${wasUnset ? "was unset" : `overriding "${previous}"`}) \u2014 devora ${command} always runs in production mode`
+  );
+}
+function parsePort(raw, source) {
+  const trimmed = raw.trim();
+  const port = /^\d+$/.test(trimmed) ? Number(trimmed) : NaN;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    console.error(`[devora] ${source} must be a port number from 1 to 65535 (got "${raw}")`);
+    return void 0;
+  }
+  return port;
+}
+
+// src/commands/build.ts
+var BUILD_ADAPTERS = ["vercel", "netlify"];
+async function build3(opts) {
+  forceProductionNodeEnv("build");
+  if (opts.adapter !== void 0 && !BUILD_ADAPTERS.includes(opts.adapter)) {
+    console.error(
+      `[devora] unknown --adapter "${opts.adapter}" \u2014 use ${BUILD_ADAPTERS.join(" or ")}. For a Node server (adapter-node), leave --adapter off: \`devora build\`, then \`devora start\`.`
+    );
+    process.exit(1);
+  }
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
@@ -5878,7 +6148,7 @@ async function build3(opts) {
     try {
       await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out });
     } catch (err) {
-      console.error(err instanceof PreflightError ? err.message : err);
+      console.error(err instanceof PreflightError || isDevoraError(err) ? err.message : err);
       process.exit(1);
     }
   }
@@ -5895,7 +6165,7 @@ function createNodeServer(opts) {
     opts.security,
     opts.sitemapEnabled,
     opts.defaultRenderMode,
-    { apiDir: opts.apiDir }
+    { apiDir: opts.apiDir, trustProxy: opts.trustProxy }
   );
   const server = http.createServer((req, res) => {
     handleRequest(req, res).then((handled) => {
@@ -5912,15 +6182,23 @@ function createNodeServer(opts) {
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
       console.error(`[adapter-node] "${opts.appName}": port ${opts.port} already in use`);
+    } else if (err.code === "EADDRNOTAVAIL" || err.code === "ENOTFOUND") {
+      console.error(`[adapter-node] "${opts.appName}": can't bind host "${opts.host}" (${err.code}) \u2014 check HOST / --host`);
     } else {
       console.error(`[adapter-node] "${opts.appName}"`, err);
     }
     process.exitCode = 1;
   });
-  server.listen(opts.port, () => {
-    console.log(`[adapter-node] "${opts.appName}" \u2192 http://localhost:${opts.port} (from ${opts.appRoot}/dist/server)`);
-  });
+  const onListening = () => {
+    const where = opts.host === void 0 ? `http://localhost:${opts.port} (all interfaces)` : `http://${formatHost(opts.host)}:${opts.port}`;
+    console.log(`[adapter-node] "${opts.appName}" \u2192 ${where} (from ${opts.appRoot}/dist/server)`);
+  };
+  if (opts.host === void 0) server.listen(opts.port, onListening);
+  else server.listen(opts.port, opts.host, onListening);
   return server;
+}
+function formatHost(host) {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
 // src/build/portScheme.ts
@@ -5937,7 +6215,7 @@ function assignPorts(apps, basePort = DEFAULT_BASE_PORT) {
 
 // src/commands/start.ts
 async function start(opts) {
-  process.env.NODE_ENV = "production";
+  forceProductionNodeEnv("start");
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
@@ -5945,7 +6223,15 @@ async function start(opts) {
     console.error(`[devora] no app named "${opts.app}" in devora.config.ts`);
     process.exit(1);
   }
-  const explicitPort = opts.port ? Number.parseInt(opts.port, 10) : void 0;
+  let explicitPort;
+  if (opts.port !== void 0 || process.env.PORT) {
+    const fromEnv = opts.port === void 0;
+    explicitPort = parsePort(fromEnv ? process.env.PORT : opts.port, fromEnv ? "PORT" : "--port");
+    if (explicitPort === void 0) process.exit(1);
+    if (fromEnv) console.log(`[devora] port ${explicitPort} (from PORT)`);
+  }
+  const host = (opts.host ?? process.env.HOST)?.trim() || void 0;
+  if (host !== void 0 && opts.host === void 0) console.log(`[devora] binding ${host} (from HOST)`);
   const ports = opts.app ? void 0 : assignPorts(project.apps, explicitPort ?? DEFAULT_BASE_PORT);
   for (const app of apps) {
     const authMode = resolveAuthMode(project, app.name);
@@ -5960,16 +6246,18 @@ async function start(opts) {
       sitemapEnabled: appConfig.sitemap === true,
       defaultRenderMode: appConfig.defaultRenderMode,
       apiDir: appConfig.apiDir,
-      port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT
+      trustProxy: appConfig.trustProxy,
+      port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT,
+      host
     });
   }
 }
 
 // src/commands/deploy.ts
 async function deploy(opts) {
-  process.env.NODE_ENV = "production";
+  forceProductionNodeEnv("deploy");
   if (opts.adapter !== "vercel" && opts.adapter !== "netlify") {
-    console.error(`[devora] --adapter must be "vercel" or "netlify"`);
+    console.error(`[devora] unknown --adapter "${opts.adapter}" \u2014 use vercel or netlify`);
     process.exit(1);
   }
   const adapter = opts.adapter;
@@ -6965,7 +7253,7 @@ program.command("build").description("Build all apps (or one with --app)").optio
   "--out <dir>",
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
 ).action(async (opts) => build3(opts));
-program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default 4173, increments per app)").action(async (opts) => start(opts));
+program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").action(async (opts) => start(opts));
 program.command("deploy").description(
   "Build and deploy to Vercel or Netlify (all apps, or one with --app) \u2014 each app must already be linked (`vercel link` / `netlify link`) to its own project/site"
 ).requiredOption("--adapter <target>", "vercel or netlify").option("--app <name>", "deploy only this app").option("--prod", "deploy to production (default: preview)").action(async (opts) => deploy(opts));

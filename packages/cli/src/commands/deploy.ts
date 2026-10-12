@@ -1,5 +1,6 @@
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
+import { forceProductionNodeEnv } from "../build/productionEnv.js";
 import { isVercelLinked, deployToVercel } from "@devorajs/adapter-vercel";
 import { isNetlifyLinked, deployToNetlify } from "@devorajs/adapter-netlify";
 
@@ -21,10 +22,10 @@ export async function deploy(opts: { adapter?: string; app?: string; prod?: bool
   // builds too (via buildAppForAdapter below), so it needs this exactly as
   // much as `build` does; confirmed by reproducing the identical crash on a
   // real `devora deploy --adapter=vercel` run before this line was added.
-  process.env.NODE_ENV = "production";
+  forceProductionNodeEnv("deploy");
 
   if (opts.adapter !== "vercel" && opts.adapter !== "netlify") {
-    console.error(`[devora] --adapter must be "vercel" or "netlify"`);
+    console.error(`[devora] unknown --adapter "${opts.adapter}" — use vercel or netlify`);
     process.exit(1);
   }
   const adapter = opts.adapter;

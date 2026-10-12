@@ -81,7 +81,9 @@ under each.
 - **Sessions & CSRF built in** — one opaque, server-side, revocable session primitive for both
   browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF enforced
   only where cookies are involved. Three auth modes per app: `shared`, `isolated`, or `none` (no
-  sessions at all, for apps that don't need login, like a marketing site). Session storage is
+  sessions at all, for apps that don't need login, like a marketing site). Shared login across
+  subdomains needs `shared.sessions.cookie.domain`; cookie `Secure`/`SameSite`, session lifetimes,
+  `noindex` and a CSRF opt-out are configurable too (`packages/backend/AUTH.md`). Session storage is
   bring-your-own — see `packages/backend/AUTH.md`.
 - **API routes speak JSON, always** — a thrown error in an `api/**` handler is a `{ message }`
   JSON response with the right status (never an HTML error page), and an unmatched `/api/**` path

@@ -30,6 +30,7 @@ export * from "./branding.js";
 export * from "./module.js";
 export * from "./apiRoute.js";
 export * from "./apiDir.js";
+export * from "./trustProxy.js";
 export * from "./apiDispatch.js";
 export * from "./httpError.js";
 export * from "./middleware.js";

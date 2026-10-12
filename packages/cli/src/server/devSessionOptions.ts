@@ -5,6 +5,7 @@ import {
   toSessionManifest,
   type AuthMode,
   type SessionCookieOptions,
+  type SessionManifest,
   type SessionsConfig,
 } from "@devorajs/core";
 
@@ -18,17 +19,23 @@ import {
  * Returns undefined for an auth: "none" app — nothing session-related is
  * ever resolved for it, secret included (see session.ts's
  * createNoAuthContext()).
+ *
+ * `manifest` is the app's resolved settings (resolveSessionManifest —
+ * shared.sessions merged with its app.config.ts); without it, the
+ * project-level settings alone.
  */
 export function createDevSessionOptionsResolver(
   vite: ViteDevServer,
   projectRoot: string,
   sessions: SessionsConfig | undefined,
   authMode: AuthMode,
-  appName: string
+  appName: string,
+  manifest: SessionManifest = toSessionManifest(sessions)
 ): (() => Promise<SessionCookieOptions>) | undefined {
   if (authMode === "none") return undefined;
   const storeModule = sessions?.store && sessions.store !== "memory" ? path.resolve(projectRoot, sessions.store) : undefined;
-  return createSessionOptionsResolver(authMode, appName, toSessionManifest(sessions), () =>
-    vite.ssrLoadModule(storeModule!)
-  );
+  const resolve = createSessionOptionsResolver(authMode, appName, manifest, () => vite.ssrLoadModule(storeModule!));
+  // Dev is plain HTTP and never sets Secure, so the request's protocol
+  // doesn't matter here (see sessionConfig.ts).
+  return () => resolve();
 }

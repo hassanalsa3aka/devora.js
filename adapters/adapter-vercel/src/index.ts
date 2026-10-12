@@ -31,6 +31,13 @@ export interface VercelOutputOptions {
   outputDir?: string;
   /** `.vc-config.json` runtime (e.g. "nodejs22.x"). Default: resolveVercelRuntime(). */
   runtime?: string;
+  /**
+   * app.config.ts `trustProxy`. Default true here: a Vercel function is only
+   * reachable through Vercel's edge, which sets `X-Forwarded-Proto` (and
+   * overwrites `X-Forwarded-For` — "to prevent IP spoofing", per Vercel's
+   * request-headers docs). An explicit false is respected.
+   */
+  trustProxy?: boolean;
 }
 
 const require = createRequire(import.meta.url);
@@ -111,6 +118,7 @@ export async function writeVercelOutput(
   const apiDir = options.apiDir ?? "api";
   const outputDir = options.outputDir ?? path.join(appRoot, ".vercel", "output");
   const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
+  const trustProxy = options.trustProxy ?? true;
   const funcDir = path.join(outputDir, "functions", "index.func");
   const clientOutDir = path.join(appRoot, "dist", "client");
   const staticOutDir = path.join(appRoot, "dist", "static");
@@ -197,7 +205,7 @@ export async function writeVercelOutput(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy })}\n` +
       `);\n\n` +
       `export default async function handler(req, res) {\n` +
       `  try {\n` +
@@ -240,9 +248,16 @@ export async function writeVercelOutput(
   // request including asset requests hit the function, which doesn't even
   // have those files (they're in static/, not funcDir) — a real bug caught
   // while wiring production island hydration, not a hypothetical one.
+  // security.noindex: files served straight from static/ (ssg pages, assets)
+  // never pass through the function, so they'd miss the X-Robots-Tag it
+  // sets — a header route with `continue: true` adds it to every response.
   const config = {
     version: 3,
-    routes: [{ handle: "filesystem" }, { src: "/(.*)", dest: "/index" }],
+    routes: [
+      ...(security?.noindex === true ? [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true }] : []),
+      { handle: "filesystem" },
+      { src: "/(.*)", dest: "/index" },
+    ],
   };
   await writeFile(path.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
 

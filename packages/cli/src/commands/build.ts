@@ -1,6 +1,11 @@
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
 import { PreflightError } from "../build/preflight.js";
+import { forceProductionNodeEnv } from "../build/productionEnv.js";
+import { isDevoraError } from "../build/devoraError.js";
+
+/** Values `--adapter` accepts. adapter-node needs no flag: plain `devora build`, then `devora start`. */
+export const BUILD_ADAPTERS = ["vercel", "netlify"] as const;
 
 export async function build(opts: { app?: string; adapter?: string; out?: string }) {
   // `devora build` always means "build for production" — never rely on the
@@ -15,7 +20,17 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
   // reliably for a custom `buildCommand`'s build step, so this had been
   // silently depending on a shell env var that was never actually
   // guaranteed to be there.
-  process.env.NODE_ENV = "production";
+  forceProductionNodeEnv("build");
+
+  // Round 3: an unknown value (e.g. --adapter=node) used to be silently
+  // ignored — the build "succeeded" without the output the caller asked for.
+  if (opts.adapter !== undefined && !(BUILD_ADAPTERS as readonly string[]).includes(opts.adapter)) {
+    console.error(
+      `[devora] unknown --adapter "${opts.adapter}" — use ${BUILD_ADAPTERS.join(" or ")}. ` +
+        `For a Node server (adapter-node), leave --adapter off: \`devora build\`, then \`devora start\`.`
+    );
+    process.exit(1);
+  }
 
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -45,10 +60,10 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
     try {
       await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out });
     } catch (err) {
-      // Preflight already printed why; anything else (a prebuild exit, a
-      // Vite error) gets its message printed once, without a stack trace
-      // for the expected cases.
-      console.error(err instanceof PreflightError ? err.message : err);
+      // Preflight already printed why; a framework-authored error (config
+      // validation, a prebuild exit — all prefixed "[devora]") is printed as
+      // its message alone; anything else (a Vite error) keeps its stack.
+      console.error(err instanceof PreflightError || isDevoraError(err) ? (err as Error).message : err);
       process.exit(1);
     }
   }
