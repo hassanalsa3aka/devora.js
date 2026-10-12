@@ -26,6 +26,8 @@ import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 import { isDevoraError } from "../build/devoraError.js";
 import { loadProjectEnv } from "../build/loadEnvFiles.js";
+import { formatBootSummary, type BootSummaryApp } from "../terminal/bootSummary.js";
+import { formatDuration, isQuiet, plural, printHeader, stdoutPaint, viteLogLevel } from "../terminal/output.js";
 import {
   DEV_BASE_PORT,
   findFreePort,
@@ -67,6 +69,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
   const server = await createServer({
     root: appRoot,
     appType: "custom", // we own the HTML response — see ../server/ssrMiddleware.ts
+    logLevel: viteLogLevel(),
     // strictPort: the port was already checked and chosen by dev() below
     // (which logs any move), so Vite silently picking yet another one would
     // make the printed URLs wrong. `host` is only passed when --host was
@@ -91,8 +94,10 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // ("Transforming destructuring ... is not supported yet"), and a project
     // that pins a newer esbuild (this repo's root overrides do) gets Vite 5
     // running on it. Every browser in that list supports destructuring.
+    // A backend-only app has no browser code: noDiscovery skips the scan
+    // that otherwise warns "Could not auto-determine entry point" at boot.
     ...(appConfig.backendOnly === true
-      ? {}
+      ? { optimizeDeps: { noDiscovery: true } }
       : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } }),
     configFile: path.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
@@ -168,7 +173,7 @@ interface BootedApp {
   server: ViteDevServer;
 }
 
-export async function dev(opts: { app?: string; host?: boolean }) {
+export async function dev(opts: { app?: string; host?: boolean; routes?: boolean }) {
   const root = process.cwd();
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
@@ -228,22 +233,23 @@ export async function dev(opts: { app?: string; host?: boolean }) {
     booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
   }
 
-  printBootSummary(booted);
+  printBootSummary(booted, opts.routes === true || process.env.DEVORA_ROUTES === "all");
 }
 
 /**
- * Boot output (devora-pre-v3-hotfixes.md #3/#4/#11/#13): per app, where it's
- * reachable, its API base URL, and its route table — built from the same
- * listRoutePaths() the router, sitemap, and build manifests use, so it
- * can't disagree with what's actually served. Network URLs (and the
+ * Boot output (devora-pre-v3-hotfixes.md #3/#4/#11/#13): the header with
+ * the time to ready, then per app where it's reachable and its API base
+ * URL, then the route tables (terminal/bootSummary.ts) — built from the
+ * same listRoutePaths() the router, sitemap, and build manifests use, so
+ * they can't disagree with what's actually served. Network URLs (and the
  * exposure warning) are driven by the address the server *actually* bound,
  * not by whether --host was passed — an app whose own vite.config.ts sets
  * `server.host` gets the same warning.
  */
-function printBootSummary(booted: BootedApp[]): void {
+function printBootSummary(booted: BootedApp[], expandRoutes: boolean): void {
   const lanAddresses = getLanAddresses();
   const exposedUrls: string[] = [];
-  const lines: string[] = [""];
+  const apps: BootSummaryApp[] = [];
 
   for (const { app, authMode, appRoot, apiDir, server } of booted) {
     const address = server.httpServer?.address() as AddressInfo | null;
@@ -258,42 +264,26 @@ function printBootSummary(booted: BootedApp[]): void {
     const networkUrls = networkHosts.map((h) => `http://${h}:${port}`);
     if (!isLoopbackAddress(boundHost)) exposedUrls.push(networkUrls[0] ?? `port ${port}`);
 
-    const pages = listRoutePaths(path.join(appRoot, "routes")).sort();
     const apis = listRoutePaths(resolveApiDir(appRoot, apiDir))
       .sort()
       .map((p) => (p === "/" ? "/api" : `/api${p}`));
-
-    lines.push(`  ${app.name}  (auth: ${authMode}, prod domain: ${app.domain})`);
-    lines.push(`    Local:    http://localhost:${port}/`);
-    for (const url of networkUrls) lines.push(`    Network:  ${url}/`);
-    if (networkUrls.length === 0) {
-      lines.push(
-        isWildcardAddress(boundHost)
-          ? `    Network:  (all interfaces, but no LAN address detected)`
-          : `    Network:  use --host to expose`
-      );
-    }
-    if (apis.length > 0) {
-      lines.push(`    API:      ${networkUrls[0] ?? `http://localhost:${port}`}/api`);
-    }
-    const routeRows = [...pages.map((p) => ["page", p]), ...apis.map((p) => ["api", p])];
-    if (routeRows.length > 0) {
-      lines.push(`    Routes:`);
-      for (const [kind, routePath] of routeRows) lines.push(`      ${kind!.padEnd(5)}${routePath}`);
-    } else {
-      lines.push(`    Routes:   (none yet — add a file under routes/ or ${normalizeApiDir(apiDir)}/)`);
-    }
-    lines.push("");
+    apps.push({
+      name: app.name,
+      authMode,
+      domain: app.domain,
+      localUrl: `http://localhost:${port}/`,
+      networkUrls: networkUrls.map((url) => `${url}/`),
+      networkNote: isWildcardAddress(boundHost) ? "(all interfaces, but no LAN address detected)" : "use --host to expose",
+      apiUrl: apis.length > 0 ? `${networkUrls[0] ?? `http://localhost:${port}`}/api` : undefined,
+      pages: listRoutePaths(path.join(appRoot, "routes")).sort(),
+      apis,
+      apiDir: normalizeApiDir(apiDir),
+    });
   }
 
-  if (exposedUrls.length > 0) {
-    lines.push(
-      `  ⚠ Dev server is reachable on your local network at ${exposedUrls[0]} — anyone on this network can access it.`
-    );
-    lines.push("");
-  }
-
-  console.log(lines.join("\n"));
+  // performance.now() counts from process start, like Vite's "ready in".
+  printHeader(`dev · ${plural(apps.length, "app")} · ready in ${formatDuration(performance.now())}`);
+  console.log(formatBootSummary(apps, { paint: stdoutPaint(), expandRoutes, quiet: isQuiet(), exposedUrl: exposedUrls[0] }));
 }
 
 /** Paths `devora dev` never watches: build output and adapter output written inside the app. */

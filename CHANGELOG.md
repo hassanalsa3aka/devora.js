@@ -10,6 +10,30 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 6 (terminal output)
+
+Not yet version-bumped.
+
+- **`@devorajs/cli` — branded header** for `devora dev`, `build` and `start`: a 5-line `d›` mark
+  in the logo's blue-to-violet gradient (truecolor, with 256-color and 16-color fallbacks), the
+  CLI version from its package.json, and `dev · N apps · ready in N ms`. `build` ends with
+  `✓ built N apps in N s`.
+- **`devora dev` boot output reorganised:** every app's Local/Network/API URLs first, then one
+  route table grouped per app. Pages are always listed; API routes are listed when an app has 10
+  or fewer and counted above that. `--routes` or `DEVORA_ROUTES=all` lists them all.
+- **`--quiet`** on `dev`, `build` and `start`: no header, route tables or progress lines, Vite at
+  `warn`. Warnings, errors and each app's URL still print.
+- **Color and layout follow the terminal:** `NO_COLOR`, `FORCE_COLOR` (wins over `NO_COLOR`, as in
+  Node), piped output and CI get plain text; terminals under 43 columns get a one-line header.
+- **`devora dev` no longer warns "Could not auto-determine entry point"** for a backend-only app
+  (it has no browser code to scan).
+- **`create-devora`** prints the mark and its own version at the start and a numbered "Next steps"
+  block (`cd`, install when it was skipped, `dev`) at the end.
+
+Behavior change: `devora dev`'s boot output is laid out differently (URLs first, then routes, API
+routes counted past 10 per app). Anything that parsed the old layout should use `--routes` and
+match the new lines.
+
 ## Unreleased — hotfix round 3, phase 5 (design pass)
 
 Not yet version-bumped.

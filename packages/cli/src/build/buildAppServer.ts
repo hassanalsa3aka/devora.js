@@ -17,6 +17,7 @@ import {
 import { ERROR_PAGE_FILES } from "../server/ssrMiddleware.js";
 import { buildAppClient } from "./buildAppClient.js";
 import { islandsBuildPlugin, ISLAND_PLACEHOLDER_RE } from "./islandsBuildPlugin.js";
+import { viteLogLevel } from "../terminal/output.js";
 
 /**
  * The real SSR production build (ROADMAP.md #4) — every route file plus
@@ -106,6 +107,7 @@ export async function buildAppServer(
   const routeCss: Record<string, string[]> = {};
   await viteBuild({
     root: appRoot,
+    logLevel: viteLogLevel(),
     configFile: path.join(appRoot, "vite.config.ts"),
     plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
     build: {

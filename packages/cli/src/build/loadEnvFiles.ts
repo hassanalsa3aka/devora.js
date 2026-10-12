@@ -1,6 +1,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { loadEnv } from "vite";
+import { info } from "../terminal/output.js";
 
 /**
  * Loads the project root's .env files into process.env before a command
@@ -25,6 +26,6 @@ export function loadProjectEnv(root: string, mode: "development" | "production")
   for (const [key, value] of Object.entries(loaded)) {
     if (!before.has(key)) process.env[key] = value;
   }
-  console.log(`[devora] loaded ${files.join(", ")}`);
+  info(`[devora] loaded ${files.join(", ")}`);
   return files;
 }

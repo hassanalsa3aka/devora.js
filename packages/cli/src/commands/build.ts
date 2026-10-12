@@ -4,11 +4,14 @@ import { PreflightError } from "../build/preflight.js";
 import { forceProductionNodeEnv } from "../build/productionEnv.js";
 import { isDevoraError } from "../build/devoraError.js";
 import { loadProjectEnv } from "../build/loadEnvFiles.js";
+import { formatDuration, info, plural, printHeader, stdoutPaint } from "../terminal/output.js";
 
 /** Values `--adapter` accepts. adapter-node needs no flag: plain `devora build`, then `devora start`. */
 export const BUILD_ADAPTERS = ["vercel", "netlify"] as const;
 
-export async function build(opts: { app?: string; adapter?: string; out?: string }) {
+export async function build(opts: { app?: string; adapter?: string; out?: string; quiet?: boolean }) {
+  const started = performance.now();
+  printHeader(`build${opts.adapter ? ` · ${opts.adapter}` : ""}`);
   // `devora build` always means "build for production" — never rely on the
   // invoking shell/CI environment to remember this (explicit over implicit,
   // §2.2). Without it, Vite's SSR build silently resolves `isProduction:
@@ -69,4 +72,5 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
       process.exit(1);
     }
   }
+  info(`\n  ${stdoutPaint().green("✓")} built ${plural(apps.length, "app")} in ${formatDuration(performance.now() - started)}\n`);
 }

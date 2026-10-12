@@ -16,6 +16,7 @@ import { runPrebuild } from "./runPrebuild.js";
 import { PreflightError, preflightNetlifyToml, preflightSessions, preflightVercelLayout, reportPreflight, type PreflightIssue } from "./preflight.js";
 import { writeVercelOutput, resolveVercelRuntime, readEnginesNode } from "@devorajs/adapter-vercel";
 import { writeNetlifyConfig } from "@devorajs/adapter-netlify";
+import { info } from "../terminal/output.js";
 
 export interface BuildForAdapterOptions {
   /**
@@ -87,7 +88,7 @@ export async function buildAppForAdapter(
       issues.push({ level: "error", message: resolved.error });
     } else {
       vercelRuntime = resolved.runtime;
-      console.log(`[devora] "${app.name}" Vercel runtime: ${resolved.runtime} (from ${resolved.source})`);
+      info(`[devora] "${app.name}" Vercel runtime: ${resolved.runtime} (from ${resolved.source})`);
     }
     issues.push(...preflightVercelLayout({ appRoot, outputDir: vercelOutputDir, apiDir }));
   }
@@ -98,7 +99,7 @@ export async function buildAppForAdapter(
 
   const backendOnly = appConfig.backendOnly === true;
 
-  console.log(`[devora] building "${app.name}" (SSR)...`);
+  info(`[devora] building "${app.name}" (SSR)...`);
   const sessionsConfig = project.shared.sessions;
   const sessions =
     sessionManifest === undefined
@@ -111,7 +112,7 @@ export async function buildAppForAdapter(
               : undefined,
         };
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
-  console.log(`[devora] "${app.name}" built → ${serverOutDir}`);
+  info(`[devora] "${app.name}" built → ${serverOutDir}`);
 
   const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, {
     backendOnly,
@@ -119,7 +120,7 @@ export async function buildAppForAdapter(
     domain: app.domain,
   });
   if (staticRoutes.length > 0) {
-    console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
+    info(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }
 
   // adapter-node needs nothing further — see `devora start`. Vercel/Netlify

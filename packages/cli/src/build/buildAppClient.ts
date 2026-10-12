@@ -5,6 +5,7 @@ import { build as viteBuild, resolveConfig } from "vite";
 import { createHash } from "node:crypto";
 import { listRouteFiles, toBuildKey } from "@devorajs/core";
 import { discoverCsrRouteFiles } from "./discoverCsrRouteFiles.js";
+import { viteLogLevel } from "../terminal/output.js";
 
 interface ViteManifestEntry {
   file: string;
@@ -77,6 +78,7 @@ export async function buildAppClient(appRoot: string, islandFiles: string[]): Pr
 
   await viteBuild({
     root: appRoot,
+    logLevel: viteLogLevel(),
     configFile: path.join(appRoot, "vite.config.ts"),
     build: {
       outDir: clientOutDir,

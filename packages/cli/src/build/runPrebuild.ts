@@ -1,5 +1,6 @@
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { info } from "../terminal/output.js";
 
 /**
  * Runs app.config.ts `prebuild` — codegen/asset steps a clean checkout
@@ -23,7 +24,7 @@ export function runPrebuild(
     if (typeof command !== "string" || command.trim() === "") {
       throw new Error(`[devora] "${appName}": prebuild entries must be non-empty strings`);
     }
-    console.log(`[devora] "${appName}" prebuild: ${command}`);
+    info(`[devora] "${appName}" prebuild: ${command}`);
     const binDirs = [...new Set([path.join(appRoot, "node_modules", ".bin"), path.join(projectRoot, "node_modules", ".bin")])];
     const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path.delimiter) };
     const result = spawnSync(command, { cwd: appRoot, shell: true, stdio: "inherit", env });

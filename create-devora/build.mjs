@@ -1,4 +1,4 @@
-import { chmod, cp, rm } from "node:fs/promises";
+import { chmod, cp, readFile, rm } from "node:fs/promises";
 import * as esbuild from "esbuild";
 
 /**
@@ -24,8 +24,12 @@ await rm("assets", { recursive: true, force: true });
 await cp("../packages/scaffold/templates", "templates", { recursive: true });
 await cp("../packages/scaffold/assets", "assets", { recursive: true });
 
+// create-devora's own version for its header, from package.json at build time.
+const { version } = JSON.parse(await readFile(new URL("./package.json", import.meta.url), "utf-8"));
+
 await esbuild.build({
   entryPoints: ["src/index.ts"],
+  define: { __CREATE_DEVORA_VERSION__: JSON.stringify(version) },
   bundle: true,
   platform: "node",
   format: "esm",

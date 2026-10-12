@@ -7,3 +7,15 @@ export {
   type ScaffoldProjectOptions,
   type ScaffoldProjectApp,
 } from "./scaffoldProjectFiles.js";
+export {
+  formatHeader,
+  terminalInfo,
+  detectColorLevel,
+  createPaint,
+  markLines,
+  stripAnsi,
+  type ColorLevel,
+  type TerminalInfo,
+  type Paint,
+  type HeaderOptions,
+} from "./terminal.js";

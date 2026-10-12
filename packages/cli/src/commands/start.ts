@@ -4,6 +4,7 @@ import { createNodeServer } from "@devorajs/adapter-node";
 import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
 import { forceProductionNodeEnv, parsePort } from "../build/productionEnv.js";
 import { loadProjectEnv } from "../build/loadEnvFiles.js";
+import { printHeader } from "../terminal/output.js";
 
 /**
  * Production serve (ROADMAP.md #4) — boots adapter-node against each app's
@@ -28,7 +29,8 @@ import { loadProjectEnv } from "../build/loadEnvFiles.js";
  * set), else 4173. Host: `--host`, else `HOST`, else every interface.
  * Either way the port is the *first* app's when several apps start.
  */
-export async function start(opts: { app?: string; port?: string; host?: string }) {
+export async function start(opts: { app?: string; port?: string; host?: string; quiet?: boolean }) {
+  printHeader("start · production server");
   forceProductionNodeEnv("start");
 
   const root = process.cwd();

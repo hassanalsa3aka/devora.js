@@ -11,17 +11,20 @@ import { generateProxy } from "./commands/generate-proxy.js";
 import { split } from "./commands/split.js";
 import { sync } from "./commands/sync.js";
 import { status } from "./commands/status.js";
-
-// Replaced with package.json's version by build.mjs (esbuild `define`);
-// undefined only when running from source via tsx.
-declare const __DEVORA_CLI_VERSION__: string | undefined;
+import { CLI_VERSION, setQuiet } from "./terminal/output.js";
 
 const program = new Command();
 
 program
   .name("devora")
   .description("Devora.js CLI — the multi-app, security-first framework")
-  .version(typeof __DEVORA_CLI_VERSION__ === "string" ? __DEVORA_CLI_VERSION__ : "0.0.0-source");
+  .version(CLI_VERSION);
+
+// --quiet (dev/build/start) is read once, before the command runs, so every
+// module's progress output follows it (terminal/output.ts).
+program.hook("preAction", (_program, command) => setQuiet(command.opts().quiet));
+
+const QUIET_HELP = "only warnings, errors and the app URLs — no header, route tables or progress lines";
 
 program
   .command("dev")
@@ -31,6 +34,8 @@ program
     "--host",
     "listen on all network interfaces (so a phone/other device on your LAN can reach it) — off by default"
   )
+  .option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)")
+  .option("--quiet", QUIET_HELP)
   .action(async (opts) => dev(opts));
 
 program
@@ -42,6 +47,7 @@ program
     "--out <dir>",
     "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
   )
+  .option("--quiet", QUIET_HELP)
   .action(async (opts) => build(opts));
 
 program
@@ -50,6 +56,7 @@ program
   .option("--app <name>", "serve only this app")
   .option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)")
   .option("--host <host>", "interface to bind (default: $HOST, else all interfaces)")
+  .option("--quiet", QUIET_HELP)
   .action(async (opts) => start(opts));
 
 program

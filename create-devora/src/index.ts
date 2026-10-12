@@ -9,6 +9,9 @@ import {
   scaffoldAppFiles,
   scaffoldProjectFiles,
   MULTI_BACKEND_DOCS_URL,
+  createPaint,
+  formatHeader,
+  terminalInfo,
   type ProjectScope,
   type ScaffoldProjectApp,
 } from "@devorajs/scaffold";
@@ -51,6 +54,10 @@ const DEFAULT_APPS: Record<ProjectScope, string> = {
   backend: "api",
 };
 
+// Replaced with package.json's version by build.mjs (esbuild `define`).
+declare const __CREATE_DEVORA_VERSION__: string | undefined;
+const VERSION = typeof __CREATE_DEVORA_VERSION__ === "string" ? __CREATE_DEVORA_VERSION__ : "0.0.0-source";
+
 const CORE_VERSION = "^0.3.0";
 const CLI_VERSION = "^0.3.0";
 
@@ -85,8 +92,18 @@ async function prompt(question: string, fallback: string): Promise<string> {
   }
 }
 
+/** The closing "next steps" block: what to run, in order, from where the user is now. */
+function printNextSteps(lines: { projectName: string; installCmd?: string; devCmd: string }): void {
+  const paint = createPaint(terminalInfo(process.stdout).level);
+  const steps = [`cd ${lines.projectName}`, ...(lines.installCmd ? [lines.installCmd] : []), lines.devCmd];
+  console.log(`\n  ${paint.bold("Next steps")}`);
+  steps.forEach((step, i) => console.log(`    ${paint.dim(`${i + 1}.`)} ${paint.blue(step)}`));
+  console.log("");
+}
+
 async function main() {
   const { flags, positional } = parseArgs(process.argv.slice(2));
+  console.log(`\n${formatHeader({ detail: `create-devora ${VERSION} · new project` }, terminalInfo(process.stdout))}\n`);
 
   const projectName = positional[0] ?? (await prompt("Project name?", "my-devora-app"));
   const projectRoot = path.resolve(process.cwd(), projectName);
@@ -156,12 +173,10 @@ async function main() {
 
   const pm = (flags.pm as "npm" | "yarn" | "pnpm" | undefined) ?? detectPackageManager();
 
+  const devCmd = formatCommand(runScriptCommand(pm, "dev"));
   if (flags["skip-install"]) {
-    const [cmd] = installCommand(pm);
-    console.log(`\n[create-devora] skipped install (--skip-install). Next steps:`);
-    console.log(`  cd ${projectName}`);
-    console.log(`  ${cmd} install`);
-    console.log(`  ${formatCommand(runScriptCommand(pm, "dev"))}`);
+    console.log(`\n[create-devora] skipped install (--skip-install).`);
+    printNextSteps({ projectName, installCmd: formatCommand(installCommand(pm)), devCmd });
     return;
   }
 
@@ -177,9 +192,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n[create-devora] done. Next steps:`);
-  console.log(`  cd ${projectName}`);
-  console.log(`  ${formatCommand(runScriptCommand(pm, "dev"))}`);
+  const paint = createPaint(terminalInfo(process.stdout).level);
+  console.log(`\n  ${paint.green("✓")} Created ${projectName} — dependencies installed with ${pm}.`);
+  printNextSteps({ projectName, devCmd });
 }
 
 main().catch((err) => {

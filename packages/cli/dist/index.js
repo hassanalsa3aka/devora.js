@@ -536,10 +536,10 @@ var require_react_development = __commonJS({
             isMounted: ["isMounted", "Instead, make sure to clean up subscriptions and pending requests in componentWillUnmount to prevent memory leaks."],
             replaceState: ["replaceState", "Refactor your code to use setState instead (see https://github.com/facebook/react/issues/3236)."]
           };
-          var defineDeprecationWarning = function(methodName, info) {
+          var defineDeprecationWarning = function(methodName, info2) {
             Object.defineProperty(Component.prototype, methodName, {
               get: function() {
-                warn("%s(...) is deprecated in plain JavaScript React classes. %s", info[0], info[1]);
+                warn("%s(...) is deprecated in plain JavaScript React classes. %s", info2[0], info2[1]);
                 return void 0;
               }
             });
@@ -1751,14 +1751,14 @@ var require_react_development = __commonJS({
         }
         var ownerHasKeyUseWarning = {};
         function getCurrentComponentErrorInfo(parentType) {
-          var info = getDeclarationErrorAddendum();
-          if (!info) {
+          var info2 = getDeclarationErrorAddendum();
+          if (!info2) {
             var parentName = typeof parentType === "string" ? parentType : parentType.displayName || parentType.name;
             if (parentName) {
-              info = "\n\nCheck the top-level render call using <" + parentName + ">.";
+              info2 = "\n\nCheck the top-level render call using <" + parentName + ">.";
             }
           }
-          return info;
+          return info2;
         }
         function validateExplicitKey(element, parentType) {
           if (!element._store || element._store.validated || element.key != null) {
@@ -1861,15 +1861,15 @@ var require_react_development = __commonJS({
         function createElementWithValidation(type, props, children) {
           var validType = isValidElementType(type);
           if (!validType) {
-            var info = "";
+            var info2 = "";
             if (type === void 0 || typeof type === "object" && type !== null && Object.keys(type).length === 0) {
-              info += " You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.";
+              info2 += " You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.";
             }
             var sourceInfo = getSourceInfoErrorAddendumForProps(props);
             if (sourceInfo) {
-              info += sourceInfo;
+              info2 += sourceInfo;
             } else {
-              info += getDeclarationErrorAddendum();
+              info2 += getDeclarationErrorAddendum();
             }
             var typeString;
             if (type === null) {
@@ -1878,12 +1878,12 @@ var require_react_development = __commonJS({
               typeString = "array";
             } else if (type !== void 0 && type.$$typeof === REACT_ELEMENT_TYPE) {
               typeString = "<" + (getComponentNameFromType(type.type) || "Unknown") + " />";
-              info = " Did you accidentally export a JSX literal instead of a component?";
+              info2 = " Did you accidentally export a JSX literal instead of a component?";
             } else {
               typeString = typeof type;
             }
             {
-              error("React.createElement: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s", typeString, info);
+              error("React.createElement: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s", typeString, info2);
             }
           }
           var element = createElement4.apply(this, arguments);
@@ -2903,14 +2903,14 @@ var require_react_jsx_runtime_development = __commonJS({
         var ownerHasKeyUseWarning = {};
         function getCurrentComponentErrorInfo(parentType) {
           {
-            var info = getDeclarationErrorAddendum();
-            if (!info) {
+            var info2 = getDeclarationErrorAddendum();
+            if (!info2) {
               var parentName = typeof parentType === "string" ? parentType : parentType.displayName || parentType.name;
               if (parentName) {
-                info = "\n\nCheck the top-level render call using <" + parentName + ">.";
+                info2 = "\n\nCheck the top-level render call using <" + parentName + ">.";
               }
             }
-            return info;
+            return info2;
           }
         }
         function validateExplicitKey(element, parentType) {
@@ -3018,15 +3018,15 @@ var require_react_jsx_runtime_development = __commonJS({
           {
             var validType = isValidElementType(type);
             if (!validType) {
-              var info = "";
+              var info2 = "";
               if (type === void 0 || typeof type === "object" && type !== null && Object.keys(type).length === 0) {
-                info += " You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.";
+                info2 += " You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.";
               }
               var sourceInfo = getSourceInfoErrorAddendum(source);
               if (sourceInfo) {
-                info += sourceInfo;
+                info2 += sourceInfo;
               } else {
-                info += getDeclarationErrorAddendum();
+                info2 += getDeclarationErrorAddendum();
               }
               var typeString;
               if (type === null) {
@@ -3035,11 +3035,11 @@ var require_react_jsx_runtime_development = __commonJS({
                 typeString = "array";
               } else if (type !== void 0 && type.$$typeof === REACT_ELEMENT_TYPE) {
                 typeString = "<" + (getComponentNameFromType(type.type) || "Unknown") + " />";
-                info = " Did you accidentally export a JSX literal instead of a component?";
+                info2 = " Did you accidentally export a JSX literal instead of a component?";
               } else {
                 typeString = typeof type;
               }
-              error("React.jsx: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s", typeString, info);
+              error("React.jsx: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s", typeString, info2);
             }
             var element = jsxDEV(type, props, key, source, self);
             if (element == null) {
@@ -3122,7 +3122,7 @@ var require_jsx_runtime = __commonJS({
 import { Command } from "commander";
 
 // src/commands/dev.ts
-import path12 from "node:path";
+import path14 from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "vite";
 
@@ -5538,19 +5538,697 @@ function isDevoraError(err) {
 }
 
 // src/build/loadEnvFiles.ts
-import path11 from "node:path";
+import path13 from "node:path";
 import { existsSync as existsSync7 } from "node:fs";
 import { loadEnv } from "vite";
+
+// ../scaffold/src/resolveAuthChoice.ts
+import { createInterface } from "node:readline/promises";
+async function resolveAuthChoice(explicit, appName) {
+  if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
+  if (explicit) {
+    console.error(`[devora] --auth must be "shared", "isolated", or "none" (got "${explicit}")`);
+    process.exit(1);
+  }
+  if (!process.stdin.isTTY) return "shared";
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(
+      `Does "${appName}" need auth/sessions? [shared/isolated/none] (default: shared): `
+    )).trim();
+    if (answer === "isolated") return "isolated";
+    if (answer === "none") return "none";
+    return "shared";
+  } finally {
+    rl.close();
+  }
+}
+
+// ../scaffold/src/resolveScopeChoice.ts
+import { createInterface as createInterface2 } from "node:readline/promises";
+
+// ../scaffold/src/scaffoldAppFiles.ts
+import path11 from "node:path";
+import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
+var SCAFFOLD_API_DIR = "endpoints";
+var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) \u2014 not api/, which
+  // Vercel would turn into separate functions. See DEPLOYING.md.
+  apiDir: "${SCAFFOLD_API_DIR}",
+`;
+async function scaffoldAppFiles(appDir, appName, opts) {
+  const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
+  const kind = opts.kind ?? "pages";
+  const withBackend = opts.withBackend ?? true;
+  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
+  await mkdir2(path11.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
+  await writeFile2(
+    path11.join(appDir, "package.json"),
+    JSON.stringify(
+      {
+        name: `@project/app-${appName}`,
+        version: "0.1.0",
+        private: true,
+        type: "module",
+        // vite/@vitejs/plugin-react are real "dependencies", NOT
+        // devDependencies — same reasoning, and the same real bug, as
+        // @devorajs/cli in scaffoldProjectFiles.ts: vite.config.ts needs
+        // them at BUILD time, and a platform's production-only install
+        // (confirmed on a real Netlify deploy: `Cannot find package
+        // '@vitejs/plugin-react'` from vite.config.ts, only after fixing
+        // the identical @devorajs/cli issue one level up) skips
+        // devDependencies entirely. "Needed to build" and "needed to run
+        // in production" aren't the same question here — this file
+        // doesn't ship in dist/ output, but it has to resolve *during* the
+        // build that produces dist/.
+        dependencies: {
+          "@devorajs/core": coreVersion,
+          ...withBackend ? { "@devorajs/backend": "*" } : {},
+          // A backend-only app renders no pages, so it needs no React at
+          // all; it still needs vite, which runs its dev server and build.
+          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
+          vite: "^5.4.0 || ^6.0.0",
+          // Only for a standalone (create-devora) app — see cliVersion's
+          // doc comment for why a workspace-scoped platform install needs
+          // this declared here too, not just at the project root.
+          ...cliInvocation === "standalone" ? { "@devorajs/cli": cliVersion } : {}
+        }
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  await writeFile2(
+    path11.join(appDir, "tsconfig.json"),
+    `{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "." },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["dist", "node_modules", "netlify", ".vercel", ".netlify"]
+}
+`
+  );
+  if (kind === "api") {
+    await writeFile2(
+      path11.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";
+
+// Backend-only app: API routes under ${SCAFFOLD_API_DIR}/, no pages and no client build.
+export default defineApp({
+  backendOnly: true,
+` + API_DIR_CONFIG_LINES + `});
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "vite.config.ts"),
+      `import { defineConfig } from "vite";
+
+// Backend-only app \u2014 nothing here ever ships to a browser, so no React
+// plugin and no public assets. Vite still runs this app's dev server.
+export default defineConfig({});
+`
+    );
+  } else {
+    await writeFile2(
+      path11.join(appDir, "app.config.ts"),
+      `import { defineApp } from "@devorajs/core/config";
+
+export default defineApp({
+  defaultRenderMode: "ssr",
+  // Serves /sitemap.xml built from routes/. Off by default: turn it on
+  // for a public-facing app, leave it off for an internal one.
+  sitemap: false,
+` + API_DIR_CONFIG_LINES + `  // Tags for every page's <head> (a route adds its own via meta().head):
+  // head: { lang: "en", stylesheets: ["/styles.css"], links: [{ rel: "icon", href: "/favicon.png" }] },
+});
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "vite.config.ts"),
+      `import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  plugins: [react()],
+  // Shared brand assets (logo, favicon) \u2014 see packages/core/src/theme.ts.
+  publicDir: path.resolve(__dirname, "../../assets"),
+  // Explicit modern target \u2014 esbuild 0.25+ can no longer down-level
+  // destructuring to Vite's old default multi-browser target list.
+  build: {
+    target: "es2022",
+  },
+});
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "entry-server.tsx"),
+      `import { createElement } from "react";
+import { renderToString, renderToPipeableStream } from "react-dom/server";
+import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
+
+// Framework SSR entry point for this app \u2014 loaded via vite.ssrLoadModule
+// so react-dom/server resolves against this app's own node_modules. The
+// actual render logic lives once in @devorajs/core's renderRoute.ts,
+// shared by every app; this file only supplies the React bindings that
+// genuinely can't be shared.
+export const renderRoute = createRenderRoute({ createElement, renderToString });
+export const renderStatic = createRenderStatic({ createElement, renderToString });
+export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "error.tsx"),
+      `import { PageShell, type ErrorPageProps } from "@devorajs/core";
+
+// Rendered for unmatched URLs (404) and for errors a page throws \u2014 an
+// HttpError keeps its status (401 from ctx.requireAuth(), 403 from
+// ctx.verifyCsrf(), your own 400/404). \`message\` is safe to show: for an
+// unexpected error it's just "Internal Server Error" in production.
+export function meta({ status }: ErrorPageProps) {
+  return { title: status === 404 ? "Not found" : \`Error \${status}\` };
+}
+
+export default function ErrorPage({ status, message }: ErrorPageProps) {
+  return (
+    <PageShell appName="${appName}">
+      <div className="devora-error">
+        <h1>{status}</h1>
+        <p>{message}</p>
+        <p><a className="devora-button" href="/">Back to the home page</a></p>
+      </div>
+    </PageShell>
+  );
+}
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "island-client.tsx"),
+      `import { hydrateIslands } from "@devorajs/core/client";
+
+// Only requested when a page actually used an island() \u2014 see
+// packages/core/src/islandComponent.tsx. Real hydration logic lives
+// once in @devorajs/core (shared by every app, including MutationObserver
+// support for an island that streams in after this script runs) \u2014 this
+// file only calls it.
+hydrateIslands();
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "csr-client.tsx"),
+      `import { hydrateCsrRoutes } from "@devorajs/core/client";
+
+// Only requested when a page's renderMode is "csr" \u2014 see
+// packages/core/src/csrRoute.ts. Real logic lives once in
+// @devorajs/core, shared by every app.
+hydrateCsrRoutes();
+`
+    );
+  }
+  await writeFile2(
+    path11.join(appDir, "vercel.json"),
+    JSON.stringify(
+      {
+        $schema: "https://openapi.vercel.sh/vercel.json",
+        // A real, previously undiscovered gap, found via an actual Vercel
+        // deploy (git-integration import, not the `vercel deploy --prebuilt`
+        // CLI flow) — without this, Vercel's zero-config detection runs
+        // plain `vite build`, which fails outright ("Could not resolve entry
+        // module index.html") since this isn't a conventional Vite SPA.
+        // `writeVercelOutput` already produces `.vercel/output` (Build
+        // Output API v3) at this app's own root when run with
+        // --adapter=vercel; Vercel auto-detects and prefers that over any
+        // "Output Directory" setting once it exists, so nothing else needs
+        // overriding here — just which command actually runs.
+        buildCommand: `${devoraCmd} build --app=${appName} --adapter=vercel`,
+        // Vercel's dashboard cosmetically labels this app "Vite" (it sees
+        // `vite` in package.json devDependencies) even though buildCommand
+        // above already overrides what runs — `framework: null` tells
+        // Vercel not to apply *any* framework-specific zero-config
+        // assumptions at all, belt-and-suspenders against a future one
+        // (routing/output-dir defaults, etc.) surfacing the same way the
+        // build-command one did.
+        framework: null
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  await writeFile2(
+    path11.join(appDir, "netlify.toml"),
+    `[build]
+  command = "${devoraCmd} build --app=${appName} --adapter=netlify"
+  publish = "dist/client"
+  functions = "netlify/functions"
+
+[functions.ssr]
+  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/${SCAFFOLD_API_DIR}/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/ssr"
+  status = 200
+`
+  );
+  if (kind === "api") {
+    await scaffoldApiRoutes(appDir, authMode);
+    return;
+  }
+  await writeFile2(
+    path11.join(appDir, "routes", "index.tsx"),
+    `import { PageShell } from "@devorajs/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "${appName}" };
+}
+
+export async function loader() {
+  return {};
+}
+
+export default function Index() {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Welcome to ${appName}</h1>
+      <p className="devora-lead">
+        This page is <code>apps/${appName}/routes/index.tsx</code>. Edit it and the dev server reloads.
+      </p>
+      <div className="devora-grid">
+        <div className="devora-card">
+          <h3>Add a page</h3>
+          <p>Every file in <code>routes/</code> is a page: <code>routes/about.tsx</code> serves <code>/about</code>.</p>
+        </div>
+        <div className="devora-card">
+          <h3>Add an API route</h3>
+          <p><code>${SCAFFOLD_API_DIR}/hello.ts</code> serves <code>/api/hello</code> as JSON.</p>
+        </div>
+        <div className="devora-card">
+          <h3>Deploy</h3>
+          <p><code>npm run build</code>, then <code>npm start</code> \u2014 or Vercel, Netlify, Docker.</p>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+`
+  );
+  if (authMode !== "none") {
+    await writeFile2(
+      path11.join(appDir, "routes", "login.tsx"),
+      `import type { RequestContext } from "@devorajs/core";
+import { redirect, CsrfField, PageShell } from "@devorajs/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Log in", description: "${appName} login (demo)" };
+}
+
+// Demo only: the framework provides the session itself (an opaque ID in an
+// HttpOnly cookie, stored server-side and revocable). Checking who someone is
+// stays bring-your-own (\xA76/\xA711): a real app verifies a password/token
+// against its own DB/provider before calling ctx.setSession(); this route
+// trusts any submitted username so the session flow can be exercised end to end.
+export async function action(formData: FormData, ctx: RequestContext) {
+  ctx.verifyCsrf(formData);
+  const username = String(formData.get("username") ?? "");
+  if (!username) throw new Error("username required");
+  await ctx.setSession({ username });
+  return redirect("/");
+}
+
+export default function Login({ csrfToken }: { csrfToken?: string }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Log in</h1>
+      <p><strong>Demo only</strong> \u2014 accepts any username with no password check.</p>
+      <form method="post">
+        <CsrfField token={csrfToken} />
+        <label htmlFor="username">Username</label>
+        <input id="username" name="username" autoComplete="username" required />
+        <button type="submit">Log in</button>
+      </form>
+    </PageShell>
+  );
+}
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "routes", "logout.tsx"),
+      `import type { RequestContext } from "@devorajs/core";
+import { redirect, CsrfField, PageShell } from "@devorajs/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Log out", description: "${appName} logout" };
+}
+
+export async function action(formData: FormData, ctx: RequestContext) {
+  ctx.verifyCsrf(formData);
+  // Revoked server-side \u2014 dead everywhere, not just in this browser.
+  await ctx.revokeSession();
+  return redirect("/login");
+}
+
+export default function Logout({ csrfToken }: { csrfToken?: string }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Log out</h1>
+      {/* POST-only, never a bare <a href="/logout"> \u2014 a GET-triggered logout
+          is itself a CSRF-adjacent footgun. */}
+      <form method="post">
+        <CsrfField token={csrfToken} />
+        <button type="submit">Log out</button>
+      </form>
+    </PageShell>
+  );
+}
+`
+    );
+    await writeFile2(
+      path11.join(appDir, "routes", "account.tsx"),
+      `import type { RequestContext } from "@devorajs/core";
+import { PageShell } from "@devorajs/core";
+
+export const renderMode = "ssr";
+
+export function meta() {
+  return { title: "Account", description: "${appName} account (protected demo)" };
+}
+
+// ctx.requireAuth() throws if there's no active session \u2014 see
+// packages/core/src/session.ts and apps/dashboard/routes/settings.tsx for
+// the same pattern against the shared backend.
+export async function loader(ctx: RequestContext) {
+  ctx.requireAuth();
+  return { session: ctx.session };
+}
+
+export default function Account({ data }: { data?: { session: unknown } }) {
+  return (
+    <PageShell appName="${appName}">
+      <h1>Account</h1>
+      <p>Protected demo route \u2014 only reachable with an active session (see routes/login.tsx).</p>
+      <pre>{JSON.stringify(data?.session, null, 2)}</pre>
+    </PageShell>
+  );
+}
+`
+    );
+  }
+}
+async function scaffoldApiRoutes(appDir, authMode) {
+  await writeFile2(
+    path11.join(appDir, SCAFFOLD_API_DIR, "health.ts"),
+    `import { apiRoute } from "@devorajs/core";
+
+// GET /api/health
+export const methods = ["GET"];
+export const handler = apiRoute(() => ({
+  status: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ok: true }),
+}));
+`
+  );
+  if (authMode === "none") return;
+  await writeFile2(
+    path11.join(appDir, SCAFFOLD_API_DIR, "session.ts"),
+    `import { apiRoute, HttpError } from "@devorajs/core";
+
+// POST /api/session   { "username": "..." } -> { "token": "..." }
+// DELETE /api/session (Authorization: Bearer <token>) -> revokes it
+//
+// Demo only: accepts any username with no password check. A real app
+// verifies credentials against its own database before setSession().
+export const methods = ["POST", "DELETE"];
+
+export const handler = apiRoute(async (req, ctx) => {
+  if (req.method === "DELETE") {
+    ctx.requireAuth();
+    await ctx.revokeSession();
+    return { status: 204 };
+  }
+
+  let username: unknown;
+  try {
+    username = JSON.parse(req.body.toString("utf-8") || "{}").username;
+  } catch {
+    throw new HttpError(400, "Request body must be valid JSON");
+  }
+  if (typeof username !== "string" || !username) throw new HttpError(400, "username required");
+
+  const token = await ctx.setSession({ username }, { transport: "bearer" });
+  return {
+    status: 201,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  };
+});
+`
+  );
+  await writeFile2(
+    path11.join(appDir, SCAFFOLD_API_DIR, "me.ts"),
+    `import { apiRoute } from "@devorajs/core";
+
+// GET /api/me (Authorization: Bearer <token>) \u2014 401 without a valid session.
+export const methods = ["GET"];
+export const handler = apiRoute((_req, ctx) => {
+  ctx.requireAuth();
+  return {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: ctx.session }),
+  };
+});
+`
+  );
+}
+
+// ../scaffold/src/scaffoldProjectFiles.ts
+import path12 from "node:path";
+import { fileURLToPath } from "node:url";
+var __dirname = path12.dirname(fileURLToPath(import.meta.url));
+
+// ../scaffold/src/terminal.ts
+function detectColorLevel(env, isTTY) {
+  const force = env.FORCE_COLOR;
+  if (force !== void 0) {
+    if (force === "0" || force === "false") return 0;
+    if (force === "1" || force === "2" || force === "3") return Number(force);
+    return Math.max(1, depthFromEnv(env));
+  }
+  if (env.NO_COLOR !== void 0 && env.NO_COLOR !== "") return 0;
+  if (!isTTY || env.TERM === "dumb") return 0;
+  return depthFromEnv(env);
+}
+function depthFromEnv(env) {
+  const colorterm = env.COLORTERM?.toLowerCase();
+  if (colorterm === "truecolor" || colorterm === "24bit") return 3;
+  if (env.TERM?.includes("256")) return 2;
+  return 1;
+}
+function terminalInfo(stream = process.stdout, env = process.env) {
+  const isTTY = stream.isTTY === true;
+  return {
+    level: detectColorLevel(env, isTTY),
+    interactive: isTTY && env.TERM !== "dumb" && !isCI(env),
+    columns: stream.columns && stream.columns > 0 ? stream.columns : 80
+  };
+}
+function isCI(env) {
+  return env.CI !== void 0 && env.CI !== "" && env.CI !== "false" && env.CI !== "0" || env.CONTINUOUS_INTEGRATION !== void 0;
+}
+var BLUE = [59, 130, 246];
+var VIOLET = [168, 85, 247];
+var GREEN = [34, 197, 94];
+var YELLOW = [234, 179, 8];
+var RED = [239, 68, 68];
+var BASIC = { blue: 34, violet: 35, green: 32, yellow: 33, red: 31 };
+function fg(level, rgb, basic) {
+  if (level === 3) return `\x1B[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m`;
+  if (level === 2) return `\x1B[38;5;${to256(rgb)}m`;
+  return `\x1B[${basic}m`;
+}
+function to256([r, g, b]) {
+  const q = (v) => Math.round(v / 255 * 5);
+  return 16 + 36 * q(r) + 6 * q(g) + q(b);
+}
+function createPaint(level) {
+  const wrap = (open, close) => (text) => level === 0 || text === "" ? text : `${open}${text}${close}`;
+  const color = (rgb, name) => wrap(fg(level, rgb, BASIC[name]), "\x1B[39m");
+  return {
+    level,
+    bold: wrap("\x1B[1m", "\x1B[22m"),
+    dim: wrap("\x1B[2m", "\x1B[22m"),
+    blue: color(BLUE, "blue"),
+    violet: color(VIOLET, "violet"),
+    green: color(GREEN, "green"),
+    yellow: color(YELLOW, "yellow"),
+    red: color(RED, "red")
+  };
+}
+var MARK_PIXELS = [
+  "        #      ",
+  "       ##      ",
+  "       ##      ",
+  "  #######  #   ",
+  " ########  ##  ",
+  "##     ##   ## ",
+  "##     ##    ##",
+  "##     ##   ## ",
+  " ########  ##  ",
+  "  #######  #   "
+];
+var MARK_WIDTH = MARK_PIXELS[0].length;
+function markLines() {
+  const lines = [];
+  for (let row = 0; row < MARK_PIXELS.length; row += 2) {
+    const top = MARK_PIXELS[row];
+    const bottom = MARK_PIXELS[row + 1];
+    let line = "";
+    for (let col = 0; col < MARK_WIDTH; col++) {
+      const t = top[col] === "#";
+      const b = bottom[col] === "#";
+      line += t && b ? "\u2588" : t ? "\u2580" : b ? "\u2584" : " ";
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+function colorMarkLine(line, level) {
+  if (level === 0) return line;
+  let out = "";
+  for (let col = 0; col < line.length; col++) {
+    const ch = line[col];
+    if (ch === " ") {
+      out += ch;
+      continue;
+    }
+    const t = col / (MARK_WIDTH - 1);
+    const rgb = [0, 1, 2].map((i) => Math.round(BLUE[i] + (VIOLET[i] - BLUE[i]) * t));
+    out += fg(level, rgb, t < 0.5 ? BASIC.blue : BASIC.violet) + ch;
+  }
+  return `${out}\x1B[39m`;
+}
+var MIN_COLUMNS_FOR_MARK = 2 + MARK_WIDTH + 2 + 24;
+function formatHeader(opts, term) {
+  const paint = createPaint(term.level);
+  const name = `${paint.bold("devora")}${paint.violet(".js")}${opts.version ? ` ${paint.dim(opts.version)}` : ""}`;
+  const detail = opts.detail ? paint.dim(opts.detail) : "";
+  if (!term.interactive || term.columns < MIN_COLUMNS_FOR_MARK) {
+    const glyph = term.interactive ? `${paint.blue("d")}${paint.violet("\u203A")} ` : "";
+    const line = `  ${glyph}${name}${detail ? `  ${detail}` : ""}`;
+    if (!detail || !term.interactive || stripAnsi(line).length <= term.columns) return line;
+    return `  ${glyph}${name}
+  ${glyph ? "   " : ""}${detail}`;
+  }
+  const beside = ["", name, detail, "", ""];
+  return markLines().map((line, i) => {
+    const drawn = line.trimEnd();
+    const mark = colorMarkLine(drawn, term.level);
+    return beside[i] ? `  ${mark}${" ".repeat(MARK_WIDTH - drawn.length)}  ${beside[i]}` : `  ${mark}`;
+  }).join("\n");
+}
+function stripAnsi(text) {
+  return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+// src/terminal/output.ts
+var CLI_VERSION = true ? "0.3.1" : "0.0.0-source";
+var quiet = false;
+function setQuiet(value) {
+  quiet = value === true;
+}
+function isQuiet() {
+  return quiet;
+}
+function viteLogLevel() {
+  return quiet ? "warn" : void 0;
+}
+function info(message) {
+  if (!quiet) console.log(message);
+}
+function stdoutPaint() {
+  return createPaint(terminalInfo(process.stdout).level);
+}
+function printHeader(detail) {
+  if (quiet) return;
+  console.log(`
+${formatHeader({ version: CLI_VERSION, detail }, terminalInfo(process.stdout))}
+`);
+}
+function plural(count, word) {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+function formatDuration(ms) {
+  return ms < 1e3 ? `${Math.round(ms)} ms` : `${(ms / 1e3).toFixed(1)} s`;
+}
+
+// src/build/loadEnvFiles.ts
 function loadProjectEnv(root, mode) {
-  const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync7(path11.join(root, f)));
+  const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync7(path13.join(root, f)));
   if (files.length === 0) return [];
   const before = new Set(Object.keys(process.env));
   const loaded = loadEnv(mode, root, "");
   for (const [key, value] of Object.entries(loaded)) {
     if (!before.has(key)) process.env[key] = value;
   }
-  console.log(`[devora] loaded ${files.join(", ")}`);
+  info(`[devora] loaded ${files.join(", ")}`);
   return files;
+}
+
+// src/terminal/bootSummary.ts
+var API_ROUTE_LIST_LIMIT = 10;
+function formatBootSummary(apps, opts) {
+  const { paint } = opts;
+  const lines = [];
+  const nameWidth = Math.max(...apps.map((a) => a.name.length));
+  if (opts.quiet) {
+    for (const app of apps) lines.push(`  ${app.name.padEnd(nameWidth)}  ${paint.blue(app.localUrl)}`);
+  } else {
+    for (const app of apps) {
+      const facts = [`auth: ${app.authMode}`, ...app.domain ? [app.domain] : []].join(" \xB7 ");
+      lines.push(`  ${paint.bold(app.name)}  ${paint.dim(facts)}`);
+      lines.push(`    ${label("Local")}${paint.blue(app.localUrl)}`);
+      for (const url of app.networkUrls) lines.push(`    ${label("Network")}${paint.blue(url)}`);
+      if (app.networkUrls.length === 0) lines.push(`    ${label("Network")}${paint.dim(app.networkNote ?? "use --host to expose")}`);
+      if (app.apiUrl) lines.push(`    ${label("API")}${paint.blue(app.apiUrl)}`);
+      lines.push("");
+    }
+    lines.push(`  ${paint.bold("Routes")}`);
+    let hidden = false;
+    for (const app of apps) {
+      lines.push(`    ${app.name}`);
+      if (app.pages.length === 0 && app.apis.length === 0) {
+        lines.push(`      ${paint.dim(`(none yet \u2014 add a file under routes/ or ${app.apiDir}/)`)}`);
+        continue;
+      }
+      for (const route of app.pages) lines.push(`      ${paint.dim("page")}  ${route}`);
+      if (app.apis.length > API_ROUTE_LIST_LIMIT && !opts.expandRoutes) {
+        hidden = true;
+        lines.push(`      ${paint.dim("api")}   ${app.apis.length} routes under /api`);
+      } else {
+        for (const route of app.apis) lines.push(`      ${paint.dim("api")}   ${route}`);
+      }
+    }
+    if (hidden) lines.push(`    ${paint.dim("list every API route: devora dev --routes (or DEVORA_ROUTES=all)")}`);
+  }
+  if (opts.exposedUrl) {
+    lines.push("");
+    lines.push(
+      `  ${paint.yellow("\u26A0")} Dev server is reachable on your local network at ${opts.exposedUrl} \u2014 anyone on this network can access it.`
+    );
+  }
+  return lines.join("\n") + "\n";
+  function label(text) {
+    return paint.dim(`${text}:`.padEnd(10));
+  }
 }
 
 // src/server/devNetwork.ts
@@ -5590,9 +6268,9 @@ async function findFreePort(preferred, claimed, bindHost, maxAttempts = 100) {
 function getLanAddresses() {
   const addresses = [];
   for (const iface of Object.values(os.networkInterfaces())) {
-    for (const info of iface ?? []) {
-      if (info.family !== "IPv4" || info.internal || info.address.startsWith("169.254.")) continue;
-      addresses.push(info.address);
+    for (const info2 of iface ?? []) {
+      if (info2.family !== "IPv4" || info2.internal || info2.address.startsWith("169.254.")) continue;
+      addresses.push(info2.address);
     }
   }
   return addresses;
@@ -5620,6 +6298,7 @@ async function createAppDevServer(opts) {
     root: appRoot,
     appType: "custom",
     // we own the HTML response — see ../server/ssrMiddleware.ts
+    logLevel: viteLogLevel(),
     // strictPort: the port was already checked and chosen by dev() below
     // (which logs any move), so Vite silently picking yet another one would
     // make the printed URLs wrong. `host` is only passed when --host was
@@ -5644,8 +6323,10 @@ async function createAppDevServer(opts) {
     // ("Transforming destructuring ... is not supported yet"), and a project
     // that pins a newer esbuild (this repo's root overrides do) gets Vite 5
     // running on it. Every browser in that list supports destructuring.
-    ...appConfig.backendOnly === true ? {} : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } },
-    configFile: path12.join(appRoot, "vite.config.ts"),
+    // A backend-only app has no browser code: noDiscovery skips the scan
+    // that otherwise warns "Could not auto-determine entry point" at boot.
+    ...appConfig.backendOnly === true ? { optimizeDeps: { noDiscovery: true } } : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } },
+    configFile: path14.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
     // plugins array (see ROADMAP.md #3).
@@ -5718,7 +6399,7 @@ async function dev(opts) {
     const appConfig = await loadAppConfig(appRoot);
     if (authMode === "none") {
       assertNoAuthUsage(app.name, [
-        ...listRouteFiles(path12.join(appRoot, "routes")),
+        ...listRouteFiles(path14.join(appRoot, "routes")),
         ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir))
       ]);
     }
@@ -5748,12 +6429,12 @@ async function dev(opts) {
     }
     booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
   }
-  printBootSummary(booted);
+  printBootSummary(booted, opts.routes === true || process.env.DEVORA_ROUTES === "all");
 }
-function printBootSummary(booted) {
+function printBootSummary(booted, expandRoutes) {
   const lanAddresses = getLanAddresses();
   const exposedUrls = [];
-  const lines = [""];
+  const apps = [];
   for (const { app, authMode, appRoot, apiDir, server } of booted) {
     const address = server.httpServer?.address();
     const port = address?.port ?? server.config.server.port;
@@ -5761,40 +6442,27 @@ function printBootSummary(booted) {
     const networkHosts = isWildcardAddress(boundHost) ? lanAddresses : isLoopbackAddress(boundHost) ? [] : [boundHost];
     const networkUrls = networkHosts.map((h) => `http://${h}:${port}`);
     if (!isLoopbackAddress(boundHost)) exposedUrls.push(networkUrls[0] ?? `port ${port}`);
-    const pages = listRoutePaths(path12.join(appRoot, "routes")).sort();
     const apis = listRoutePaths(resolveApiDir(appRoot, apiDir)).sort().map((p) => p === "/" ? "/api" : `/api${p}`);
-    lines.push(`  ${app.name}  (auth: ${authMode}, prod domain: ${app.domain})`);
-    lines.push(`    Local:    http://localhost:${port}/`);
-    for (const url of networkUrls) lines.push(`    Network:  ${url}/`);
-    if (networkUrls.length === 0) {
-      lines.push(
-        isWildcardAddress(boundHost) ? `    Network:  (all interfaces, but no LAN address detected)` : `    Network:  use --host to expose`
-      );
-    }
-    if (apis.length > 0) {
-      lines.push(`    API:      ${networkUrls[0] ?? `http://localhost:${port}`}/api`);
-    }
-    const routeRows = [...pages.map((p) => ["page", p]), ...apis.map((p) => ["api", p])];
-    if (routeRows.length > 0) {
-      lines.push(`    Routes:`);
-      for (const [kind, routePath] of routeRows) lines.push(`      ${kind.padEnd(5)}${routePath}`);
-    } else {
-      lines.push(`    Routes:   (none yet \u2014 add a file under routes/ or ${normalizeApiDir(apiDir)}/)`);
-    }
-    lines.push("");
+    apps.push({
+      name: app.name,
+      authMode,
+      domain: app.domain,
+      localUrl: `http://localhost:${port}/`,
+      networkUrls: networkUrls.map((url) => `${url}/`),
+      networkNote: isWildcardAddress(boundHost) ? "(all interfaces, but no LAN address detected)" : "use --host to expose",
+      apiUrl: apis.length > 0 ? `${networkUrls[0] ?? `http://localhost:${port}`}/api` : void 0,
+      pages: listRoutePaths(path14.join(appRoot, "routes")).sort(),
+      apis,
+      apiDir: normalizeApiDir(apiDir)
+    });
   }
-  if (exposedUrls.length > 0) {
-    lines.push(
-      `  \u26A0 Dev server is reachable on your local network at ${exposedUrls[0]} \u2014 anyone on this network can access it.`
-    );
-    lines.push("");
-  }
-  console.log(lines.join("\n"));
+  printHeader(`dev \xB7 ${plural(apps.length, "app")} \xB7 ready in ${formatDuration(performance.now())}`);
+  console.log(formatBootSummary(apps, { paint: stdoutPaint(), expandRoutes, quiet: isQuiet(), exposedUrl: exposedUrls[0] }));
 }
 var DEV_WATCH_IGNORED = ["**/dist/**", "**/.vercel/**", "**/.netlify/**", "**/netlify/functions/**"];
 var CLIENT_DEPS = ["@devorajs/core/client", "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"];
 function resolvableClientDeps(appRoot) {
-  const require4 = createRequire(path12.join(appRoot, "package.json"));
+  const require4 = createRequire(path14.join(appRoot, "package.json"));
   return CLIENT_DEPS.filter((dep) => {
     try {
       require4.resolve(dep);
@@ -5806,16 +6474,16 @@ function resolvableClientDeps(appRoot) {
 }
 
 // src/build/buildForAdapter.ts
-import path25 from "node:path";
+import path27 from "node:path";
 
 // src/build/buildAppServer.ts
-import path14 from "node:path";
+import path16 from "node:path";
 import { existsSync as existsSync9 } from "node:fs";
-import { copyFile, mkdir as mkdir2, readdir, readFile as readFile4, writeFile as writeFile2 } from "node:fs/promises";
+import { copyFile, mkdir as mkdir3, readdir, readFile as readFile4, writeFile as writeFile3 } from "node:fs/promises";
 import { build as viteBuild2 } from "vite";
 
 // src/build/buildAppClient.ts
-import path13 from "node:path";
+import path15 from "node:path";
 import { readFile as readFile3, cp } from "node:fs/promises";
 import { existsSync as existsSync8 } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
@@ -5830,22 +6498,22 @@ function discoverCsrRouteFiles(sourceFiles) {
 
 // src/build/buildAppClient.ts
 async function buildAppClient(appRoot, islandFiles) {
-  const routesDir = path13.join(appRoot, "routes");
+  const routesDir = path15.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
   if (islandFiles.length === 0 && csrFiles.length === 0) {
     const resolved = await resolveConfig(
-      { root: appRoot, configFile: path13.join(appRoot, "vite.config.ts") },
+      { root: appRoot, configFile: path15.join(appRoot, "vite.config.ts") },
       "build"
     );
     if (resolved.publicDir && existsSync8(resolved.publicDir)) {
-      await cp(resolved.publicDir, path13.join(appRoot, "dist", "client"), { recursive: true });
+      await cp(resolved.publicDir, path15.join(appRoot, "dist", "client"), { recursive: true });
     }
     return { islandUrls: /* @__PURE__ */ new Map(), csrUrls: /* @__PURE__ */ new Map() };
   }
-  const islandClientPath = path13.join(appRoot, "island-client.tsx");
-  const csrClientPath = path13.join(appRoot, "csr-client.tsx");
-  const clientOutDir = path13.join(appRoot, "dist", "client");
+  const islandClientPath = path15.join(appRoot, "island-client.tsx");
+  const csrClientPath = path15.join(appRoot, "csr-client.tsx");
+  const clientOutDir = path15.join(appRoot, "dist", "client");
   const input = {};
   if (islandFiles.length > 0) input["island-client"] = islandClientPath;
   if (csrFiles.length > 0) input["csr-client"] = csrClientPath;
@@ -5857,7 +6525,8 @@ async function buildAppClient(appRoot, islandFiles) {
   }
   await viteBuild({
     root: appRoot,
-    configFile: path13.join(appRoot, "vite.config.ts"),
+    logLevel: viteLogLevel(),
+    configFile: path15.join(appRoot, "vite.config.ts"),
     build: {
       outDir: clientOutDir,
       emptyOutDir: true,
@@ -5883,7 +6552,7 @@ async function buildAppClient(appRoot, islandFiles) {
       }
     }
   });
-  const manifestPath = path13.join(clientOutDir, ".vite", "manifest.json");
+  const manifestPath = path15.join(clientOutDir, ".vite", "manifest.json");
   if (!existsSync8(manifestPath)) {
     throw new Error(`[devora] client build for islands/csr produced no manifest at ${manifestPath}`);
   }
@@ -5894,7 +6563,7 @@ async function buildAppClient(appRoot, islandFiles) {
   let csrClientUrl;
   for (const entry of Object.values(manifest)) {
     if (!entry.isEntry || !entry.src) continue;
-    const absoluteSrc = path13.resolve(appRoot, entry.src);
+    const absoluteSrc = path15.resolve(appRoot, entry.src);
     if (absoluteSrc === islandClientPath) {
       islandClientUrl = `/${entry.file}`;
     } else if (absoluteSrc === csrClientPath) {
@@ -5908,10 +6577,10 @@ async function buildAppClient(appRoot, islandFiles) {
   return { islandUrls, islandClientUrl, csrUrls, csrClientUrl };
 }
 function clientEntryName(appRoot, file) {
-  const relative = path13.relative(appRoot, file);
-  if (!relative.startsWith("..") && !path13.isAbsolute(relative)) return toBuildKey(appRoot, file);
+  const relative = path15.relative(appRoot, file);
+  if (!relative.startsWith("..") && !path15.isAbsolute(relative)) return toBuildKey(appRoot, file);
   const hash = createHash("sha256").update(file).digest("hex").slice(0, 8);
-  return `shared/${path13.basename(file, path13.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
+  return `shared/${path15.basename(file, path15.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
 }
 
 // src/build/islandsBuildPlugin.ts
@@ -5950,16 +6619,16 @@ function islandsBuildPlugin(collected) {
 
 // src/build/buildAppServer.ts
 async function buildAppServer(appRoot, options = {}) {
-  const routesDir = path14.join(appRoot, "routes");
+  const routesDir = path16.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const entryServerPath = path14.join(appRoot, "entry-server.tsx");
-  const serverOutDir = path14.join(appRoot, "dist", "server");
-  const clientOutDir = path14.join(appRoot, "dist", "client");
+  const entryServerPath = path16.join(appRoot, "entry-server.tsx");
+  const serverOutDir = path16.join(appRoot, "dist", "server");
+  const clientOutDir = path16.join(appRoot, "dist", "client");
   const input = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
-  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path14.join(appRoot, f)).find((f) => existsSync9(f));
+  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path16.join(appRoot, f)).find((f) => existsSync9(f));
   if (errorPagePath) input[ERROR_PAGE_BUILD_KEY] = errorPagePath;
   for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
@@ -5971,7 +6640,8 @@ async function buildAppServer(appRoot, options = {}) {
   const routeCss = {};
   await viteBuild2({
     root: appRoot,
-    configFile: path14.join(appRoot, "vite.config.ts"),
+    logLevel: viteLogLevel(),
+    configFile: path16.join(appRoot, "vite.config.ts"),
     plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
     build: {
       ssr: true,
@@ -5987,20 +6657,20 @@ async function buildAppServer(appRoot, options = {}) {
     await replaceIslandPlaceholders(serverOutDir, islandPlaceholders, islandUrls);
   }
   await publishSsrAssets(serverOutDir, clientOutDir);
-  await writeFile2(path14.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
+  await writeFile3(path16.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
   if (options.sessions) {
-    await writeFile2(path14.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
+    await writeFile3(path16.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
   }
-  await writeFile2(
-    path14.join(serverOutDir, "island-manifest.json"),
+  await writeFile3(
+    path16.join(serverOutDir, "island-manifest.json"),
     JSON.stringify({ islandClientUrl: islandClientUrl ?? null }, null, 2)
   );
   const csrRoutes = {};
   for (const [absPath, url] of csrUrls) {
     csrRoutes[toBuildKey(appRoot, absPath)] = url;
   }
-  await writeFile2(
-    path14.join(serverOutDir, "csr-route-manifest.json"),
+  await writeFile3(
+    path16.join(serverOutDir, "csr-route-manifest.json"),
     JSON.stringify({ csrClientUrl: csrClientUrl ?? null, routes: csrRoutes }, null, 2)
   );
   return { serverOutDir };
@@ -6042,23 +6712,23 @@ async function replaceIslandPlaceholders(serverOutDir, placeholders, islandUrls)
       }
       return url;
     });
-    await writeFile2(file, replaced);
+    await writeFile3(file, replaced);
   }
 }
 async function publishSsrAssets(serverOutDir, clientOutDir) {
-  const assetsDir = path14.join(serverOutDir, "assets");
+  const assetsDir = path16.join(serverOutDir, "assets");
   if (!existsSync9(assetsDir)) return;
   for (const file of await listFiles(assetsDir)) {
     if (/\.(m?js|map)$/.test(file)) continue;
-    const dest = path14.join(clientOutDir, "assets", path14.relative(assetsDir, file));
-    await mkdir2(path14.dirname(dest), { recursive: true });
+    const dest = path16.join(clientOutDir, "assets", path16.relative(assetsDir, file));
+    await mkdir3(path16.dirname(dest), { recursive: true });
     await copyFile(file, dest);
   }
 }
 async function listFiles(dir, extension) {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path14.join(dir, entry.name);
+    const full = path16.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...await listFiles(full, extension));
     else if (!extension || entry.name.endsWith(extension)) out.push(full);
   }
@@ -6066,14 +6736,14 @@ async function listFiles(dir, extension) {
 }
 
 // src/build/buildAppStatic.ts
-import path15 from "node:path";
+import path17 from "node:path";
 import fs4 from "node:fs";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, options = {}) {
   if (options.backendOnly) return { staticRoutes: [] };
-  const routesDir = path15.join(appRoot, "routes");
-  const staticOutDir = path15.join(appRoot, "dist", "static");
-  const islandManifestPath = path15.join(serverOutDir, "island-manifest.json");
+  const routesDir = path17.join(appRoot, "routes");
+  const staticOutDir = path17.join(appRoot, "dist", "static");
+  const islandManifestPath = path17.join(serverOutDir, "island-manifest.json");
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
   const staticRoutes = [];
   const candidates = listRouteFiles(routesDir).filter((filePath) => {
@@ -6084,7 +6754,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   });
   if (candidates.length === 0) return { staticRoutes };
   const entryServer = await importBuilt2(serverOutDir, "entry-server");
-  const routeCss = readJson(path15.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
+  const routeCss = readJson(path17.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
   const origin = options.domain ? `https://${options.domain}` : "http://localhost";
   for (const filePath of candidates) {
     const key = toBuildKey(appRoot, filePath);
@@ -6120,7 +6790,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   return { staticRoutes };
 }
 async function importBuilt2(serverOutDir, key) {
-  const filePath = path15.join(serverOutDir, `${key}.js`);
+  const filePath = path17.join(serverOutDir, `${key}.js`);
   return import(pathToFileURL2(filePath).href);
 }
 var LITERAL_RENDER_MODE_RE = /export\s+(?:const|let|var)\s+renderMode\s*(?::\s*[\w.<>"' |]+)?=\s*["'](ssr|ssg|csr|streaming|isr)["']/;
@@ -6139,7 +6809,7 @@ function readJson(file) {
 }
 
 // src/build/runPrebuild.ts
-import path16 from "node:path";
+import path18 from "node:path";
 import { spawnSync } from "node:child_process";
 function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
   const commands = prebuild === void 0 ? [] : Array.isArray(prebuild) ? prebuild : [prebuild];
@@ -6147,9 +6817,9 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
     if (typeof command !== "string" || command.trim() === "") {
       throw new Error(`[devora] "${appName}": prebuild entries must be non-empty strings`);
     }
-    console.log(`[devora] "${appName}" prebuild: ${command}`);
-    const binDirs = [.../* @__PURE__ */ new Set([path16.join(appRoot, "node_modules", ".bin"), path16.join(projectRoot, "node_modules", ".bin")])];
-    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path16.delimiter) };
+    info(`[devora] "${appName}" prebuild: ${command}`);
+    const binDirs = [.../* @__PURE__ */ new Set([path18.join(appRoot, "node_modules", ".bin"), path18.join(projectRoot, "node_modules", ".bin")])];
+    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path18.delimiter) };
     const result = spawnSync(command, { cwd: appRoot, shell: true, stdio: "inherit", env });
     if (result.error) {
       throw new Error(`[devora] "${appName}": prebuild "${command}" couldn't start: ${result.error.message}`);
@@ -6162,7 +6832,7 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
 }
 
 // src/build/preflight.ts
-import path17 from "node:path";
+import path19 from "node:path";
 import { existsSync as existsSync10, readFileSync as readFileSync3, statSync } from "node:fs";
 var PreflightError = class extends Error {
   constructor(appName) {
@@ -6206,7 +6876,7 @@ function preflightSessions(input) {
 function preflightVercelLayout(input) {
   const { appRoot, outputDir, apiDir } = input;
   const issues = [];
-  const endsInVercelOutput = path17.basename(outputDir) === "output" && path17.basename(path17.dirname(outputDir)) === ".vercel";
+  const endsInVercelOutput = path19.basename(outputDir) === "output" && path19.basename(path19.dirname(outputDir)) === ".vercel";
   if (!endsInVercelOutput) {
     issues.push({
       level: "warning",
@@ -6214,8 +6884,8 @@ function preflightVercelLayout(input) {
     });
     return issues;
   }
-  const vercelRoot = path17.dirname(path17.dirname(outputDir));
-  const reservedApi = path17.join(vercelRoot, "api");
+  const vercelRoot = path19.dirname(path19.dirname(outputDir));
+  const reservedApi = path19.join(vercelRoot, "api");
   if (existsSync10(reservedApi) && statSync(reservedApi).isDirectory()) {
     const isThisAppsApiDir = vercelRoot === appRoot && apiDir === "api";
     issues.push({
@@ -6226,7 +6896,7 @@ function preflightVercelLayout(input) {
   return issues;
 }
 function preflightNetlifyToml(input) {
-  const tomlPath = path17.join(input.appRoot, "netlify.toml");
+  const tomlPath = path19.join(input.appRoot, "netlify.toml");
   if (input.apiDir === "api" || !existsSync10(tomlPath)) return [];
   const expected = `netlify/functions/ssr/${input.apiDir}/**`;
   if (readFileSync3(tomlPath, "utf-8").includes(expected)) return [];
@@ -6247,13 +6917,13 @@ function reportPreflight(appName, issues) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
-import path21 from "node:path";
+import path23 from "node:path";
 import { existsSync as existsSync14, readFileSync as readFileSync5 } from "node:fs";
-import { mkdir as mkdir3, writeFile as writeFile3, cp as cp2, readFile as readFile5, rm as rm2 } from "node:fs/promises";
+import { mkdir as mkdir4, writeFile as writeFile4, cp as cp2, readFile as readFile5, rm as rm2 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 
 // ../../adapters/adapter-vercel/src/bundleForDeploy.ts
-import path18 from "node:path";
+import path20 from "node:path";
 import { readdir as readdir2 } from "node:fs/promises";
 import { existsSync as existsSync11 } from "node:fs";
 import * as esbuild from "esbuild";
@@ -6269,15 +6939,15 @@ async function bundleForDeploy(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER },
     logLevel: "silent"
   });
-  const routesOutDir = path18.join(serverOutDir, "routes");
+  const routesOutDir = path20.join(serverOutDir, "routes");
   const routeFiles = existsSync11(routesOutDir) ? await findJsFiles(routesOutDir) : [];
-  const apiOutDir = path18.join(serverOutDir, options.apiDir ?? "api");
+  const apiOutDir = path20.join(serverOutDir, options.apiDir ?? "api");
   const apiFiles = existsSync11(apiOutDir) ? await findJsFiles(apiOutDir) : [];
-  const entryServerPath = path18.join(serverOutDir, "entry-server.js");
+  const entryServerPath = path20.join(serverOutDir, "entry-server.js");
   const entryPoints = existsSync11(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path18.join(serverOutDir, "session-store.js");
+  const sessionStorePath = path20.join(serverOutDir, "session-store.js");
   if (existsSync11(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path18.join(serverOutDir, "error-page.js");
+  const errorPagePath = path20.join(serverOutDir, "error-page.js");
   if (existsSync11(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
@@ -6297,7 +6967,7 @@ async function findJsFiles(dir) {
   const entries = await readdir2(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path18.join(dir, entry.name);
+    const full = path20.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles(full));
     } else if (entry.name.endsWith(".js")) {
@@ -6308,7 +6978,7 @@ async function findJsFiles(dir) {
 }
 
 // ../../adapters/adapter-vercel/src/runtime.ts
-import path19 from "node:path";
+import path21 from "node:path";
 import { existsSync as existsSync12, readFileSync as readFileSync4 } from "node:fs";
 var VERCEL_SUPPORTED_NODE_MAJORS = [24, 22];
 var VERCEL_DEFAULT_NODE_MAJOR = 24;
@@ -6372,7 +7042,7 @@ function pickWithoutEngines(runningNodeVersion) {
 }
 function readEnginesNode(appRoot, projectRoot) {
   for (const dir of [appRoot, projectRoot]) {
-    const pkgPath = path19.join(dir, "package.json");
+    const pkgPath = path21.join(dir, "package.json");
     if (!existsSync12(pkgPath)) continue;
     try {
       const engines = JSON.parse(readFileSync4(pkgPath, "utf-8")).engines;
@@ -6480,11 +7150,11 @@ function rangeAllowsMajor(range, major) {
 }
 
 // ../../adapters/adapter-vercel/src/deploy.ts
-import path20 from "node:path";
+import path22 from "node:path";
 import { existsSync as existsSync13 } from "node:fs";
 import { spawn } from "node:child_process";
 function isVercelLinked(appRoot) {
-  return existsSync13(path20.join(appRoot, ".vercel", "project.json"));
+  return existsSync13(path22.join(appRoot, ".vercel", "project.json"));
 }
 function deployToVercel(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -6503,8 +7173,8 @@ async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, se
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require2.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path21.dirname(pkgJsonPath);
-  await cp2(pkgDir, path21.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgDir = path23.dirname(pkgJsonPath);
+  await cp2(pkgDir, path23.join(destNodeModules, pkgName), { recursive: true, dereference: true });
   const pkgJson = JSON.parse(await readFile5(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency(pkgDir, dep, destNodeModules, seen);
@@ -6512,34 +7182,34 @@ async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, se
 }
 async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
-  const outputDir = options.outputDir ?? path21.join(appRoot, ".vercel", "output");
+  const outputDir = options.outputDir ?? path23.join(appRoot, ".vercel", "output");
   const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path21.join(outputDir, "functions", "index.func");
-  const clientOutDir = path21.join(appRoot, "dist", "client");
-  const staticOutDir = path21.join(appRoot, "dist", "static");
-  if (path21.basename(outputDir) === "output" && path21.basename(path21.dirname(outputDir)) === ".vercel") {
+  const funcDir = path23.join(outputDir, "functions", "index.func");
+  const clientOutDir = path23.join(appRoot, "dist", "client");
+  const staticOutDir = path23.join(appRoot, "dist", "static");
+  if (path23.basename(outputDir) === "output" && path23.basename(path23.dirname(outputDir)) === ".vercel") {
     await rm2(outputDir, { recursive: true, force: true });
   }
-  await mkdir3(path21.join(outputDir, "static"), { recursive: true });
-  await mkdir3(funcDir, { recursive: true });
-  if (existsSync14(path21.join(appRoot, "routes"))) {
-    await cp2(path21.join(appRoot, "routes"), path21.join(funcDir, "routes"), { recursive: true });
+  await mkdir4(path23.join(outputDir, "static"), { recursive: true });
+  await mkdir4(funcDir, { recursive: true });
+  if (existsSync14(path23.join(appRoot, "routes"))) {
+    await cp2(path23.join(appRoot, "routes"), path23.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync14(path21.join(appRoot, apiDir))) {
-    await cp2(path21.join(appRoot, apiDir), path21.join(funcDir, apiDir), { recursive: true });
+  if (existsSync14(path23.join(appRoot, apiDir))) {
+    await cp2(path23.join(appRoot, apiDir), path23.join(funcDir, apiDir), { recursive: true });
   }
-  await cp2(path21.join(appRoot, "dist", "server"), path21.join(funcDir, "dist", "server"), { recursive: true });
+  await cp2(path23.join(appRoot, "dist", "server"), path23.join(funcDir, "dist", "server"), { recursive: true });
   if (existsSync14(clientOutDir)) {
-    await cp2(clientOutDir, path21.join(outputDir, "static"), { recursive: true });
+    await cp2(clientOutDir, path23.join(outputDir, "static"), { recursive: true });
   }
   if (existsSync14(staticOutDir)) {
-    await cp2(staticOutDir, path21.join(outputDir, "static"), { recursive: true });
-    await cp2(staticOutDir, path21.join(funcDir, "dist", "static"), { recursive: true });
+    await cp2(staticOutDir, path23.join(outputDir, "static"), { recursive: true });
+    await cp2(staticOutDir, path23.join(funcDir, "dist", "static"), { recursive: true });
   }
-  await writeFile3(path21.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
-  await writeFile3(
-    path21.join(funcDir, "index.mjs"),
+  await writeFile4(path23.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile4(
+    path23.join(funcDir, "index.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 
 // appRoot is this function's own directory \u2014 routes/ and dist/server
@@ -6570,15 +7240,15 @@ export default async function handler(req, res) {
 }
 `
   );
-  await bundleForDeploy(path21.join(funcDir, "index.mjs"), path21.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path21.join(funcDir, "node_modules");
-  await mkdir3(funcNodeModules, { recursive: true });
+  await bundleForDeploy(path23.join(funcDir, "index.mjs"), path23.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path23.join(funcDir, "node_modules");
+  await mkdir4(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency(reactResolveBase(appRoot), "react", funcNodeModules);
-  if (existsSync14(path21.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync14(path23.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
-  await writeFile3(
-    path21.join(funcDir, ".vc-config.json"),
+  await writeFile4(
+    path23.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
   const config = {
@@ -6589,7 +7259,7 @@ export default async function handler(req, res) {
       { src: "/(.*)", dest: "/index" }
     ]
   };
-  await writeFile3(path21.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
+  await writeFile4(path23.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
   console.log(
     `[adapter-vercel] wrote ${outputDir} for "${app.name}" (${runtime}). Deploy it with your Vercel project or \`vercel deploy --prebuilt\` \u2014 guide: ${VERCEL_DOCS_URL}`
   );
@@ -6607,26 +7277,26 @@ function reactResolveBase(appRoot) {
     require2.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path21.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path21.dirname(dir)) {
-      const pkgPath = path21.join(dir, "package.json");
+    let dir = path23.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path23.dirname(dir)) {
+      const pkgPath = path23.join(dir, "package.json");
       if (existsSync14(pkgPath) && JSON.parse(readFileSync5(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path21.dirname(dir);
+      dir = path23.dirname(dir);
     }
     return appRoot;
   }
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
-import path24 from "node:path";
+import path26 from "node:path";
 import { existsSync as existsSync17, readFileSync as readFileSync6 } from "node:fs";
-import { mkdir as mkdir4, writeFile as writeFile4, cp as cp3, readFile as readFile6 } from "node:fs/promises";
+import { mkdir as mkdir5, writeFile as writeFile5, cp as cp3, readFile as readFile6 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
 
 // ../../adapters/adapter-netlify/src/bundleForDeploy.ts
-import path22 from "node:path";
+import path24 from "node:path";
 import { readdir as readdir3 } from "node:fs/promises";
 import { existsSync as existsSync15 } from "node:fs";
 import * as esbuild2 from "esbuild";
@@ -6642,15 +7312,15 @@ async function bundleForDeploy2(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER2 },
     logLevel: "silent"
   });
-  const routesOutDir = path22.join(serverOutDir, "routes");
+  const routesOutDir = path24.join(serverOutDir, "routes");
   const routeFiles = existsSync15(routesOutDir) ? await findJsFiles2(routesOutDir) : [];
-  const apiOutDir = path22.join(serverOutDir, options.apiDir ?? "api");
+  const apiOutDir = path24.join(serverOutDir, options.apiDir ?? "api");
   const apiFiles = existsSync15(apiOutDir) ? await findJsFiles2(apiOutDir) : [];
-  const entryServerPath = path22.join(serverOutDir, "entry-server.js");
+  const entryServerPath = path24.join(serverOutDir, "entry-server.js");
   const entryPoints = existsSync15(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path22.join(serverOutDir, "session-store.js");
+  const sessionStorePath = path24.join(serverOutDir, "session-store.js");
   if (existsSync15(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path22.join(serverOutDir, "error-page.js");
+  const errorPagePath = path24.join(serverOutDir, "error-page.js");
   if (existsSync15(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild2.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
@@ -6670,7 +7340,7 @@ async function findJsFiles2(dir) {
   const entries = await readdir3(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path22.join(dir, entry.name);
+    const full = path24.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles2(full));
     } else if (entry.name.endsWith(".js")) {
@@ -6681,11 +7351,11 @@ async function findJsFiles2(dir) {
 }
 
 // ../../adapters/adapter-netlify/src/deploy.ts
-import path23 from "node:path";
+import path25 from "node:path";
 import { existsSync as existsSync16 } from "node:fs";
 import { spawn as spawn2 } from "node:child_process";
 function isNetlifyLinked(appRoot) {
-  return existsSync16(path23.join(appRoot, ".netlify", "state.json"));
+  return existsSync16(path25.join(appRoot, ".netlify", "state.json"));
 }
 function deployToNetlify(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -6704,8 +7374,8 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require3.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path24.dirname(pkgJsonPath);
-  await cp3(pkgDir, path24.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgDir = path26.dirname(pkgJsonPath);
+  await cp3(pkgDir, path26.join(destNodeModules, pkgName), { recursive: true, dereference: true });
   const pkgJson = JSON.parse(await readFile6(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency2(pkgDir, dep, destNodeModules, seen);
@@ -6714,23 +7384,23 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
 async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path24.join(appRoot, "netlify", "functions", "ssr");
-  const staticOutDir = path24.join(appRoot, "dist", "static");
-  await mkdir4(funcDir, { recursive: true });
-  if (existsSync17(path24.join(appRoot, "routes"))) {
-    await cp3(path24.join(appRoot, "routes"), path24.join(funcDir, "routes"), { recursive: true });
+  const funcDir = path26.join(appRoot, "netlify", "functions", "ssr");
+  const staticOutDir = path26.join(appRoot, "dist", "static");
+  await mkdir5(funcDir, { recursive: true });
+  if (existsSync17(path26.join(appRoot, "routes"))) {
+    await cp3(path26.join(appRoot, "routes"), path26.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync17(path24.join(appRoot, apiDir))) {
-    await cp3(path24.join(appRoot, apiDir), path24.join(funcDir, apiDir), { recursive: true });
+  if (existsSync17(path26.join(appRoot, apiDir))) {
+    await cp3(path26.join(appRoot, apiDir), path26.join(funcDir, apiDir), { recursive: true });
   }
-  await cp3(path24.join(appRoot, "dist", "server"), path24.join(funcDir, "dist", "server"), { recursive: true });
+  await cp3(path26.join(appRoot, "dist", "server"), path26.join(funcDir, "dist", "server"), { recursive: true });
   if (existsSync17(staticOutDir)) {
-    await cp3(staticOutDir, path24.join(funcDir, "dist", "static"), { recursive: true });
-    await cp3(staticOutDir, path24.join(appRoot, "dist", "client"), { recursive: true });
+    await cp3(staticOutDir, path26.join(funcDir, "dist", "static"), { recursive: true });
+    await cp3(staticOutDir, path26.join(appRoot, "dist", "client"), { recursive: true });
   }
-  await writeFile4(path24.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
-  await writeFile4(
-    path24.join(funcDir, "ssr.mjs"),
+  await writeFile5(path26.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile5(
+    path26.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 import { Readable } from "node:stream";
 import { EventEmitter } from "node:events";
@@ -6784,21 +7454,21 @@ export default async (request, context) => {
 };
 `
   );
-  await bundleForDeploy2(path24.join(funcDir, "ssr.mjs"), path24.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path24.join(funcDir, "node_modules");
-  await mkdir4(funcNodeModules, { recursive: true });
+  await bundleForDeploy2(path26.join(funcDir, "ssr.mjs"), path26.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path26.join(funcDir, "node_modules");
+  await mkdir5(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency2(reactResolveBase2(appRoot), "react", funcNodeModules);
-  if (existsSync17(path24.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync17(path26.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
   if (security?.noindex === true) {
-    const clientOutDir = path24.join(appRoot, "dist", "client");
-    await mkdir4(clientOutDir, { recursive: true });
-    const headersPath = path24.join(clientOutDir, "_headers");
+    const clientOutDir = path26.join(appRoot, "dist", "client");
+    await mkdir5(clientOutDir, { recursive: true });
+    const headersPath = path26.join(clientOutDir, "_headers");
     const existing = existsSync17(headersPath) ? await readFile6(headersPath, "utf-8") : "";
     const rule = "/*\n  X-Robots-Tag: noindex\n";
     if (!existing.includes("X-Robots-Tag: noindex")) {
-      await writeFile4(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
+      await writeFile5(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
 ${rule}` : rule);
     }
   }
@@ -6811,13 +7481,13 @@ function reactResolveBase2(appRoot) {
     require3.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path24.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path24.dirname(dir)) {
-      const pkgPath = path24.join(dir, "package.json");
+    let dir = path26.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path26.dirname(dir)) {
+      const pkgPath = path26.join(dir, "package.json");
       if (existsSync17(pkgPath) && JSON.parse(readFileSync6(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path24.dirname(dir);
+      dir = path26.dirname(dir);
     }
     return appRoot;
   }
@@ -6831,8 +7501,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const authMode = resolveAuthMode(project, app.name);
   if (authMode === "none") {
     assertNoAuthUsage(app.name, [
-      ...listRouteFiles(path25.join(appRoot, "routes")),
-      ...listRouteFiles(path25.join(appRoot, apiDir))
+      ...listRouteFiles(path27.join(appRoot, "routes")),
+      ...listRouteFiles(path27.join(appRoot, apiDir))
     ]);
   }
   const sessionManifest = resolveSessionManifest({
@@ -6846,7 +7516,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   validateCorsConfig(app.name, appConfig.cors);
   const issues = [];
   let vercelRuntime;
-  const vercelOutputDir = options.out ? path25.resolve(root, options.out) : path25.join(appRoot, ".vercel", "output");
+  const vercelOutputDir = options.out ? path27.resolve(root, options.out) : path27.join(appRoot, ".vercel", "output");
   if (adapter === "vercel" || adapter === "netlify") {
     issues.push(...preflightSessions({ appName: app.name, authMode, sessions: project.shared.sessions, adapter, env: process.env }));
   }
@@ -6861,7 +7531,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
       issues.push({ level: "error", message: resolved.error });
     } else {
       vercelRuntime = resolved.runtime;
-      console.log(`[devora] "${app.name}" Vercel runtime: ${resolved.runtime} (from ${resolved.source})`);
+      info(`[devora] "${app.name}" Vercel runtime: ${resolved.runtime} (from ${resolved.source})`);
     }
     issues.push(...preflightVercelLayout({ appRoot, outputDir: vercelOutputDir, apiDir }));
   }
@@ -6869,21 +7539,21 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   if (reportPreflight(app.name, issues)) throw new PreflightError(app.name);
   runPrebuild(app.name, appRoot, appConfig.prebuild, root);
   const backendOnly = appConfig.backendOnly === true;
-  console.log(`[devora] building "${app.name}" (SSR)...`);
+  info(`[devora] building "${app.name}" (SSR)...`);
   const sessionsConfig = project.shared.sessions;
   const sessions = sessionManifest === void 0 ? void 0 : {
     manifest: sessionManifest,
-    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path25.resolve(root, sessionsConfig.store) : void 0
+    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path27.resolve(root, sessionsConfig.store) : void 0
   };
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
-  console.log(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
+  info(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
   const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, {
     backendOnly,
     head: appConfig.head,
     domain: app.domain
   });
   if (staticRoutes.length > 0) {
-    console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
+    info(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }
   if (adapter === "vercel" || adapter === "netlify") {
     const sitemapEnabled = appConfig.sitemap === true;
@@ -6934,6 +7604,8 @@ function parsePort(raw, source) {
 // src/commands/build.ts
 var BUILD_ADAPTERS = ["vercel", "netlify"];
 async function build3(opts) {
+  const started = performance.now();
+  printHeader(`build${opts.adapter ? ` \xB7 ${opts.adapter}` : ""}`);
   forceProductionNodeEnv("build");
   if (opts.adapter !== void 0 && !BUILD_ADAPTERS.includes(opts.adapter)) {
     console.error(
@@ -6967,6 +7639,9 @@ async function build3(opts) {
       process.exit(1);
     }
   }
+  info(`
+  ${stdoutPaint().green("\u2713")} built ${plural(apps.length, "app")} in ${formatDuration(performance.now() - started)}
+`);
 }
 
 // ../../adapters/adapter-node/src/index.ts
@@ -7030,6 +7705,7 @@ function assignPorts(apps, basePort = DEFAULT_BASE_PORT) {
 
 // src/commands/start.ts
 async function start(opts) {
+  printHeader("start \xB7 production server");
   forceProductionNodeEnv("start");
   const root = process.cwd();
   loadProjectEnv(root, "production");
@@ -7133,481 +7809,6 @@ async function deploy(opts) {
 import path28 from "node:path";
 import { existsSync as existsSync18 } from "node:fs";
 import { writeFile as writeFile6, readFile as readFile7 } from "node:fs/promises";
-
-// ../scaffold/src/resolveAuthChoice.ts
-import { createInterface } from "node:readline/promises";
-async function resolveAuthChoice(explicit, appName) {
-  if (explicit === "shared" || explicit === "isolated" || explicit === "none") return explicit;
-  if (explicit) {
-    console.error(`[devora] --auth must be "shared", "isolated", or "none" (got "${explicit}")`);
-    process.exit(1);
-  }
-  if (!process.stdin.isTTY) return "shared";
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const answer = (await rl.question(
-      `Does "${appName}" need auth/sessions? [shared/isolated/none] (default: shared): `
-    )).trim();
-    if (answer === "isolated") return "isolated";
-    if (answer === "none") return "none";
-    return "shared";
-  } finally {
-    rl.close();
-  }
-}
-
-// ../scaffold/src/resolveScopeChoice.ts
-import { createInterface as createInterface2 } from "node:readline/promises";
-
-// ../scaffold/src/scaffoldAppFiles.ts
-import path26 from "node:path";
-import { mkdir as mkdir5, writeFile as writeFile5 } from "node:fs/promises";
-var SCAFFOLD_API_DIR = "endpoints";
-var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) \u2014 not api/, which
-  // Vercel would turn into separate functions. See DEPLOYING.md.
-  apiDir: "${SCAFFOLD_API_DIR}",
-`;
-async function scaffoldAppFiles(appDir, appName, opts) {
-  const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
-  const kind = opts.kind ?? "pages";
-  const withBackend = opts.withBackend ?? true;
-  const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
-  await mkdir5(path26.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
-  await writeFile5(
-    path26.join(appDir, "package.json"),
-    JSON.stringify(
-      {
-        name: `@project/app-${appName}`,
-        version: "0.1.0",
-        private: true,
-        type: "module",
-        // vite/@vitejs/plugin-react are real "dependencies", NOT
-        // devDependencies — same reasoning, and the same real bug, as
-        // @devorajs/cli in scaffoldProjectFiles.ts: vite.config.ts needs
-        // them at BUILD time, and a platform's production-only install
-        // (confirmed on a real Netlify deploy: `Cannot find package
-        // '@vitejs/plugin-react'` from vite.config.ts, only after fixing
-        // the identical @devorajs/cli issue one level up) skips
-        // devDependencies entirely. "Needed to build" and "needed to run
-        // in production" aren't the same question here — this file
-        // doesn't ship in dist/ output, but it has to resolve *during* the
-        // build that produces dist/.
-        dependencies: {
-          "@devorajs/core": coreVersion,
-          ...withBackend ? { "@devorajs/backend": "*" } : {},
-          // A backend-only app renders no pages, so it needs no React at
-          // all; it still needs vite, which runs its dev server and build.
-          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
-          vite: "^5.4.0 || ^6.0.0",
-          // Only for a standalone (create-devora) app — see cliVersion's
-          // doc comment for why a workspace-scoped platform install needs
-          // this declared here too, not just at the project root.
-          ...cliInvocation === "standalone" ? { "@devorajs/cli": cliVersion } : {}
-        }
-      },
-      null,
-      2
-    ) + "\n"
-  );
-  await writeFile5(
-    path26.join(appDir, "tsconfig.json"),
-    `{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "." },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["dist", "node_modules", "netlify", ".vercel", ".netlify"]
-}
-`
-  );
-  if (kind === "api") {
-    await writeFile5(
-      path26.join(appDir, "app.config.ts"),
-      `import { defineApp } from "@devorajs/core/config";
-
-// Backend-only app: API routes under ${SCAFFOLD_API_DIR}/, no pages and no client build.
-export default defineApp({
-  backendOnly: true,
-` + API_DIR_CONFIG_LINES + `});
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "vite.config.ts"),
-      `import { defineConfig } from "vite";
-
-// Backend-only app \u2014 nothing here ever ships to a browser, so no React
-// plugin and no public assets. Vite still runs this app's dev server.
-export default defineConfig({});
-`
-    );
-  } else {
-    await writeFile5(
-      path26.join(appDir, "app.config.ts"),
-      `import { defineApp } from "@devorajs/core/config";
-
-export default defineApp({
-  defaultRenderMode: "ssr",
-  // Serves /sitemap.xml built from routes/. Off by default: turn it on
-  // for a public-facing app, leave it off for an internal one.
-  sitemap: false,
-` + API_DIR_CONFIG_LINES + `  // Tags for every page's <head> (a route adds its own via meta().head):
-  // head: { lang: "en", stylesheets: ["/styles.css"], links: [{ rel: "icon", href: "/favicon.png" }] },
-});
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "vite.config.ts"),
-      `import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export default defineConfig({
-  plugins: [react()],
-  // Shared brand assets (logo, favicon) \u2014 see packages/core/src/theme.ts.
-  publicDir: path.resolve(__dirname, "../../assets"),
-  // Explicit modern target \u2014 esbuild 0.25+ can no longer down-level
-  // destructuring to Vite's old default multi-browser target list.
-  build: {
-    target: "es2022",
-  },
-});
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "entry-server.tsx"),
-      `import { createElement } from "react";
-import { renderToString, renderToPipeableStream } from "react-dom/server";
-import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
-
-// Framework SSR entry point for this app \u2014 loaded via vite.ssrLoadModule
-// so react-dom/server resolves against this app's own node_modules. The
-// actual render logic lives once in @devorajs/core's renderRoute.ts,
-// shared by every app; this file only supplies the React bindings that
-// genuinely can't be shared.
-export const renderRoute = createRenderRoute({ createElement, renderToString });
-export const renderStatic = createRenderStatic({ createElement, renderToString });
-export const renderStreaming = createRenderStreaming({ createElement, renderToPipeableStream });
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "error.tsx"),
-      `import { PageShell, type ErrorPageProps } from "@devorajs/core";
-
-// Rendered for unmatched URLs (404) and for errors a page throws \u2014 an
-// HttpError keeps its status (401 from ctx.requireAuth(), 403 from
-// ctx.verifyCsrf(), your own 400/404). \`message\` is safe to show: for an
-// unexpected error it's just "Internal Server Error" in production.
-export function meta({ status }: ErrorPageProps) {
-  return { title: status === 404 ? "Not found" : \`Error \${status}\` };
-}
-
-export default function ErrorPage({ status, message }: ErrorPageProps) {
-  return (
-    <PageShell appName="${appName}">
-      <div className="devora-error">
-        <h1>{status}</h1>
-        <p>{message}</p>
-        <p><a className="devora-button" href="/">Back to the home page</a></p>
-      </div>
-    </PageShell>
-  );
-}
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "island-client.tsx"),
-      `import { hydrateIslands } from "@devorajs/core/client";
-
-// Only requested when a page actually used an island() \u2014 see
-// packages/core/src/islandComponent.tsx. Real hydration logic lives
-// once in @devorajs/core (shared by every app, including MutationObserver
-// support for an island that streams in after this script runs) \u2014 this
-// file only calls it.
-hydrateIslands();
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "csr-client.tsx"),
-      `import { hydrateCsrRoutes } from "@devorajs/core/client";
-
-// Only requested when a page's renderMode is "csr" \u2014 see
-// packages/core/src/csrRoute.ts. Real logic lives once in
-// @devorajs/core, shared by every app.
-hydrateCsrRoutes();
-`
-    );
-  }
-  await writeFile5(
-    path26.join(appDir, "vercel.json"),
-    JSON.stringify(
-      {
-        $schema: "https://openapi.vercel.sh/vercel.json",
-        // A real, previously undiscovered gap, found via an actual Vercel
-        // deploy (git-integration import, not the `vercel deploy --prebuilt`
-        // CLI flow) — without this, Vercel's zero-config detection runs
-        // plain `vite build`, which fails outright ("Could not resolve entry
-        // module index.html") since this isn't a conventional Vite SPA.
-        // `writeVercelOutput` already produces `.vercel/output` (Build
-        // Output API v3) at this app's own root when run with
-        // --adapter=vercel; Vercel auto-detects and prefers that over any
-        // "Output Directory" setting once it exists, so nothing else needs
-        // overriding here — just which command actually runs.
-        buildCommand: `${devoraCmd} build --app=${appName} --adapter=vercel`,
-        // Vercel's dashboard cosmetically labels this app "Vite" (it sees
-        // `vite` in package.json devDependencies) even though buildCommand
-        // above already overrides what runs — `framework: null` tells
-        // Vercel not to apply *any* framework-specific zero-config
-        // assumptions at all, belt-and-suspenders against a future one
-        // (routing/output-dir defaults, etc.) surfacing the same way the
-        // build-command one did.
-        framework: null
-      },
-      null,
-      2
-    ) + "\n"
-  );
-  await writeFile5(
-    path26.join(appDir, "netlify.toml"),
-    `[build]
-  command = "${devoraCmd} build --app=${appName} --adapter=netlify"
-  publish = "dist/client"
-  functions = "netlify/functions"
-
-[functions.ssr]
-  included_files = ["netlify/functions/ssr/routes/**", "netlify/functions/ssr/${SCAFFOLD_API_DIR}/**", "netlify/functions/ssr/dist/**", "netlify/functions/ssr/package.json", "netlify/functions/ssr/node_modules/**"]
-
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/ssr"
-  status = 200
-`
-  );
-  if (kind === "api") {
-    await scaffoldApiRoutes(appDir, authMode);
-    return;
-  }
-  await writeFile5(
-    path26.join(appDir, "routes", "index.tsx"),
-    `import { PageShell } from "@devorajs/core";
-
-export const renderMode = "ssr";
-
-export function meta() {
-  return { title: "${appName}" };
-}
-
-export async function loader() {
-  return {};
-}
-
-export default function Index() {
-  return (
-    <PageShell appName="${appName}">
-      <h1>Welcome to ${appName}</h1>
-      <p className="devora-lead">
-        This page is <code>apps/${appName}/routes/index.tsx</code>. Edit it and the dev server reloads.
-      </p>
-      <div className="devora-grid">
-        <div className="devora-card">
-          <h3>Add a page</h3>
-          <p>Every file in <code>routes/</code> is a page: <code>routes/about.tsx</code> serves <code>/about</code>.</p>
-        </div>
-        <div className="devora-card">
-          <h3>Add an API route</h3>
-          <p><code>${SCAFFOLD_API_DIR}/hello.ts</code> serves <code>/api/hello</code> as JSON.</p>
-        </div>
-        <div className="devora-card">
-          <h3>Deploy</h3>
-          <p><code>npm run build</code>, then <code>npm start</code> \u2014 or Vercel, Netlify, Docker.</p>
-        </div>
-      </div>
-    </PageShell>
-  );
-}
-`
-  );
-  if (authMode !== "none") {
-    await writeFile5(
-      path26.join(appDir, "routes", "login.tsx"),
-      `import type { RequestContext } from "@devorajs/core";
-import { redirect, CsrfField, PageShell } from "@devorajs/core";
-
-export const renderMode = "ssr";
-
-export function meta() {
-  return { title: "Log in", description: "${appName} login (demo)" };
-}
-
-// Demo only: the framework provides the session itself (an opaque ID in an
-// HttpOnly cookie, stored server-side and revocable). Checking who someone is
-// stays bring-your-own (\xA76/\xA711): a real app verifies a password/token
-// against its own DB/provider before calling ctx.setSession(); this route
-// trusts any submitted username so the session flow can be exercised end to end.
-export async function action(formData: FormData, ctx: RequestContext) {
-  ctx.verifyCsrf(formData);
-  const username = String(formData.get("username") ?? "");
-  if (!username) throw new Error("username required");
-  await ctx.setSession({ username });
-  return redirect("/");
-}
-
-export default function Login({ csrfToken }: { csrfToken?: string }) {
-  return (
-    <PageShell appName="${appName}">
-      <h1>Log in</h1>
-      <p><strong>Demo only</strong> \u2014 accepts any username with no password check.</p>
-      <form method="post">
-        <CsrfField token={csrfToken} />
-        <label htmlFor="username">Username</label>
-        <input id="username" name="username" autoComplete="username" required />
-        <button type="submit">Log in</button>
-      </form>
-    </PageShell>
-  );
-}
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "routes", "logout.tsx"),
-      `import type { RequestContext } from "@devorajs/core";
-import { redirect, CsrfField, PageShell } from "@devorajs/core";
-
-export const renderMode = "ssr";
-
-export function meta() {
-  return { title: "Log out", description: "${appName} logout" };
-}
-
-export async function action(formData: FormData, ctx: RequestContext) {
-  ctx.verifyCsrf(formData);
-  // Revoked server-side \u2014 dead everywhere, not just in this browser.
-  await ctx.revokeSession();
-  return redirect("/login");
-}
-
-export default function Logout({ csrfToken }: { csrfToken?: string }) {
-  return (
-    <PageShell appName="${appName}">
-      <h1>Log out</h1>
-      {/* POST-only, never a bare <a href="/logout"> \u2014 a GET-triggered logout
-          is itself a CSRF-adjacent footgun. */}
-      <form method="post">
-        <CsrfField token={csrfToken} />
-        <button type="submit">Log out</button>
-      </form>
-    </PageShell>
-  );
-}
-`
-    );
-    await writeFile5(
-      path26.join(appDir, "routes", "account.tsx"),
-      `import type { RequestContext } from "@devorajs/core";
-import { PageShell } from "@devorajs/core";
-
-export const renderMode = "ssr";
-
-export function meta() {
-  return { title: "Account", description: "${appName} account (protected demo)" };
-}
-
-// ctx.requireAuth() throws if there's no active session \u2014 see
-// packages/core/src/session.ts and apps/dashboard/routes/settings.tsx for
-// the same pattern against the shared backend.
-export async function loader(ctx: RequestContext) {
-  ctx.requireAuth();
-  return { session: ctx.session };
-}
-
-export default function Account({ data }: { data?: { session: unknown } }) {
-  return (
-    <PageShell appName="${appName}">
-      <h1>Account</h1>
-      <p>Protected demo route \u2014 only reachable with an active session (see routes/login.tsx).</p>
-      <pre>{JSON.stringify(data?.session, null, 2)}</pre>
-    </PageShell>
-  );
-}
-`
-    );
-  }
-}
-async function scaffoldApiRoutes(appDir, authMode) {
-  await writeFile5(
-    path26.join(appDir, SCAFFOLD_API_DIR, "health.ts"),
-    `import { apiRoute } from "@devorajs/core";
-
-// GET /api/health
-export const methods = ["GET"];
-export const handler = apiRoute(() => ({
-  status: 200,
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ ok: true }),
-}));
-`
-  );
-  if (authMode === "none") return;
-  await writeFile5(
-    path26.join(appDir, SCAFFOLD_API_DIR, "session.ts"),
-    `import { apiRoute, HttpError } from "@devorajs/core";
-
-// POST /api/session   { "username": "..." } -> { "token": "..." }
-// DELETE /api/session (Authorization: Bearer <token>) -> revokes it
-//
-// Demo only: accepts any username with no password check. A real app
-// verifies credentials against its own database before setSession().
-export const methods = ["POST", "DELETE"];
-
-export const handler = apiRoute(async (req, ctx) => {
-  if (req.method === "DELETE") {
-    ctx.requireAuth();
-    await ctx.revokeSession();
-    return { status: 204 };
-  }
-
-  let username: unknown;
-  try {
-    username = JSON.parse(req.body.toString("utf-8") || "{}").username;
-  } catch {
-    throw new HttpError(400, "Request body must be valid JSON");
-  }
-  if (typeof username !== "string" || !username) throw new HttpError(400, "username required");
-
-  const token = await ctx.setSession({ username }, { transport: "bearer" });
-  return {
-    status: 201,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-  };
-});
-`
-  );
-  await writeFile5(
-    path26.join(appDir, SCAFFOLD_API_DIR, "me.ts"),
-    `import { apiRoute } from "@devorajs/core";
-
-// GET /api/me (Authorization: Bearer <token>) \u2014 401 without a valid session.
-export const methods = ["GET"];
-export const handler = apiRoute((_req, ctx) => {
-  ctx.requireAuth();
-  return {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session: ctx.session }),
-  };
-});
-`
-  );
-}
-
-// ../scaffold/src/scaffoldProjectFiles.ts
-import path27 from "node:path";
-import { fileURLToPath } from "node:url";
-var __dirname = path27.dirname(fileURLToPath(import.meta.url));
-
-// src/commands/new.ts
 async function detectScaffoldContext(root) {
   if (existsSync18(path28.join(root, "packages", "cli", "dist", "index.js"))) {
     return { cliInvocation: "monorepo", coreVersion: "*" };
@@ -8127,16 +8328,18 @@ async function status() {
 
 // src/index.ts
 var program = new Command();
-program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version(true ? "0.3.1" : "0.0.0-source");
+program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version(CLI_VERSION);
+program.hook("preAction", (_program, command) => setQuiet(command.opts().quiet));
+var QUIET_HELP = "only warnings, errors and the app URLs \u2014 no header, route tables or progress lines";
 program.command("dev").description("Run all apps in dev mode (or one with --app)").option("--app <name>", "run only this app").option(
   "--host",
   "listen on all network interfaces (so a phone/other device on your LAN can reach it) \u2014 off by default"
-).action(async (opts) => dev(opts));
+).option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)").option("--quiet", QUIET_HELP).action(async (opts) => dev(opts));
 program.command("build").description("Build all apps (or one with --app)").option("--app <name>", "build only this app").option("--adapter <target>", "also write output for this adapter: vercel or netlify").option(
   "--out <dir>",
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
-).action(async (opts) => build3(opts));
-program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").action(async (opts) => start(opts));
+).option("--quiet", QUIET_HELP).action(async (opts) => build3(opts));
+program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
 program.command("deploy").description(
   "Build and deploy to Vercel or Netlify (all apps, or one with --app) \u2014 each app must already be linked (`vercel link` / `netlify link`) to its own project/site"
 ).requiredOption("--adapter <target>", "vercel or netlify").option("--app <name>", "deploy only this app").option("--prod", "deploy to production (default: preview)").action(async (opts) => deploy(opts));
