@@ -1,8 +1,8 @@
 # Changelog
 
 This is a monorepo of independently-versioned packages (`@devorajs/core`, `@devorajs/cli`,
-`@devorajs/adapter-vercel`, `@devorajs/adapter-netlify`, `create-devora`, plus internal-only
-`@devorajs/backend`/`@devorajs/adapter-node`/`@devorajs/scaffold`), so entries below note which
+`@devorajs/adapter-node`, `@devorajs/adapter-vercel`, `@devorajs/adapter-netlify`, `create-devora`,
+plus internal-only `@devorajs/backend`/`@devorajs/scaffold`), so entries below note which
 package(s) a change actually shipped in rather than a single project-wide version number.
 
 This file starts where this repo's git history starts (2026-09-07). Everything before that —
@@ -13,7 +13,8 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 ## 0.3.2 — 2026-10-12
 
 Released together: `@devorajs/core` 0.3.2, `@devorajs/cli` 0.3.2, `@devorajs/adapter-vercel`
-0.2.2, `@devorajs/adapter-netlify` 0.2.2, `create-devora` 0.3.1. Upgrade core and cli together:
+0.2.2, `@devorajs/adapter-netlify` 0.2.2, `create-devora` 0.3.1, and the first published
+`@devorajs/adapter-node` (0.2.0). Upgrade core and cli together:
 API routes run on the CLI's bundled copy of core and pages on the app's installed one, so mixing
 0.3.1 and 0.3.2 gives a project two different behaviors. The adapters now require
 `@devorajs/core` `^0.3.2`. Most fixes come from reviews of two real products built on 0.3.1 and
@@ -153,6 +154,17 @@ What each change means, and what an existing app has to do.
 - **Vite 6:** `vite` `^5.4.0 || ^6.0.0`, after a scaffold on Vite 6.4.4 passed the browser suite in
   dev and production and both platform functions. Vite 7 is untested.
 - `engines: { node: ">=20" }`. `devora --version` reports 0.3.2.
+
+### `@devorajs/adapter-node` 0.2.0 (first published version)
+
+- **Published on npm** for self-hosted setups that want their own entry point instead of
+  `devora start` (which bundles it and is unchanged). The one export is `createNodeServer()`;
+  the README has a usage example. Built to `dist/` with types; requires `@devorajs/core` `^0.3.2`.
+- Reads `PORT`/`HOST` through `devora start`, takes `apiDir`, `trustProxy`, `head`,
+  `maxBodyBytes` and `cors`, and logs a clear line when the port is taken or the host can't be
+  bound.
+- Smoke test (`scripts/smoke-adapter-node.mjs`, run in CI): installs the packed tarball in an
+  empty folder and imports it with plain Node.
 
 ### `@devorajs/adapter-vercel` 0.2.2
 

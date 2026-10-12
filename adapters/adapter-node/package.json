@@ -1,14 +1,46 @@
 {
   "name": "@devorajs/adapter-node",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Serves a devora.js app's production build from a plain Node HTTP server (what `devora start` runs) — for VPS, Docker and other self-hosted setups.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
+    "directory": "adapters/adapter-node"
+  },
+  "homepage": "https://github.com/hassanalsa3aka/devora.js#readme",
+  "bugs": {
+    "url": "https://github.com/hassanalsa3aka/devora.js/issues"
+  },
+  "keywords": ["devora", "node", "adapter", "ssr", "vite", "self-hosted"],
   "type": "module",
   "engines": {
     "node": ">=20"
   },
-  "description": "Self-hosted fallback adapter — plain Node server output, paired with `framework generate:proxy`.",
-  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "dependencies": {
-    "@devorajs/core": "*"
+    "@devorajs/core": "^0.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
   }
 }

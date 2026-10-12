@@ -363,7 +363,9 @@ Covered by real-server integration tests in `packages/cli/src/server/__tests__/`
 
 **Hotfix round 3 — released as 0.3.2 (committed and tagged `v0.3.2` locally, not pushed or
 published to npm yet)** — `devora-hotfix-round3.md` (kept outside git) was the source of truth;
-`CHANGELOG.md`'s 0.3.2 section has the list per package and the behavior changes. Phase 1: Vercel runtime no longer hardcoded
+`CHANGELOG.md`'s 0.3.2 section has the list per package and the behavior changes.
+`@devorajs/adapter-node` is publishable from this release on (0.2.0, after core; smoke test in
+`scripts/smoke-adapter-node.mjs`). Phase 1: Vercel runtime no longer hardcoded
 (`nodejs20.x` was rejected), `createRequire` banner for CommonJS deps in both adapters, `apiDir`
 (new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
 `secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
