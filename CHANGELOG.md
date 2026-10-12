@@ -10,6 +10,46 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 4 (dev experience and quick wins)
+
+Not yet version-bumped.
+
+- **`@devorajs/cli` — no more reload spam in dev.** `devora dev` no longer watches `dist/`,
+  `.vercel/`, `.netlify/` or `netlify/functions/`. A `devora build --adapter=…` while dev was
+  running used to reload open pages once per written file.
+- **`@devorajs/cli` — framework client dependencies are pre-bundled.** `optimizeDeps.include` for
+  `@devorajs/core/client`, `react`, `react-dom` (+ `/client`, the JSX runtimes), so Vite's first
+  dependency batch already has them. The reported first-load re-optimization reload ("invalid hook
+  call") did not reproduce in a fresh scaffold; this removes the way it could happen (the dev
+  server has no HTML entry for Vite to scan at startup).
+- **`@devorajs/cli` — `.env` files are loaded** by `dev`/`build`/`start`/`deploy`: the project
+  root's `.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local` (Vite's precedence; mode is
+  `development` for dev, `production` otherwise). The real environment always wins. File names are
+  logged, never values.
+- **`@devorajs/core` — `cors` for API routes** (`defineApp({ cors: { origins, credentials,
+  methods, allowHeaders, exposeHeaders, maxAge } })`). Answers preflights, echoes allowed origins
+  (exact or `https://*.example.com`), off by default. Invalid origins and `credentials` with `"*"`
+  are config errors.
+- **`@devorajs/core` — a backend-only app answers `GET /`** with a small JSON status
+  (`{ app, status: "ok", api: "/api" }`) instead of a bare 404, in dev and production. Backend-only
+  apps never pre-rendered `/`; the reported `pre-rendered (ssg/isr): /` came from page-app
+  scaffolding for an API app (next item).
+- **`@devorajs/cli` — `devora add` creates API apps.** New `--kind=pages|api`. Without it, a
+  project whose apps are all backend-only gets a backend-only app; `devora add api` there used to
+  generate a full pages app.
+- **Error messages link the docs** instead of `ROADMAP.md`, which isn't in the npm packages
+  (session-secret errors, the generated `app.config.ts` comment).
+- **`engines: { node: ">=20" }`** on `@devorajs/core`, `@devorajs/cli` and the adapters
+  (`create-devora` already had it).
+- **React 19:** `@devorajs/core`'s peer range is now `^18.3.0 || ^19.0.0`, after a fresh scaffold on
+  React 19.3.0 passed typecheck, the full browser suite in dev and production (islands, streaming,
+  forms, uploads, login), and both platform functions. New projects still start on React 18.
+- **Vite 6:** `@devorajs/cli` (and new apps) now accept `vite` `^5.4.0 || ^6.0.0`, after a
+  scaffold forced onto Vite 6.4.4 passed the same browser suite in dev and production, both
+  platform functions, and the watcher check. This repo's lockfile stays on 5.4.21 (only the
+  specifiers changed); fresh projects without a lockfile get 6.x. Vite 7 is untested.
+- `devora --version` was already fixed in 0.3.1 (reads `package.json`).
+
 ## Unreleased — hotfix round 3, phase 3 (request access, head, CSS, islands, types)
 
 Not yet version-bumped. User-facing guide: `PAGES.md`.

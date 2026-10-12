@@ -4,6 +4,7 @@ import {
   normalizeApiDir,
   resolveAuthMode,
   resolveSessionManifest,
+  validateCorsConfig,
   type AppConfig,
   type ProjectConfig,
 } from "@devorajs/core";
@@ -64,6 +65,8 @@ export async function buildAppForAdapter(
     appSessions: appConfig.sessions,
     csrf: appConfig.csrf,
   });
+
+  validateCorsConfig(app.name, appConfig.cors);
 
   // Preflight before any build work, so a deploy that can't work fails in
   // seconds with a reason instead of building green and 500ing at runtime.
@@ -131,6 +134,7 @@ export async function buildAppForAdapter(
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        cors: appConfig.cors,
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
@@ -138,6 +142,7 @@ export async function buildAppForAdapter(
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        cors: appConfig.cors,
       });
     }
   }

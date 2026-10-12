@@ -371,6 +371,8 @@ validation, a Netlify multi-`Set-Cookie` fix. Phase 3 (`PAGES.md`): `ctx.url/hea
 `actionData`/`fail()`/303, page errors keep their status + `error.tsx`, head API, framework theme
 only with `PageShell`, route CSS linked, islands discovered by the SSR build (AST-checked), multipart
 uploads + `maxBodyBytes`, build imports only ssg/isr routes, fresh-scaffold typecheck in CI.
+Phase 4: dev ignores build/adapter output, client deps pre-bundled, `.env` loading, `cors` for
+API routes, backend-only `/` status, `devora add --kind`, `engines`, React 19 and Vite 6 allowed.
 
 ## Suggested next task
 

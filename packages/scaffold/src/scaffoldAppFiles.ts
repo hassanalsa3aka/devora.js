@@ -156,7 +156,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
           ...(kind === "pages"
             ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" }
             : {}),
-          vite: "^5.4.0",
+          vite: "^5.4.0 || ^6.0.0",
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
@@ -202,8 +202,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `import { defineApp } from "@devorajs/core/config";\n\n` +
         `export default defineApp({\n` +
         `  defaultRenderMode: "ssr",\n` +
-        `  // Opt-in, off by default — see ROADMAP.md #7. Turn on for a\n` +
-        `  // public-facing app; leave off for an internal one.\n` +
+        `  // Serves /sitemap.xml built from routes/. Off by default: turn it on\n` +
+        `  // for a public-facing app, leave it off for an internal one.\n` +
         `  sitemap: false,\n` +
         API_DIR_CONFIG_LINES +
         `  // Tags for every page's <head> (a route adds its own via meta().head):\n` +

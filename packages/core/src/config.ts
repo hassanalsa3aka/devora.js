@@ -1,4 +1,5 @@
 import type { HeadConfig } from "./html.js";
+import type { CorsConfig } from "./cors.js";
 
 /**
  * Config surface for devora.config.ts (project-level) and
@@ -180,6 +181,8 @@ export interface AppRuntimeConfig {
    * 10485760 (10 MB).
    */
   maxBodyBytes?: number;
+  /** CORS for this app's API routes (`/api/**`) — off unless set. See cors.ts. */
+  cors?: CorsConfig;
   /** Default render mode for routes in this app that don't set their own. */
   defaultRenderMode?: RenderMode;
   /** Security headers, overridable per app per doc §7. */

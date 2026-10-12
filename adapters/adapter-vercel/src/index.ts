@@ -2,7 +2,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, HeadConfig, RenderMode } from "@devorajs/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 import { resolveVercelRuntime, readEnginesNode } from "./runtime.js";
 
@@ -41,6 +41,8 @@ export interface VercelOutputOptions {
   /** app.config.ts `head` and `maxBodyBytes`, passed to the request handler. */
   head?: HeadConfig;
   maxBodyBytes?: number;
+  /** app.config.ts `cors`. */
+  cors?: CorsConfig;
 }
 
 const require = createRequire(import.meta.url);
@@ -208,7 +210,7 @@ export async function writeVercelOutput(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}\n` +
       `);\n\n` +
       `export default async function handler(req, res) {\n` +
       `  try {\n` +

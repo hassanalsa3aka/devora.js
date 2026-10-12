@@ -82,3 +82,16 @@ function errorMessage(err: unknown): string {
   if (typeof err === "string") return err;
   return "";
 }
+
+/**
+ * `GET /` on a backend-only app (it has no pages): a small JSON status
+ * instead of a bare 404, so opening the app's URL shows it's up and where
+ * its API lives.
+ */
+export function backendStatusResponse(appName: string): ApiResponse {
+  return {
+    status: 200,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+    body: JSON.stringify({ app: appName, status: "ok", api: "/api" }),
+  };
+}

@@ -8,6 +8,20 @@ projects, each rooted at its own `apps/<name>` directory.
 Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain VPS
 (`adapter-node` + nginx/Caddy).
 
+## Environment variables and `.env` files
+
+`devora dev`, `build`, `start` and `deploy` load the project root's `.env` files themselves, with
+the same files and precedence as Vite (highest first): `.env.<mode>.local`, `.env.<mode>`,
+`.env.local`, `.env`. The mode is `development` for `dev` and `production` for the rest.
+
+- A variable already set in the environment (shell, Docker, Vercel/Netlify settings) always wins.
+- Only the project root is read: `devora dev` runs every app in one process, so per-app files
+  would collide.
+- The CLI prints which files it loaded, never their values.
+- `.env` and `.env.*` are git-ignored; commit `.env.example` instead.
+- As in any Vite project, variables named `VITE_*` can end up in browser code. Don't give a
+  secret that prefix.
+
 ## Vercel
 
 **N Devora apps in one repo = N Vercel projects.** Each app in `devora.config.ts` is its own Vercel

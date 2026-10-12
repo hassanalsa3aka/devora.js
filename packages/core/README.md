@@ -28,7 +28,10 @@ installing it into an unrelated project won't do much on its own.
 - **Generic API routes** — `apiRoute()` handlers in the app's `apiDir` folder (`api/` by default;
   `endpoints/` in newly scaffolded apps, since `api/` is Vercel's reserved folder), served under
   `/api/**` and matched by the same file-based router as page routes. An optional `methods` export rejects any undeclared HTTP
-  method with a real `405` before the handler runs.
+  method with a real `405` before the handler runs. Cross-origin clients: `defineApp({ cors: {
+  origins: ["https://app.example.com", "https://*.example.com"], credentials: true } })` answers
+  preflights and echoes allowed origins (off by default; `credentials` can't be combined with `"*"`).
+  A backend-only app answers `GET /` with a small JSON status.
 - **Middleware** — native `withMiddleware()` composition, plus optional `fromExpressMiddleware()`/
   `fromFastifyPlugin()` adapters for the wider npm ecosystem.
 - **Islands** — partial hydration for client-only components (`island(() => import(...))`) without

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { createServer, type ViteDevServer } from "vite";
 import {
@@ -8,6 +9,8 @@ import {
   resolveApiDir,
   resolveAuthMode,
   resolveSessionManifest,
+  validateCorsConfig,
+  backendStatusResponse,
   type AppConfig,
   type AppRuntimeConfig,
   type AuthMode,
@@ -22,6 +25,7 @@ import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
 import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 import { isDevoraError } from "../build/devoraError.js";
+import { loadProjectEnv } from "../build/loadEnvFiles.js";
 import {
   DEV_BASE_PORT,
   findFreePort,
@@ -59,6 +63,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     appSessions: appConfig.sessions,
     csrf: appConfig.csrf,
   });
+  validateCorsConfig(app.name, appConfig.cors);
   const server = await createServer({
     root: appRoot,
     appType: "custom", // we own the HTML response — see ../server/ssrMiddleware.ts
@@ -67,7 +72,28 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // make the printed URLs wrong. `host` is only passed when --host was
     // given — otherwise it's left to the app's own vite.config.ts (default:
     // loopback only), and the boot output reports whatever actually bound.
-    server: { port: opts.port, strictPort: true, ...(opts.host ? { host: true } : {}) },
+    server: {
+      port: opts.port,
+      strictPort: true,
+      ...(opts.host ? { host: true } : {}),
+      // Build and adapter output lives inside the app folder; without this,
+      // every `devora build --adapter=…` while dev runs reloaded open pages
+      // once per written file ("page reload .vercel/output/static/…").
+      watch: { ignored: DEV_WATCH_IGNORED },
+    },
+    // This server has no index.html for Vite to scan at startup, so it used
+    // to discover the island/csr client's dependencies on the first page
+    // load — re-optimizing mid-load, which reloads the page (reported with
+    // "invalid hook call" errors on that first load). Pre-bundle the
+    // framework's own client dependencies up front instead.
+    // `destructuring: true`: esbuild 0.28 refuses to pre-bundle any
+    // destructured parameter for Vite 5's dependency target list
+    // ("Transforming destructuring ... is not supported yet"), and a project
+    // that pins a newer esbuild (this repo's root overrides do) gets Vite 5
+    // running on it. Every browser in that list supports destructuring.
+    ...(appConfig.backendOnly === true
+      ? {}
+      : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } }),
     configFile: path.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
@@ -91,6 +117,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         sessionManifest,
         maxBodyBytes: appConfig.maxBodyBytes,
         trustProxy: appConfig.trustProxy,
+        cors: appConfig.cors,
       }),
     ],
   });
@@ -103,6 +130,16 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
   // exist always returns null). Explicit skip, not just a no-op left to
   // happen implicitly, so "zero unnecessary frontend tooling running" is
   // actually true, not just harmless.
+  if (appConfig.backendOnly === true) {
+    // No pages: GET / gets the same small JSON status as in production.
+    server.middlewares.use((req, res, next) => {
+      if ((req.method !== "GET" && req.method !== "HEAD") || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      const status = backendStatusResponse(app.name);
+      res.statusCode = status.status;
+      for (const [name, value] of Object.entries(status.headers ?? {})) res.setHeader(name, value);
+      res.end(status.body);
+    });
+  }
   if (appConfig.backendOnly !== true) {
     server.middlewares.use(
       createSsrMiddleware(
@@ -133,6 +170,7 @@ interface BootedApp {
 
 export async function dev(opts: { app?: string; host?: boolean }) {
   const root = process.cwd();
+  loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
@@ -256,4 +294,22 @@ function printBootSummary(booted: BootedApp[]): void {
   }
 
   console.log(lines.join("\n"));
+}
+
+/** Paths `devora dev` never watches: build output and adapter output written inside the app. */
+export const DEV_WATCH_IGNORED = ["**/dist/**", "**/.vercel/**", "**/.netlify/**", "**/netlify/functions/**"];
+
+const CLIENT_DEPS = ["@devorajs/core/client", "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"];
+
+/** The framework client dependencies this app can actually resolve (an unresolvable include is a Vite error). */
+function resolvableClientDeps(appRoot: string): string[] {
+  const require = createRequire(path.join(appRoot, "package.json"));
+  return CLIENT_DEPS.filter((dep) => {
+    try {
+      require.resolve(dep);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }

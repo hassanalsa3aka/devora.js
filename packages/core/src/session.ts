@@ -73,6 +73,8 @@ export const DEFAULT_SESSION_ACTIVE_PERIOD_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_SESSION_IDLE_PERIOD_MS = 14 * 24 * 60 * 60 * 1000;
 
 const DEV_INSECURE_SECRET = "dev-insecure-session-secret-do-not-use-in-production";
+/** Where the session-secret setup is documented (ROADMAP.md isn't in the npm package). */
+const SESSION_SECRET_DOCS = "https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md";
 let warnedForKey: string | undefined;
 
 function resolveSecret(envKey: string): string {
@@ -84,14 +86,14 @@ function resolveSecret(envKey: string): string {
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      `[devora] no session secret configured. Set ${label} before running in production — ` +
-        `see ROADMAP.md #2.`
+      `[devora] no session secret configured. Set ${label} before running in production ` +
+        `(e.g. \`openssl rand -base64 32\`) — see ${SESSION_SECRET_DOCS}`
     );
   }
   if (warnedForKey !== envKey) {
     console.warn(
       `[devora] no ${label} set — using an insecure dev-only default. ` +
-        `Set this before deploying (see ROADMAP.md #2).`
+        `Set this before deploying — see ${SESSION_SECRET_DOCS}`
     );
     warnedForKey = envKey;
   }

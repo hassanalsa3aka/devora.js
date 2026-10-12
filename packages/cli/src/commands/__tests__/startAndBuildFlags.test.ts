@@ -116,3 +116,39 @@ describe("devora build --adapter", () => {
     expect(fs.existsSync(path.join(fixture.appRoot, "dist", "server", "session-manifest.json"))).toBe(false);
   }, 60_000);
 });
+
+describe("devora add --kind (round 3 phase 4)", () => {
+  function addApp(projectRoot: string, args: string[]) {
+    return spawnSync(TSX, [CLI, "add", ...args, "--auth=none"], { cwd: projectRoot, env: baseEnv(), encoding: "utf-8" });
+  }
+  function backendOnlyProject(): string {
+    const root = fs.mkdtempSync(path.join(fixture.projectRoot, "backend-project-"));
+    fs.mkdirSync(path.join(root, "apps", "api"), { recursive: true });
+    fs.writeFileSync(path.join(root, "apps", "api", "app.config.ts"), "export default { backendOnly: true };\n");
+    fs.writeFileSync(
+      path.join(root, "devora.config.ts"),
+      `export default {\n  apps: [\n    { name: "api", dir: "apps/api", domain: "api.example.com", auth: "none" },\n  ],\n  shared: { core: "x", auth: "none" },\n};\n`
+    );
+    return root;
+  }
+
+  it("in a backend-only project, a new app is an API app (it used to get a full pages app)", () => {
+    const root = backendOnlyProject();
+    const result = addApp(root, ["worker"]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("backend-only API app");
+    expect(fs.existsSync(path.join(root, "apps", "worker", "endpoints", "health.ts"))).toBe(true);
+    for (const pageFile of ["routes", "entry-server.tsx", "island-client.tsx", "error.tsx"]) {
+      expect(fs.existsSync(path.join(root, "apps", "worker", pageFile)), pageFile).toBe(false);
+    }
+  }, 60_000);
+
+  it("--kind=pages overrides; an invalid --kind is rejected", () => {
+    const root = backendOnlyProject();
+    expect(addApp(root, ["site", "--kind=pages"]).status).toBe(0);
+    expect(fs.existsSync(path.join(root, "apps", "site", "routes", "index.tsx"))).toBe(true);
+    const bad = addApp(root, ["x", "--kind=spa"]);
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toContain('--kind must be "pages" or "api"');
+  }, 60_000);
+});

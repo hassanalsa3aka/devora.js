@@ -2,7 +2,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, HeadConfig, RenderMode } from "@devorajs/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
@@ -21,6 +21,8 @@ export interface NetlifyOutputOptions {
   /** app.config.ts `head` and `maxBodyBytes`, passed to the request handler. */
   head?: HeadConfig;
   maxBodyBytes?: number;
+  /** app.config.ts `cors`. */
+  cors?: CorsConfig;
 }
 
 const require = createRequire(import.meta.url);
@@ -175,7 +177,7 @@ export async function writeNetlifyConfig(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}\n` +
       `);\n\n` +
       `export default async (request, context) => {\n` +
       `  const bodyBuf = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);\n` +

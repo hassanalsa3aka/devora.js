@@ -6,6 +6,7 @@
  * for the old "every login breaks over plain HTTP" failure.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
@@ -177,5 +178,42 @@ describe("security.noindex", () => {
     expect((await fetch(`${base}/api/missing`)).headers.get("x-robots-tag")).toBe("noindex");
     const plain = await serve({ store: "memory" });
     expect((await login(plain)).headers.get("x-robots-tag")).toBeNull();
+  });
+});
+
+describe("CORS and the backend-only status (round 3 phase 4)", () => {
+  it("API preflight is answered before any route runs; allowed origins are echoed, others aren't", async () => {
+    const base = await serve({ store: "memory" }, { cors: { origins: ["https://app.example.com"], credentials: true } });
+    const preflight = await fetch(`${base}/api/login`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://app.example.com", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+    expect(preflight.headers.get("access-control-allow-headers")).toBe("content-type");
+
+    const allowed = await login(base, { Origin: "https://app.example.com" });
+    expect(allowed.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    const blocked = await login(base, { Origin: "https://evil.test" });
+    expect(blocked.headers.get("access-control-allow-origin")).toBeNull();
+    // Even a 404 carries the CORS headers, so the browser can read the JSON error.
+    const missing = await fetch(`${base}/api/nope`, { headers: { Origin: "https://app.example.com" } });
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+  });
+
+  it("no cors config: no CORS headers", async () => {
+    const base = await serve({ store: "memory" });
+    expect((await login(base, { Origin: "https://app.example.com" })).headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("GET / on an app with no pages is a small JSON status, not a bare 404", async () => {
+    // A backend-only app: no routes/ and no entry-server build.
+    fs.rmSync(path.join(fixture.appRoot, "routes"), { recursive: true, force: true });
+    const base = await serve({ store: "memory" });
+    const res = await fetch(`${base}/`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ app: "fixture", status: "ok", api: "/api" });
   });
 });

@@ -2,6 +2,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
 import { resolveAuthChoice, scaffoldAppFiles } from "@devorajs/scaffold";
+import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 
 /**
  * `devora new`/`add` runs in two genuinely different contexts, and used to
@@ -74,7 +75,7 @@ async function detectScaffoldContext(
  * inline version of this file, saved its output, then re-scaffolded the
  * same app after this refactor and diffed byte-for-byte — identical.
  */
-export async function scaffoldApp(appName: string, opts: { domain?: string; auth?: string }): Promise<void> {
+export async function scaffoldApp(appName: string, opts: { domain?: string; auth?: string; kind?: string }): Promise<void> {
   const root = process.cwd();
   const appDir = path.join(root, "apps", appName);
 
@@ -82,6 +83,11 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
+  if (opts.kind !== undefined && opts.kind !== "pages" && opts.kind !== "api") {
+    console.error(`[devora] --kind must be "pages" or "api" (got "${opts.kind}")`);
+    process.exit(1);
+  }
+  const kind = (opts.kind as "pages" | "api" | undefined) ?? (await defaultAppKind(root));
 
   const authMode = await resolveAuthChoice(opts.auth, appName);
   const context = await detectScaffoldContext(root);
@@ -94,6 +100,7 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
     // A create-devora "frontend only" project has no packages/backend —
     // depending on @devorajs/backend there would break every install.
     withBackend: existsSync(path.join(root, "packages", "backend", "package.json")),
+    kind,
   });
 
   const configPath = path.join(root, "devora.config.ts");
@@ -117,9 +124,30 @@ export async function scaffoldApp(appName: string, opts: { domain?: string; auth
     }
   }
 
-  console.log(`[devora] created apps/${appName}`);
+  console.log(
+    `[devora] created apps/${appName} (${kind === "api" ? "backend-only API app" : "pages app"}${
+      opts.kind === undefined ? "; --kind=pages|api to choose" : ""
+    })`
+  );
   console.log(`[devora] run "pnpm install" (or npm/yarn) to link its dependencies, then "devora dev --app=${appName}"`);
 }
 
 /** Original command name — kept working, unchanged, alongside `add`. */
 export const newApp = scaffoldApp;
+
+/**
+ * `devora add` without `--kind`: an API app when every app already in the
+ * project is backend-only (a create-devora "backend" project — round 3:
+ * `devora add api` there used to generate a full pages app), a pages app
+ * otherwise.
+ */
+async function defaultAppKind(root: string): Promise<"pages" | "api"> {
+  if (!existsSync(path.join(root, "devora.config.ts"))) return "pages";
+  try {
+    const project = await loadProjectConfig(root);
+    const configs = await Promise.all(project.apps.map((a) => loadAppConfig(resolveAppDir(root, a.dir)).catch(() => ({}))));
+    return configs.length > 0 && configs.every((c) => (c as { backendOnly?: boolean }).backendOnly === true) ? "api" : "pages";
+  } catch {
+    return "pages";
+  }
+}

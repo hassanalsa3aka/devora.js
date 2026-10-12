@@ -12,6 +12,8 @@ import {
   isApiPath,
   resolveApiDir,
   describeRequest,
+  corsResponse,
+  type CorsConfig,
   type AuthMode,
   type AppRuntimeConfig,
   type ApiRouteModule,
@@ -64,6 +66,8 @@ export interface ApiMiddlewareOptions {
   maxBodyBytes?: number;
   /** app.config.ts `trustProxy` (for ctx.url/ctx.ip). */
   trustProxy?: boolean | number;
+  /** app.config.ts `cors`. */
+  cors?: CorsConfig;
 }
 
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {
@@ -95,6 +99,13 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
 
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
+    }
+    const cors = corsResponse(options.cors, req.method ?? "GET", req.headers);
+    for (const [name, value] of Object.entries(cors.headers)) res.setHeader(name, value);
+    if (cors.preflight) {
+      res.statusCode = 204;
+      res.end();
+      return;
     }
 
     // Strip the leading "/api" before matching against the app's apiDir —

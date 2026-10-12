@@ -1,6 +1,7 @@
 import { loadProjectConfig } from "@devorajs/core/config-loader";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
 import { forceProductionNodeEnv } from "../build/productionEnv.js";
+import { loadProjectEnv } from "../build/loadEnvFiles.js";
 import { isVercelLinked, deployToVercel } from "@devorajs/adapter-vercel";
 import { isNetlifyLinked, deployToNetlify } from "@devorajs/adapter-netlify";
 
@@ -31,6 +32,7 @@ export async function deploy(opts: { adapter?: string; app?: string; prod?: bool
   const adapter = opts.adapter;
 
   const root = process.cwd();
+  loadProjectEnv(root, "production");
   const project = await loadProjectConfig(root);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 

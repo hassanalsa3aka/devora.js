@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "description": "Self-hosted fallback adapter — plain Node server output, paired with `framework generate:proxy`.",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {

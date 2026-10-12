@@ -67,6 +67,7 @@ program
   .description("Scaffold a new app inside the project")
   .option("--domain <domain>", "domain to register in devora.config.ts")
   .option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)')
+  .option("--kind <kind>", '"pages" or "api" (backend-only); default: "api" if every existing app is backend-only, else "pages"')
   .action(async (appName, opts) => newApp(appName, opts));
 
 program
@@ -74,6 +75,7 @@ program
   .description("Scaffold a new app inside the project and register it in devora.config.ts (alias for `new`)")
   .option("--domain <domain>", "domain to register in devora.config.ts")
   .option("--auth <mode>", 'auth mode for this app: "shared", "isolated", or "none" (prompts if omitted)')
+  .option("--kind <kind>", '"pages" or "api" (backend-only); default: "api" if every existing app is backend-only, else "pages"')
   .action(async (appName, opts) => scaffoldApp(appName, opts));
 
 program

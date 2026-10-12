@@ -1,8 +1,9 @@
-import { resolveAuthMode } from "@devorajs/core";
+import { resolveAuthMode, validateCorsConfig } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createNodeServer } from "@devorajs/adapter-node";
 import { assignPorts, DEFAULT_BASE_PORT } from "../build/portScheme.js";
 import { forceProductionNodeEnv, parsePort } from "../build/productionEnv.js";
+import { loadProjectEnv } from "../build/loadEnvFiles.js";
 
 /**
  * Production serve (ROADMAP.md #4) — boots adapter-node against each app's
@@ -31,6 +32,7 @@ export async function start(opts: { app?: string; port?: string; host?: string }
   forceProductionNodeEnv("start");
 
   const root = process.cwd();
+  loadProjectEnv(root, "production");
   const project = await loadProjectConfig(root);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
@@ -62,6 +64,7 @@ export async function start(opts: { app?: string; port?: string; host?: string }
     const authMode = resolveAuthMode(project, app.name);
     const appRoot = resolveAppDir(root, app.dir);
     const appConfig = await loadAppConfig(appRoot);
+    validateCorsConfig(app.name, appConfig.cors);
     createNodeServer({
       appRoot,
       appName: app.name,
@@ -74,6 +77,7 @@ export async function start(opts: { app?: string; port?: string; host?: string }
       trustProxy: appConfig.trustProxy,
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
+      cors: appConfig.cors,
       port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
       host,
     });

@@ -1,5 +1,5 @@
 import http from "node:http";
-import { createProdRequestHandler, type AuthMode, type AppRuntimeConfig, type HeadConfig, type RenderMode } from "@devorajs/core";
+import { createProdRequestHandler, type AuthMode, type AppRuntimeConfig, type CorsConfig, type HeadConfig, type RenderMode } from "@devorajs/core";
 
 /**
  * Self-hosted fallback (§13). Boots a real Node HTTP server against an
@@ -25,6 +25,7 @@ export function createNodeServer(opts: {
   /** app.config.ts `head` and `maxBodyBytes`. */
   head?: HeadConfig;
   maxBodyBytes?: number;
+  cors?: CorsConfig;
   port: number;
   /** Interface to bind (`HOST` / `devora start --host`). Default: Node's — every interface. */
   host?: string;
@@ -37,7 +38,7 @@ export function createNodeServer(opts: {
     opts.security,
     opts.sitemapEnabled,
     opts.defaultRenderMode,
-    { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes }
+    { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes, cors: opts.cors }
   );
 
   const server = http.createServer((req, res) => {

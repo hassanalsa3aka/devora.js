@@ -3,6 +3,7 @@ import { buildAppForAdapter } from "../build/buildForAdapter.js";
 import { PreflightError } from "../build/preflight.js";
 import { forceProductionNodeEnv } from "../build/productionEnv.js";
 import { isDevoraError } from "../build/devoraError.js";
+import { loadProjectEnv } from "../build/loadEnvFiles.js";
 
 /** Values `--adapter` accepts. adapter-node needs no flag: plain `devora build`, then `devora start`. */
 export const BUILD_ADAPTERS = ["vercel", "netlify"] as const;
@@ -33,6 +34,7 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
   }
 
   const root = process.cwd();
+  loadProjectEnv(root, "production");
   const project = await loadProjectConfig(root);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;

@@ -19,7 +19,7 @@ unusual (e.g. scripting against a project without going through `create-devora` 
 | `devora build [--app=<name>] [--adapter=vercel\|netlify]` | Build all apps or one; add `--adapter` to also produce that platform's deploy output. |
 | `devora start [--app=<name>]` | Serve a production build (adapter-node) — run `devora build` first. |
 | `devora deploy --adapter=vercel\|netlify [--app=<name>] [--prod]` | Build and deploy to a linked Vercel project or Netlify site. |
-| `devora new <name>` / `devora add <name>` | Scaffold a new app into the current project. |
+| `devora new <name>` / `devora add <name>` | Scaffold a new app into the current project. `--kind=pages\|api` picks a pages app or a backend-only API app; without it, a project whose apps are all backend-only gets an API app. |
 | `devora remove <name>` | Delete an app and its `devora.config.ts` entry. |
 | `devora list` | List every app registered in `devora.config.ts`. |
 | `devora generate:proxy --target=nginx\|caddy` | Generate a reverse-proxy config from your apps' domains, for self-hosting. |

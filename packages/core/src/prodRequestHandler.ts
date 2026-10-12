@@ -21,7 +21,7 @@ import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
 import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, MAX_BODY_BYTES } from "./readBody.js";
-import { apiErrorResponse, apiNotFoundResponse, jsonMessageResponse } from "./httpError.js";
+import { apiErrorResponse, apiNotFoundResponse, backendStatusResponse, jsonMessageResponse } from "./httpError.js";
 import { isApiPath } from "./apiRoute.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
@@ -29,6 +29,7 @@ import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 import { resolveApiDir } from "./apiDir.js";
 import { describeRequest, isHttpsRequest } from "./trustProxy.js";
+import { corsResponse, type CorsConfig } from "./cors.js";
 import type { HeadConfig } from "./html.js";
 import type { ErrorPageModule } from "./route.js";
 
@@ -45,6 +46,8 @@ export interface ProdRequestHandlerOptions {
   head?: HeadConfig;
   /** app.config.ts `maxBodyBytes` (default 10 MB). */
   maxBodyBytes?: number;
+  /** app.config.ts `cors` (API routes only). */
+  cors?: CorsConfig;
 }
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -168,6 +171,13 @@ export function createProdRequestHandler(
     // and any error (a JSON `{ message }`, not the adapter's generic 500) —
     // devora-pre-v3-hotfixes.md #2/#6.
     if (isApiPath(url.pathname)) {
+      const cors = corsResponse(options.cors, req.method ?? "GET", req.headers);
+      for (const [name, value] of Object.entries(cors.headers)) res.setHeader(name, value);
+      if (cors.preflight) {
+        res.statusCode = 204;
+        res.end();
+        return true;
+      }
       const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
       if (!apiMatch) {
         sendApiResponse(res, apiNotFoundResponse());
@@ -232,7 +242,13 @@ export function createProdRequestHandler(
     }
 
     const match = matchRoute(routesDir, url.pathname);
-    if (!match) return sendErrorPage(res, 404);
+    if (!match) {
+      if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
+        sendApiResponse(res, backendStatusResponse(appName));
+        return true;
+      }
+      return sendErrorPage(res, 404);
+    }
 
     const buildKey = toBuildKey(appRoot, match.filePath);
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
