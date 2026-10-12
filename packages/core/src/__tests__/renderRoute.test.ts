@@ -10,21 +10,9 @@ import type { RouteModule } from "../route.js";
 import type { SessionCookieOptions } from "../session.js";
 import { createMemorySessionStore } from "../sessionStore.js";
 
-/**
- * `RenderRouteDeps`'s `createElement`/`renderToString` params are typed
- * `unknown` on purpose — `packages/core` has no dependency on react's own
- * types (see renderRoute.ts's doc comment). Real react's actual signatures
- * are narrower (`createElement`'s `type` param, e.g., only accepts known
- * JSX element/component types, not literally anything), so passing the
- * real functions never structurally satisfies the loose interface — this
- * exact mismatch already exists in every real `entry-server.tsx` too, it's
- * just never caught there because `devora build` never runs `tsc` over app
- * code (the same already-documented gap `packages/cli`'s own 3 pre-existing
- * type errors describe). One explicit, honest bridge here rather than
- * fighting real variance rules across every call site.
- */
+/** React's real functions satisfy RenderRouteDeps directly since round 3 (method-syntax params). */
 function deps(): RenderRouteDeps {
-  return { createElement, renderToString } as unknown as RenderRouteDeps;
+  return { createElement, renderToString };
 }
 
 const sessionCookieOptions: SessionCookieOptions = {
@@ -85,7 +73,9 @@ describe("createRenderRoute (renderMode: \"ssr\")", () => {
     const renderRoute = createRenderRoute(deps());
     const formData = new FormData();
     const result = await renderRoute(routeModule, { method: "POST", formData });
-    expect(result?.status).toBe(302);
+    // 303 See Other after a POST (round 3) — the browser follows with a GET,
+    // so refreshing doesn't resubmit the form. It used to be 302.
+    expect(result?.status).toBe(303);
     expect(result?.redirectTo).toBe("/");
     expect(result?.html).toBe("");
     expect(calls).toEqual([]);

@@ -460,3 +460,38 @@ describe("createRenderStreaming — real streaming behavior, not just final outp
     expect(reports).toEqual([{ phase: "boundary" }]);
   });
 });
+
+describe("renderStreaming — loader errors and redirects (round 3 phase 3)", () => {
+  it("a loader HttpError streams the error page with its status; a redirect is returned, not streamed", async () => {
+    const { HttpError } = await import("../httpError.js");
+    const { redirect } = await import("../actionResult.js");
+    const renderStreaming = createRenderStreaming(deps);
+    const failing = await renderStreaming(
+      {
+        renderMode: "streaming",
+        loader: () => {
+          throw new HttpError(404, "No such post");
+        },
+        default: () => createElement("p", null, "never"),
+      },
+      {
+        errorPage: { default: ({ status, message }) => createElement("section", null, `${status} ${message}`) },
+        head: { lang: "en" },
+      }
+    );
+    expect(failing?.status).toBe(404);
+    const { destination, chunks, done } = collectChunks();
+    failing!.pipeTo(destination);
+    await done;
+    const html = chunks().join("");
+    expect(html).toContain("<section>404 No such post</section>");
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toContain("never");
+
+    const redirecting = await renderStreaming(
+      { renderMode: "streaming", loader: () => redirect("/login"), default: () => createElement("p") },
+      {}
+    );
+    expect(redirecting).toMatchObject({ status: 302, redirectTo: "/login" });
+  });
+});

@@ -1,4 +1,4 @@
-import type { RequestContext } from "./serverFn.js";
+import { requestContextFields, type RequestContext, type RequestMeta } from "./serverFn.js";
 
 /**
  * A `ctx` for `ssg`/`isr` build-time rendering — there's no real request,
@@ -7,9 +7,17 @@ import type { RequestContext } from "./serverFn.js";
  * mostly exists to satisfy `loader`'s signature; if a loader does call one
  * of these, failing loudly beats silently no-op'ing.
  */
-export function createBuildTimeContext(params: Record<string, string> = {}): RequestContext {
+export function createBuildTimeContext(params: Record<string, string> = {}, meta?: RequestMeta): RequestContext {
+  const fields = requestContextFields(meta);
   return {
     params,
+    url: fields.url,
+    headers: fields.headers,
+    method: fields.method,
+    ip: fields.ip,
+    get request() {
+      return fields.request;
+    },
     session: undefined,
     sessionTransport: undefined,
     requireAuth: () => {

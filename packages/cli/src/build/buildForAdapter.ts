@@ -110,7 +110,11 @@ export async function buildAppForAdapter(
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
   console.log(`[devora] "${app.name}" built → ${serverOutDir}`);
 
-  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, { backendOnly });
+  const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, {
+    backendOnly,
+    head: appConfig.head,
+    domain: app.domain,
+  });
   if (staticRoutes.length > 0) {
     console.log(`[devora] "${app.name}" pre-rendered (ssg/isr): ${staticRoutes.join(", ")}`);
   }
@@ -125,11 +129,15 @@ export async function buildAppForAdapter(
         outputDir: vercelOutputDir,
         runtime: vercelRuntime,
         trustProxy: appConfig.trustProxy,
+        head: appConfig.head,
+        maxBodyBytes: appConfig.maxBodyBytes,
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
         apiDir,
         trustProxy: appConfig.trustProxy,
+        head: appConfig.head,
+        maxBodyBytes: appConfig.maxBodyBytes,
       });
     }
   }

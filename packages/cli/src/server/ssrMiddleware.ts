@@ -1,4 +1,6 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
+import type { ServerResponse } from "node:http";
 import type { Connect, ViteDevServer } from "vite";
 import {
   matchRoute,
@@ -9,8 +11,21 @@ import {
   resolveSecurityHeaders,
   generateNonce,
   readBodyWithLimit,
+  parseFormBody,
+  describeRequest,
+  HttpError,
   PayloadTooLargeError,
+  MalformedBodyError,
+  MAX_BODY_BYTES,
   type AuthMode,
+  type ErrorPageModule,
+  type HeadConfig,
+  type RenderErrorOptions,
+  type RenderRouteRequest,
+  type RenderRouteResult,
+  type RenderStaticOptions,
+  type RenderStreamingRequest,
+  type StreamingRenderResult,
   type AppRuntimeConfig,
   type RenderMode,
   type RouteModule,
@@ -54,10 +69,30 @@ export function createSsrMiddleware(
   sitemapEnabled: boolean,
   appDefaultRenderMode: RenderMode | undefined,
   security: AppRuntimeConfig["security"] | undefined,
-  sessions: { projectRoot: string; config: SessionsConfig | undefined; manifest?: SessionManifest }
+  sessions: { projectRoot: string; config: SessionsConfig | undefined; manifest?: SessionManifest },
+  page: { head?: HeadConfig; maxBodyBytes?: number; trustProxy?: boolean | number } = {}
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
+  const errorPagePath = ERROR_PAGE_FILES.map((f) => path.join(appRoot, f)).find((f) => existsSync(f));
+  const { head, trustProxy } = page;
+  const maxBodyBytes = page.maxBodyBytes ?? MAX_BODY_BYTES;
+  const loadErrorPage = async (): Promise<ErrorPageModule | undefined> =>
+    errorPagePath ? ((await vite.ssrLoadModule(errorPagePath)) as ErrorPageModule) : undefined;
+  const errorPageStyles = () => (errorPagePath ? collectCssUrls(vite, errorPagePath) : undefined);
+
+  /** 404/413/400 page for a page request (dev mirror of prodRequestHandler's). */
+  const sendErrorPage = async (res: ServerResponse, status: number, error?: unknown): Promise<void> => {
+    const entryServer = (await vite.ssrLoadModule(entryServerPath)) as DevEntryServer;
+    const renderError = entryServer.renderRoute?.renderError;
+    res.statusCode = status;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    if (typeof renderError !== "function") {
+      res.end(`<!doctype html><title>${status}</title><h1>${status}</h1>`);
+      return;
+    }
+    res.end(renderError({ status, error, head, errorPage: await loadErrorPage(), errorPageStyles: errorPageStyles() }).html);
+  };
   // Not called at all for a "none"-auth app — resolveSessionCookieOptions
   // (via resolveSecret()) is exactly what throws in production without a
   // configured secret; an app with sessions disabled must never reach that
@@ -71,6 +106,13 @@ export function createSsrMiddleware(
     appName,
     sessions.manifest
   );
+
+  /** A page's own error (5xx) still belongs in the terminal, source-mapped. */
+  const logPageError = (status: number, error: unknown) => {
+    if (error === undefined || status < 500) return;
+    if (error instanceof Error) vite.ssrFixStacktrace(error);
+    console.error(`[devora] "${appName}" page error:`, error);
+  };
 
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
@@ -91,63 +133,41 @@ export function createSsrMiddleware(
     }
 
     const match = matchRoute(routesDir, url.pathname);
-    if (!match) return next();
+    if (!match) {
+      // An unmatched page URL gets the app's 404 page (error.tsx, or the
+      // built-in one) — before, it fell through to Vite's bare 404, which
+      // also lost the security headers.
+      try {
+        return await sendErrorPage(res, 404);
+      } catch (err) {
+        return next(err);
+      }
+    }
 
     try {
       const routeModule = (await vite.ssrLoadModule(match.filePath)) as RouteModule;
       const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
+      // Loaded above, so its CSS imports are in the module graph now.
+      const styles = collectCssUrls(vite, match.filePath);
+      const meta = describeRequest(req, trustProxy);
 
       if (renderMode === "csr") {
         // No loader, no session — data fetching for a csr page is the
         // component's own job (see csrRoute.ts). Dev serves the route file
         // itself and csr-client.tsx by path, same trick islandsPlugin.ts
         // uses for islands; production resolves real hashed URLs instead.
-        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL);
+        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL, {
+          appHead: head,
+          styles,
+        });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);
         return;
       }
 
-      const entryServer = (await vite.ssrLoadModule(entryServerPath)) as {
-        renderRoute: (
-          routeModule: RouteModule,
-          request: {
-            method: string;
-            formData?: FormData;
-            cookieHeader?: string;
-            authorizationHeader?: string | string[];
-            params?: Record<string, string>;
-            sessionCookieOptions?: SessionCookieOptions;
-            islandClientUrl?: string;
-            appDefaultRenderMode?: RenderMode;
-            devPreambleUrl?: string;
-          }
-        ) => Promise<{ status: number; html: string; setCookie?: string[]; redirectTo?: string } | null>;
-        renderStatic: (
-          routeModule: RouteModule,
-          opts: { islandClientUrl?: string; params?: Record<string, string>; devPreambleUrl?: string }
-        ) => Promise<{ html: string }>;
-        renderStreaming: (
-          routeModule: RouteModule,
-          request: {
-            cookieHeader?: string;
-            authorizationHeader?: string | string[];
-            params?: Record<string, string>;
-            sessionCookieOptions?: SessionCookieOptions;
-            islandClientUrl?: string;
-            devPreambleUrl?: string;
-            nonce?: string;
-          }
-        ) => Promise<{
-          status: number;
-          setCookie?: string[];
-          pipeTo: (
-            destination: NodeJS.WritableStream,
-            onError?: (error: unknown, phase: "shell" | "boundary") => void
-          ) => void;
-        } | null>;
-      };
+      const entryServer = (await vite.ssrLoadModule(entryServerPath)) as DevEntryServer;
+      const errorPage = await loadErrorPage();
 
       if (renderMode === "streaming") {
         // GET-only, same reasoning as ssg/isr's identical guard just below —
@@ -176,8 +196,21 @@ export function createSsrMiddleware(
           islandClientUrl: "/island-client.tsx",
           devPreambleUrl: DEV_PREAMBLE_URL,
           nonce,
+          meta,
+          head,
+          styles,
+          errorPage,
+          errorPageStyles: errorPageStyles(),
         });
         if (!result) return next(); // shouldn't happen — renderMode was resolved to "streaming" above.
+        logPageError(result.status, result.error);
+        if (result.redirectTo) {
+          if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+          res.statusCode = result.status;
+          res.setHeader("Location", result.redirectTo);
+          res.end();
+          return;
+        }
 
         if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
         res.statusCode = result.status;
@@ -227,6 +260,9 @@ export function createSsrMiddleware(
           islandClientUrl: "/island-client.tsx",
           params: match.params,
           devPreambleUrl: DEV_PREAMBLE_URL,
+          url: new URL(url.pathname, meta.url).href,
+          head,
+          styles,
         });
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -236,13 +272,13 @@ export function createSsrMiddleware(
 
       let formData: FormData | undefined;
       try {
-        formData = req.method === "POST" ? await parseFormData(req) : undefined;
+        formData =
+          req.method === "POST"
+            ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"])
+            : undefined;
       } catch (err) {
-        if (err instanceof PayloadTooLargeError) {
-          res.statusCode = 413;
-          res.end(err.message);
-          return;
-        }
+        if (err instanceof PayloadTooLargeError) return await sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
+        if (err instanceof MalformedBodyError) return await sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
         throw err;
       }
       const result = await entryServer.renderRoute(routeModule, {
@@ -257,11 +293,17 @@ export function createSsrMiddleware(
         islandClientUrl: "/island-client.tsx",
         appDefaultRenderMode,
         devPreambleUrl: DEV_PREAMBLE_URL,
+        meta,
+        head,
+        styles,
+        errorPage,
+        errorPageStyles: errorPageStyles(),
       });
 
       if (!result) {
         return next(); // shouldn't happen — renderMode was resolved to "ssr" above.
       }
+      logPageError(result.status, result.error);
 
       if (result.setCookie) {
         res.setHeader("Set-Cookie", result.setCookie);
@@ -282,11 +324,40 @@ export function createSsrMiddleware(
   };
 }
 
-async function parseFormData(req: Connect.IncomingMessage): Promise<FormData> {
-  const body = (await readBodyWithLimit(req)).toString("utf-8");
-  const formData = new FormData();
-  // .forEach(), not for-of — see the identical fix + reasoning in
-  // packages/core/src/prodRequestHandler.ts.
-  new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
-  return formData;
+/** Where an app's custom error page lives (see ErrorPageModule). */
+export const ERROR_PAGE_FILES = ["error.tsx", "error.jsx", "error.ts", "error.js"];
+
+const CSS_FILE_RE = /\.(css|scss|sass|less|styl|stylus|pcss|postcss)$/;
+
+/**
+ * URLs of every stylesheet `file` imports, directly or through other
+ * modules — read from Vite's module graph after the file was loaded, so
+ * the SSR'd page can `<link>` them (Vite serves a CSS file requested
+ * directly as CSS). `?inline`/`?raw`/`?url` imports are values, not
+ * stylesheets, and are skipped.
+ */
+export function collectCssUrls(vite: ViteDevServer, file: string): string[] {
+  const urls: string[] = [];
+  const seen = new Set<unknown>();
+  type Node = { id: string | null; url: string; importedModules: Set<Node> };
+  const visit = (node: Node | undefined) => {
+    if (!node || seen.has(node)) return;
+    seen.add(node);
+    if (node.id && CSS_FILE_RE.test(node.id)) {
+      urls.push(node.url);
+      return;
+    }
+    for (const dep of node.importedModules) visit(dep);
+  };
+  for (const node of vite.moduleGraph.getModulesByFile(file) ?? []) visit(node as unknown as Node);
+  return urls;
+}
+
+/** What an app's entry-server.tsx exports (loaded through Vite). */
+interface DevEntryServer {
+  renderRoute: ((routeModule: RouteModule, request: RenderRouteRequest) => Promise<RenderRouteResult | null>) & {
+    renderError?: (options: RenderErrorOptions) => { status: number; html: string };
+  };
+  renderStatic: (routeModule: RouteModule, options: RenderStaticOptions) => Promise<{ html: string }>;
+  renderStreaming: (routeModule: RouteModule, request: RenderStreamingRequest) => Promise<StreamingRenderResult | null>;
 }

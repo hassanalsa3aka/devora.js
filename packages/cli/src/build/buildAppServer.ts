@@ -1,16 +1,22 @@
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
-import { build as viteBuild } from "vite";
+import { existsSync } from "node:fs";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { build as viteBuild, type Plugin } from "vite";
+import type { Rollup } from "vite";
+type OutputChunk = Rollup.OutputChunk;
 import {
   listRouteFiles,
   resolveApiDir,
   toBuildKey,
   SESSION_MANIFEST_FILE,
   SESSION_STORE_BUILD_KEY,
+  ROUTE_CSS_MANIFEST_FILE,
+  ERROR_PAGE_BUILD_KEY,
   type SessionManifest,
 } from "@devorajs/core";
+import { ERROR_PAGE_FILES } from "../server/ssrMiddleware.js";
 import { buildAppClient } from "./buildAppClient.js";
-import { islandsBuildPlugin } from "./islandsBuildPlugin.js";
+import { islandsBuildPlugin, ISLAND_PLACEHOLDER_RE } from "./islandsBuildPlugin.js";
 
 /**
  * The real SSR production build (ROADMAP.md #4) — every route file plus
@@ -64,19 +70,18 @@ export async function buildAppServer(
   const apiDir = resolveApiDir(appRoot, options.apiDir);
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
   const serverOutDir = path.join(appRoot, "dist", "server");
-
-  // Backend-only app mode (architecture-v2.md §3.4) — no pages means no
-  // client build (islands/csr are page-rendering concepts) and no
-  // entry-server.tsx SSR entry (renderRoute.ts/renderStatic.ts are never
-  // reachable with zero routes/ files — nothing to wrap in PageShell).
-  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly
-    ? { islandUrls: new Map<string, string>(), islandClientUrl: undefined, csrUrls: new Map<string, string>(), csrClientUrl: undefined }
-    : await buildAppClient(appRoot);
+  const clientOutDir = path.join(appRoot, "dist", "client");
 
   const input: Record<string, string> = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
+  // The app's error page (apps/<name>/error.tsx) — optional; rendered for
+  // 404s and for errors thrown by pages (renderRoute.ts).
+  const errorPagePath = options.backendOnly
+    ? undefined
+    : ERROR_PAGE_FILES.map((f) => path.join(appRoot, f)).find((f) => existsSync(f));
+  if (errorPagePath) input[ERROR_PAGE_BUILD_KEY] = errorPagePath;
   // Generic API routes (architecture-v2.md §3.2) — same named-rollup-entry
   // trick as page routes above, so prodRequestHandler.ts can compute an API
   // route's built file the same way it already does for a page route, no
@@ -93,17 +98,42 @@ export async function buildAppServer(
     input[SESSION_STORE_BUILD_KEY] = options.sessions.storeModulePath;
   }
 
+  // 1. SSR build. It follows every import from every route, so it is where
+  //    islands are discovered (islandsBuildPlugin.ts) and where the CSS each
+  //    page imports is known (routeCssPlugin below; ssrEmitAssets makes Vite
+  //    emit that CSS, and imported images/fonts, instead of dropping them).
+  const islandPlaceholders = new Map<string, string>();
+  const routeCss: Record<string, string[]> = {};
   await viteBuild({
     root: appRoot,
     configFile: path.join(appRoot, "vite.config.ts"),
-    plugins: [islandsBuildPlugin(islandUrls)],
+    plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
     build: {
       ssr: true,
+      ssrEmitAssets: true,
       outDir: serverOutDir,
       emptyOutDir: true,
       rollupOptions: { input },
     },
   });
+
+  // 2. Client build for exactly the islands the SSR build found (plus csr
+  //    routes). Backend-only apps have neither (architecture-v2.md §3.4).
+  const islandFiles = [...new Set(islandPlaceholders.values())];
+  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly
+    ? { islandUrls: new Map<string, string>(), islandClientUrl: undefined, csrUrls: new Map<string, string>(), csrClientUrl: undefined }
+    : await buildAppClient(appRoot, islandFiles);
+
+  // 3. Swap each island placeholder in the SSR output for its real URL.
+  if (islandPlaceholders.size > 0) {
+    await replaceIslandPlaceholders(serverOutDir, islandPlaceholders, islandUrls);
+  }
+
+  // 4. Publish what the SSR build emitted besides JS (route CSS, imported
+  //    images/fonts) next to the client assets, where every adapter serves
+  //    /assets/* from. After the client build, which empties dist/client.
+  await publishSsrAssets(serverOutDir, clientOutDir);
+  await writeFile(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
 
   if (options.sessions) {
     await writeFile(path.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
@@ -130,4 +160,78 @@ export async function buildAppServer(
   );
 
   return { serverOutDir };
+}
+
+/**
+ * Records, per entry (route, error page), the URLs of every CSS file it
+ * pulls in — its own, its static imports', and its dynamic imports' (an
+ * island's CSS is needed at first paint too, since SSR renders the island).
+ * Read from Vite's chunk metadata, so it's exactly what the build emitted.
+ */
+function routeCssPlugin(out: Record<string, string[]>): Plugin {
+  return {
+    name: "devora:route-css",
+    generateBundle(_options, bundle) {
+      const chunks = new Map<string, OutputChunk>();
+      for (const item of Object.values(bundle)) if (item.type === "chunk") chunks.set(item.fileName, item);
+      for (const chunk of chunks.values()) {
+        if (!chunk.isEntry) continue;
+        const css = new Set<string>();
+        const seen = new Set<string>();
+        const visit = (fileName: string) => {
+          if (seen.has(fileName)) return;
+          seen.add(fileName);
+          const current = chunks.get(fileName);
+          if (!current) return;
+          const meta = (current as OutputChunk & { viteMetadata?: { importedCss?: Set<string> } }).viteMetadata;
+          for (const file of meta?.importedCss ?? []) css.add(`/${file}`);
+          for (const dep of [...current.imports, ...current.dynamicImports]) visit(dep);
+        };
+        visit(chunk.fileName);
+        if (css.size > 0) out[chunk.name] = [...css];
+      }
+    },
+  };
+}
+
+async function replaceIslandPlaceholders(
+  serverOutDir: string,
+  placeholders: Map<string, string>,
+  islandUrls: Map<string, string>
+): Promise<void> {
+  for (const file of await listFiles(serverOutDir, ".js")) {
+    const code = await readFile(file, "utf-8");
+    if (!code.includes("__DEVORA_ISLAND_")) continue;
+    const replaced = code.replace(ISLAND_PLACEHOLDER_RE, (placeholder) => {
+      const source = placeholders.get(placeholder);
+      const url = source ? islandUrls.get(source) : undefined;
+      if (!url) {
+        throw new Error(`[devora] the client build produced no bundle for island ${source ?? placeholder} — please report this`);
+      }
+      return url;
+    });
+    await writeFile(file, replaced);
+  }
+}
+
+/** Copies dist/server/assets/* except JS (server code) to dist/client/assets. */
+async function publishSsrAssets(serverOutDir: string, clientOutDir: string): Promise<void> {
+  const assetsDir = path.join(serverOutDir, "assets");
+  if (!existsSync(assetsDir)) return;
+  for (const file of await listFiles(assetsDir)) {
+    if (/\.(m?js|map)$/.test(file)) continue;
+    const dest = path.join(clientOutDir, "assets", path.relative(assetsDir, file));
+    await mkdir(path.dirname(dest), { recursive: true });
+    await copyFile(file, dest);
+  }
+}
+
+async function listFiles(dir: string, extension?: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await listFiles(full, extension)));
+    else if (!extension || entry.name.endsWith(extension)) out.push(full);
+  }
+  return out;
 }

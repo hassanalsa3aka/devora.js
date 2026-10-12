@@ -10,6 +10,68 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased — hotfix round 3, phase 3 (request access, head, CSS, islands, types)
+
+Not yet version-bumped. User-facing guide: `PAGES.md`.
+
+- **`@devorajs/core` — request access.** `ctx.url` (a `URL`, query string included), `ctx.headers`
+  (a standard `Headers`), `ctx.method`, `ctx.ip` and a body-less `ctx.request` in loaders, actions
+  and API routes. Scheme/host/IP honor `trustProxy`, which now also accepts a hop count
+  (`trustProxy: 2`); IPs come from the right of `X-Forwarded-For`, so a client-supplied entry
+  can't spoof them. The Netlify function feeds `context.ip` through.
+- **`@devorajs/core` — actions return data.** A non-redirect action result reaches the page as the
+  `actionData` prop. `fail(status, data)` re-renders with a 4xx/5xx status. Loaders can return or
+  throw `redirect()`.
+- **`@devorajs/core`, BREAKING (status codes) — redirects after POST are 303** (were 302);
+  `redirect(to, status)` picks another. Loader redirects are 302.
+- **`@devorajs/core`, BREAKING (status codes) — page errors keep their status.** A thrown
+  `HttpError` (or any `status`/`statusCode` 4xx/5xx) on a page is that status instead of a 500:
+  401 from `requireAuth()`, 403 from `verifyCsrf()`. Unexpected errors are 500s with the message
+  hidden in production. They render the app's **error page** (`apps/<name>/error.tsx`, scaffolded
+  for new apps) or a built-in one. Unmatched URLs are now an HTML 404 page in dev and production;
+  dev used to fall through to Vite's bare 404 without security headers.
+- **`@devorajs/core` — head API.** `defineApp({ head: { lang, stylesheets, links, meta, scripts } })`
+  and route-level `meta().head`.
+- **`@devorajs/core`, BREAKING (markup) — framework CSS is opt-in.** The theme stylesheet
+  (including its `body { display: flex }`) and the default favicon are only added to pages that
+  render `PageShell`/`AppHeader` (and to CSR shells); `head.theme: false | true` overrides. Apps
+  that use `PageShell` look the same; pages that don't no longer get global CSS they didn't ask for.
+- **`@devorajs/cli` — route-imported CSS is linked** in SSR, streaming, SSG/ISR and error-page HTML,
+  from Vite's module graph in dev and the SSR build's chunk metadata in production
+  (`ssrEmitAssets`; files land in `dist/client/assets`, manifest
+  `dist/server/route-css-manifest.json`). Images/fonts imported by server code are published too.
+- **`@devorajs/cli` — islands are found in every module, not just route files.** The SSR build
+  discovers them while it follows the app's imports (shared components, workspace packages),
+  then the client build runs for exactly those, and placeholders are swapped for real URLs.
+  `island()` calls are checked with the parser in dev and build; an unsupported shape
+  (`island(loader)`, a computed path) or an unresolvable path fails with the original file and
+  line instead of an island that silently never hydrates.
+- **`@devorajs/core`, `@devorajs/cli` — multipart uploads in page actions.** File fields arrive as
+  `File` objects (parsed by the platform's `Response.formData()`, no dependency). New
+  `maxBodyBytes` (app.config.ts, default 10 MB) for forms and API routes. An oversized body now
+  actually reaches the client as a 413 page: a declared `Content-Length` over the limit is rejected
+  unread, and an overflowing stream is discarded rather than the socket being reset mid-upload.
+  Malformed multipart is a 400.
+- **`@devorajs/cli` — `devora build` no longer imports `ssr`/`csr`/`streaming` routes.** Each
+  route's render mode is read from its source, and only `ssg`/`isr` routes (or ones whose mode
+  isn't a string literal) are imported, so a module needing request-time secrets at import time no
+  longer crashes builds without them.
+- **Types (`@devorajs/core`, `create-devora`).**
+  - `CsrfField` returns `ReactElement` (was `unknown`, TS2786).
+  - The React bindings in `RenderRouteDeps`/`RenderStreamingDeps` accept React's real signatures
+    (was TS2322 in every `entry-server.tsx`).
+  - `ctx.session`/`setSession()` can be typed once via `declare module "@devorajs/core" { interface
+    Register { session: ... } }`.
+  - New projects ship `typescript` + `@types/*` devDependencies, a root `tsconfig.json`, a
+    `typecheck` script, and app tsconfigs that exclude adapter output.
+  - CI now typechecks fresh full-stack and backend-only scaffolds against the packed packages
+    (`scripts/typecheck-fresh-scaffold.mjs`).
+- **`@devorajs/adapter-vercel`, `@devorajs/adapter-netlify` — fix: backend-only apps build again.**
+  Vendoring `react` resolved it from the app, which a backend-only app doesn't depend on
+  (`Cannot find module 'react/package.json'`); it's now resolved from `@devorajs/core`'s install
+  location in that case. The app's error page is bundled into the function. CI now also builds the
+  `api-only` app.
+
 ## Unreleased — hotfix round 3, phase 2 (sessions, cookies, security config)
 
 Not yet version-bumped; staged for the coordinated round-3 release. Every setting below is

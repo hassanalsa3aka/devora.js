@@ -89,6 +89,8 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         sessions: opts.sessions,
         apiDir: appConfig.apiDir,
         sessionManifest,
+        maxBodyBytes: appConfig.maxBodyBytes,
+        trustProxy: appConfig.trustProxy,
       }),
     ],
   });
@@ -112,7 +114,8 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         appConfig.sitemap === true,
         appConfig.defaultRenderMode,
         appConfig.security,
-        { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest }
+        { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
+        { head: appConfig.head, maxBodyBytes: appConfig.maxBodyBytes, trustProxy: appConfig.trustProxy }
       )
     );
   }

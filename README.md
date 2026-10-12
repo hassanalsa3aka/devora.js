@@ -88,6 +88,10 @@ under each.
 - **API routes speak JSON, always** — a thrown error in an `api/**` handler is a `{ message }`
   JSON response with the right status (never an HTML error page), and an unmatched `/api/**` path
   is a JSON 404.
+- **Pages that can read the request** — `ctx.url` (query string), `ctx.headers`, `ctx.ip` in
+  loaders and actions; actions return data (`fail(400, …)`) or a 303 `redirect()`; thrown errors
+  keep their status and render the app's `error.tsx`; multipart uploads; a `<head>` API; route CSS
+  linked automatically. See `PAGES.md`.
 - **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as

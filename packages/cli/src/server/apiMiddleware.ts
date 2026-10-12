@@ -11,6 +11,7 @@ import {
   jsonMessageResponse,
   isApiPath,
   resolveApiDir,
+  describeRequest,
   type AuthMode,
   type AppRuntimeConfig,
   type ApiRouteModule,
@@ -59,6 +60,10 @@ export interface ApiMiddlewareOptions {
   apiDir?: string;
   /** This app's resolved session settings (resolveSessionManifest). */
   sessionManifest?: SessionManifest;
+  /** app.config.ts `maxBodyBytes`. */
+  maxBodyBytes?: number;
+  /** app.config.ts `trustProxy` (for ctx.url/ctx.ip). */
+  trustProxy?: boolean | number;
 }
 
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {
@@ -104,7 +109,7 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
       const routeModule = (await vite.ssrLoadModule(match.filePath)) as ApiRouteModule;
       let body: Buffer;
       try {
-        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBody(req);
+        body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBodyWithLimit(req, options.maxBodyBytes);
       } catch (err) {
         if (err instanceof PayloadTooLargeError) {
           return sendApiResponse(res, jsonMessageResponse(413, err.message));
@@ -120,6 +125,7 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
         params: match.params,
         sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
         body,
+        meta: describeRequest(req, options.trustProxy),
       });
 
       if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
@@ -142,8 +148,4 @@ function sendApiResponse(res: ServerResponse, result: ApiResponse): void {
   }
   res.statusCode = result.status;
   res.end(result.body ?? "");
-}
-
-async function readBody(req: Connect.IncomingMessage): Promise<Buffer> {
-  return readBodyWithLimit(req);
 }

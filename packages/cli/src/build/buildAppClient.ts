@@ -2,8 +2,8 @@ import path from "node:path";
 import { readFile, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
+import { createHash } from "node:crypto";
 import { listRouteFiles, toBuildKey } from "@devorajs/core";
-import { discoverIslandFiles } from "./discoverIslandFiles.js";
 import { discoverCsrRouteFiles } from "./discoverCsrRouteFiles.js";
 
 interface ViteManifestEntry {
@@ -33,11 +33,13 @@ export interface ClientBuildResult {
  * (a quick throwaway build + inspecting `.vite/manifest.json`) rather than
  * assumed — entries are keyed by root-relative source path with
  * `.src`/`.file`.
+ *
+ * `islandFiles` comes from the SSR build (islandsBuildPlugin.ts), which saw
+ * every module the app's routes import — not just the route files.
  */
-export async function buildAppClient(appRoot: string): Promise<ClientBuildResult> {
+export async function buildAppClient(appRoot: string, islandFiles: string[]): Promise<ClientBuildResult> {
   const routesDir = path.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
-  const islandFiles = discoverIslandFiles(routeFiles);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
 
   if (islandFiles.length === 0 && csrFiles.length === 0) {
@@ -67,7 +69,7 @@ export async function buildAppClient(appRoot: string): Promise<ClientBuildResult
   if (islandFiles.length > 0) input["island-client"] = islandClientPath;
   if (csrFiles.length > 0) input["csr-client"] = csrClientPath;
   for (const file of islandFiles) {
-    input[toBuildKey(appRoot, file)] = file;
+    input[clientEntryName(appRoot, file)] = file;
   }
   for (const file of csrFiles) {
     input[toBuildKey(appRoot, file)] = file;
@@ -127,4 +129,16 @@ export async function buildAppClient(appRoot: string): Promise<ClientBuildResult
   }
 
   return { islandUrls, islandClientUrl, csrUrls, csrClientUrl };
+}
+
+/**
+ * Rollup entry name for an island file: its build key inside the app; for a
+ * file elsewhere in the repo (a shared `packages/ui` component), a name that
+ * can't climb out of the output directory the way "../../packages/..." would.
+ */
+function clientEntryName(appRoot: string, file: string): string {
+  const relative = path.relative(appRoot, file);
+  if (!relative.startsWith("..") && !path.isAbsolute(relative)) return toBuildKey(appRoot, file);
+  const hash = createHash("sha256").update(file).digest("hex").slice(0, 8);
+  return `shared/${path.basename(file, path.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
 }

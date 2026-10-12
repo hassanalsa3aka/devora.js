@@ -1,8 +1,8 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devorajs/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 import { resolveVercelRuntime, readEnginesNode } from "./runtime.js";
 
@@ -37,7 +37,10 @@ export interface VercelOutputOptions {
    * overwrites `X-Forwarded-For` — "to prevent IP spoofing", per Vercel's
    * request-headers docs). An explicit false is respected.
    */
-  trustProxy?: boolean;
+  trustProxy?: boolean | number;
+  /** app.config.ts `head` and `maxBodyBytes`, passed to the request handler. */
+  head?: HeadConfig;
+  maxBodyBytes?: number;
 }
 
 const require = createRequire(import.meta.url);
@@ -205,7 +208,7 @@ export async function writeVercelOutput(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir, trustProxy })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes })}\n` +
       `);\n\n` +
       `export default async function handler(req, res) {\n` +
       `  try {\n` +
@@ -233,7 +236,7 @@ export async function writeVercelOutput(
   // so vendoring it unconditionally failed that app's build outright with
   // "Cannot find module 'react-dom/package.json'" (found scaffolding a real
   // create-devora --scope=backend project).
-  await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
+  await vendorRuntimeDependency(reactResolveBase(appRoot), "react", funcNodeModules);
   if (existsSync(path.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
@@ -276,4 +279,29 @@ function resolveDefaultRuntime(appRoot: string): string {
   });
   if (resolved.error) throw new Error(`[adapter-vercel] ${resolved.error}`);
   return resolved.runtime;
+}
+
+/**
+ * Where to resolve `react` from for vendoring. Normally the app itself; a
+ * backend-only app has no react of its own (it renders no pages), but
+ * @devorajs/core imports it — as a peer, installed next to core — so resolve
+ * it from core's package directory instead. Before this, every backend-only
+ * build for this adapter failed with "Cannot find module 'react/package.json'".
+ */
+function reactResolveBase(appRoot: string): string {
+  try {
+    require.resolve("react/package.json", { paths: [appRoot] });
+    return appRoot;
+  } catch {
+    // core's package.json isn't in its "exports", so start from its entry and walk up.
+    let dir = path.dirname(require.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path.dirname(dir)) {
+      const pkgPath = path.join(dir, "package.json");
+      if (existsSync(pkgPath) && (JSON.parse(readFileSync(pkgPath, "utf-8")) as { name?: string }).name === "@devorajs/core") {
+        return dir;
+      }
+      dir = path.dirname(dir);
+    }
+    return appRoot;
+  }
 }

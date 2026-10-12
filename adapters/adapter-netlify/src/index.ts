@@ -1,8 +1,8 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { AppConfig, AuthMode, AppRuntimeConfig, RenderMode } from "@devorajs/core";
+import type { AppConfig, AuthMode, AppRuntimeConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
@@ -17,7 +17,10 @@ export interface NetlifyOutputOptions {
   apiDir?: string;
   /** app.config.ts `trustProxy`. Default true here: the function is only
    * reachable through Netlify's edge. An explicit false is respected. */
-  trustProxy?: boolean;
+  trustProxy?: boolean | number;
+  /** app.config.ts `head` and `maxBodyBytes`, passed to the request handler. */
+  head?: HeadConfig;
+  maxBodyBytes?: number;
 }
 
 const require = createRequire(import.meta.url);
@@ -172,9 +175,9 @@ export async function writeNetlifyConfig(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir, trustProxy })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes })}\n` +
       `);\n\n` +
-      `export default async (request) => {\n` +
+      `export default async (request, context) => {\n` +
       `  const bodyBuf = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);\n` +
       `  const req = Readable.from(bodyBuf.length ? [bodyBuf] : []);\n` +
       `  const reqUrl = new URL(request.url);\n` +
@@ -184,7 +187,8 @@ export async function writeNetlifyConfig(
       // The request URL is Netlify's own record of the scheme the client
       // used, so it stands in for a TLS socket (trustProxy.ts reads
       // req.socket.encrypted) — no header needed for sessions.cookie.secure "auto".
-      `  req.socket = { encrypted: reqUrl.protocol === "https:" };\n\n` +
+      // context.ip is Netlify's own record of the client address (ctx.ip).
+      `  req.socket = { encrypted: reqUrl.protocol === "https:", remoteAddress: context?.ip };\n\n` +
       `  let statusCode = 200;\n` +
       `  const resHeaders = new Headers();\n` +
       `  const chunks = [];\n` +
@@ -238,7 +242,7 @@ export async function writeNetlifyConfig(
   // so vendoring it unconditionally failed that app's build outright with
   // "Cannot find module 'react-dom/package.json'" (found scaffolding a real
   // create-devora --scope=backend project).
-  await vendorRuntimeDependency(appRoot, "react", funcNodeModules);
+  await vendorRuntimeDependency(reactResolveBase(appRoot), "react", funcNodeModules);
   if (existsSync(path.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
@@ -275,4 +279,29 @@ export async function writeNetlifyConfig(
     `[adapter-netlify] wrote ${funcDir} for "${app.name}". Netlify picks it up via this app's ` +
       `netlify.toml — guide: ${NETLIFY_DOCS_URL}`
   );
+}
+
+/**
+ * Where to resolve `react` from for vendoring. Normally the app itself; a
+ * backend-only app has no react of its own (it renders no pages), but
+ * @devorajs/core imports it — as a peer, installed next to core — so resolve
+ * it from core's package directory instead. Before this, every backend-only
+ * build for this adapter failed with "Cannot find module 'react/package.json'".
+ */
+function reactResolveBase(appRoot: string): string {
+  try {
+    require.resolve("react/package.json", { paths: [appRoot] });
+    return appRoot;
+  } catch {
+    // core's package.json isn't in its "exports", so start from its entry and walk up.
+    let dir = path.dirname(require.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path.dirname(dir)) {
+      const pkgPath = path.join(dir, "package.json");
+      if (existsSync(pkgPath) && (JSON.parse(readFileSync(pkgPath, "utf-8")) as { name?: string }).name === "@devorajs/core") {
+        return dir;
+      }
+      dir = path.dirname(dir);
+    }
+    return appRoot;
+  }
 }

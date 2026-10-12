@@ -8,8 +8,7 @@ import fs from "node:fs";
  * request time, but a route only reachable via a rare code path (an
  * unusual form submission, an admin-only branch) could sit broken for a
  * long time before anyone hits it live. This scans route source directly
- * (same plain-regex-over-raw-source approach `discoverIslandFiles.ts`
- * already uses, deliberately not a full AST parse — see that file) so a
+ * (a plain regex over raw source, deliberately not a full AST parse) so a
  * build fails immediately instead of waiting for the request that would
  * have thrown.
  *

@@ -72,18 +72,18 @@ jobs:
       # documented in README.md); the build/typecheck steps below don't
       # need repeating three times with identical inputs once install is
       # confirmed to have linked the workspace correctly.
-      - name: Typecheck @devorajs/core, @devorajs/scaffold, create-devora
+      - name: Typecheck @devorajs/core, @devorajs/cli, the adapters, @devorajs/scaffold, create-devora
         if: matrix.package-manager == 'pnpm'
         run: |
           pnpm --filter @devorajs/core exec tsc --noEmit
+          pnpm --filter @devorajs/cli exec tsc --noEmit
+          pnpm --filter @devorajs/adapter-vercel exec tsc --noEmit
+          pnpm --filter @devorajs/adapter-netlify exec tsc --noEmit
           pnpm --filter @devorajs/scaffold exec tsc --noEmit
           pnpm --filter create-devora exec tsc --noEmit
-        # Deliberately not gating on packages/cli's own standalone `tsc
-        # --noEmit` here — it has 3 pre-existing `noUncheckedIndexedAccess`
-        # errors unrelated to its real build path (it ships via esbuild
-        # bundling, never through tsc — see packages/cli/build.mjs), a
-        # known, already-documented gap, not something this workflow is
-        # silently ignoring.
+        # packages/cli's 3 old noUncheckedIndexedAccess errors went away with
+        # the round-3 island rewrite, so it's gated now. adapter-node isn't:
+        # it has no @types/node devDependency yet (pre-existing).
 
       - name: Rebuild CLI bundle
         if: matrix.package-manager == 'pnpm'
@@ -93,12 +93,20 @@ jobs:
         if: matrix.package-manager == 'pnpm'
         run: pnpm run test
 
+      # Fresh create-devora projects (full-stack and backend-only), installed
+      # from the packed tarballs and typechecked with their own `typecheck`
+      # script — tests the published .d.ts files the way a user gets them.
+      - name: Typecheck a fresh scaffold against the built packages
+        if: matrix.package-manager == 'pnpm'
+        run: node scripts/typecheck-fresh-scaffold.mjs
+
       - name: Build every app (plain, adapter-node target)
         if: matrix.package-manager == 'pnpm'
         run: |
           node packages/cli/dist/index.js build --app=marketing
           node packages/cli/dist/index.js build --app=dashboard
           node packages/cli/dist/index.js build --app=admin
+          node packages/cli/dist/index.js build --app=api-only
 
       - name: Build every app (--adapter=vercel)
         if: matrix.package-manager == 'pnpm'
@@ -106,6 +114,7 @@ jobs:
           node packages/cli/dist/index.js build --app=marketing --adapter=vercel
           node packages/cli/dist/index.js build --app=dashboard --adapter=vercel
           node packages/cli/dist/index.js build --app=admin --adapter=vercel
+          node packages/cli/dist/index.js build --app=api-only --adapter=vercel
 
       - name: Build every app (--adapter=netlify)
         if: matrix.package-manager == 'pnpm'
@@ -113,3 +122,4 @@ jobs:
           node packages/cli/dist/index.js build --app=marketing --adapter=netlify
           node packages/cli/dist/index.js build --app=dashboard --adapter=netlify
           node packages/cli/dist/index.js build --app=admin --adapter=netlify
+          node packages/cli/dist/index.js build --app=api-only --adapter=netlify

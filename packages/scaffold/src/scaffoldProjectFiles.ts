@@ -69,6 +69,9 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
           "dev:host": "devora dev --host",
           build: "devora build",
           start: "devora start",
+          // Typechecks every app and package against the installed
+          // framework's published types (tsconfig.json below).
+          typecheck: "tsc -p tsconfig.json",
         },
         // "workspaces" (npm/Yarn) alongside pnpm-workspace.yaml — same
         // dual-declaration devora.js's own root package.json uses, for the
@@ -92,9 +95,32 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
           "@devorajs/core": coreVersion,
           "@devorajs/cli": cliVersion,
         },
+        // Only for `npm run typecheck` / editors — the build itself
+        // (Vite + esbuild) never needs TypeScript, so these stay dev-only.
+        devDependencies: {
+          typescript: "^5.6.0",
+          "@types/node": "^22.0.0",
+          "@types/react": "^18.3.0",
+          "@types/react-dom": "^18.3.0",
+        },
         engines: {
           node: ">=20",
         },
+      },
+      null,
+      2
+    ) + "\n"
+  );
+
+  await writeFile(
+    path.join(projectRoot, "tsconfig.json"),
+    JSON.stringify(
+      {
+        extends: "./tsconfig.base.json",
+        compilerOptions: { noEmit: true },
+        include: ["devora.config.ts", "apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx"],
+        // Build output — adapter functions copy route sources into these.
+        exclude: ["**/node_modules", "**/dist", "**/netlify", "**/.vercel", "**/.netlify"],
       },
       null,
       2

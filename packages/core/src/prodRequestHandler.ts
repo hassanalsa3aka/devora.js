@@ -1,18 +1,26 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
 import { generateSitemapXml } from "./sitemap.js";
 import type { SessionCookieOptions } from "./session.js";
 import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
 import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
-import { resolveRenderMode } from "./renderRoute.js";
+import {
+  resolveRenderMode,
+  type RenderErrorOptions,
+  type RenderRouteRequest,
+  type RenderRouteResult,
+  type RenderStaticOptions,
+} from "./renderRoute.js";
+import type { RenderStreamingRequest, StreamingRenderResult } from "./renderStreaming.js";
+import { HttpError } from "./httpError.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
-import { readBodyWithLimit, PayloadTooLargeError } from "./readBody.js";
+import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, MAX_BODY_BYTES } from "./readBody.js";
 import { apiErrorResponse, apiNotFoundResponse, jsonMessageResponse } from "./httpError.js";
 import { isApiPath } from "./apiRoute.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
@@ -20,7 +28,9 @@ import type { RouteModule } from "./route.js";
 import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 import { resolveApiDir } from "./apiDir.js";
-import { isHttpsRequest } from "./trustProxy.js";
+import { describeRequest, isHttpsRequest } from "./trustProxy.js";
+import type { HeadConfig } from "./html.js";
+import type { ErrorPageModule } from "./route.js";
 
 /** Trailing options for `createProdRequestHandler` — optional so existing
  * generated Vercel/Netlify functions keep working unchanged. */
@@ -30,7 +40,11 @@ export interface ProdRequestHandlerOptions {
   /** app.config.ts `trustProxy` — believe `X-Forwarded-Proto` (trustProxy.ts).
    * Default false here; the generated Vercel/Netlify functions pass true
    * unless the app sets it to false. */
-  trustProxy?: boolean;
+  trustProxy?: boolean | number;
+  /** app.config.ts `head` — tags for every page's <head> (html.ts). */
+  head?: HeadConfig;
+  /** app.config.ts `maxBodyBytes` (default 10 MB). */
+  maxBodyBytes?: number;
 }
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
@@ -89,7 +103,7 @@ export function createProdRequestHandler(
       : createSessionOptionsResolver(authMode, appName, readSessionManifest(serverOutDir), () =>
           importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
         );
-  const trustProxy = options.trustProxy === true;
+  const trustProxy = options.trustProxy;
   const sessionOptionsForRequest = async (req: IncomingMessage): Promise<SessionCookieOptions | undefined> =>
     resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : undefined;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
@@ -98,6 +112,35 @@ export function createProdRequestHandler(
   // absent (and islandClientUrl undefined) for an app with no islands.
   const islandManifestPath = path.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path.join(serverOutDir, "csr-route-manifest.json");
+  const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const head = options.head;
+  // CSS each built page imports (buildAppServer.ts), keyed by build key.
+  const routeStyles = readRouteCssManifest(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
+  const hasEntryServer = existsSync(path.join(serverOutDir, "entry-server.js"));
+  const hasErrorPage = existsSync(path.join(serverOutDir, `${ERROR_PAGE_BUILD_KEY}.js`));
+  const loadErrorPage = async (): Promise<ErrorPageModule | undefined> =>
+    hasErrorPage ? ((await importBuilt(serverOutDir, ERROR_PAGE_BUILD_KEY)) as ErrorPageModule) : undefined;
+  const errorPageStyles = routeStyles[ERROR_PAGE_BUILD_KEY];
+
+  /**
+   * An HTML error page (the app's error.tsx, or the built-in one) for a page
+   * request — a 404 for an unmatched URL, a 413 for an oversized form. Falls
+   * back to `false` (the adapter's plain 404) for a backend-only app.
+   */
+  const sendErrorPage = async (res: ServerResponse, status: number, error?: unknown): Promise<boolean> => {
+    if (!hasEntryServer) return false;
+    const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
+    const renderError = entryServer.renderRoute?.renderError;
+    res.statusCode = status;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    if (typeof renderError !== "function") {
+      // An entry-server built by an older core has no error renderer.
+      res.end(`<!doctype html><title>${status}</title><h1>${status}</h1>`);
+      return true;
+    }
+    res.end(renderError({ status, error, head, errorPage: await loadErrorPage(), errorPageStyles }).html);
+    return true;
+  };
 
   return async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -136,7 +179,7 @@ export function createProdRequestHandler(
         const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
         let body: Buffer;
         try {
-          body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readRawBody(req);
+          body = req.method === "GET" || req.method === "HEAD" ? Buffer.from("") : await readBodyWithLimit(req, maxBodyBytes);
         } catch (err) {
           if (err instanceof PayloadTooLargeError) {
             sendApiResponse(res, jsonMessageResponse(413, err.message));
@@ -153,6 +196,7 @@ export function createProdRequestHandler(
           params: apiMatch.params,
           sessionCookieOptions: await sessionOptionsForRequest(req),
           body,
+          meta: describeRequest(req, trustProxy),
         });
 
         if (apiResult.setCookie) {
@@ -188,11 +232,13 @@ export function createProdRequestHandler(
     }
 
     const match = matchRoute(routesDir, url.pathname);
-    if (!match) return false;
+    if (!match) return sendErrorPage(res, 404);
 
     const buildKey = toBuildKey(appRoot, match.filePath);
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
+    const styles = routeStyles[buildKey];
+    const meta = describeRequest(req, trustProxy);
 
     if (renderMode === "streaming") {
       if (routeModule.action) {
@@ -201,23 +247,7 @@ export function createProdRequestHandler(
             `actions never run for streaming routes.`
         );
       }
-      const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-        renderStreaming: (
-          routeModule: RouteModule,
-          request: {
-            cookieHeader?: string;
-            params?: Record<string, string>;
-            authorizationHeader?: string | string[];
-            sessionCookieOptions?: SessionCookieOptions;
-            islandClientUrl?: string;
-            nonce?: string;
-          }
-        ) => Promise<{
-          status: number;
-          setCookie?: string[];
-          pipeTo: (destination: NodeJS.WritableStream, onError?: (error: unknown, phase: "shell" | "boundary") => void) => void;
-        } | null>;
-      };
+      const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
       const islandClientUrl = await readIslandClientUrl(islandManifestPath);
       // React's own inline Suspense-boundary-patch script needs this
       // response's real CSP nonce, in production exactly as much as dev —
@@ -234,8 +264,21 @@ export function createProdRequestHandler(
         sessionCookieOptions: await sessionOptionsForRequest(req),
         islandClientUrl,
         nonce,
+        meta,
+        head,
+        styles,
+        errorPage: await loadErrorPage(),
+        errorPageStyles,
       });
       if (!result) return false; // shouldn't happen — renderMode was resolved to "streaming" above.
+      if (result.error !== undefined && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
+      if (result.redirectTo) {
+        if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
+        res.statusCode = result.status;
+        res.setHeader("Location", result.redirectTo);
+        res.end();
+        return true;
+      }
 
       if (result.setCookie) {
         res.setHeader("Set-Cookie", result.setCookie);
@@ -265,7 +308,10 @@ export function createProdRequestHandler(
 
     if (renderMode === "csr") {
       const csrManifest = await readCsrManifest(csrManifestPath);
-      const html = renderCsrShell(routeModule, csrManifest.routes[buildKey], csrManifest.csrClientUrl);
+      const html = renderCsrShell(routeModule, csrManifest.routes[buildKey], csrManifest.csrClientUrl, undefined, {
+        appHead: head,
+        styles,
+      });
       res.statusCode = 200;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.end(html);
@@ -280,7 +326,7 @@ export function createProdRequestHandler(
         // build ran before this route existed (or without --app covering
         // it); honest 404 rather than silently rendering something the
         // build step never produced.
-        if (!cached) return false;
+        if (!cached) return sendErrorPage(res, 404);
       } else {
         // isr: regenerate synchronously once stale, then serve — simpler
         // and more deterministic than stale-while-revalidate for v1 (see
@@ -304,19 +350,20 @@ export function createProdRequestHandler(
           const allowed = declaredParams.some(
             (params) => resolveStaticRoutePath(routesDir, match.filePath, params) === match.routePath
           );
-          if (!allowed) return false; // honest 404 — never declared, never rendered.
+          if (!allowed) return sendErrorPage(res, 404); // honest 404 — never declared, never rendered.
         }
 
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || (revalidateSeconds !== undefined && isStale(cached.renderedAt, revalidateSeconds))) {
-          const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-            renderStatic: (
-              routeModule: RouteModule,
-              opts: { islandClientUrl?: string; params?: Record<string, string> }
-            ) => Promise<{ html: string }>;
-          };
+          const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
           const islandClientUrl = await readIslandClientUrl(islandManifestPath);
-          const { html } = await entryServer.renderStatic(routeModule, { islandClientUrl, params: match.params });
+          const { html } = await entryServer.renderStatic(routeModule, {
+            islandClientUrl,
+            params: match.params,
+            url: new URL(match.routePath, meta.url).href,
+            head,
+            styles,
+          });
           await writeCachedRoute(staticOutDir, match.routePath, html);
           cached = { html, renderedAt: Date.now() };
         }
@@ -328,32 +375,18 @@ export function createProdRequestHandler(
       return true;
     }
 
-    const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
-      renderRoute: (
-        routeModule: RouteModule,
-        request: {
-          method: string;
-          formData?: FormData;
-          cookieHeader?: string;
-          params?: Record<string, string>;
-          authorizationHeader?: string | string[];
-          sessionCookieOptions?: SessionCookieOptions;
-          islandClientUrl?: string;
-          appDefaultRenderMode?: RenderMode;
-        }
-      ) => Promise<{ status: number; html: string; setCookie?: string[]; redirectTo?: string } | null>;
-    };
+    const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
 
     const islandClientUrl = await readIslandClientUrl(islandManifestPath);
     let formData: FormData | undefined;
     try {
-      formData = req.method === "POST" ? await parseFormData(req) : undefined;
+      formData =
+        req.method === "POST"
+          ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"])
+          : undefined;
     } catch (err) {
-      if (err instanceof PayloadTooLargeError) {
-        res.statusCode = 413;
-        res.end(err.message);
-        return true;
-      }
+      if (err instanceof PayloadTooLargeError) return sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
+      if (err instanceof MalformedBodyError) return sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
       throw err;
     }
     const result = await entryServer.renderRoute(routeModule, {
@@ -365,9 +398,15 @@ export function createProdRequestHandler(
       sessionCookieOptions: await sessionOptionsForRequest(req),
       islandClientUrl,
       appDefaultRenderMode,
+      meta,
+      head,
+      styles,
+      errorPage: await loadErrorPage(),
+      errorPageStyles,
     });
 
     if (!result) return false; // shouldn't happen — renderMode was resolved to "ssr" above.
+    if (result.error !== undefined && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
 
     if (result.setCookie) {
       res.setHeader("Set-Cookie", result.setCookie);
@@ -516,16 +555,25 @@ function unwrapCjsDefaultInterop(mod: Record<string, unknown>): unknown {
   return mod;
 }
 
-async function parseFormData(req: IncomingMessage): Promise<FormData> {
-  const body = (await readBodyWithLimit(req)).toString("utf-8");
-  const formData = new FormData();
-  // .forEach(), not for-of — @types/node's URLSearchParams and the DOM
-  // lib's disagree on its iterator typing when both are in scope, which a
-  // real tsc build (this package never had one before) caught immediately.
-  new URLSearchParams(body).forEach((value, key) => formData.append(key, value));
-  return formData;
+/** Written by buildAppServer.ts: build key → URLs of the CSS that page imports. */
+export const ROUTE_CSS_MANIFEST_FILE = "route-css-manifest.json";
+/** Build key of the app's error.tsx (buildAppServer.ts). */
+export const ERROR_PAGE_BUILD_KEY = "error-page";
+
+function readRouteCssManifest(manifestPath: string): Record<string, string[]> {
+  if (!existsSync(manifestPath)) return {};
+  try {
+    return JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, string[]>;
+  } catch {
+    return {};
+  }
 }
 
-async function readRawBody(req: IncomingMessage): Promise<Buffer> {
-  return readBodyWithLimit(req);
+/** What a built entry-server.js exports (see apps/*\/entry-server.tsx). */
+interface EntryServerModule {
+  renderRoute: ((routeModule: RouteModule, request: RenderRouteRequest) => Promise<RenderRouteResult | null>) & {
+    renderError?: (options: RenderErrorOptions) => { status: number; html: string };
+  };
+  renderStatic: (routeModule: RouteModule, options: RenderStaticOptions) => Promise<{ html: string }>;
+  renderStreaming: (routeModule: RouteModule, request: RenderStreamingRequest) => Promise<StreamingRenderResult | null>;
 }

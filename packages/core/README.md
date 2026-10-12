@@ -35,6 +35,11 @@ installing it into an unrelated project won't do much on its own.
   leaving the React ecosystem.
 - **Config loading** (`@devorajs/core/config-loader`) — reads `devora.config.ts`/`app.config.ts`.
 
+## Page routes
+
+Request access, action results, error pages, the head API, route CSS and islands: see
+[PAGES.md](https://github.com/hassanalsa3aka/devora.js/blob/main/PAGES.md).
+
 ## Hardening (v2)
 
 Request bodies are capped by default (`readBodyWithLimit`), a streaming response times out rather

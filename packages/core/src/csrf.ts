@@ -17,7 +17,7 @@
  * description of this pattern.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { createElement } from "react";
+import { createElement, type ReactElement } from "react";
 
 export const CSRF_COOKIE_NAME = "devora_csrf";
 export const CSRF_FORM_FIELD = "_csrf";
@@ -48,6 +48,6 @@ export function verifyCsrfToken(cookieValue: string | undefined, formValue: Form
 }
 
 /** A route renders this inside its `<form>` instead of hand-rolling the hidden input. */
-export function CsrfField({ token }: { token?: string }): unknown {
+export function CsrfField({ token }: { token?: string }): ReactElement {
   return createElement("input", { type: "hidden", name: CSRF_FORM_FIELD, value: token ?? "" });
 }

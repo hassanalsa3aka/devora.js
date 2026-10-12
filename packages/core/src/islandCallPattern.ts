@@ -4,9 +4,11 @@
  * needed because build-time discovery reads raw, untransformed source
  * (types haven't been stripped yet).
  *
- * Shared by packages/cli's dev plugin (islandsPlugin.ts), its production
- * counterpart (islandsBuildPlugin.ts), and build-time discovery
- * (discoverIslandFiles.ts) specifically so they can't drift apart — they
+ * No longer used by the framework itself since round 3 — the dev and build
+ * plugins find island() calls with the parser instead (packages/cli's
+ * islandCalls.ts), in every module rather than route files only. Kept
+ * exported for code that used it. History: it was shared by the dev plugin,
+ * the build plugin and build-time discovery specifically so they can't drift apart — they
  * used to each define their own copy, and that's exactly how a real bug
  * happened: discovery's copy didn't handle the generic-argument case, so
  * it silently found zero islands for a route using `island<Props>(...)`

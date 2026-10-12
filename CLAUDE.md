@@ -367,7 +367,10 @@ truth; `CHANGELOG.md` has the per-phase list. Phase 1: Vercel runtime no longer 
 (new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
 `secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
 false` (validated per app into `session-manifest.json`), `devora start` PORT/HOST, `--adapter`
-validation, a Netlify multi-`Set-Cookie` fix.
+validation, a Netlify multi-`Set-Cookie` fix. Phase 3 (`PAGES.md`): `ctx.url/headers/ip/request`,
+`actionData`/`fail()`/303, page errors keep their status + `error.tsx`, head API, framework theme
+only with `PageShell`, route CSS linked, islands discovered by the SSR build (AST-checked), multipart
+uploads + `maxBodyBytes`, build imports only ssg/isr routes, fresh-scaffold typecheck in CI.
 
 ## Suggested next task
 

@@ -1,9 +1,14 @@
 import { PassThrough } from "node:stream";
 import { createRequestContext, createNoAuthContext } from "./session.js";
 import { IslandStreamingContext, type StreamingIslandTracker } from "./islandComponent.js";
-import { renderDocumentHead, renderDocumentTail } from "./html.js";
-import type { RouteModule } from "./route.js";
+import { renderDocumentHead, renderDocumentTail, type HeadConfig } from "./html.js";
+import { ShellUsageContext } from "./branding.js";
+import { isRedirectResult, redirectStatus } from "./actionResult.js";
+import { getHttpErrorStatus } from "./httpError.js";
+import { publicErrorMessage } from "./renderRoute.js";
+import type { ErrorPageModule, RouteModule } from "./route.js";
 import type { SessionCookieOptions } from "./session.js";
+import type { RequestMeta } from "./serverFn.js";
 import type { RenderMode } from "./config.js";
 
 /**
@@ -18,8 +23,9 @@ import type { RenderMode } from "./config.js";
  * this is a second, independent reason this render mode doesn't support it.
  */
 export interface RenderStreamingDeps {
-  createElement: (type: unknown, props: unknown, ...children: unknown[]) => unknown;
-  renderToPipeableStream: (
+  // Method syntax so React's real signatures are assignable — see RenderRouteDeps.
+  createElement(type: unknown, props: unknown, ...children: unknown[]): unknown;
+  renderToPipeableStream(
     element: unknown,
     options: {
       onShellReady?: () => void;
@@ -35,7 +41,7 @@ export interface RenderStreamingDeps {
        * `'self'` in script-src already allows without needing the nonce. */
       nonce?: string;
     }
-  ) => { pipe: (dest: NodeJS.WritableStream) => void; abort: (reason?: unknown) => void };
+  ): { pipe: (dest: NodeJS.WritableStream) => void; abort: (reason?: unknown) => void };
 }
 
 export interface RenderStreamingRequest {
@@ -58,6 +64,12 @@ export interface RenderStreamingRequest {
   /** Overrides `DEFAULT_STREAM_TIMEOUT_MS` — see that constant's doc
    * comment. Exposed mainly for tests; real callers should rarely need it. */
   streamTimeoutMs?: number;
+  /** See RenderRouteRequest. */
+  meta?: RequestMeta;
+  head?: HeadConfig;
+  styles?: string[];
+  errorPage?: ErrorPageModule;
+  errorPageStyles?: string[];
 }
 
 /**
@@ -81,6 +93,10 @@ export const DEFAULT_STREAM_TIMEOUT_MS = 30_000;
 export interface StreamingRenderResult {
   status: number;
   setCookie?: string[];
+  /** Set when the loader returned/threw `redirect()` — send it instead of piping. */
+  redirectTo?: string;
+  /** What the loader threw, when this result streams the error page instead (for logging). */
+  error?: unknown;
   /**
    * Starts writing to `destination` immediately (the document head, then
    * React's own streamed output, then the document tail once React's
@@ -113,9 +129,10 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       ? await createRequestContext(
           { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
           request.sessionCookieOptions,
-          request.params
+          request.params,
+          request.meta
         )
-      : createNoAuthContext(request.params);
+      : createNoAuthContext(request.params, request.meta);
 
     // Awaited before any HTML is written — real headers (including
     // Set-Cookie) must be decided before a streaming response starts, and
@@ -123,19 +140,51 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     // time `createRequestContext` above returns (loader can't add a new
     // one; only setSession()/clearSession() can, and those aren't
     // reachable without an `action`, which this render mode doesn't run).
-    const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+    // Nothing has been sent yet, so a loader failure can still become a real
+    // error status (and the app's error page), and a redirect a real redirect.
+    let status = 200;
+    let loaderError: unknown;
+    let data: unknown;
+    let meta;
+    let page: unknown;
+    let styles = request.styles;
+    try {
+      data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+      if (isRedirectResult(data)) {
+        await settle();
+        return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+      }
+      meta = routeModule.meta?.(data);
+      page = deps.createElement(routeModule.default as never, { data, csrfToken: undefined });
+    } catch (error) {
+      if (isRedirectResult(error)) {
+        await settle().catch(() => {});
+        return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+      }
+      loaderError = error;
+      status = getHttpErrorStatus(error) ?? 500;
+      const props = { status, message: publicErrorMessage(status, error) };
+      const errorComponent =
+        typeof request.errorPage?.default === "function"
+          ? request.errorPage.default
+          : () => deps.createElement("main", { className: "devora-page devora-error" }, deps.createElement("h1", null, String(status)), deps.createElement("p", null, props.message));
+      meta = request.errorPage?.meta?.(props) ?? { title: `${status} — ${props.message}` };
+      page = deps.createElement(errorComponent as never, props);
+      styles = request.errorPage ? request.errorPageStyles : undefined;
+    }
     await settle();
-    const meta = routeModule.meta?.(data);
 
     const islandTracker: StreamingIslandTracker = { hasIsland: false };
+    const shellUsage = { used: loaderError !== undefined && !request.errorPage };
     const element = deps.createElement(
-      IslandStreamingContext.Provider,
-      { value: islandTracker },
-      deps.createElement(routeModule.default as never, { data, csrfToken: undefined })
+      ShellUsageContext.Provider,
+      { value: shellUsage },
+      deps.createElement(IslandStreamingContext.Provider, { value: islandTracker }, page)
     );
 
     return {
-      status: 200,
+      status,
+      error: loaderError,
       setCookie: getSetCookie(),
       pipeTo(destination, onError) {
         let shellSent = false;
@@ -181,7 +230,8 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
           nonce: request.nonce,
           onShellReady() {
             shellSent = true;
-            destination.write(renderDocumentHead(meta));
+            // The shell has rendered, so PageShell/AppHeader usage is known (theme: "auto").
+            destination.write(renderDocumentHead(meta, { appHead: request.head, styles, usedShell: shellUsage.used }));
 
             passThrough = new PassThrough();
             pipe(passThrough);

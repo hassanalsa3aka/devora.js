@@ -174,7 +174,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       `  "extends": "../../tsconfig.base.json",\n` +
       `  "compilerOptions": { "outDir": "dist", "rootDir": "." },\n` +
       `  "include": ["**/*.ts", "**/*.tsx"],\n` +
-      `  "exclude": ["dist", "node_modules"]\n` +
+      // Build output (adapter functions copy route sources) isn't the app's code.
+      `  "exclude": ["dist", "node_modules", "netlify", ".vercel", ".netlify"]\n` +
       `}\n`
   );
 
@@ -205,6 +206,8 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `  // public-facing app; leave off for an internal one.\n` +
         `  sitemap: false,\n` +
         API_DIR_CONFIG_LINES +
+        `  // Tags for every page's <head> (a route adds its own via meta().head):\n` +
+        `  // head: { lang: "en", stylesheets: ["/styles.css"], links: [{ rel: "icon", href: "/favicon.png" }] },\n` +
         `});\n`
     );
 
@@ -251,6 +254,27 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
     // the framework's own dev server (packages/cli/src/server/
     // reactRefreshPreamblePlugin.ts + html.ts's `renderTail`), as a separate
     // script tag emitted *before* these — nothing app-specific to add here.
+    await writeFile(
+      path.join(appDir, "error.tsx"),
+      `import { PageShell, type ErrorPageProps } from "@devorajs/core";\n\n` +
+        `// Rendered for unmatched URLs (404) and for errors a page throws — an\n` +
+        `// HttpError keeps its status (401 from ctx.requireAuth(), 403 from\n` +
+        `// ctx.verifyCsrf(), your own 400/404). \`message\` is safe to show: for an\n` +
+        `// unexpected error it's just "Internal Server Error" in production.\n` +
+        `export function meta({ status }: ErrorPageProps) {\n` +
+        `  return { title: status === 404 ? "Not found" : \`Error \${status}\` };\n` +
+        `}\n\n` +
+        `export default function ErrorPage({ status, message }: ErrorPageProps) {\n` +
+        `  return (\n` +
+        `    <PageShell appName="${appName}">\n` +
+        `      <h1>{status}</h1>\n` +
+        `      <p>{message}</p>\n` +
+        `      <p><a href="/">Back to the home page</a></p>\n` +
+        `    </PageShell>\n` +
+        `  );\n` +
+        `}\n`
+    );
+
     await writeFile(
       path.join(appDir, "island-client.tsx"),
       `import { hydrateIslands } from "@devorajs/core/client";\n\n` +

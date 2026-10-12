@@ -29,7 +29,7 @@ describe("readBodyWithLimit — real bug: unbounded request-body buffering (DoS)
     await expect(readBodyWithLimit(stream, 2048)).rejects.toThrow(PayloadTooLargeError);
   });
 
-  it("destroys the underlying stream the moment the limit is exceeded, instead of reading it to completion", async () => {
+  it("an overflowing body is discarded, not buffered; past twice the limit the stream is destroyed", async () => {
     const bigChunk = Buffer.alloc(1024, "x");
     const stream = fakeStream([bigChunk, bigChunk, bigChunk]);
     try {
@@ -38,6 +38,25 @@ describe("readBodyWithLimit — real bug: unbounded request-body buffering (DoS)
       // expected
     }
     expect(stream.destroyed).toBe(true);
+  });
+
+  it("just over the limit: rejected, but drained instead of destroyed — so the client can still get a 413", async () => {
+    const stream = fakeStream([Buffer.alloc(1024, "x"), Buffer.alloc(600, "x")]);
+    await expect(readBodyWithLimit(stream, 1500)).rejects.toThrow(PayloadTooLargeError);
+    expect(stream.destroyed).toBe(false);
+  });
+
+  it("a declared Content-Length over the limit is rejected before reading anything", async () => {
+    let read = false;
+    const stream = {
+      headers: { "content-length": "5000" },
+      async *[Symbol.asyncIterator]() {
+        read = true;
+        yield Buffer.from("x");
+      },
+    };
+    await expect(readBodyWithLimit(stream, 1000)).rejects.toThrow(PayloadTooLargeError);
+    expect(read).toBe(false);
   });
 
   it("a body exactly at the limit is accepted, one byte over is rejected", async () => {

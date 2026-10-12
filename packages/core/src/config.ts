@@ -1,3 +1,5 @@
+import type { HeadConfig } from "./html.js";
+
 /**
  * Config surface for devora.config.ts (project-level) and
  * apps/<name>/app.config.ts (app-level). Kept deliberately small and
@@ -165,6 +167,19 @@ export interface RevalidateConfig {
 }
 
 export interface AppRuntimeConfig {
+  /**
+   * Tags for every page's `<head>` — stylesheets, fonts, manifest, icon,
+   * meta, external scripts, `<html lang>` — and whether the framework's
+   * theme stylesheet is included (see HeadConfig in html.ts). A route adds
+   * its own through `meta()`'s `head`.
+   */
+  head?: HeadConfig;
+  /**
+   * Largest request body accepted, in bytes — page-action forms (uploads
+   * included) and API routes alike. Larger bodies get a 413. Default
+   * 10485760 (10 MB).
+   */
+  maxBodyBytes?: number;
   /** Default render mode for routes in this app that don't set their own. */
   defaultRenderMode?: RenderMode;
   /** Security headers, overridable per app per doc §7. */
@@ -193,15 +208,17 @@ export interface AppRuntimeConfig {
    */
   csrf?: boolean;
   /**
-   * Trust the `X-Forwarded-Proto` header from a reverse proxy in front of
-   * this app (nginx/Caddy from `devora generate:proxy`, a load balancer).
+   * Trust `X-Forwarded-Proto`/`-Host`/`-For` from a reverse proxy in front
+   * of this app (nginx/Caddy from `devora generate:proxy`, a load balancer):
+   * `true` trusts one proxy, a number trusts that many in a chain (a CDN in
+   * front of nginx = 2).
    * Only enable it when the app is reachable *only* through that proxy —
    * otherwise a client can send the header itself. Used for
-   * `sessions.cookie.secure: "auto"`. Default false for `devora start`;
+   * `sessions.cookie.secure: "auto"`, `ctx.url` and `ctx.ip`. Default false for `devora start`;
    * true inside the generated Vercel/Netlify functions, which only the
    * platform's own edge can reach (set it to false to opt out).
    */
-  trustProxy?: boolean;
+  trustProxy?: boolean | number;
   /**
    * Serve /sitemap.xml for this app (§8). Opt-in, default false — a safer
    * default than opt-out: a newly scaffolded internal/admin app stays

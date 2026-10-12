@@ -13,10 +13,53 @@
 /** How the current session reached the server — see session.ts. */
 export type SessionTransport = "cookie" | "bearer";
 
+/**
+ * Augment this to type `ctx.session` and `ctx.setSession()` across an app,
+ * instead of casting `unknown` in every route:
+ *
+ *   declare module "@devorajs/core" {
+ *     interface Register { session: { userId: string } }
+ *   }
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface Register {}
+
+/** `Register["session"]` if the app declared one, else `unknown`. */
+export type SessionData = Register extends { session: infer S } ? S : unknown;
+
+/**
+ * What the transport layer knows about a request — the source of `ctx.url`,
+ * `ctx.headers`, `ctx.method` and `ctx.ip`. Built by the dev server and the
+ * production handler (trustProxy.ts's `describeRequest`).
+ */
+export interface RequestMeta {
+  /** Absolute URL as the client requested it (scheme/host via trustProxy.ts). */
+  url: string;
+  method: string;
+  headers: Record<string, string | string[] | undefined>;
+  ip?: string;
+}
+
 export interface RequestContext {
   /** Values captured from any `[param]` segments in the matched route file's
    * path (router.ts) — empty object for a route with no dynamic segments. */
   params: Record<string, string>;
+  /** The request URL, query string included (`ctx.url.searchParams.get("q")`).
+   * At build time (ssg/isr) it's the page's own URL with no query. */
+  url: URL;
+  /** Request headers (a standard `Headers`; empty at build time). */
+  headers: Headers;
+  method: string;
+  /**
+   * The client's IP address: the socket's peer address, or — with
+   * `trustProxy` in app.config.ts — the address the trusted proxy saw
+   * (from `X-Forwarded-For`). Undefined at build time.
+   */
+  ip: string | undefined;
+  /** A standard `Request` for this request (for libraries that expect one).
+   * It has no body: an action's body is its `formData`, an API route's is
+   * `req.body`. */
+  readonly request: Request;
   /**
    * Throws a 401 `HttpError` if there is no valid session. Checks both
    * transports through the same lookup: an `Authorization: Bearer <id>`
@@ -24,8 +67,9 @@ export interface RequestContext {
    * HttpOnly session cookie (browsers). Session shape is bring-your-own.
    */
   requireAuth: () => void;
-  /** The current session's data, if any — undefined when unauthenticated. */
-  session: unknown | undefined;
+  /** The current session's data, if any — undefined when unauthenticated.
+   * Typed via `Register` (see above), `unknown` otherwise. */
+  session: SessionData | undefined;
   /** Which transport authenticated this request, or undefined if none did. */
   readonly sessionTransport: SessionTransport | undefined;
   /**
@@ -43,7 +87,7 @@ export interface RequestContext {
    * had (prevents session fixation). The framework waits for the store
    * write before responding even if this isn't awaited.
    */
-  setSession: (data: unknown, options?: { transport?: SessionTransport }) => Promise<string>;
+  setSession: (data: SessionData, options?: { transport?: SessionTransport }) => Promise<string>;
   /**
    * Revokes a session server-side — immediately dead on every transport,
    * not just forgotten by this client. With no argument, the current
@@ -80,6 +124,56 @@ export interface RequestContext {
    * own" boundary as DB/auth (architecture-v2.md §3.2.2).
    */
   verifyCsrf: (submitted: FormData | string) => void;
+}
+
+const DEFAULT_REQUEST_META: RequestMeta = { url: "http://localhost/", method: "GET", headers: {} };
+
+/**
+ * The request-describing part of a `RequestContext`. Callers that predate
+ * `RequestMeta` (an older CLI driving a newer app core) pass nothing and
+ * get a localhost GET with no headers rather than a crash.
+ */
+export function requestContextFields(
+  meta: RequestMeta | undefined
+): Pick<RequestContext, "url" | "headers" | "method" | "ip" | "request"> {
+  const source = meta ?? DEFAULT_REQUEST_META;
+  let url: URL;
+  try {
+    url = new URL(source.url);
+  } catch {
+    url = new URL(DEFAULT_REQUEST_META.url);
+  }
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(source.headers)) {
+    if (value === undefined) continue;
+    // A value the Fetch spec's Headers rejects (it's stricter than Node's
+    // parser) is dropped rather than failing the whole request.
+    for (const item of Array.isArray(value) ? value : [value]) {
+      try {
+        headers.append(name, item);
+      } catch {
+        // skip
+      }
+    }
+  }
+  let request: Request | undefined;
+  return {
+    url,
+    headers,
+    method: source.method,
+    ip: source.ip,
+    get request() {
+      if (!request) {
+        try {
+          request = new Request(url, { method: source.method, headers });
+        } catch {
+          // A method the Fetch spec forbids (CONNECT/TRACE): describe it as a GET.
+          request = new Request(url, { headers });
+        }
+      }
+      return request;
+    },
+  };
 }
 
 export type ServerFn<Input, Output> = (input: Input, ctx: RequestContext) => Promise<Output>;

@@ -6,8 +6,20 @@
  * `THEME_CSS` (classNames here, not inline styles, so the whole theme is
  * edited in one place); this file only supplies the markup.
  */
-import { createElement, type ReactNode } from "react";
+import { createContext, createElement, useContext, type ReactNode } from "react";
 import { DEVORA_LOGO_URL } from "./theme.js";
+
+/**
+ * Set by the server renderer for one page render; PageShell/AppHeader mark
+ * it, which is how `head.theme: "auto"` knows the page needs the framework
+ * stylesheet (html.ts). A page that never renders them gets no global CSS.
+ */
+export const ShellUsageContext = createContext<{ used: boolean } | null>(null);
+
+function useMarkShellUsed(): void {
+  const usage = useContext(ShellUsageContext);
+  if (usage) usage.used = true;
+}
 
 export interface NavLink {
   label: string;
@@ -15,6 +27,7 @@ export interface NavLink {
 }
 
 export function AppHeader({ appName, nav }: { appName?: string; nav?: NavLink[] }) {
+  useMarkShellUsed();
   return (
     <header className="devora-header">
       <div className="devora-header-left">
@@ -63,6 +76,7 @@ export function PageShell({
   footer?: ReactNode;
   children: ReactNode;
 }) {
+  useMarkShellUsed();
   return (
     <>
       <AppHeader appName={appName} nav={nav} />

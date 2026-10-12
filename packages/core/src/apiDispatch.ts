@@ -9,6 +9,7 @@
  */
 import { createRequestContext, createNoAuthContext } from "./session.js";
 import type { SessionCookieOptions } from "./session.js";
+import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
 
@@ -23,6 +24,8 @@ export interface ApiDispatchRequest {
   /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
   sessionCookieOptions?: SessionCookieOptions;
   body: Buffer;
+  /** For `ctx.url`/`ctx.headers`/`ctx.ip` (trustProxy.ts's describeRequest). */
+  meta?: RequestMeta;
 }
 
 export interface ApiDispatchResult extends ApiResponse {
@@ -68,9 +71,10 @@ export async function dispatchApiRoute(
       ? await createRequestContext(
           { cookieHeader: request.cookieHeader, authorizationHeader: request.headers.authorization },
           request.sessionCookieOptions,
-          request.params
+          request.params,
+          request.meta
         )
-      : createNoAuthContext(request.params);
+      : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();

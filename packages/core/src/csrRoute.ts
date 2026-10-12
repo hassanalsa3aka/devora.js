@@ -9,14 +9,15 @@
  * a marker the generic csr-client bootstrap (apps/*\/csr-client.tsx) can
  * find to mount the real component into.
  */
-import { renderHtmlDocument, escapeHtml } from "./html.js";
+import { renderHtmlDocument, escapeHtml, type HeadConfig } from "./html.js";
 import type { RouteModule } from "./route.js";
 
 export function renderCsrShell(
   routeModule: RouteModule,
   entryUrl: string | undefined,
   csrClientUrl: string | undefined,
-  devPreambleUrl?: string
+  devPreambleUrl?: string,
+  head: { appHead?: HeadConfig; styles?: string[] } = {}
 ): string {
   const meta = routeModule.meta?.(undefined);
   const canMount = entryUrl !== undefined && csrClientUrl !== undefined;
@@ -26,5 +27,7 @@ export function renderCsrShell(
     meta,
     csrScriptUrl: canMount ? csrClientUrl : undefined,
     devPreambleUrl: canMount ? devPreambleUrl : undefined,
+    // Rendered in the browser, so whether it uses PageShell can't be known here.
+    head: { ...head, clientRendered: true },
   });
 }

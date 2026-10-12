@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { ISLAND_CALL_RE } from "@devorajs/core";
+import { findIslandCalls, insertIslandUrls, originalLocation, UNSUPPORTED_ISLAND_CALL_MESSAGE } from "./build/islandCalls.js";
 
 /**
  * Resolves `island(() => import("./Chart"))` calls into
@@ -9,10 +9,10 @@ import { ISLAND_CALL_RE } from "@devorajs/core";
  * `/@fs/<absolute path>` regardless of project root — a real, documented
  * Vite dev-server feature, not something this plugin invents.
  *
- * Deliberately a regex scan, not a full AST transform — matches only the
- * literal call shape `island(() => import("specifier"))`, optionally with a
- * TS generic (`island<Props>(...)`); no dynamic or computed specifiers, no
- * other wrapping. See ROADMAP.md #3.
+ * Calls are found with the parser (islandCalls.ts), in any module — the
+ * same rule the production build applies, so an island that works in dev
+ * works after `devora build`, and an unsupported call shape is an error in
+ * both instead of an island that silently never hydrates.
  */
 export function islandsPlugin(): Plugin {
   return {
@@ -21,23 +21,26 @@ export function islandsPlugin(): Plugin {
       // "island" not "island(" — the generic form (island<Props>(...)) has
       // no literal "island(" substring; this fast-path check missed it
       // until caught while wiring production hydration (ROADMAP.md #4).
-      if (id.includes("node_modules") || !/\.(tsx|ts)$/.test(id) || !code.includes("island")) {
+      if (id.includes("node_modules") || id.startsWith("\0") || !/\.(tsx|ts|jsx|js|mjs)$/.test(id) || !code.includes("island")) {
         return null;
       }
-
-      const matches = [...code.matchAll(ISLAND_CALL_RE)];
-      if (matches.length === 0) return null;
-
-      let result = code;
-      for (const match of matches) {
-        const [original, , specifier] = match;
-        const resolved = await this.resolve(specifier, id);
-        if (!resolved) continue; // let the app's own import() error surface normally
-        const clientUrl = `/@fs${resolved.id}`;
-        const replaced = original.slice(0, -1) + `, ${JSON.stringify(clientUrl)})`;
-        result = result.replace(original, replaced);
+      const { supported, unsupported } = findIslandCalls(this.parse(code) as never);
+      if (unsupported.length > 0) {
+        // Point at the line the developer wrote, not esbuild's output.
+        const loc = originalLocation(code, unsupported[0]!.start, this.getCombinedSourcemap());
+        if (loc) this.error({ message: UNSUPPORTED_ISLAND_CALL_MESSAGE, id, loc: { file: id, ...loc } });
+        this.error(UNSUPPORTED_ISLAND_CALL_MESSAGE, unsupported[0]!.start);
       }
-      return { code: result, map: null };
+
+      const edits: { insertAt: number; url: string }[] = [];
+      for (const call of supported) {
+        if (call.alreadyResolved) continue;
+        const resolved = await this.resolve(call.specifier!, id);
+        if (!resolved) continue; // let the app's own import() error surface normally
+        edits.push({ insertAt: call.insertAt!, url: `/@fs${resolved.id.split("?")[0]}` });
+      }
+      if (edits.length === 0) return null;
+      return { code: insertIslandUrls(code, edits), map: null };
     },
   };
 }

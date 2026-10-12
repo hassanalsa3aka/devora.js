@@ -102,6 +102,10 @@ export async function bundleForDeploy(
   // module both it and an API route import is one shared instance, not two.
   const sessionStorePath = path.join(serverOutDir, "session-store.js");
   if (existsSync(sessionStorePath)) entryPoints.push(sessionStorePath);
+  // The app's error page (error.tsx → dist/server/error-page.js), imported at
+  // request time like the routes, so bundled with them.
+  const errorPagePath = path.join(serverOutDir, "error-page.js");
+  if (existsSync(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,

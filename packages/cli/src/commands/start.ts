@@ -72,6 +72,8 @@ export async function start(opts: { app?: string; port?: string; host?: string }
       defaultRenderMode: appConfig.defaultRenderMode,
       apiDir: appConfig.apiDir,
       trustProxy: appConfig.trustProxy,
+      head: appConfig.head,
+      maxBodyBytes: appConfig.maxBodyBytes,
       port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
       host,
     });

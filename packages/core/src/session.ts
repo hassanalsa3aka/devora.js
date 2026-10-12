@@ -32,7 +32,7 @@
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { AuthMode } from "./config.js";
-import type { RequestContext, SessionTransport } from "./serverFn.js";
+import { requestContextFields, type RequestContext, type RequestMeta, type SessionData, type SessionTransport } from "./serverFn.js";
 import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
 import { HttpError } from "./httpError.js";
 import { getSessionState, type SessionRecord, type SessionState, type SessionStore } from "./sessionStore.js";
@@ -339,8 +339,10 @@ export interface RequestContextResult {
 export async function createRequestContext(
   request: SessionRequestInfo,
   opts: SessionCookieOptions,
-  params: Record<string, string> = {}
+  params: Record<string, string> = {},
+  meta?: RequestMeta
 ): Promise<RequestContextResult> {
+  const fields = requestContextFields(meta);
   const cookies = parseCookieHeader(request.cookieHeader);
   const resolved = await resolveSession(request, opts);
   const pendingSetCookies: string[] = [];
@@ -408,8 +410,15 @@ export async function createRequestContext(
 
   const ctx: RequestContext = {
     params,
+    url: fields.url,
+    headers: fields.headers,
+    method: fields.method,
+    ip: fields.ip,
+    get request() {
+      return fields.request;
+    },
     get session() {
-      return currentRecord?.data;
+      return currentRecord?.data as SessionData | undefined;
     },
     get sessionTransport() {
       return transport;
@@ -419,7 +428,7 @@ export async function createRequestContext(
         throw new HttpError(401, "Authentication required");
       }
     },
-    setSession: (data: unknown, options?: { transport?: SessionTransport }) => {
+    setSession: (data: SessionData, options?: { transport?: SessionTransport }) => {
       // A new login always gets a new ID (rotating away from any session
       // this request already had) — prevents session fixation.
       const nextTransport = options?.transport ?? transport ?? "cookie";
@@ -504,9 +513,17 @@ function sessionsDisabledError(method: string): Error {
  * does nothing. See also `checkNoAuthUsage.ts` for the build-time version
  * of this same check, which catches the common case earlier.
  */
-export function createNoAuthContext(params: Record<string, string> = {}): RequestContextResult {
+export function createNoAuthContext(params: Record<string, string> = {}, meta?: RequestMeta): RequestContextResult {
+  const fields = requestContextFields(meta);
   const ctx: RequestContext = {
     params,
+    url: fields.url,
+    headers: fields.headers,
+    method: fields.method,
+    ip: fields.ip,
+    get request() {
+      return fields.request;
+    },
     session: undefined,
     sessionTransport: undefined,
     requireAuth: () => {
