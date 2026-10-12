@@ -361,8 +361,9 @@ auth — `shared.sessions.store` in `devora.config.ts`, production refuses to st
 `devora dev --host`, LAN URLs + exposure warning, route table on boot, dev ports 10000+index.
 Covered by real-server integration tests in `packages/cli/src/server/__tests__/`.
 
-**Hotfix round 3 (staged, not committed/published)** — `devora-hotfix-round3.md` is the source of
-truth; `CHANGELOG.md` has the per-phase list. Phase 1: Vercel runtime no longer hardcoded
+**Hotfix round 3 — released as 0.3.2 (committed and tagged `v0.3.2` locally, not pushed or
+published to npm yet)** — `devora-hotfix-round3.md` (kept outside git) was the source of truth;
+`CHANGELOG.md`'s 0.3.2 section has the list per package and the behavior changes. Phase 1: Vercel runtime no longer hardcoded
 (`nodejs20.x` was rejected), `createRequire` banner for CommonJS deps in both adapters, `apiDir`
 (new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
 `secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
@@ -375,7 +376,10 @@ Phase 4: dev ignores build/adapter output, client deps pre-bundled, `.env` loadi
 API routes, backend-only `/` status, `devora add --kind`, `engines`, React 19 and Vite 6 allowed.
 Phase 5: footer fixed via `.devora-shell` (the `#root` wrapper broke the old body-flex layout),
 shell redesign with tokens/contrast/focus rings, `footerLinks`, built-in error + backend status
-pages in the shell, new default landing page.
+pages in the shell, new default landing page. Phase 6: branded terminal header for
+`dev`/`build`/`start`/`create-devora` (formatter in `packages/scaffold/src/terminal.ts`), dev
+prints URLs first and then routes per app (API routes counted past 10; `--routes` /
+`DEVORA_ROUTES=all`), `--quiet`, `NO_COLOR`/`FORCE_COLOR`/CI handling.
 
 ## Suggested next task
 

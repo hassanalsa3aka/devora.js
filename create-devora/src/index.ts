@@ -54,12 +54,18 @@ const DEFAULT_APPS: Record<ProjectScope, string> = {
   backend: "api",
 };
 
-// Replaced with package.json's version by build.mjs (esbuild `define`).
+// Replaced by build.mjs (esbuild `define`): this package's version, and the
+// versions of packages/core and packages/cli it's built alongside — so a
+// release can't ship a scaffolder that pins new projects to an older
+// framework (it wrote ^0.3.0 through the 0.3.1 release). Undefined only
+// when running from source via tsx.
 declare const __CREATE_DEVORA_VERSION__: string | undefined;
+declare const __DEVORA_CORE_VERSION__: string | undefined;
+declare const __DEVORA_CLI_VERSION__: string | undefined;
 const VERSION = typeof __CREATE_DEVORA_VERSION__ === "string" ? __CREATE_DEVORA_VERSION__ : "0.0.0-source";
 
-const CORE_VERSION = "^0.3.0";
-const CLI_VERSION = "^0.3.0";
+const CORE_VERSION = typeof __DEVORA_CORE_VERSION__ === "string" ? `^${__DEVORA_CORE_VERSION__}` : "*";
+const CLI_VERSION = typeof __DEVORA_CLI_VERSION__ === "string" ? `^${__DEVORA_CLI_VERSION__}` : "*";
 
 function parseArgs(argv: string[]) {
   const flags: Record<string, string> = {};

@@ -10,246 +10,184 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## Unreleased — hotfix round 3, phase 6 (terminal output)
+## 0.3.2 — 2026-10-12
 
-Not yet version-bumped.
+Released together: `@devorajs/core` 0.3.2, `@devorajs/cli` 0.3.2, `@devorajs/adapter-vercel`
+0.2.2, `@devorajs/adapter-netlify` 0.2.2, `create-devora` 0.3.1. Upgrade core and cli together:
+API routes run on the CLI's bundled copy of core and pages on the app's installed one, so mixing
+0.3.1 and 0.3.2 gives a project two different behaviors. The adapters now require
+`@devorajs/core` `^0.3.2`. Most fixes come from reviews of two real products built on 0.3.1 and
+their failed Vercel deploys.
 
-- **`@devorajs/cli` — branded header** for `devora dev`, `build` and `start`: a 5-line `d›` mark
-  in the logo's blue-to-violet gradient (truecolor, with 256-color and 16-color fallbacks), the
-  CLI version from its package.json, and `dev · N apps · ready in N ms`. `build` ends with
-  `✓ built N apps in N s`.
-- **`devora dev` boot output reorganised:** every app's Local/Network/API URLs first, then one
-  route table grouped per app. Pages are always listed; API routes are listed when an app has 10
-  or fewer and counted above that. `--routes` or `DEVORA_ROUTES=all` lists them all.
+### Behavior changes
+
+What each change means, and what an existing app has to do.
+
+- **Redirects after a POST are 303 See Other** (were 302); loader redirects stay 302. Browsers
+  behave the same. Tests or clients that assert 302 after a form post: update them, or pass the
+  status explicitly with `redirect(to, 302)`.
+- **Page errors keep their status.** A thrown `HttpError` (or anything with a 4xx/5xx `status`/
+  `statusCode`) is that status instead of a 500: `requireAuth()` is 401, `verifyCsrf()` is 403.
+  Unexpected errors are still 500, with the message hidden in production, and render the app's
+  `apps/<name>/error.tsx` or a built-in error page. Unmatched URLs are an HTML 404 in dev too.
+  To do: anything that treated every page failure as a 500 should check the status. Add an
+  `error.tsx` if you want your own error page.
+- **The framework stylesheet and favicon are only added to pages that render `PageShell` or
+  `AppHeader`** (and CSR shells). To do: a page that relied on the theme without using the shell
+  needs `head: { theme: true }` in app.config.ts (or on the route's `meta().head`).
+- **`PageShell` markup:** content is wrapped in `<div class="devora-shell">`, and the theme no
+  longer sets `body { display: flex }`. To do: custom CSS that depended on `body` being the flex
+  container, or on `main` being a direct child of `#root`, needs adjusting. Props are unchanged.
+- **A backend-only app answers `GET /`** with 200: a small HTML status page for browsers, JSON
+  (`{ app, status: "ok", api: "/api" }`) for API clients. It used to be a 404. To do: monitors that
+  expected 404 there, or used `/` as "is it up", can keep using `/api/health`.
+- **Request bodies are limited to 10 MB by default** (`maxBodyBytes`, forms and API routes);
+  larger ones get a 413. Malformed multipart is a 400. To do: apps that accept larger uploads set
+  `maxBodyBytes` in app.config.ts.
+- **`.env` files in the project root are loaded** by `dev`, `build`, `start` and `deploy`
+  (`.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local`; variables already in the environment
+  win). To do: check the project root for stale `.env` files, and drop `node --env-file` wrappers.
+- **`devora start` reads `PORT` and `HOST`** (`--port`/`--host` still win). To do: a `PORT` left
+  in the environment now moves the server; unset it or pass `--port`.
+- **`devora build --adapter=<anything else>` fails** instead of building without the requested
+  output. To do: scripts using `--adapter=node` drop the flag (`devora build`, then `devora start`).
+- **The Vercel runtime is no longer `nodejs20.x`,** which Vercel now rejects. It comes from
+  `vercel: { runtime }` in app.config.ts, else the running Node major, else `engines.node`, else
+  `nodejs24.x`. An `engines.node` no supported major satisfies fails the build. To do: nothing,
+  unless you need a specific runtime.
+- **`adapter-vercel` empties `.vercel/output` before writing it,** so files from an earlier build
+  can't ship. To do: don't keep anything of your own in that directory.
+- **The generated Vercel and Netlify functions trust the platform's proxy headers**
+  (`trustProxy: true` unless the app sets `false`), so `ctx.ip`, `ctx.url` and the `"auto"`
+  cookie `Secure` decision use the real client address and scheme. To do: nothing, unless the
+  function can be reached without going through the platform's edge.
+- **`devora build` only imports `ssg`/`isr` routes** (and routes whose render mode isn't a string
+  literal). To do: nothing, unless a build relied on a request-time route running at build time.
+- **Unsupported `island()` calls fail the build and dev server** with the file and line
+  (`island(loader)`, a computed path, a path that doesn't resolve). They used to produce an island
+  that never hydrated. To do: fix the reported call.
+- **Session config that used to be ignored is an error:** session settings on an `auth: "none"`
+  app, a `cookie.domain` that doesn't cover the app, per-app lifetimes on a shared app, and similar
+  (listed under core below). To do: fix or remove the setting the error names.
+- **`devora dev`'s boot output has a new layout:** every app's URLs first, then routes per app,
+  with more than 10 API routes per app counted instead of listed. To do: anything that parsed the
+  old output should use `--routes` and match the new lines.
+
+### `@devorajs/core` 0.3.2
+
+- **Request access:** `ctx.url` (a `URL`, query string included), `ctx.headers` (`Headers`),
+  `ctx.method`, `ctx.ip` and a body-less `ctx.request` in loaders, actions and API routes.
+  `trustProxy` (default false) also accepts a hop count; IPs are read from the right of
+  `X-Forwarded-For`, so a client can't spoof them.
+- **Actions return data:** a non-redirect result reaches the page as `actionData`;
+  `fail(status, data)` re-renders with a 4xx/5xx status; loaders can return or throw `redirect()`.
+- **Error pages** with the right status (see Behavior changes), using the shell.
+- **Head API:** `defineApp({ head: { lang, stylesheets, links, meta, scripts, theme } })` and
+  route-level `meta().head`.
+- **Multipart uploads in page actions:** file fields arrive as `File` objects (no dependency);
+  `maxBodyBytes`. An oversized body is answered with a 413 the client actually receives (a
+  declared `Content-Length` over the limit is rejected unread; an overflowing stream is drained,
+  not reset).
+- **Cookie and session settings:** `shared.sessions.cookie.secure: true | "auto" | false` (default
+  `true` in production, as before), with a one-time warning when a `Secure` cookie goes out over
+  what looks like plain HTTP; `cookie.sameSite`; `cookie.domain` for one login across subdomains
+  (must cover every shared app; the CSRF cookie stays host-only); per-app `sessions.cookie`
+  overrides and, for isolated apps, `activeSeconds`/`idleSeconds`; `security.noindex`
+  (`X-Robots-Tag: noindex`); `csrf: false` for Bearer-only APIs (no CSRF cookie;
+  `ctx.verifyCsrf()` then rejects every request not authenticated by Bearer). Settings are
+  validated once per app and written to `dist/server/session-manifest.json`.
+- **`cors` for API routes** (`origins`, `credentials`, `methods`, `allowHeaders`, `exposeHeaders`,
+  `maxAge`): answers preflights, echoes allowed origins (exact or `https://*.example.com`), off by
+  default; invalid origins and `credentials` with `"*"` are config errors.
+- **`apiDir`** (`defineApp({ apiDir: "endpoints" })`) moves the API route folder; URLs stay under
+  `/api`; the default stays `"api"`.
+- **`prebuild`** (`defineApp({ prebuild: [...] })`): commands run in the app directory before
+  `devora build`/`deploy`, with `node_modules/.bin` on `PATH`; a non-zero exit stops the build.
+- **Shell redesign** (theme.ts, branding.tsx), still dependency-free and CSP-safe: the footer stays
+  at the bottom of short pages (the `<div id="root">` wrapper had kept `main` out of the flex
+  column; measured gap went from 452–478 px to 0 at 375/768/1440 px); tokens for type, spacing,
+  radii, borders, shadows and focus rings in both themes; a centred 760 px reading column; a sticky
+  header whose nav wraps on narrow screens; styled cards, `.devora-grid`, code blocks and labelled
+  form fields; visible focus rings; logo images with intrinsic sizes (CLS 0); button text contrast
+  raised from 3.7–4.0:1 to 5.2–5.7:1 and every text token at 5.5:1 or more. New optional
+  `footerLinks` prop.
+- **Types:** `CsrfField` returns `ReactElement` (was `unknown`, TS2786); the React bindings in
+  `RenderRouteDeps`/`RenderStreamingDeps` accept React's real signatures (TS2322 in every
+  `entry-server.tsx`); `ctx.session`/`setSession()` can be typed once through
+  `declare module "@devorajs/core" { interface Register { session: ... } }`.
+- **React 19:** peer range `^18.3.0 || ^19.0.0`, after a fresh scaffold on React 19.3.0 passed
+  typecheck, the browser suite in dev and production, and both platform functions.
+- Error messages link the docs instead of `ROADMAP.md`, which isn't in the package.
+- `engines: { node: ">=20" }`.
+
+### `@devorajs/cli` 0.3.2
+
+- **Terminal output:** `dev`, `build` and `start` open with a 5-line `d›` mark in the logo's
+  gradient (truecolor, 256-color and 16-color fallbacks), the CLI version and, for `dev`,
+  `ready in N ms`; `build` ends with `✓ built N apps in N s`. `NO_COLOR`, `FORCE_COLOR` (which wins,
+  as in Node), piped output and CI get plain text; under 43 columns the header is one line.
+- **`devora dev` routes:** all pages per app; API routes listed up to 10 per app and counted above
+  that; `--routes` or `DEVORA_ROUTES=all` lists them all.
 - **`--quiet`** on `dev`, `build` and `start`: no header, route tables or progress lines, Vite at
-  `warn`. Warnings, errors and each app's URL still print.
-- **Color and layout follow the terminal:** `NO_COLOR`, `FORCE_COLOR` (wins over `NO_COLOR`, as in
-  Node), piped output and CI get plain text; terminals under 43 columns get a one-line header.
-- **`devora dev` no longer warns "Could not auto-determine entry point"** for a backend-only app
-  (it has no browser code to scan).
-- **`create-devora`** prints the mark and its own version at the start and a numbered "Next steps"
-  block (`cd`, install when it was skipped, `dev`) at the end.
+  `warn`; warnings, errors and app URLs still print.
+- **Route-imported CSS is linked** in SSR, streaming, SSG/ISR and error-page HTML (dev: Vite's
+  module graph; production: the SSR build's chunk metadata, `dist/server/route-css-manifest.json`,
+  files in `dist/client/assets`). Images and fonts imported by server code are published too.
+- **Islands are found in every module the app imports,** not just route files (shared components,
+  workspace packages), and `island()` calls are checked with the parser.
+- **`devora build --out <dir>`** with `--adapter=vercel --app=<name>`, for a Vercel project whose
+  Root Directory is the repo root.
+- **Preflight checks** before a Vercel/Netlify build: supported runtime; `api/` at the Vercel
+  project root; `--out` not a `.vercel/output` directory; session secret per auth mode;
+  `shared.sessions.store` unset or `"memory"`; an isolated app's secret variable name; Netlify
+  `apiDir` missing from `included_files`.
+- **`devora add --kind=pages|api`;** in a project whose apps are all backend-only, the default is
+  an API app (it used to generate a pages app). New apps use `apiDir: "endpoints"`.
+- **Dev server:** ignores `dist/`, `.vercel/`, `.netlify/` and `netlify/functions/` (an adapter
+  build during dev reloaded open pages once per written file); pre-bundles the framework's client
+  dependencies so the first page load doesn't trigger a re-optimization; no "Could not
+  auto-determine entry point" warning for backend-only apps; pre-bundling also works when a
+  project pins esbuild 0.28 under Vite 5.
+- **`.env` loading**, **`PORT`/`HOST`** for `devora start` (new `--host`), `--adapter`
+  validation, and a log line whenever `NODE_ENV` is changed (see Behavior changes).
+- **Vite 6:** `vite` `^5.4.0 || ^6.0.0`, after a scaffold on Vite 6.4.4 passed the browser suite in
+  dev and production and both platform functions. Vite 7 is untested.
+- `engines: { node: ">=20" }`. `devora --version` reports 0.3.2.
 
-Behavior change: `devora dev`'s boot output is laid out differently (URLs first, then routes, API
-routes counted past 10 per app). Anything that parsed the old layout should use `--routes` and
-match the new lines.
+### `@devorajs/adapter-vercel` 0.2.2
 
-## Unreleased — hotfix round 3, phase 5 (design pass)
-
-Not yet version-bumped.
-
-- **`@devorajs/core` — fix: the footer stays at the bottom of short pages.** The cause wasn't a
-  missing `flex: 1` (`.devora-page` had one); it was the `<div id="root">` every document wraps
-  content in, so `main`'s parent was never the flex `body`. `PageShell` now renders its own
-  full-height `.devora-shell` column. Measured with Playwright at 375/768/1440, light and dark:
-  footer gap to the viewport bottom on short pages went from 452–478 px to 0.
-- **`@devorajs/core` — shell redesign** (theme.ts, branding.tsx), still dependency-free and
-  CSP-safe (no scripts):
-  - tokens for type scale, spacing, radii, borders, shadows and focus rings, in both themes;
-  - one centred grid shared by header, content (760 px reading column) and footer;
-  - a blurred sticky header with the app badge next to the logo and a nav that wraps onto its own
-    row on narrow screens (before, links past the first were hidden in a sideways scroll);
-  - styled code blocks, cards and a `.devora-grid` of cards, full-width form fields with labels;
-  - visible focus rings on every interactive element;
-  - logo images with intrinsic sizes (measured CLS 0);
-  - button text contrast raised from 3.7–4.0:1 to 5.2–5.7:1, and all text tokens at or above
-    5.5:1 in both themes.
-- **`PageShell` props stay compatible** (`appName`, `nav`, `footer`); new optional `footerLinks`.
-  Markup change: the shell now wraps its content in `<div class="devora-shell">`. The theme no
-  longer sets `body { display: flex }`.
-- **Built-in pages use the shell:** the built-in error page (status, message, a "Back to the home
-  page" button), and a backend-only app's `GET /`, which now serves a small HTML status page to
-  browsers and keeps JSON for API clients.
-- **`create-devora`/`devora add` — new default pages:** a landing page with a lead paragraph and
-  "next steps" cards, an error page using the error layout, and a login form with a real
-  `<label>` and `autocomplete`.
-
-## Unreleased — hotfix round 3, phase 4 (dev experience and quick wins)
-
-Not yet version-bumped.
-
-- **`@devorajs/cli` — no more reload spam in dev.** `devora dev` no longer watches `dist/`,
-  `.vercel/`, `.netlify/` or `netlify/functions/`. A `devora build --adapter=…` while dev was
-  running used to reload open pages once per written file.
-- **`@devorajs/cli` — framework client dependencies are pre-bundled.** `optimizeDeps.include` for
-  `@devorajs/core/client`, `react`, `react-dom` (+ `/client`, the JSX runtimes), so Vite's first
-  dependency batch already has them. The reported first-load re-optimization reload ("invalid hook
-  call") did not reproduce in a fresh scaffold; this removes the way it could happen (the dev
-  server has no HTML entry for Vite to scan at startup).
-- **`@devorajs/cli` — `.env` files are loaded** by `dev`/`build`/`start`/`deploy`: the project
-  root's `.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local` (Vite's precedence; mode is
-  `development` for dev, `production` otherwise). The real environment always wins. File names are
-  logged, never values.
-- **`@devorajs/core` — `cors` for API routes** (`defineApp({ cors: { origins, credentials,
-  methods, allowHeaders, exposeHeaders, maxAge } })`). Answers preflights, echoes allowed origins
-  (exact or `https://*.example.com`), off by default. Invalid origins and `credentials` with `"*"`
-  are config errors.
-- **`@devorajs/core` — a backend-only app answers `GET /`** with a small JSON status
-  (`{ app, status: "ok", api: "/api" }`) instead of a bare 404, in dev and production. Backend-only
-  apps never pre-rendered `/`; the reported `pre-rendered (ssg/isr): /` came from page-app
-  scaffolding for an API app (next item).
-- **`@devorajs/cli` — `devora add` creates API apps.** New `--kind=pages|api`. Without it, a
-  project whose apps are all backend-only gets a backend-only app; `devora add api` there used to
-  generate a full pages app.
-- **Error messages link the docs** instead of `ROADMAP.md`, which isn't in the npm packages
-  (session-secret errors, the generated `app.config.ts` comment).
-- **`engines: { node: ">=20" }`** on `@devorajs/core`, `@devorajs/cli` and the adapters
-  (`create-devora` already had it).
-- **React 19:** `@devorajs/core`'s peer range is now `^18.3.0 || ^19.0.0`, after a fresh scaffold on
-  React 19.3.0 passed typecheck, the full browser suite in dev and production (islands, streaming,
-  forms, uploads, login), and both platform functions. New projects still start on React 18.
-- **Vite 6:** `@devorajs/cli` (and new apps) now accept `vite` `^5.4.0 || ^6.0.0`, after a
-  scaffold forced onto Vite 6.4.4 passed the same browser suite in dev and production, both
-  platform functions, and the watcher check. This repo's lockfile stays on 5.4.21 (only the
-  specifiers changed); fresh projects without a lockfile get 6.x. Vite 7 is untested.
-- `devora --version` was already fixed in 0.3.1 (reads `package.json`).
-
-## Unreleased — hotfix round 3, phase 3 (request access, head, CSS, islands, types)
-
-Not yet version-bumped. User-facing guide: `PAGES.md`.
-
-- **`@devorajs/core` — request access.** `ctx.url` (a `URL`, query string included), `ctx.headers`
-  (a standard `Headers`), `ctx.method`, `ctx.ip` and a body-less `ctx.request` in loaders, actions
-  and API routes. Scheme/host/IP honor `trustProxy`, which now also accepts a hop count
-  (`trustProxy: 2`); IPs come from the right of `X-Forwarded-For`, so a client-supplied entry
-  can't spoof them. The Netlify function feeds `context.ip` through.
-- **`@devorajs/core` — actions return data.** A non-redirect action result reaches the page as the
-  `actionData` prop. `fail(status, data)` re-renders with a 4xx/5xx status. Loaders can return or
-  throw `redirect()`.
-- **`@devorajs/core`, BREAKING (status codes) — redirects after POST are 303** (were 302);
-  `redirect(to, status)` picks another. Loader redirects are 302.
-- **`@devorajs/core`, BREAKING (status codes) — page errors keep their status.** A thrown
-  `HttpError` (or any `status`/`statusCode` 4xx/5xx) on a page is that status instead of a 500:
-  401 from `requireAuth()`, 403 from `verifyCsrf()`. Unexpected errors are 500s with the message
-  hidden in production. They render the app's **error page** (`apps/<name>/error.tsx`, scaffolded
-  for new apps) or a built-in one. Unmatched URLs are now an HTML 404 page in dev and production;
-  dev used to fall through to Vite's bare 404 without security headers.
-- **`@devorajs/core` — head API.** `defineApp({ head: { lang, stylesheets, links, meta, scripts } })`
-  and route-level `meta().head`.
-- **`@devorajs/core`, BREAKING (markup) — framework CSS is opt-in.** The theme stylesheet
-  (including its `body { display: flex }`) and the default favicon are only added to pages that
-  render `PageShell`/`AppHeader` (and to CSR shells); `head.theme: false | true` overrides. Apps
-  that use `PageShell` look the same; pages that don't no longer get global CSS they didn't ask for.
-- **`@devorajs/cli` — route-imported CSS is linked** in SSR, streaming, SSG/ISR and error-page HTML,
-  from Vite's module graph in dev and the SSR build's chunk metadata in production
-  (`ssrEmitAssets`; files land in `dist/client/assets`, manifest
-  `dist/server/route-css-manifest.json`). Images/fonts imported by server code are published too.
-- **`@devorajs/cli` — islands are found in every module, not just route files.** The SSR build
-  discovers them while it follows the app's imports (shared components, workspace packages),
-  then the client build runs for exactly those, and placeholders are swapped for real URLs.
-  `island()` calls are checked with the parser in dev and build; an unsupported shape
-  (`island(loader)`, a computed path) or an unresolvable path fails with the original file and
-  line instead of an island that silently never hydrates.
-- **`@devorajs/core`, `@devorajs/cli` — multipart uploads in page actions.** File fields arrive as
-  `File` objects (parsed by the platform's `Response.formData()`, no dependency). New
-  `maxBodyBytes` (app.config.ts, default 10 MB) for forms and API routes. An oversized body now
-  actually reaches the client as a 413 page: a declared `Content-Length` over the limit is rejected
-  unread, and an overflowing stream is discarded rather than the socket being reset mid-upload.
-  Malformed multipart is a 400.
-- **`@devorajs/cli` — `devora build` no longer imports `ssr`/`csr`/`streaming` routes.** Each
-  route's render mode is read from its source, and only `ssg`/`isr` routes (or ones whose mode
-  isn't a string literal) are imported, so a module needing request-time secrets at import time no
-  longer crashes builds without them.
-- **Types (`@devorajs/core`, `create-devora`).**
-  - `CsrfField` returns `ReactElement` (was `unknown`, TS2786).
-  - The React bindings in `RenderRouteDeps`/`RenderStreamingDeps` accept React's real signatures
-    (was TS2322 in every `entry-server.tsx`).
-  - `ctx.session`/`setSession()` can be typed once via `declare module "@devorajs/core" { interface
-    Register { session: ... } }`.
-  - New projects ship `typescript` + `@types/*` devDependencies, a root `tsconfig.json`, a
-    `typecheck` script, and app tsconfigs that exclude adapter output.
-  - CI now typechecks fresh full-stack and backend-only scaffolds against the packed packages
-    (`scripts/typecheck-fresh-scaffold.mjs`).
-- **`@devorajs/adapter-vercel`, `@devorajs/adapter-netlify` — fix: backend-only apps build again.**
-  Vendoring `react` resolved it from the app, which a backend-only app doesn't depend on
-  (`Cannot find module 'react/package.json'`); it's now resolved from `@devorajs/core`'s install
-  location in that case. The app's error page is bundled into the function. CI now also builds the
-  `api-only` app.
-
-## Unreleased — hotfix round 3, phase 2 (sessions, cookies, security config)
-
-Not yet version-bumped; staged for the coordinated round-3 release. Every setting below is
-optional and defaults to the previous behavior, except where noted.
-
-- **`@devorajs/core` — cookie `Secure` is configurable.** `shared.sessions.cookie.secure:
-  true | "auto" | false` (default `true` in production, as before; `devora dev` never sets it, as
-  before). `"auto"` sets `Secure` only on HTTPS requests: a TLS socket, or `X-Forwarded-Proto:
-  https` when the app has `trustProxy: true`. The production handler logs a one-time warning when
-  it sends a `Secure` cookie on what looks like a plain-HTTP request — the failure mode that broke
-  every production login over plain HTTP (browsers silently drop such cookies).
-- **`@devorajs/core` — `trustProxy`** (app.config.ts, default false). The generated Vercel/Netlify
-  functions pass `true` unless the app sets `false` — only the platform's edge can reach them. The
-  Netlify shim now reports the request's real scheme (from the request URL).
-- **`@devorajs/core` — per-app cookie/session settings (K1).** `shared.sessions.cookie.sameSite`
-  (`"lax"` default, `"strict"`, `"none"` — `"none"` requires `secure: true`); app.config.ts
-  `sessions.cookie` overrides; per-app `sessions.activeSeconds/idleSeconds` for `auth: "isolated"`
-  apps; `security.noindex` (`X-Robots-Tag: noindex` on every response, plus a Vercel header route /
-  Netlify `_headers` rule so statically served files carry it too). Resolved and validated once
-  per app (`resolveSessionManifest`) at `devora build`/`devora dev`, written into
-  `dist/server/session-manifest.json`, which is where production reads them from.
-- **`@devorajs/core` — `shared.sessions.cookie.domain`** for one login across subdomains (session
-  cookie only; the CSRF cookie stays host-only; the clearing cookie carries the same `Domain`).
-  Must cover every `auth: "shared"` app's domain (checked); isolated apps stay host-only unless
-  they set their own. Docs that claim "shared login" now state the subdomain condition.
-- **`@devorajs/core` — `csrf: false`** (app.config.ts): never issue the `devora_csrf` cookie (for
-  Bearer-only APIs, whose unauthenticated calls such as the login used to get one).
-  `ctx.verifyCsrf()` then rejects every non-Bearer-authenticated request (403) — it never passes
-  silently. Bearer-*authenticated* requests already got no CSRF cookie before this.
-- **`@devorajs/core` — invalid session config is an error, not a silent no-op:** session settings
-  on an `auth: "none"` app, a `cookie.domain` that doesn't cover the app, per-app lifetimes on a
-  shared app, conflicting attributes on a shared domain-wide cookie, non-positive lifetimes.
-- **`@devorajs/cli` — `devora start` reads `PORT` and `HOST`** (`--port`/`--host` win; new
-  `--host` flag), logs values it took from the environment, rejects an invalid port, and logs when
-  it changes `NODE_ENV` (`build`/`deploy` log only when overriding an explicit non-production
-  value). The Dockerfile now relies on `PORT` instead of a hardcoded `--port`.
-- **`@devorajs/cli` — `devora build --adapter=<unknown>` fails** with the valid values instead of
-  silently building without the requested output (`--adapter=node` used to exit 0).
-- **`@devorajs/adapter-netlify` — fix: several `Set-Cookie` headers in one response** (e.g. a
-  cleared session cookie plus a new CSRF cookie) were comma-joined into one malformed header by the
-  function's response shim.
-
-## Unreleased — hotfix round 3, phase 1 (deployment adapters)
-
-See `devora-hotfix-round3.md` for the evidence (real Vercel deploys of two products that failed).
-Not yet version-bumped; staged for the coordinated round-3 release.
-
-- **`@devorajs/adapter-vercel` — runtime no longer hardcoded (V1).** `.vc-config.json` used
-  `nodejs20.x`, which Vercel now rejects for every new deploy. The runtime now comes from
-  `vercel: { runtime }` in `app.config.ts`, else the running Node major (if Vercel supports it and
-  it fits `engines.node`), else the newest supported major `engines.node` allows, else Vercel's
-  default (`nodejs24.x`). An `engines.node` no supported major satisfies fails the build. The
-  build prints which runtime it picked and why. `adapter-netlify` never hardcoded one (Netlify
-  picks the function runtime from the site's Node version).
-- **`@devorajs/adapter-vercel`, `@devorajs/adapter-netlify` — CommonJS dependencies work (V8).**
-  Both esbuild passes in both adapters now prepend a `createRequire` banner. Before, any bundled
-  CommonJS package calling `require("events")` (`pg`) built green and then failed every request
+- Runtime chosen instead of hardcoded `nodejs20.x` (see Behavior changes); the build prints which
+  one and why.
+- **CommonJS dependencies work:** both esbuild passes prepend a `createRequire` banner. Before, a
+  bundled CommonJS package calling `require("events")` (`pg`) built green and failed every request
   with `Dynamic require of "events" is not supported`.
-- **`@devorajs/core`, `@devorajs/cli`, adapters, `create-devora` — `apiDir` (V2).** `defineApp({
-  apiDir: "endpoints" })` moves an app's API route folder; URLs stay under `/api`. Default stays
-  `"api"`, so existing apps don't change. New apps from `create-devora` / `devora add` get
-  `apiDir: "endpoints"` (and a matching `netlify.toml` `included_files` entry), because a
-  top-level `api/` is Vercel's reserved functions folder. `createProdRequestHandler` takes an
-  optional trailing `{ apiDir }`; `writeVercelOutput`/`writeNetlifyConfig`/`createNodeServer` pass
-  it through. All additions are optional, so already-generated functions keep working.
-- **`@devorajs/cli` — `devora build --out <dir>` (V3).** With `--adapter=vercel --app=<name>`,
-  writes the Build Output API directory somewhere other than `apps/<name>/.vercel/output` — e.g.
-  `--out=.vercel/output` when the Vercel project's Root Directory is the repo root. The adapter
-  now clears an existing `.vercel/output` before writing, so files from an earlier build (or
-  another app) can't ship with this one; it only ever deletes a directory literally named
-  `.vercel/output`.
-- **`@devorajs/cli` — preflight checks (V7).** Before building for Vercel/Netlify: runtime
-  supported (error); `api/` folder at the Vercel project root (warning); `--out` not a
-  `.vercel/output` directory (warning); session secret per auth mode (error when building on the
-  platform, warning locally); `shared.sessions.store` unset (error) or `"memory"` (warning);
-  isolated app whose `DEVORA_SESSION_SECRET_<APP>` isn't a valid env var name (warning); Netlify
-  `apiDir` missing from `netlify.toml` `included_files` (warning).
-- **`@devorajs/core`, `@devorajs/cli` — `prebuild` hook (V4).** `defineApp({ prebuild: [...] })`
-  runs shell commands in the app directory before `devora build`/`devora deploy` builds it
-  (`prisma generate`, a CSS build), with `node_modules/.bin` on `PATH`; a non-zero exit stops the
-  build. Not run by `devora dev`.
-- **Adapters — log line (V5).** The "verified locally in isolation, NOT deployed … see ROADMAP.md
-  #4" line is gone (it read like a failure, and `ROADMAP.md` isn't in the npm package). It now says
-  what was written, the runtime, and links the docs site's deployment guide.
+- `apiDir`, `--out` and a cleared `.vercel/output`; `noindex` as a header route so static files
+  carry it; `trustProxy` on by default in the function.
+- Backend-only apps build again (`react` is resolved from `@devorajs/core`'s install location when
+  the app doesn't depend on it); the app's error page is bundled into the function.
+- The old "NOT deployed … see ROADMAP.md #4" log line is replaced by what was written, the runtime
+  and a link to the deployment guide.
+- Requires `@devorajs/core` `^0.3.2`; `engines: { node: ">=20" }`.
+
+### `@devorajs/adapter-netlify` 0.2.2
+
+- **CommonJS dependencies work** (the same `createRequire` banner).
+- **Fix: several `Set-Cookie` headers in one response** were comma-joined into one malformed
+  header by the function's response shim.
+- The function passes the request's real scheme and `context.ip`; `trustProxy` on by default;
+  `noindex` through `_headers`; `apiDir`; backend-only apps build again; the error page is
+  bundled; the new log line.
+- Requires `@devorajs/core` `^0.3.2`; `engines: { node: ">=20" }`.
+
+### `create-devora` 0.3.1
+
+- New projects depend on `@devorajs/core` and `@devorajs/cli` `^0.3.2`. The ranges now come from
+  those packages' own versions at build time; 0.3.0 still wrote `^0.3.0`.
+- Prints the mark and its version first and a numbered "Next steps" block (`cd`, install when it
+  was skipped, `dev`) last.
+- New apps get `apiDir: "endpoints"`, an `error.tsx`, a redesigned landing page and login form,
+  `typescript` and `@types/*` devDependencies, a root `tsconfig.json` and a `typecheck` script.
+  CI typechecks fresh full-stack and backend-only scaffolds against the packed packages.
 
 ## Unreleased — scaffolder scope (hotfix #12)
 

@@ -24,12 +24,20 @@ await rm("assets", { recursive: true, force: true });
 await cp("../packages/scaffold/templates", "templates", { recursive: true });
 await cp("../packages/scaffold/assets", "assets", { recursive: true });
 
-// create-devora's own version for its header, from package.json at build time.
-const { version } = JSON.parse(await readFile(new URL("./package.json", import.meta.url), "utf-8"));
+// create-devora's own version (its header) and the core/cli versions new
+// projects depend on, all from package.json at build time.
+const versionOf = async (pkg) => JSON.parse(await readFile(new URL(pkg, import.meta.url), "utf-8")).version;
+const version = await versionOf("./package.json");
+const coreVersion = await versionOf("../packages/core/package.json");
+const cliVersion = await versionOf("../packages/cli/package.json");
 
 await esbuild.build({
   entryPoints: ["src/index.ts"],
-  define: { __CREATE_DEVORA_VERSION__: JSON.stringify(version) },
+  define: {
+    __CREATE_DEVORA_VERSION__: JSON.stringify(version),
+    __DEVORA_CORE_VERSION__: JSON.stringify(coreVersion),
+    __DEVORA_CLI_VERSION__: JSON.stringify(cliVersion),
+  },
   bundle: true,
   platform: "node",
   format: "esm",
