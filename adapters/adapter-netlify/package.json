@@ -1,7 +1,7 @@
 {
   "name": "@devorajs/adapter-netlify",
-  "version": "0.2.2",
-  "description": "Outputs to Netlify's Frameworks API / build plugin format \u2014 one site per app in devora.config.ts.",
+  "version": "0.2.3",
+  "description": "Outputs to Netlify's Frameworks API / build plugin format — one site per app in devora.config.ts.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,7 +12,14 @@
   "bugs": {
     "url": "https://github.com/hassanalsa3aka/devora.js/issues"
   },
-  "keywords": ["devora", "netlify", "adapter", "ssr", "vite", "deploy"],
+  "keywords": [
+    "devora",
+    "netlify",
+    "adapter",
+    "ssr",
+    "vite",
+    "deploy"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"

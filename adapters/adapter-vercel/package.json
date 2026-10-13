@@ -1,7 +1,7 @@
 {
   "name": "@devorajs/adapter-vercel",
-  "version": "0.2.2",
-  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) \u2014 one output dir per app in devora.config.ts.",
+  "version": "0.2.3",
+  "description": "Outputs to Vercel's Build Output API (.vercel/output spec) — one output dir per app in devora.config.ts.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,7 +12,14 @@
   "bugs": {
     "url": "https://github.com/hassanalsa3aka/devora.js/issues"
   },
-  "keywords": ["devora", "vercel", "adapter", "ssr", "vite", "deploy"],
+  "keywords": [
+    "devora",
+    "vercel",
+    "adapter",
+    "ssr",
+    "vite",
+    "deploy"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"

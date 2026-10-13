@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/adapter-node",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Serves a devora.js app's production build from a plain Node HTTP server (what `devora start` runs) — for VPS, Docker and other self-hosted setups.",
   "license": "MIT",
   "repository": {
@@ -12,7 +12,14 @@
   "bugs": {
     "url": "https://github.com/hassanalsa3aka/devora.js/issues"
   },
-  "keywords": ["devora", "node", "adapter", "ssr", "vite", "self-hosted"],
+  "keywords": [
+    "devora",
+    "node",
+    "adapter",
+    "ssr",
+    "vite",
+    "self-hosted"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"
