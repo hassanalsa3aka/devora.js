@@ -277,9 +277,9 @@ session cookie correctly rejected (falls back to `undefined` session, `requireAu
 both the shared cookie (`dashboard`) and the isolated one (`admin`, its own `devora_session_admin`
 cookie name and `DEVORA_SESSION_SECRET_ADMIN`).
 
-**Real Vercel AND Netlify deployment — confirmed live at the time; NOT currently true for new Vercel
-deploys until the round-3 fixes ship.** Vercel has since discontinued `nodejs20.x`, which the adapter
-hardcoded, so every new Vercel deploy of a released version fails; the demo apps also never
+**Real Vercel AND Netlify deployment — confirmed live with releases before 0.3.2; 0.3.2 (which
+ships the round-3 fixes) is not yet verified on a live deployment.** Vercel has since discontinued
+`nodejs20.x`, which releases before 0.3.2 hardcoded, so a new Vercel deploy of those fails; the demo apps also never
 exercised a CommonJS dependency (`pg`-style `require("events")` crashed real functions) or the
 `api/` folder collision. Round 3 phase 1 (`devora-hotfix-round3.md`, `CHANGELOG.md`) fixes all
 three, verified by running the generated functions outside the monorepo — not re-deployed live.
@@ -327,12 +327,13 @@ including two more real bugs found building the Docker image specifically (a `.d
 pattern that silently excluded the committed CLI bundle it needed, and a pnpm-version mismatch
 between this project's 9.9.0 and whatever corepack grabs as "latest" with no pin).
 
-**Not yet real** (see `README.md` "What's still a stub" and `ROADMAP.md` for the authoritative
-list):
-- `"streaming"` render mode — deferred to v2, not silently dropped. The island two-pass render
-  mechanism (`IslandCollectorContext`) fundamentally assumes a synchronous second `renderToString`
-  pass, which `renderToPipeableStream`/`renderToReadableStream` don't support; making it work needs a
-  Suspense-boundary-based island rewrite, real v2-sized work.
+**Not yet real** (see `README.md` "Current limitations" and `ROADMAP.md`'s Status section for the
+authoritative list):
+- Catch-all routes (`[...slug]`), several `Set-Cookie` headers or streamed (SSE) responses from an
+  API route, and a live Vercel/Netlify deployment of 0.3.2.
+- `"streaming"` is no longer on this list: it was deferred from v1 and shipped in v2 with a
+  Suspense-based `<Island>` (`architecture-v2.md` §4, `renderStreaming.ts`). GET-only; buffered
+  rather than progressive on Netlify.
 
 `pnpm install` (the recommended manager, and the state the repo is currently left in) has been run;
 fresh `npm install`/`yarn install` were also each run and exercised, then cleaned up back to pnpm.
@@ -353,7 +354,7 @@ implied), while `packages/backend` and every scaffolded app genuinely are user-o
 kept `@project/*`. Full regression (all CLI commands, all three apps, cross-package calls) re-run
 under both pnpm and a fresh npm install after the rename.
 
-**Pre-v3 hotfixes (staged, not committed/published)** — `devora-pre-v3-hotfixes.md` is the source
+**Pre-v3 hotfixes (released as 0.3.0, 2026-09-23)** — `devora-pre-v3-hotfixes.md` is the source
 of truth. In short: `api/**` always returns JSON (`apiRoute()` really wraps now; unmatched
 `/api/**` is a JSON 404); unified session auth (opaque IDs in a bring-your-own `SessionStore`,
 cookie + Bearer through one lookup, `ctx.revokeSession()`, active/idle/dead, CSRF only for cookie
@@ -361,11 +362,12 @@ auth — `shared.sessions.store` in `devora.config.ts`, production refuses to st
 `devora dev --host`, LAN URLs + exposure warning, route table on boot, dev ports 10000+index.
 Covered by real-server integration tests in `packages/cli/src/server/__tests__/`.
 
-**Hotfix round 3 — released as 0.3.2 (committed and tagged `v0.3.2` locally, not pushed or
-published to npm yet)** — `devora-hotfix-round3.md` (kept outside git) was the source of truth;
+**Hotfix round 3 — released as 0.3.2 (published to npm; tag `v0.3.2`)** — `devora-hotfix-round3.md`
+was the source of truth;
 `CHANGELOG.md`'s 0.3.2 section has the list per package and the behavior changes.
-`@devorajs/adapter-node` is publishable from this release on (0.2.0, after core; smoke test in
-`scripts/smoke-adapter-node.mjs`). Phase 1: Vercel runtime no longer hardcoded
+`@devorajs/adapter-node` is published from this release on (0.2.1; smoke test in
+`scripts/smoke-adapter-node.mjs`). adapter-node 0.2.0 and adapter-vercel/netlify 0.2.2 went out
+without `dist/` and were replaced by 0.2.1/0.2.3 — `CONTRIBUTING.md` "Releasing" has the steps. Phase 1: Vercel runtime no longer hardcoded
 (`nodejs20.x` was rejected), `createRequire` banner for CommonJS deps in both adapters, `apiDir`
 (new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
 `secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
@@ -387,9 +389,10 @@ prints URLs first and then routes per app (API routes counted past 10; `--routes
 
 Every `ROADMAP.md` item now has real work behind it, and real Vercel/Netlify deployment — the one
 item that used to need platform access this environment doesn't have — was confirmed live
-on both platforms at the time (see the round-3 note above — Vercel needs the phase 1 fixes released again). What's left of the locally-closeable work is `"streaming"` (deferred
-to v2, see above) and the disk-cache/serverless mismatch for `isr` specifically (not yet
-re-exercised under real serverless conditions on either platform). Confirm with me before starting
+on both platforms with releases before 0.3.2; 0.3.2 itself is not yet verified on a live
+deployment. What's left of the locally-closeable work is the disk-cache/serverless mismatch for
+`isr` specifically (not yet re-exercised under real serverless conditions on either platform) and
+the gaps under "Not yet real" above. Confirm with me before starting
 something not on that list.
 
 ## Working style

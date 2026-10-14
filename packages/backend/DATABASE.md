@@ -21,7 +21,7 @@ reference anywhere. For a driver with native bindings (`better-sqlite3`, and lik
 the same category), the abandoned handle's finalizer can run later during garbage collection,
 against a Node environment that may already be torn down from that module's perspective — a
 real native assertion crash (`Assertion failed: (env) != nullptr`), confirmed during this
-project's own development (see `ROADMAP.md` #6).
+project's own development.
 
 ## The fix, verified against a real Vite SSR reload
 
@@ -69,8 +69,7 @@ request immediately after. No crash, server stayed up, and no second connection 
 `globalThis` guard did exactly what it's meant to. Reverted afterward; this file documents the
 pattern rather than shipping it as the default, to keep `db/index.ts` genuinely bring-your-own.
 
-**One thing this correction fixes in this project's own earlier notes**: `ROADMAP.md` #6
-previously floated `import.meta.hot.dispose()` as a possible fix to investigate. Tested directly
+**An idea that doesn't work here**: `import.meta.hot.dispose()` was an early candidate fix. Tested directly
 — `import.meta.hot` is `undefined` inside a module loaded via `vite.ssrLoadModule` in this
 project's setup (confirmed by logging `typeof import.meta.hot` from inside the reloaded module).
 There's no working HMR API *inside the reloaded module itself*, so that idea doesn't apply — the

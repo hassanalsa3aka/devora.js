@@ -1,9 +1,10 @@
-# Devora.js Architecture — v2 (draft)
+# Devora.js Architecture — v2
 
-*This is a draft handed to Claude Code for review and refinement — not a finished spec. Claude
-Code should read this alongside architecture-v1.md, ROADMAP.md, README.md, VERIFICATION.md, and
-CHANGELOG.md before starting Phase 1 implementation, and should correct/expand anything here that
-turns out to be wrong once real code is written.*
+*Status: implemented. Everything below shipped in `@devorajs/core`/`@devorajs/cli` 0.2–0.3,
+including streaming (§4). This file started as a planning draft and was corrected as the code
+landed; where it and the code disagree, the code wins. Read it alongside architecture-v1.md and
+`CHANGELOG.md` (0.3.2 added request access, action results, error pages, the head API, `apiDir`
+and CORS on top of this).*
 
 ## 1. Vision (one sentence)
 
@@ -43,7 +44,8 @@ container managing lifetimes for you.
 ### 3.2 Generic API routes
 
 ```ts
-// apps/dashboard/api/users/export.ts  (or wherever the real convention lands)
+// apps/dashboard/api/users/export.ts — the app's `apiDir` folder (`api/` by default,
+// `endpoints/` in new apps); served at /api/users/export either way
 export const handler = apiRoute(async (req, ctx) => {
   ctx.requireAuth();
   // same-origin JSON call from this app's own frontend — see 3.2.2 for why a

@@ -18,11 +18,17 @@ installing it into an unrelated project won't do much on its own.
 - **SSR & streaming rendering** — matches a route, runs its `loader`/`action`, renders it to HTML;
   `renderMode: "streaming"` sends the shell immediately and patches in each `<Island>`'s real
   content as its import resolves, via React's own Suspense contract.
-- **Sessions & CSRF** — signed session cookies, opt-in per app (`auth: "shared" | "isolated" |
-  "none"` in `devora.config.ts`), double-submit CSRF tokens. Cross-app isolation is
-  cryptographically real — the cookie name is bound into the signature, so an `"isolated"` app
-  stays isolated even if it shares a secret with the project's shared app.
-- **Security headers** — CSP, HSTS, X-Frame-Options on by default, overridable per app.
+- **Sessions & CSRF** — opaque, server-side, revocable sessions in a store you provide
+  (`shared.sessions.store`), carried by an HttpOnly cookie or `Authorization: Bearer`; opt-in per
+  app (`auth: "shared" | "isolated" | "none"` in `devora.config.ts`); double-submit CSRF tokens for
+  cookie requests. Cookie `secure` (`true`/`"auto"`/`false`), `sameSite`, `domain` (one login
+  across subdomains), lifetimes, `trustProxy` and `csrf: false` are configurable — see
+  [AUTH.md](https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md).
+  Cross-app isolation is cryptographic — the cookie name is part of the HMAC that turns a session
+  ID into its store key, so an `"isolated"` app stays isolated even if it shares a secret and a
+  store with the shared apps.
+- **Security headers** — CSP, HSTS, X-Frame-Options on by default, overridable per app;
+  `security.noindex` adds `X-Robots-Tag: noindex`.
 - **Backend modules** — `defineModule()` organizes shared backend logic into scoped, composable
   units with no DI container, ever.
 - **Generic API routes** — `apiRoute()` handlers in the app's `apiDir` folder (`api/` by default;
@@ -37,6 +43,10 @@ installing it into an unrelated project won't do much on its own.
 - **Islands** — partial hydration for client-only components (`island(() => import(...))`) without
   leaving the React ecosystem.
 - **Config loading** (`@devorajs/core/config-loader`) — reads `devora.config.ts`/`app.config.ts`.
+
+## Requirements
+
+Node 20 or newer. `react` is a peer dependency: `^18.3.0 || ^19.0.0`.
 
 ## Page routes
 

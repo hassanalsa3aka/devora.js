@@ -6,7 +6,13 @@ structure works, not a devora-specific convention: a multi-app project means mul
 projects, each rooted at its own `apps/<name>` directory.
 
 Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain VPS
-(`adapter-node` + nginx/Caddy).
+(`adapter-node` + nginx/Caddy). Container platforms that run a Docker image are covered below,
+untested.
+
+**What's verified for 0.3.2:** the Vercel and Netlify functions it generates were run outside this
+monorepo (real pages, login, CSRF, a CommonJS dependency), and the Docker image and `devora start`
+were run locally. A live Vercel or Netlify deployment of 0.3.2 is **not yet verified**. Earlier
+releases were deployed live to both platforms by the maintainer.
 
 ## Environment variables and `.env` files
 
@@ -184,7 +190,7 @@ addons (`argon2`, `better-sqlite3`) or engine binaries haven't been verified ins
 
 ## Docker
 
-One `adapter-node` process per container.
+One `adapter-node` process per container (`devora start --app=<name>`).
 
 ```bash
 # One app per image — APP_NAME is required, no default.
@@ -206,6 +212,33 @@ The image does a full monorepo `pnpm install` in both build and runtime stages (
 dependency list) on one base image throughout — no alpine swap, to avoid native-addon
 compatibility issues if you later add a DB driver with native bindings.
 
+## Container platforms (Docker on Cloud Run, AWS App Runner/Fargate, Azure Container Apps, Oracle Cloud VM)
+
+> **Not tested on any of these clouds.** What follows is what the framework itself needs, based
+> on the same Docker image above; the platform-specific steps are yours to check.
+
+- **Port and host.** The platform tells the container which port to listen on, usually through
+  `PORT` (Cloud Run sets it; App Runner and Container Apps let you choose the port). `devora
+  start` reads `PORT` and `HOST` itself; leave `HOST` unset (every interface) so the platform's
+  router can reach the process.
+- **One app per service.** Build one image per app (`--build-arg APP_NAME=<name>`) and deploy each
+  as its own service, the same way each app is its own Vercel project.
+- **HTTPS at the load balancer.** These platforms terminate TLS in front of the container and
+  forward plain HTTP. Session cookies are `Secure` by default, which is right when the public URL
+  is HTTPS. Set `trustProxy: true` in the app's `app.config.ts` (or a hop count, e.g. `2` with a
+  CDN in front) so `ctx.url`, `ctx.ip` and `secure: "auto"` see the real scheme and client
+  address. Only do this when the container is reachable through that proxy alone.
+- **A shared session store is required.** Platforms run several instances and replace them
+  freely, so `shared.sessions.store: "memory"` loses logins and gives each instance its own
+  sessions. Point `shared.sessions.store` at a module backed by your database or Redis
+  (`packages/backend/AUTH.md`). Without any store, production refuses to start.
+- **Secrets** (`DEVORA_SESSION_SECRET`, `DEVORA_SESSION_SECRET_<APP>`) go in the platform's
+  secret or environment settings, not in the image.
+- **`isr`** writes its cache to the container's disk, which isn't shared between instances or
+  kept across restarts. Each instance regenerates on its own.
+- **Oracle Cloud VM** (or any VM): this is the VPS setup below, not a container platform; run the
+  image with Docker, or `devora start` behind nginx/Caddy.
+
 ## Self-hosting on a VPS (adapter-node + nginx/Caddy)
 
 ```bash
@@ -217,6 +250,10 @@ devora generate:proxy --target=nginx      # or --target=caddy
 ```
 
 `devora generate:proxy` reads every app's domain straight out of `devora.config.ts`.
+
+To start the servers from your own script (a process manager, a custom `CMD`), use
+`createNodeServer()` from [`@devorajs/adapter-node`](adapters/adapter-node/README.md) — the same
+server `devora start` runs.
 
 **Behind the proxy:**
 
@@ -243,8 +280,10 @@ alternative in its own comments.
 ## GitHub Actions CI
 
 `.github/workflows/ci.yml` runs on every push/PR: installs under all three package managers
-(pnpm/npm/yarn), then — on the pnpm leg — runs the real test suite and a real `devora build` for
-every app under all three targets (plain, `--adapter=vercel`, `--adapter=netlify`). This is the
+(pnpm/npm/yarn), then — on the pnpm leg — typechecks the packages, runs the test suite,
+typechecks fresh `create-devora` projects against the packed packages, smoke-tests the packed
+`@devorajs/adapter-node`, and runs a real `devora build` for every app under all three targets
+(plain, `--adapter=vercel`, `--adapter=netlify`). This is the
 same build sequence that would catch a broken deploy before it reaches a live environment, not
 after.
 
@@ -256,13 +295,14 @@ rebuilds an app and shells out to the real platform CLI (`vercel deploy --prebui
 `netlify deploy`) via `npx`, once you've run `vercel link`/`netlify link` in that app's directory.
 An app that isn't linked is skipped with a clear instruction rather than failing the whole run.
 
-Confirmed with a real, authenticated deploy on both platforms at the time — not just
-link-detection and error-message correctness. That was before Vercel discontinued `nodejs20.x`,
-which the adapter then hardcoded; the runtime fix above hasn't been re-deployed live yet. Two real bugs were found and fixed getting a genuinely clean run,
-both the same class as ROADMAP.md #4's `react`/`react-dom` and `NODE_ENV` bugs — something that
-only surfaces on an actual platform, never in local simulation:
-- `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did) — the same
-  `jsxDEV is not a function` crash from #4, in the one code path that had missed the fix.
+The maintainer ran a real, authenticated `devora deploy` on both platforms with a release before
+0.3.2 — not just link detection. That was before Vercel discontinued `nodejs20.x`, which the
+adapter then hardcoded; with 0.3.2 this path is **not yet verified on a live deployment**. Two
+bugs were found and fixed getting a clean run, both of a kind that only surfaces on a real
+platform:
+- `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did), so the
+  function crashed with `jsxDEV is not a function` (React's dev JSX runtime in a production
+  build).
 - The Netlify function ran without crashing but returned "Not found" for every route — Netlify's
   own function packager only zips up what it can trace from static imports; `routes/` and
   `dist/server/` are read at runtime via `fs.readdirSync`/dynamic `import()`, invisible to that

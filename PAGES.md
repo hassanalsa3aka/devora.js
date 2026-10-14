@@ -43,7 +43,7 @@ declare module "@devorajs/core" {
 ## Forms: what an action can return
 
 ```tsx
-import { fail, redirect, type RouteComponentProps } from "@devorajs/core";
+import { CsrfField, fail, redirect, type RequestContext, type RouteComponentProps } from "@devorajs/core";
 
 export async function action(formData: FormData, ctx: RequestContext) {
   ctx.verifyCsrf(formData);

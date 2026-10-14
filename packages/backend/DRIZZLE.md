@@ -1,11 +1,10 @@
 # Wiring in Drizzle
 
 A guide, not a built-in integration — same bring-your-own boundary as `PRISMA.md`/`DATABASE.md`.
-CLAUDE.md's own history records that a real Drizzle + `better-sqlite3` client was wired in here
-once already, verified end-to-end (real writes, real upsert, `requireAuth()` still gating
-correctly), then reverted specifically to keep `db/index.ts` a stub — see `ROADMAP.md` #6 for that
-account. This guide reconstructs that pattern for a reader wiring it in for real, now updated with
-the real `registerDisposable()` hook that didn't exist yet at the time.
+A real Drizzle + `better-sqlite3` client was wired into this repo once, verified end-to-end (real
+writes, real upsert, `requireAuth()` still gating correctly), then reverted to keep `db/index.ts`
+a stub. This guide reconstructs that pattern for a reader wiring it in for real, updated with the
+`registerDisposable()` hook that didn't exist yet at the time.
 
 ## Setup
 

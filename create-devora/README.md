@@ -9,7 +9,7 @@ several independently-deployable apps sharing a core and a backend).
 ## Quickstart
 
 ```bash
-npx create-devora@latest
+npm create devora@latest
 # or
 yarn create devora@latest
 # or
@@ -35,7 +35,8 @@ generated project to use.
    configured). Asked per app, not once for the whole project, since a marketing site and a
    dashboard in the same project often need different answers.
 
-Non-interactive use (CI, scripting) is supported: `create-devora my-app --scope=fullstack --apps=a,b --auth=a:none,b:shared --skip-install`.
+Non-interactive use (CI, scripting) is supported: `npm create devora@latest my-app -- --scope=fullstack --apps=a,b --auth=a:none,b:shared --pm=npm --skip-install`
+(`--pm=npm|pnpm|yarn` picks the package manager; it's detected from how you ran it otherwise).
 
 `--scope` (or the "What do you need?" prompt) picks what's generated:
 
@@ -49,16 +50,25 @@ app — see "The shared backend pattern" in the docs.
 ## What you get
 
 A real, working project: `devora.config.ts` declaring your apps, a `packages/backend` starter,
-shared brand assets, and each app scaffolded with routes, a `vite.config.ts`, and (for
-`shared`/`isolated` apps) a working login/logout flow. Dependencies are installed automatically,
-so once it finishes:
+shared brand assets, and each app scaffolded with API routes in `endpoints/` (`apiDir:
+"endpoints"`, served under `/api`), a `vite.config.ts` and committed `vercel.json`/`netlify.toml`.
+Page apps also get routes, an `error.tsx` error page and (for `shared`/`isolated` apps) a working
+login/logout flow; backend-only apps get API routes only (plus a Bearer login when they use auth). The
+project depends on `@devorajs/core` and `@devorajs/cli` `^0.3.2`, has a `typecheck` script, and
+runs on React 18 (19 is supported too). Dependencies are installed automatically, so once it
+finishes:
 
 ```bash
 cd my-app
 npm run dev   # or pnpm/yarn — whichever you picked
 ```
 
-...starts every app in dev mode immediately.
+...starts every app in dev mode immediately, printing each app's URL and routes. Add another app
+later with `npx devora add <name>` (`--kind=api` for a backend-only API app).
+
+Before deploying an app with login, set `shared.sessions.store` in `devora.config.ts` to a store
+backed by your database (production refuses to start without one) and a `DEVORA_SESSION_SECRET`
+— see the [Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/DEPLOYING.md) guide.
 
 ## Full documentation
 

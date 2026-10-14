@@ -13,8 +13,16 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 ## 0.3.2 — 2026-10-12
 
 Released together: `@devorajs/core` 0.3.2, `@devorajs/cli` 0.3.2, `@devorajs/adapter-vercel`
-0.2.2, `@devorajs/adapter-netlify` 0.2.2, `create-devora` 0.3.1, and the first published
-`@devorajs/adapter-node` (0.2.0). Upgrade core and cli together:
+0.2.3, `@devorajs/adapter-netlify` 0.2.3, `create-devora` 0.3.1, and the first published
+`@devorajs/adapter-node` (0.2.1).
+
+> **Republished adapters.** `@devorajs/adapter-node` 0.2.0, `@devorajs/adapter-vercel` 0.2.2 and
+> `@devorajs/adapter-netlify` 0.2.2 were published without their build output (each tarball held
+> only `package.json`, the README and the license, so importing them failed). They're deprecated
+> on npm and replaced by adapter-node 0.2.1 and adapter-vercel/adapter-netlify 0.2.3 (2026-10-13),
+> which contain the same code with `dist/` included. Nothing else changed. `devora` itself bundles
+> the adapters, so `devora build`/`start`/`deploy` were not affected; only importing an adapter
+> package directly was. Upgrade core and cli together:
 API routes run on the CLI's bundled copy of core and pages on the app's installed one, so mixing
 0.3.1 and 0.3.2 gives a project two different behaviors. The adapters now require
 `@devorajs/core` `^0.3.2`. Most fixes come from reviews of two real products built on 0.3.1 and
@@ -155,7 +163,7 @@ What each change means, and what an existing app has to do.
   dev and production and both platform functions. Vite 7 is untested.
 - `engines: { node: ">=20" }`. `devora --version` reports 0.3.2.
 
-### `@devorajs/adapter-node` 0.2.0 (first published version)
+### `@devorajs/adapter-node` 0.2.1 (first published version; 0.2.0 had no build output)
 
 - **Published on npm** for self-hosted setups that want their own entry point instead of
   `devora start` (which bundles it and is unchanged). The one export is `createNodeServer()`;
@@ -166,7 +174,7 @@ What each change means, and what an existing app has to do.
 - Smoke test (`scripts/smoke-adapter-node.mjs`, run in CI): installs the packed tarball in an
   empty folder and imports it with plain Node.
 
-### `@devorajs/adapter-vercel` 0.2.2
+### `@devorajs/adapter-vercel` 0.2.3 (0.2.2 had no build output)
 
 - Runtime chosen instead of hardcoded `nodejs20.x` (see Behavior changes); the build prints which
   one and why.
@@ -181,7 +189,7 @@ What each change means, and what an existing app has to do.
   and a link to the deployment guide.
 - Requires `@devorajs/core` `^0.3.2`; `engines: { node: ">=20" }`.
 
-### `@devorajs/adapter-netlify` 0.2.2
+### `@devorajs/adapter-netlify` 0.2.3 (0.2.2 had no build output)
 
 - **CommonJS dependencies work** (the same `createRequire` banner).
 - **Fix: several `Set-Cookie` headers in one response** were comma-joined into one malformed
@@ -201,7 +209,7 @@ What each change means, and what an existing app has to do.
   `typescript` and `@types/*` devDependencies, a root `tsconfig.json` and a `typecheck` script.
   CI typechecks fresh full-stack and backend-only scaffolds against the packed packages.
 
-## Unreleased — scaffolder scope (hotfix #12)
+## 0.3.1 — 2026-09-24 (scaffolder scope, hotfix #12)
 
 - **`@devorajs/core` 0.3.1**, **`@devorajs/cli` 0.3.1**, **`@devorajs/adapter-vercel` 0.2.1**,
   **`@devorajs/adapter-netlify` 0.2.1**, **`create-devora` 0.3.0**: version bumps for everything
@@ -217,7 +225,7 @@ What each change means, and what an existing app has to do.
   vendored `react-dom` unconditionally); `devora add` in a project without `packages/backend` no
   longer adds a dependency on it; `devora split backend` explains when a project has no backend.
 
-## Unreleased — pre-v3 hotfixes
+## 0.3.0 — 2026-09-23 (pre-v3 hotfixes)
 
 - **`@devorajs/core` 0.3.0**, **`@devorajs/cli` 0.3.0**, **`@devorajs/adapter-vercel` 0.2.0**,
   **`@devorajs/adapter-netlify` 0.2.0**, **`create-devora` 0.2.0**: version bumps for everything

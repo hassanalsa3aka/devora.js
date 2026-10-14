@@ -58,7 +58,8 @@ ID, so clients never need a refresh-token flow. Past that it's *dead*: log in ag
 **API/mobile clients** use a Bearer token — same primitive, different transport:
 
 ```ts
-// apps/<app>/api/session.ts — see apps/dashboard/api/session.ts for the full example
+// apps/<app>/endpoints/session.ts (the app's apiDir; `api/` in older apps)
+// — see apps/dashboard/api/session.ts in this repo for the full example
 const token = await ctx.setSession({ userId: user.id }, { transport: "bearer" }); // no cookie set
 return { status: 201, body: JSON.stringify({ token }) }; // client sends `Authorization: Bearer <token>`
 ```
@@ -191,8 +192,13 @@ there's no `@auth/devora` adapter. The realistic integration point is `@auth/cor
 `Auth()` function directly from a Devora API route (architecture-v2.md §3.2), since that's the
 primitive built for exactly "a plain request handler, not tied to page rendering":
 
+Devora has no catch-all routes, so map Auth.js's paths explicitly — `/api/auth/<action>` and
+`/api/auth/<action>/<provider>` (e.g. `/api/auth/signin`, `/api/auth/callback/github`) — with two
+files that share one handler:
+
 ```ts
-// apps/dashboard/api/auth/[...authjs].ts
+// apps/dashboard/endpoints/auth/[action].ts
+// (and apps/dashboard/endpoints/auth/[action]/[provider].ts: `export { handler } from "../[action].js";`)
 import { Auth } from "@auth/core";
 import GitHub from "@auth/core/providers/github";
 import { apiRoute } from "@devorajs/core";
@@ -220,6 +226,11 @@ export const handler = apiRoute(async (req, ctx) => {
   };
 });
 ```
+
+This sketch hasn't been run against a real OAuth provider. Two known gaps: `ApiResponse.headers` is
+a plain object, so when Auth.js sends several `Set-Cookie` headers only one survives
+`Object.fromEntries()`; and the host in the reconstructed URL comes from the `Host` header (behind a
+proxy, use your public URL instead).
 
 This is real integration work, not a drop-in — you own the translation layer between `@auth/core`'s
 Fetch-API request/response and this framework's `ApiRequest`/`ApiResponse`, and deciding whether

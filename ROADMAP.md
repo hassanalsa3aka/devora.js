@@ -1,5 +1,10 @@
 # Roadmap to v1
 
+> **Reading this file:** the "Status" section below is current as of 0.3.2 (2026-10-12). The
+> numbered work items after it are a build log: each describes the state *when it landed*, so an
+> older item can say something is missing that a later item, `architecture-v2.md` or the
+> `CHANGELOG.md` shows as done. Where they disagree, the Status section and the CHANGELOG win.
+
 This document tracks the gap between the current scaffold and a *real* v1, ordered by what
 unblocks what. It exists so "make this framework succeed" is a checklist, not a vibe. Source of
 truth for scope stays `architecture-v1.md`; this file is derived from it and should be updated as
@@ -15,14 +20,15 @@ work lands, not treated as a spec of its own.
 Unpacked, that requires five things to all be true at once:
 
 1. Routes actually render (SSR/SSG/CSR/streaming/ISR per `renderMode`) — SSR (#1), SSG/CSR/ISR
-   (#12) all done; only `"streaming"` remains, explicitly deferred to v2 (see #12).
+   (#12) done in v1; `"streaming"` was deferred from v1 and shipped in v2
+   (`architecture-v2.md` §4).
 2. Auth/session context is real, shared by default, isolable per app — done (#2, #10).
 3. Client-only libraries (three.js, fabric.js, etc.) never crash on the server — done (#9),
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
 4. Each app deploys independently to at least one real target — done: `adapter-node`, Vercel, and
-   Netlify are all live-verified now, via both git integration and `devora deploy`'s own
-   CLI-orchestrated path (see the Status section below and README.md's live demo links). See #4
-   and #13's detail.
+   Netlify were all deployed live by the maintainer with releases before 0.3.2, via both git
+   integration and `devora deploy`. A live deployment of 0.3.2 is not yet verified (its generated
+   functions were run outside the monorepo). See #4 and #13's detail.
 5. SEO primitives work — done (#7): OG tags + per-app opt-in sitemap.xml, both verified.
 
 All five are now unconditionally true. What's left is narrower: `isr`'s regeneration reliability
@@ -32,30 +38,41 @@ on a serverless filesystem specifically — see the Status section immediately b
 
 **Done** — built and verified (see "Automated tests" vs. "manually verified" in `VERIFICATION.md`
 for exactly how):
-- SSR, SSG, CSR, and ISR rendering (`renderMode`) — #1, #12
+- SSR, SSG, CSR, ISR and streaming rendering (`renderMode`) — #1, #12, architecture-v2.md §4
 - Sessions, CSRF, and per-app auth modes (`shared`/`isolated`/`none`) — #2, #10
 - Security headers (CSP/HSTS/X-Frame-Options) on by default — #5
 - Islands / partial hydration, in dev and production — #3
 - SEO primitives: OG tags, opt-in `sitemap.xml` — #7
-- Dynamic routes (`routes/users/[id].tsx`) for `ssr`/`csr` — #1
+- Dynamic routes (`routes/users/[id].tsx`), with `getStaticParams()` for `ssg`/`isr` — #1,
+  architecture-v2.md §3.6 (no catch-all `[...slug]` routes)
+- v2 backend: modules, generic API routes (`apiDir`), middleware, backend-only apps,
+  repo-splitting — architecture-v2.md
+- 0.3.2: request access in loaders/actions, action results, error pages, the head API, uploads,
+  cookie/proxy settings, CORS, `.env` loading, the published `@devorajs/adapter-node` — `CHANGELOG.md`
 - `clientOnly()` — #9
 - The `devora` CLI, working under npm/Yarn/pnpm — #8
 - `adapter-node`, `adapter-vercel`, `adapter-netlify` — build output verified in isolation — #4
-- Real, live production deployment to Vercel and Netlify via git integration (both platforms,
-  all three apps) — #4
+- Live deployment to Vercel and Netlify via git integration (both platforms, all three apps),
+  by the maintainer with releases before 0.3.2 — #4
 - `devora deploy` (the CLI's own `vercel link`/`netlify link`-orchestrated deploy) — a real,
-  authenticated deploy confirmed on both platforms, not just link-detection — #13
-- Docker, self-hosted VPS (nginx/Caddy + systemd), GitHub Actions CI — #14
+  authenticated deploy on both platforms with a release before 0.3.2 — #13
+- Docker, self-hosted VPS (nginx/Caddy; the systemd unit template is untested), GitHub Actions CI — #14
 
 **In progress / partial:**
+- A live Vercel/Netlify deployment of 0.3.2 — not yet done (the generated functions were run
+  outside the monorepo)
 - `isr` on Vercel/Netlify — the initial build's static output serves correctly; ongoing
   regeneration on a serverless function's non-persistent filesystem is unverified — #12
 - Domain auto-binding for a `devora deploy`-managed app — not built, deliberately scoped out of
   this pass — #13
 
-**Planned (v2):**
-- `renderMode: "streaming"` — needs a Suspense-boundary-based island rewrite — #12
-- A static-params API so dynamic routes can support `ssg`/`isr` (currently `ssr`/`csr` only) — #1
+**Known gaps, not scheduled yet:**
+- Several `Set-Cookie` headers and streamed responses (SSE) from API routes
+- Catch-all routes (`[...slug]`)
+- Moving the `esbuild` override out of `package.json`'s `"pnpm"` field (pnpm 11 ignores it — see
+  `CONTRIBUTING.md`)
+
+**Planned:**
 - Formal third-party security audit / signed release provenance — once the API surface stabilizes
 
 **Deliberately out of scope, not planned** (see architecture-v1.md §11 and "Explicitly not
@@ -727,6 +744,8 @@ squashing, avoided doing the real work three times over.
   just present and unused.
 
 ### 12. Render modes: `ssg`, `csr`, `isr` real; `streaming` explicitly deferred to v2 — ✅ done
+
+> Later: `streaming` shipped in v2 — see `architecture-v2.md` §4. The deferral below describes v1.
 Before this, `RenderMode`'s full union (`"ssr"|"ssg"|"csr"|"streaming"|"isr"`) was fully typed
 end-to-end (`RouteModule.renderMode`, `AppRuntimeConfig.defaultRenderMode`) but only interpreted as
 a negative check (`!== "ssr"` → 404) — nothing partially built for any of the other four modes.
