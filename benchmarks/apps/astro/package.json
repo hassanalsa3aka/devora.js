@@ -1,0 +1,16 @@
+{
+  "name": "bench-astro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "astro": "7.3.8",
+    "@astrojs/node": "11.1.7",
+    "@astrojs/react": "7.0.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

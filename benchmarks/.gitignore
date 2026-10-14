@@ -1,0 +1,9 @@
+node_modules/
+results-run.log
+apps/*/dist/
+apps/*/build/
+apps/*/.next/
+apps/*/.astro/
+apps/*/.svelte-kit/
+apps/*/.react-router/
+apps/devora/apps/bench/dist/

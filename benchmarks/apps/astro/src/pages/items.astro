@@ -1,0 +1,17 @@
+---
+import Counter from "../components/Counter.jsx";
+import { getItems } from "../data.js";
+const items = getItems();
+---
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Items</title></head>
+  <body>
+    <main>
+      <h1>Items</h1>
+      <Counter client:load />
+      <ul>
+        {items.map((item) => <li>{item.name} — ${item.price.toFixed(2)}</li>)}
+      </ul>
+    </main>
+  </body>
+</html>

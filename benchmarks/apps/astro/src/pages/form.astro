@@ -1,0 +1,29 @@
+---
+let error = "";
+if (Astro.request.method === "POST") {
+  const data = await Astro.request.formData();
+  const name = String(data.get("name") ?? "").trim();
+  if (!name) {
+    error = "Name is required";
+    Astro.response.status = 400;
+  } else {
+    return Astro.redirect("/form?sent=1", 303);
+  }
+}
+const sent = Astro.url.searchParams.get("sent") === "1";
+---
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Form</title></head>
+  <body>
+    <main>
+      <h1>Form</h1>
+      {sent && <p>Thanks!</p>}
+      {error && <p role="alert">{error}</p>}
+      <form method="post">
+        <label for="name">Name</label>
+        <input id="name" name="name" />
+        <button type="submit">Send</button>
+      </form>
+    </main>
+  </body>
+</html>

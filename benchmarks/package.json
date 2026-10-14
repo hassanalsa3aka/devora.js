@@ -1,0 +1,14 @@
+{
+  "name": "devora-benchmarks",
+  "private": true,
+  "type": "module",
+  "description": "Benchmark harness: the same three pages in Devora.js, Next.js, Astro, SvelteKit and React Router. Not published.",
+  "scripts": {
+    "bench": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "devDependencies": {
+    "autocannon": "8.0.0",
+    "playwright": "1.55.1"
+  }
+}

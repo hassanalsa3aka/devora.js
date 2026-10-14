@@ -1,0 +1,13 @@
+{
+  "name": "bench-next",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "start": "next start -p ${PORT:-3000}"
+  },
+  "dependencies": {
+    "next": "16.4.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

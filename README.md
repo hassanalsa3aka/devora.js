@@ -218,6 +218,7 @@ please open an issue.
 - 🔐 [Auth and sessions](packages/backend/AUTH.md) — session stores, cookies behind proxies, CSRF
 - ✅ [Testing & verification](VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)
+- 📊 [Benchmarks](benchmarks/) — the same pages in Devora.js, Next.js, Astro, SvelteKit and React Router; [latest results](benchmarks/results/report.md)
 - 📚 [Full docs site](https://devorajs-docs-docs.vercel.app) — built with the published packages,
   covers every feature with runnable examples
 - 🤝 [Contributing](CONTRIBUTING.md) · 🛡️ [Security policy](SECURITY.md)

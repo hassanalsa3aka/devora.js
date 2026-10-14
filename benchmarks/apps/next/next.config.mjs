@@ -1,0 +1,2 @@
+// Defaults only.
+export default {};
