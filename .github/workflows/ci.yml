@@ -127,3 +127,25 @@ jobs:
           node packages/cli/dist/index.js build --app=dashboard --adapter=netlify
           node packages/cli/dist/index.js build --app=admin --adapter=netlify
           node packages/cli/dist/index.js build --app=api-only --adapter=netlify
+
+  # The runnable projects in examples/. Each installs the published packages
+  # from npm with its own lockfile, so this catches an example that no
+  # longer works with what users actually get.
+  examples:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [multi-app, api-bearer, content-site]
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node ../check.mjs

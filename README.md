@@ -80,6 +80,9 @@ under each.
 **Requirements:** Node 20 or newer, React 18.3 or 19, Vite 5.4 or 6 (new projects start on
 React 18 and whichever Vite the install resolves).
 
+Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only
+API with Bearer login, or a content site with `ssg` and islands.
+
 ## Key features
 
 - **Multi-app, one repo** — `devora.config.ts` declares each app; `devora build`/`devora deploy`

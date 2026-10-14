@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && ./node_modules/.bin/devora build --app=blog --adapter=vercel",
+  "framework": null
+}

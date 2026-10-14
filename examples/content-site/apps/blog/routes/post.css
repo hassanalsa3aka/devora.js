@@ -1,0 +1,10 @@
+/* Imported by routes/posts/[slug].tsx: linked in that page's <head>
+   automatically, in dev and in the built HTML. */
+.post-date {
+  font-size: 0.85rem;
+  color: var(--devora-fg-muted);
+  margin-top: -0.5rem;
+}
+.post-body p {
+  font-size: 1.05rem;
+}

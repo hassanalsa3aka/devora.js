@@ -1,0 +1,29 @@
+{
+  "name": "devora-example-api-bearer",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "devora dev",
+    "dev:host": "devora dev --host",
+    "build": "devora build",
+    "start": "devora start",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "dependencies": {
+    "@devorajs/core": "^0.3.2",
+    "@devorajs/cli": "^0.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

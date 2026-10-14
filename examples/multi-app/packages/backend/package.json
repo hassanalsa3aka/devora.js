@@ -1,0 +1,13 @@
+{
+  "name": "@devorajs/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./db": "./db/index.ts",
+    "./notes": "./notes.ts"
+  },
+  "dependencies": {
+    "@devorajs/core": "^0.3.2"
+  }
+}
