@@ -3,7 +3,8 @@ import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { matchRoute, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
+import { buildRouteTable, matchInTable, isDynamicRouteFile, resolveStaticRoutePath, type RouteTable } from "./router.js";
+import { createStaticFileServer, makeStaticBody, sendStaticBody, HTML_CACHE, type StaticBody } from "./staticFiles.js";
 import { collectSitemapPaths, generateSitemapXml } from "./sitemap.js";
 import type { SessionCookieOptions } from "./session.js";
 import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
@@ -50,20 +51,6 @@ export interface ProdRequestHandlerOptions {
   cors?: CorsConfig;
 }
 
-const ASSET_CONTENT_TYPES: Record<string, string> = {
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".webp": "image/webp",
-  ".txt": "text/plain; charset=utf-8",
-};
 
 /**
  * Production counterpart to ssrMiddleware.ts (ROADMAP.md #4) — same
@@ -147,6 +134,14 @@ export function createProdRequestHandler(
 
   // Built once: the route list and every getStaticParams() are fixed for a build.
   let sitemapXml: Promise<string> | undefined;
+  // The routes folder is read once, on the first request that needs it, not
+  // on every request (matching used to walk the folder per request).
+  let routeTable: RouteTable | undefined;
+  const matchPageRoute = (urlPath: string) => matchInTable((routeTable ??= buildRouteTable(routesDir)), urlPath);
+  let apiTable: RouteTable | undefined;
+  const serveClientFile = createStaticFileServer(clientOutDir);
+  // ssg pages never change at runtime: kept in memory after the first read.
+  const ssgPages = new Map<string, StaticBody>();
 
   return async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -156,8 +151,9 @@ export function createProdRequestHandler(
     if (!req.url) return false;
     const url = new URL(req.url, "http://localhost");
 
-    if (url.pathname === "/sitemap.xml") {
-      if (!sitemapEnabled) return false;
+    // With `sitemap` off this falls through, so a hand-written
+    // public/sitemap.xml is served like any other public file.
+    if (url.pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
         return (await importBuilt(serverOutDir, toBuildKey(appRoot, file))) as RouteModule;
       }).then((paths) => generateSitemapXml(paths, domain));
@@ -184,7 +180,7 @@ export function createProdRequestHandler(
         res.end();
         return true;
       }
-      const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
+      const apiMatch = matchInTable((apiTable ??= buildRouteTable(apiDir)), url.pathname.slice(4) || "/");
       if (!apiMatch) {
         sendApiResponse(res, apiNotFoundResponse());
         return true;
@@ -232,7 +228,7 @@ export function createProdRequestHandler(
     // the content does); matched before the generic public-file fallback
     // below purely so it gets that stronger cache header.
     if (url.pathname.startsWith("/assets/")) {
-      return serveAsset(clientOutDir, url.pathname, res, true);
+      return serveClientFile(req, res, url.pathname, true);
     }
 
     if (url.pathname.startsWith("/@")) return false;
@@ -248,10 +244,10 @@ export function createProdRequestHandler(
       // Only a file that exists ends the request here: a dot in a URL is
       // also legal in a route (a catch-all page for /docs/v1.2/intro), so
       // a dotted path that isn't a public file goes on to route matching.
-      if (await serveAsset(clientOutDir, url.pathname, res, false)) return true;
+      if (await serveClientFile(req, res, url.pathname, false)) return true;
     }
 
-    const match = matchRoute(routesDir, url.pathname);
+    const match = matchPageRoute(url.pathname);
     if (!match) {
       if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
         sendApiResponse(res, backendStatusFor(appName, req.headers.accept));
@@ -345,15 +341,31 @@ export function createProdRequestHandler(
     }
 
     if (renderMode === "ssg" || renderMode === "isr") {
-      let cached = await readCachedRoute(staticOutDir, match.routePath);
-
       if (renderMode === "ssg") {
         // Never regenerated at request time — a missing entry means the
         // build ran before this route existed (or without --app covering
         // it); honest 404 rather than silently rendering something the
-        // build step never produced.
-        if (!cached) return sendErrorPage(res, 404);
-      } else {
+        // build step never produced. A found page is kept in memory (it
+        // can't change until the next build, which needs a restart).
+        let page = ssgPages.get(match.routePath);
+        if (!page) {
+          const found = await readCachedRoute(staticOutDir, match.routePath);
+          if (!found) return sendErrorPage(res, 404);
+          page = makeStaticBody(Buffer.from(found.html, "utf-8"), "text/html; charset=utf-8", HTML_CACHE);
+          ssgPages.set(match.routePath, page);
+        }
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          res.statusCode = 405;
+          res.setHeader("Allow", "GET, HEAD");
+          res.end("Method Not Allowed");
+          return true;
+        }
+        await sendStaticBody(req, res, page);
+        return true;
+      }
+
+      let cached = await readCachedRoute(staticOutDir, match.routePath);
+      {
         // isr: regenerate synchronously once stale, then serve — simpler
         // and more deterministic than stale-while-revalidate for v1 (see
         // ROADMAP.md). Only reliable under adapter-node's long-lived
@@ -516,34 +528,22 @@ async function readCsrManifest(manifestPath: string): Promise<CsrManifest> {
   }
 }
 
-async function serveAsset(
-  clientOutDir: string,
-  pathname: string,
-  res: ServerResponse,
-  immutable: boolean
-): Promise<boolean> {
-  const filePath = path.join(clientOutDir, pathname);
-  // Reject any path that escapes clientOutDir (e.g. via "..") before touching the filesystem.
-  if (!filePath.startsWith(clientOutDir + path.sep)) return false;
-  if (!existsSync(filePath)) return false;
+const builtModules = new Map<string, Promise<unknown>>();
 
-  const body = await readFile(filePath);
-  const contentType = ASSET_CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream";
-  res.statusCode = 200;
-  res.setHeader("Content-Type", contentType);
-  // Hashed filenames (/assets/*) are safe to cache forever; plain public
-  // files (logo, favicon, robots.txt) aren't content-hashed, so an update
-  // should actually reach visitors within the hour rather than a year.
-  res.setHeader(
-    "Cache-Control",
-    immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600"
-  );
-  res.end(body);
-  return true;
+/** Node caches the module itself; this skips re-resolving the path and URL on every request. */
+function importBuilt(serverOutDir: string, key: string): Promise<unknown> {
+  const filePath = path.join(serverOutDir, `${key}.js`);
+  let loaded = builtModules.get(filePath);
+  if (!loaded) {
+    loaded = importBuiltUncached(filePath);
+    builtModules.set(filePath, loaded);
+    // A failed import is not remembered, so a fixed file can load later.
+    loaded.catch(() => builtModules.delete(filePath));
+  }
+  return loaded;
 }
 
-async function importBuilt(serverOutDir: string, key: string): Promise<unknown> {
-  const filePath = path.join(serverOutDir, `${key}.js`);
+async function importBuiltUncached(filePath: string): Promise<unknown> {
   // @vite-ignore: this only ever runs against real pre-built files at a path
   // computed from the request (production only — dev never calls this),
   // never from unsanitized user input; Vite's static import-analyzer can't

@@ -225,7 +225,8 @@ export async function writeNetlifyConfig(
       `  try {\n` +
       `    const handled = await handleRequest(req, res);\n` +
       `    if (!handled) return new Response("Not found", { status: 404 });\n` +
-      `    return new Response(Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });\n` +
+      `    const noBody = res.statusCode === 204 || res.statusCode === 304 || chunks.length === 0 && res.statusCode < 200;\n` +
+      `    return new Response(noBody ? null : Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });\n` +
       `  } catch (err) {\n` +
       `    console.error(err);\n` +
       `    return new Response("Internal Server Error", { status: 500 });\n` +

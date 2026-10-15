@@ -3122,7 +3122,7 @@ var require_jsx_runtime = __commonJS({
 import { Command } from "commander";
 
 // src/commands/dev.ts
-import path14 from "node:path";
+import path15 from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "vite";
 
@@ -4453,10 +4453,210 @@ function toBuildKey(appRoot, filePath) {
 }
 
 // ../core/src/prodRequestHandler.ts
-import path6 from "node:path";
+import path7 from "node:path";
 import { pathToFileURL } from "node:url";
-import { readFile as readFile2 } from "node:fs/promises";
+import { readFile as readFile3 } from "node:fs/promises";
 import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
+
+// ../core/src/staticFiles.ts
+import path4 from "node:path";
+import { createHash } from "node:crypto";
+import { createReadStream, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
+var CONTENT_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".htm": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".csv": "text/csv; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+  ".pdf": "application/pdf",
+  ".wasm": "application/wasm",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mp3": "audio/mpeg"
+};
+function contentTypeFor(filePath) {
+  return CONTENT_TYPES[path4.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+}
+function isCompressible(type) {
+  return type.startsWith("text/") || type.startsWith("application/javascript") || type.startsWith("application/json") || type.startsWith("application/xml") || type.startsWith("application/manifest+json") || type.startsWith("image/svg+xml");
+}
+var MIN_COMPRESS_BYTES = 1024;
+var MAX_MEMORY_BYTES = 2 * 1024 * 1024;
+function makeStaticBody(body, type, cacheControl) {
+  const etag = `"${createHash("sha1").update(body).digest("base64url").slice(0, 22)}"`;
+  return { body, type, etag, cacheControl };
+}
+function acceptsEncoding(header, name) {
+  if (!header) return false;
+  const value = Array.isArray(header) ? header.join(",") : header;
+  for (const part of value.split(",")) {
+    const [token, ...params] = part.trim().split(";");
+    if (token.trim().toLowerCase() !== name) continue;
+    const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+    return q === void 0 || Number(q.slice(2)) > 0;
+  }
+  return false;
+}
+function matchesEtag(ifNoneMatch, etag) {
+  if (!ifNoneMatch) return false;
+  const value = Array.isArray(ifNoneMatch) ? ifNoneMatch.join(",") : ifNoneMatch;
+  if (value.trim() === "*") return true;
+  const bare = etag.replace(/^W\//, "");
+  return value.split(",").some((candidate) => candidate.trim().replace(/^W\//, "") === bare);
+}
+function compress(entry, kind) {
+  const existing = entry[kind];
+  if (existing) return existing;
+  const made = new Promise((resolve, reject) => {
+    if (kind === "br") {
+      brotliCompress(
+        entry.body,
+        { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5, [zlibConstants.BROTLI_PARAM_SIZE_HINT]: entry.body.length } },
+        (err, out) => err ? reject(err) : resolve(out)
+      );
+    } else {
+      gzip(entry.body, { level: 6 }, (err, out) => err ? reject(err) : resolve(out));
+    }
+  });
+  entry[kind] = made;
+  return made;
+}
+async function sendStaticBody(req, res, entry) {
+  let body = entry.body;
+  let etag = entry.etag;
+  let encoding;
+  const compressible = isCompressible(entry.type) && entry.body.length >= MIN_COMPRESS_BYTES;
+  if (compressible) {
+    res.setHeader("Vary", "Accept-Encoding");
+    const accept = req.headers["accept-encoding"];
+    if (acceptsEncoding(accept, "br")) {
+      encoding = "br";
+      etag = entry.etag.slice(0, -1) + '-br"';
+    } else if (acceptsEncoding(accept, "gzip")) {
+      encoding = "gzip";
+      etag = entry.etag.slice(0, -1) + '-gz"';
+    }
+  }
+  res.setHeader("Content-Type", entry.type);
+  res.setHeader("Cache-Control", entry.cacheControl);
+  res.setHeader("ETag", etag);
+  if (matchesEtag(req.headers["if-none-match"], etag)) {
+    res.statusCode = 304;
+    res.end();
+    return;
+  }
+  if (encoding) {
+    body = await compress(entry, encoding === "br" ? "br" : "gz");
+    res.setHeader("Content-Encoding", encoding);
+  }
+  res.statusCode = 200;
+  res.setHeader("Content-Length", body.length);
+  if (req.method === "HEAD") {
+    res.end();
+    return;
+  }
+  res.end(body);
+}
+var IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
+var PUBLIC_FILE_CACHE = "public, max-age=3600";
+var HTML_CACHE = "public, max-age=0, must-revalidate";
+function createStaticFileServer(rootDir) {
+  const root = path4.resolve(rootDir);
+  const cache = /* @__PURE__ */ new Map();
+  function resolveInside(pathname) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(pathname);
+    } catch {
+      return void 0;
+    }
+    if (decoded.includes("\0") || decoded.includes("\\")) return void 0;
+    const filePath = path4.resolve(root, "." + decoded);
+    if (!filePath.startsWith(root + path4.sep)) return void 0;
+    return filePath;
+  }
+  return async function serve(req, res, pathname, immutable) {
+    const filePath = resolveInside(pathname);
+    if (!filePath) return false;
+    let entry = cache.get(filePath);
+    if (!entry) {
+      let stat;
+      try {
+        stat = statSync(filePath);
+      } catch {
+        return false;
+      }
+      if (!stat.isFile()) return false;
+      const type = contentTypeFor(filePath);
+      const cacheControl = immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE;
+      if (stat.size <= MAX_MEMORY_BYTES) {
+        entry = makeStaticBody(await readFile(filePath), type, cacheControl);
+      } else {
+        const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+        entry = { file: filePath, size: stat.size, type, etag, cacheControl };
+      }
+      cache.set(filePath, entry);
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.statusCode = 405;
+      res.setHeader("Allow", "GET, HEAD");
+      res.end("Method Not Allowed");
+      return true;
+    }
+    if ("body" in entry) {
+      await sendStaticBody(req, res, entry);
+      return true;
+    }
+    res.setHeader("Content-Type", entry.type);
+    res.setHeader("Cache-Control", entry.cacheControl);
+    res.setHeader("ETag", entry.etag);
+    if (matchesEtag(req.headers["if-none-match"], entry.etag)) {
+      res.statusCode = 304;
+      res.end();
+      return true;
+    }
+    res.statusCode = 200;
+    res.setHeader("Content-Length", entry.size);
+    if (req.method === "HEAD") {
+      res.end();
+      return true;
+    }
+    await new Promise((resolve) => {
+      const stream = createReadStream(entry.file);
+      stream.on("error", () => {
+        res.destroy();
+        resolve();
+      });
+      res.on("close", () => {
+        stream.destroy();
+        resolve();
+      });
+      stream.pipe(res);
+      stream.on("end", resolve);
+    });
+    return true;
+  };
+}
 
 // ../core/src/branding.tsx
 var import_react3 = __toESM(require_react(), 1);
@@ -4484,28 +4684,28 @@ function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl, hea
 }
 
 // ../core/src/isrCache.ts
-import path4 from "node:path";
+import path5 from "node:path";
 import { existsSync as existsSync2 } from "node:fs";
-import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
+import { mkdir, readFile as readFile2, writeFile, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 function cachePaths(staticOutDir, routePath) {
-  const base = path4.resolve(staticOutDir);
-  const dir = routePath === "/" ? base : path4.resolve(base, routePath.slice(1));
-  if (dir !== base && !dir.startsWith(base + path4.sep)) {
+  const base = path5.resolve(staticOutDir);
+  const dir = routePath === "/" ? base : path5.resolve(base, routePath.slice(1));
+  if (dir !== base && !dir.startsWith(base + path5.sep)) {
     throw new Error(
       `[devora] refusing to write ISR cache for route "${routePath}" \u2014 it resolves outside "${staticOutDir}". Check this route's getStaticParams() for a param value containing "/" or "..".`
     );
   }
-  return { htmlPath: path4.join(dir, "index.html"), metaPath: path4.join(dir, "index.meta.json") };
+  return { htmlPath: path5.join(dir, "index.html"), metaPath: path5.join(dir, "index.meta.json") };
 }
 async function readCachedRoute(staticOutDir, routePath) {
   const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
   if (!existsSync2(htmlPath)) return void 0;
-  const html = await readFile(htmlPath, "utf-8");
+  const html = await readFile2(htmlPath, "utf-8");
   let renderedAt = 0;
   if (existsSync2(metaPath)) {
     try {
-      renderedAt = JSON.parse(await readFile(metaPath, "utf-8")).renderedAt;
+      renderedAt = JSON.parse(await readFile2(metaPath, "utf-8")).renderedAt;
     } catch {
     }
   }
@@ -4518,7 +4718,7 @@ async function writeAtomic(filePath, data) {
 }
 async function writeCachedRoute(staticOutDir, routePath, html) {
   const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
-  await mkdir(path4.dirname(htmlPath), { recursive: true });
+  await mkdir(path5.dirname(htmlPath), { recursive: true });
   await writeAtomic(htmlPath, html);
   await writeAtomic(metaPath, JSON.stringify({ renderedAt: Date.now() }));
 }
@@ -4614,12 +4814,12 @@ function isApiPath(pathname) {
 }
 
 // ../core/src/apiDir.ts
-import path5 from "node:path";
+import path6 from "node:path";
 var DEFAULT_API_DIR = "api";
 function normalizeApiDir(apiDir) {
   if (apiDir === void 0) return DEFAULT_API_DIR;
-  const normalized = path5.posix.normalize(apiDir.replace(/\\/g, "/")).replace(/^\.\/+/, "").replace(/\/+$/, "");
-  if (normalized === "" || normalized === "." || path5.posix.isAbsolute(normalized) || normalized === ".." || normalized.startsWith("../")) {
+  const normalized = path6.posix.normalize(apiDir.replace(/\\/g, "/")).replace(/^\.\/+/, "").replace(/\/+$/, "");
+  if (normalized === "" || normalized === "." || path6.posix.isAbsolute(normalized) || normalized === ".." || normalized.startsWith("../")) {
     throw new Error(`[devora] apiDir "${apiDir}" must be a folder inside the app, e.g. "endpoints".`);
   }
   const first = normalized.split("/")[0];
@@ -4629,7 +4829,7 @@ function normalizeApiDir(apiDir) {
   return normalized;
 }
 function resolveApiDir(appRoot, apiDir) {
-  return path5.join(appRoot, normalizeApiDir(apiDir));
+  return path6.join(appRoot, normalizeApiDir(apiDir));
 }
 
 // ../core/src/trustProxy.ts
@@ -4730,26 +4930,12 @@ function corsResponse(cors, method, headers) {
 }
 
 // ../core/src/prodRequestHandler.ts
-var ASSET_CONTENT_TYPES = {
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".webp": "image/webp",
-  ".txt": "text/plain; charset=utf-8"
-};
 function createProdRequestHandler(appRoot, appName, authMode, domain, security, sitemapEnabled, appDefaultRenderMode, options = {}) {
-  const routesDir = path6.join(appRoot, "routes");
+  const routesDir = path7.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const serverOutDir = path6.join(appRoot, "dist", "server");
-  const clientOutDir = path6.join(appRoot, "dist", "client");
-  const staticOutDir = path6.join(appRoot, "dist", "static");
+  const serverOutDir = path7.join(appRoot, "dist", "server");
+  const clientOutDir = path7.join(appRoot, "dist", "client");
+  const staticOutDir = path7.join(appRoot, "dist", "static");
   const resolveSessionOptions = authMode === "none" ? void 0 : createSessionOptionsResolver(
     authMode,
     appName,
@@ -4760,13 +4946,13 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const sessionOptionsForRequest = async (req) => resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : void 0;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
-  const islandManifestPath = path6.join(serverOutDir, "island-manifest.json");
-  const csrManifestPath = path6.join(serverOutDir, "csr-route-manifest.json");
+  const islandManifestPath = path7.join(serverOutDir, "island-manifest.json");
+  const csrManifestPath = path7.join(serverOutDir, "csr-route-manifest.json");
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
   const head = options.head;
-  const routeStyles = readRouteCssManifest(path6.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
-  const hasEntryServer = existsSync3(path6.join(serverOutDir, "entry-server.js"));
-  const hasErrorPage = existsSync3(path6.join(serverOutDir, `${ERROR_PAGE_BUILD_KEY}.js`));
+  const routeStyles = readRouteCssManifest(path7.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
+  const hasEntryServer = existsSync3(path7.join(serverOutDir, "entry-server.js"));
+  const hasErrorPage = existsSync3(path7.join(serverOutDir, `${ERROR_PAGE_BUILD_KEY}.js`));
   const loadErrorPage = async () => hasErrorPage ? await importBuilt(serverOutDir, ERROR_PAGE_BUILD_KEY) : void 0;
   const errorPageStyles = routeStyles[ERROR_PAGE_BUILD_KEY];
   const sendErrorPage = async (res, status2, error) => {
@@ -4783,14 +4969,18 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     return true;
   };
   let sitemapXml;
+  let routeTable;
+  const matchPageRoute = (urlPath) => matchInTable(routeTable ??= buildRouteTable(routesDir), urlPath);
+  let apiTable;
+  const serveClientFile = createStaticFileServer(clientOutDir);
+  const ssgPages = /* @__PURE__ */ new Map();
   return async function handleRequest(req, res) {
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
     }
     if (!req.url) return false;
     const url = new URL(req.url, "http://localhost");
-    if (url.pathname === "/sitemap.xml") {
-      if (!sitemapEnabled) return false;
+    if (url.pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
         return await importBuilt(serverOutDir, toBuildKey(appRoot, file));
       }).then((paths) => generateSitemapXml(paths, domain));
@@ -4808,7 +4998,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         res.end();
         return true;
       }
-      const apiMatch = matchRoute(apiDir, url.pathname.slice(4) || "/");
+      const apiMatch = matchInTable(apiTable ??= buildRouteTable(apiDir), url.pathname.slice(4) || "/");
       if (!apiMatch) {
         sendApiResponse(res, apiNotFoundResponse());
         return true;
@@ -4847,13 +5037,13 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       return true;
     }
     if (url.pathname.startsWith("/assets/")) {
-      return serveAsset(clientOutDir, url.pathname, res, true);
+      return serveClientFile(req, res, url.pathname, true);
     }
     if (url.pathname.startsWith("/@")) return false;
     if (url.pathname.includes(".")) {
-      if (await serveAsset(clientOutDir, url.pathname, res, false)) return true;
+      if (await serveClientFile(req, res, url.pathname, false)) return true;
     }
-    const match = matchRoute(routesDir, url.pathname);
+    const match = matchPageRoute(url.pathname);
     if (!match) {
       if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
         sendApiResponse(res, backendStatusFor(appName, req.headers.accept));
@@ -4929,10 +5119,25 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       return true;
     }
     if (renderMode === "ssg" || renderMode === "isr") {
-      let cached = await readCachedRoute(staticOutDir, match.routePath);
       if (renderMode === "ssg") {
-        if (!cached) return sendErrorPage(res, 404);
-      } else {
+        let page = ssgPages.get(match.routePath);
+        if (!page) {
+          const found = await readCachedRoute(staticOutDir, match.routePath);
+          if (!found) return sendErrorPage(res, 404);
+          page = makeStaticBody(Buffer.from(found.html, "utf-8"), "text/html; charset=utf-8", HTML_CACHE);
+          ssgPages.set(match.routePath, page);
+        }
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          res.statusCode = 405;
+          res.setHeader("Allow", "GET, HEAD");
+          res.end("Method Not Allowed");
+          return true;
+        }
+        await sendStaticBody(req, res, page);
+        return true;
+      }
+      let cached = await readCachedRoute(staticOutDir, match.routePath);
+      {
         if (isDynamicRouteFile(routesDir, match.filePath) && typeof routeModule.getStaticParams === "function") {
           const declaredParams = await routeModule.getStaticParams();
           const allowed = declaredParams.some(
@@ -5026,7 +5231,7 @@ function sendApiResponse(res, result) {
 async function readIslandClientUrl(manifestPath) {
   if (!existsSync3(manifestPath)) return void 0;
   try {
-    const raw = await readFile2(manifestPath, "utf-8");
+    const raw = await readFile3(manifestPath, "utf-8");
     const parsed = JSON.parse(raw);
     return parsed.islandClientUrl;
   } catch {
@@ -5036,29 +5241,24 @@ async function readIslandClientUrl(manifestPath) {
 async function readCsrManifest(manifestPath) {
   if (!existsSync3(manifestPath)) return { routes: {} };
   try {
-    const parsed = JSON.parse(await readFile2(manifestPath, "utf-8"));
+    const parsed = JSON.parse(await readFile3(manifestPath, "utf-8"));
     return { csrClientUrl: parsed.csrClientUrl ?? void 0, routes: parsed.routes ?? {} };
   } catch {
     return { routes: {} };
   }
 }
-async function serveAsset(clientOutDir, pathname, res, immutable) {
-  const filePath = path6.join(clientOutDir, pathname);
-  if (!filePath.startsWith(clientOutDir + path6.sep)) return false;
-  if (!existsSync3(filePath)) return false;
-  const body = await readFile2(filePath);
-  const contentType = ASSET_CONTENT_TYPES[path6.extname(filePath)] ?? "application/octet-stream";
-  res.statusCode = 200;
-  res.setHeader("Content-Type", contentType);
-  res.setHeader(
-    "Cache-Control",
-    immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600"
-  );
-  res.end(body);
-  return true;
+var builtModules = /* @__PURE__ */ new Map();
+function importBuilt(serverOutDir, key) {
+  const filePath = path7.join(serverOutDir, `${key}.js`);
+  let loaded = builtModules.get(filePath);
+  if (!loaded) {
+    loaded = importBuiltUncached(filePath);
+    builtModules.set(filePath, loaded);
+    loaded.catch(() => builtModules.delete(filePath));
+  }
+  return loaded;
 }
-async function importBuilt(serverOutDir, key) {
-  const filePath = path6.join(serverOutDir, `${key}.js`);
+async function importBuiltUncached(filePath) {
   const mod = await import(
     /* @vite-ignore */
     pathToFileURL(filePath).href
@@ -5102,11 +5302,11 @@ function runAndClearDisposable(filePath) {
 }
 
 // ../core/src/loadProjectConfig.ts
-import path7 from "node:path";
+import path8 from "node:path";
 import { existsSync as existsSync4 } from "node:fs";
 import { createJiti } from "jiti";
 async function loadProjectConfig(root = process.cwd()) {
-  const configPath = path7.join(root, "devora.config.ts");
+  const configPath = path8.join(root, "devora.config.ts");
   if (!existsSync4(configPath)) {
     throw new Error(
       `[devora] no devora.config.ts found at ${configPath}. Every Devora.js project must declare its apps here \u2014 see architecture doc \xA73.`
@@ -5121,15 +5321,15 @@ async function loadProjectConfig(root = process.cwd()) {
   return config;
 }
 function resolveAppDir(root, appDir) {
-  return path7.join(root, appDir);
+  return path8.join(root, appDir);
 }
 
 // ../core/src/loadAppConfig.ts
-import path8 from "node:path";
+import path9 from "node:path";
 import { existsSync as existsSync5 } from "node:fs";
 import { createJiti as createJiti2 } from "jiti";
 async function loadAppConfig(appRoot) {
-  const configPath = path8.join(appRoot, "app.config.ts");
+  const configPath = path9.join(appRoot, "app.config.ts");
   if (!existsSync5(configPath)) return {};
   const jiti = createJiti2(import.meta.url, { interopDefault: true });
   const mod = await jiti.import(configPath);
@@ -5137,14 +5337,14 @@ async function loadAppConfig(appRoot) {
 }
 
 // src/server/ssrMiddleware.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import fs2, { existsSync as existsSync6 } from "node:fs";
 
 // src/server/devSessionOptions.ts
-import path9 from "node:path";
+import path10 from "node:path";
 function createDevSessionOptionsResolver(vite, projectRoot, sessions, authMode, appName, manifest = toSessionManifest(sessions)) {
   if (authMode === "none") return void 0;
-  const storeModule = sessions?.store && sessions.store !== "memory" ? path9.resolve(projectRoot, sessions.store) : void 0;
+  const storeModule = sessions?.store && sessions.store !== "memory" ? path10.resolve(projectRoot, sessions.store) : void 0;
   const resolve = createSessionOptionsResolver(authMode, appName, manifest, () => vite.ssrLoadModule(storeModule));
   return () => resolve();
 }
@@ -5172,9 +5372,9 @@ var REACT_REFRESH_PREAMBLE_VIRTUAL_ID = VIRTUAL_ID;
 // src/server/ssrMiddleware.ts
 var DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
 function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode, security, sessions, page = {}) {
-  const routesDir = path10.join(appRoot, "routes");
-  const entryServerPath = path10.join(appRoot, "entry-server.tsx");
-  const errorPagePath = ERROR_PAGE_FILES.map((f) => path10.join(appRoot, f)).find((f) => existsSync6(f));
+  const routesDir = path11.join(appRoot, "routes");
+  const entryServerPath = path11.join(appRoot, "entry-server.tsx");
+  const errorPagePath = ERROR_PAGE_FILES.map((f) => path11.join(appRoot, f)).find((f) => existsSync6(f));
   const { head, trustProxy } = page;
   const maxBodyBytes = page.maxBodyBytes ?? MAX_BODY_BYTES;
   const loadErrorPage = async () => errorPagePath ? await vite.ssrLoadModule(errorPagePath) : void 0;
@@ -5387,8 +5587,8 @@ function isStaticFileRequest(vite, pathname) {
   const publicDir = vite.config.publicDir;
   const roots = [publicDir, vite.config.root].filter((dir) => typeof dir === "string" && dir !== "");
   return roots.some((dir) => {
-    const full = path10.join(dir, rel);
-    if (!full.startsWith(dir + path10.sep)) return false;
+    const full = path11.join(dir, rel);
+    if (!full.startsWith(dir + path11.sep)) return false;
     try {
       return fs2.statSync(full).isFile();
     } catch {
@@ -5672,7 +5872,7 @@ function isDevoraError(err) {
 }
 
 // src/build/loadEnvFiles.ts
-import path13 from "node:path";
+import path14 from "node:path";
 import { existsSync as existsSync7 } from "node:fs";
 import { loadEnv } from "vite";
 
@@ -5702,7 +5902,7 @@ async function resolveAuthChoice(explicit, appName) {
 import { createInterface as createInterface2 } from "node:readline/promises";
 
 // ../scaffold/src/scaffoldAppFiles.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
 var SCAFFOLD_API_DIR = "endpoints";
 var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) \u2014 not api/, which
@@ -5714,9 +5914,9 @@ async function scaffoldAppFiles(appDir, appName, opts) {
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;
   const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
-  await mkdir2(path11.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
+  await mkdir2(path12.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
   await writeFile2(
-    path11.join(appDir, "package.json"),
+    path12.join(appDir, "package.json"),
     JSON.stringify(
       {
         name: `@project/app-${appName}`,
@@ -5752,7 +5952,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
     ) + "\n"
   );
   await writeFile2(
-    path11.join(appDir, "tsconfig.json"),
+    path12.join(appDir, "tsconfig.json"),
     `{
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "outDir": "dist", "rootDir": "." },
@@ -5763,7 +5963,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
   );
   if (kind === "api") {
     await writeFile2(
-      path11.join(appDir, "app.config.ts"),
+      path12.join(appDir, "app.config.ts"),
       `import { defineApp } from "@devorajs/core/config";
 
 // Backend-only app: API routes under ${SCAFFOLD_API_DIR}/, no pages and no client build.
@@ -5773,7 +5973,7 @@ export default defineApp({
 `
     );
     await writeFile2(
-      path11.join(appDir, "vite.config.ts"),
+      path12.join(appDir, "vite.config.ts"),
       `import { defineConfig } from "vite";
 
 // Backend-only app \u2014 nothing here ever ships to a browser, so no React
@@ -5783,7 +5983,7 @@ export default defineConfig({});
     );
   } else {
     await writeFile2(
-      path11.join(appDir, "app.config.ts"),
+      path12.join(appDir, "app.config.ts"),
       `import { defineApp } from "@devorajs/core/config";
 
 export default defineApp({
@@ -5797,7 +5997,7 @@ export default defineApp({
 `
     );
     await writeFile2(
-      path11.join(appDir, "vite.config.ts"),
+      path12.join(appDir, "vite.config.ts"),
       `import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -5818,7 +6018,7 @@ export default defineConfig({
 `
     );
     await writeFile2(
-      path11.join(appDir, "entry-server.tsx"),
+      path12.join(appDir, "entry-server.tsx"),
       `import { createElement } from "react";
 import { renderToString, renderToPipeableStream } from "react-dom/server";
 import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
@@ -5834,7 +6034,7 @@ export const renderStreaming = createRenderStreaming({ createElement, renderToPi
 `
     );
     await writeFile2(
-      path11.join(appDir, "error.tsx"),
+      path12.join(appDir, "error.tsx"),
       `import { PageShell, type ErrorPageProps } from "@devorajs/core";
 
 // Rendered for unmatched URLs (404) and for errors a page throws \u2014 an
@@ -5859,7 +6059,7 @@ export default function ErrorPage({ status, message }: ErrorPageProps) {
 `
     );
     await writeFile2(
-      path11.join(appDir, "island-client.tsx"),
+      path12.join(appDir, "island-client.tsx"),
       `import { hydrateIslands } from "@devorajs/core/client";
 
 // Only requested when a page actually used an island() \u2014 see
@@ -5871,7 +6071,7 @@ hydrateIslands();
 `
     );
     await writeFile2(
-      path11.join(appDir, "csr-client.tsx"),
+      path12.join(appDir, "csr-client.tsx"),
       `import { hydrateCsrRoutes } from "@devorajs/core/client";
 
 // Only requested when a page's renderMode is "csr" \u2014 see
@@ -5882,7 +6082,7 @@ hydrateCsrRoutes();
     );
   }
   await writeFile2(
-    path11.join(appDir, "vercel.json"),
+    path12.join(appDir, "vercel.json"),
     JSON.stringify(
       {
         $schema: "https://openapi.vercel.sh/vercel.json",
@@ -5911,7 +6111,7 @@ hydrateCsrRoutes();
     ) + "\n"
   );
   await writeFile2(
-    path11.join(appDir, "netlify.toml"),
+    path12.join(appDir, "netlify.toml"),
     `[build]
   command = "${devoraCmd} build --app=${appName} --adapter=netlify"
   publish = "dist/client"
@@ -5931,7 +6131,7 @@ hydrateCsrRoutes();
     return;
   }
   await writeFile2(
-    path11.join(appDir, "routes", "index.tsx"),
+    path12.join(appDir, "routes", "index.tsx"),
     `import { PageShell } from "@devorajs/core";
 
 export const renderMode = "ssr";
@@ -5972,7 +6172,7 @@ export default function Index() {
   );
   if (authMode !== "none") {
     await writeFile2(
-      path11.join(appDir, "routes", "login.tsx"),
+      path12.join(appDir, "routes", "login.tsx"),
       `import type { RequestContext } from "@devorajs/core";
 import { redirect, CsrfField, PageShell } from "@devorajs/core";
 
@@ -6012,7 +6212,7 @@ export default function Login({ csrfToken }: { csrfToken?: string }) {
 `
     );
     await writeFile2(
-      path11.join(appDir, "routes", "logout.tsx"),
+      path12.join(appDir, "routes", "logout.tsx"),
       `import type { RequestContext } from "@devorajs/core";
 import { redirect, CsrfField, PageShell } from "@devorajs/core";
 
@@ -6045,7 +6245,7 @@ export default function Logout({ csrfToken }: { csrfToken?: string }) {
 `
     );
     await writeFile2(
-      path11.join(appDir, "routes", "account.tsx"),
+      path12.join(appDir, "routes", "account.tsx"),
       `import type { RequestContext } from "@devorajs/core";
 import { PageShell } from "@devorajs/core";
 
@@ -6078,7 +6278,7 @@ export default function Account({ data }: { data?: { session: unknown } }) {
 }
 async function scaffoldApiRoutes(appDir, authMode) {
   await writeFile2(
-    path11.join(appDir, SCAFFOLD_API_DIR, "health.ts"),
+    path12.join(appDir, SCAFFOLD_API_DIR, "health.ts"),
     `import { apiRoute } from "@devorajs/core";
 
 // GET /api/health
@@ -6092,7 +6292,7 @@ export const handler = apiRoute(() => ({
   );
   if (authMode === "none") return;
   await writeFile2(
-    path11.join(appDir, SCAFFOLD_API_DIR, "session.ts"),
+    path12.join(appDir, SCAFFOLD_API_DIR, "session.ts"),
     `import { apiRoute, HttpError } from "@devorajs/core";
 
 // POST /api/session   { "username": "..." } -> { "token": "..." }
@@ -6127,7 +6327,7 @@ export const handler = apiRoute(async (req, ctx) => {
 `
   );
   await writeFile2(
-    path11.join(appDir, SCAFFOLD_API_DIR, "me.ts"),
+    path12.join(appDir, SCAFFOLD_API_DIR, "me.ts"),
     `import { apiRoute } from "@devorajs/core";
 
 // GET /api/me (Authorization: Bearer <token>) \u2014 401 without a valid session.
@@ -6145,9 +6345,9 @@ export const handler = apiRoute((_req, ctx) => {
 }
 
 // ../scaffold/src/scaffoldProjectFiles.ts
-import path12 from "node:path";
+import path13 from "node:path";
 import { fileURLToPath } from "node:url";
-var __dirname = path12.dirname(fileURLToPath(import.meta.url));
+var __dirname = path13.dirname(fileURLToPath(import.meta.url));
 
 // ../scaffold/src/terminal.ts
 function detectColorLevel(env, isTTY) {
@@ -6274,7 +6474,7 @@ function stripAnsi(text) {
 }
 
 // src/terminal/output.ts
-var CLI_VERSION = true ? "0.3.2" : "0.0.0-source";
+var CLI_VERSION = true ? "0.3.3" : "0.0.0-source";
 var quiet = false;
 function setQuiet(value) {
   quiet = value === true;
@@ -6306,7 +6506,7 @@ function formatDuration(ms) {
 
 // src/build/loadEnvFiles.ts
 function loadProjectEnv(root, mode) {
-  const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync7(path13.join(root, f)));
+  const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync7(path14.join(root, f)));
   if (files.length === 0) return [];
   const before = new Set(Object.keys(process.env));
   const loaded = loadEnv(mode, root, "");
@@ -6460,7 +6660,7 @@ async function createAppDevServer(opts) {
     // A backend-only app has no browser code: noDiscovery skips the scan
     // that otherwise warns "Could not auto-determine entry point" at boot.
     ...appConfig.backendOnly === true ? { optimizeDeps: { noDiscovery: true } } : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } },
-    configFile: path14.join(appRoot, "vite.config.ts"),
+    configFile: path15.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
     // plugins array (see ROADMAP.md #3).
@@ -6533,7 +6733,7 @@ async function dev(opts) {
     const appConfig = await loadAppConfig(appRoot);
     if (authMode === "none") {
       assertNoAuthUsage(app.name, [
-        ...listRouteFiles(path14.join(appRoot, "routes")),
+        ...listRouteFiles(path15.join(appRoot, "routes")),
         ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir))
       ]);
     }
@@ -6585,7 +6785,7 @@ function printBootSummary(booted, expandRoutes) {
       networkUrls: networkUrls.map((url) => `${url}/`),
       networkNote: isWildcardAddress(boundHost) ? "(all interfaces, but no LAN address detected)" : "use --host to expose",
       apiUrl: apis.length > 0 ? `${networkUrls[0] ?? `http://localhost:${port}`}/api` : void 0,
-      pages: listRoutePaths(path14.join(appRoot, "routes")).sort(),
+      pages: listRoutePaths(path15.join(appRoot, "routes")).sort(),
       apis,
       apiDir: normalizeApiDir(apiDir)
     });
@@ -6596,7 +6796,7 @@ function printBootSummary(booted, expandRoutes) {
 var DEV_WATCH_IGNORED = ["**/dist/**", "**/.vercel/**", "**/.netlify/**", "**/netlify/functions/**"];
 var CLIENT_DEPS = ["@devorajs/core/client", "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"];
 function resolvableClientDeps(appRoot) {
-  const require4 = createRequire(path14.join(appRoot, "package.json"));
+  const require4 = createRequire(path15.join(appRoot, "package.json"));
   return CLIENT_DEPS.filter((dep) => {
     try {
       require4.resolve(dep);
@@ -6608,20 +6808,20 @@ function resolvableClientDeps(appRoot) {
 }
 
 // src/build/buildForAdapter.ts
-import path27 from "node:path";
+import path28 from "node:path";
 
 // src/build/buildAppServer.ts
-import path16 from "node:path";
+import path17 from "node:path";
 import { existsSync as existsSync9 } from "node:fs";
-import { copyFile, mkdir as mkdir3, readdir, readFile as readFile4, writeFile as writeFile3 } from "node:fs/promises";
+import { copyFile, mkdir as mkdir3, readdir, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
 import { build as viteBuild2 } from "vite";
 
 // src/build/buildAppClient.ts
-import path15 from "node:path";
-import { readFile as readFile3, cp } from "node:fs/promises";
+import path16 from "node:path";
+import { readFile as readFile4, cp } from "node:fs/promises";
 import { existsSync as existsSync8 } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 
 // src/build/discoverCsrRouteFiles.ts
 import fs4 from "node:fs";
@@ -6632,22 +6832,22 @@ function discoverCsrRouteFiles(sourceFiles) {
 
 // src/build/buildAppClient.ts
 async function buildAppClient(appRoot, islandFiles) {
-  const routesDir = path15.join(appRoot, "routes");
+  const routesDir = path16.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
   if (islandFiles.length === 0 && csrFiles.length === 0) {
     const resolved = await resolveConfig(
-      { root: appRoot, configFile: path15.join(appRoot, "vite.config.ts") },
+      { root: appRoot, configFile: path16.join(appRoot, "vite.config.ts") },
       "build"
     );
     if (resolved.publicDir && existsSync8(resolved.publicDir)) {
-      await cp(resolved.publicDir, path15.join(appRoot, "dist", "client"), { recursive: true });
+      await cp(resolved.publicDir, path16.join(appRoot, "dist", "client"), { recursive: true });
     }
     return { islandUrls: /* @__PURE__ */ new Map(), csrUrls: /* @__PURE__ */ new Map() };
   }
-  const islandClientPath = path15.join(appRoot, "island-client.tsx");
-  const csrClientPath = path15.join(appRoot, "csr-client.tsx");
-  const clientOutDir = path15.join(appRoot, "dist", "client");
+  const islandClientPath = path16.join(appRoot, "island-client.tsx");
+  const csrClientPath = path16.join(appRoot, "csr-client.tsx");
+  const clientOutDir = path16.join(appRoot, "dist", "client");
   const input = {};
   if (islandFiles.length > 0) input["island-client"] = islandClientPath;
   if (csrFiles.length > 0) input["csr-client"] = csrClientPath;
@@ -6660,7 +6860,7 @@ async function buildAppClient(appRoot, islandFiles) {
   await viteBuild({
     root: appRoot,
     logLevel: viteLogLevel(),
-    configFile: path15.join(appRoot, "vite.config.ts"),
+    configFile: path16.join(appRoot, "vite.config.ts"),
     build: {
       outDir: clientOutDir,
       emptyOutDir: true,
@@ -6686,18 +6886,18 @@ async function buildAppClient(appRoot, islandFiles) {
       }
     }
   });
-  const manifestPath = path15.join(clientOutDir, ".vite", "manifest.json");
+  const manifestPath = path16.join(clientOutDir, ".vite", "manifest.json");
   if (!existsSync8(manifestPath)) {
     throw new Error(`[devora] client build for islands/csr produced no manifest at ${manifestPath}`);
   }
-  const manifest = JSON.parse(await readFile3(manifestPath, "utf-8"));
+  const manifest = JSON.parse(await readFile4(manifestPath, "utf-8"));
   const islandUrls = /* @__PURE__ */ new Map();
   const csrUrls = /* @__PURE__ */ new Map();
   let islandClientUrl;
   let csrClientUrl;
   for (const entry of Object.values(manifest)) {
     if (!entry.isEntry || !entry.src) continue;
-    const absoluteSrc = path15.resolve(appRoot, entry.src);
+    const absoluteSrc = path16.resolve(appRoot, entry.src);
     if (absoluteSrc === islandClientPath) {
       islandClientUrl = `/${entry.file}`;
     } else if (absoluteSrc === csrClientPath) {
@@ -6711,14 +6911,14 @@ async function buildAppClient(appRoot, islandFiles) {
   return { islandUrls, islandClientUrl, csrUrls, csrClientUrl };
 }
 function clientEntryName(appRoot, file) {
-  const relative = path15.relative(appRoot, file);
-  if (!relative.startsWith("..") && !path15.isAbsolute(relative)) return toBuildKey(appRoot, file);
-  const hash = createHash("sha256").update(file).digest("hex").slice(0, 8);
-  return `shared/${path15.basename(file, path15.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
+  const relative = path16.relative(appRoot, file);
+  if (!relative.startsWith("..") && !path16.isAbsolute(relative)) return toBuildKey(appRoot, file);
+  const hash = createHash2("sha256").update(file).digest("hex").slice(0, 8);
+  return `shared/${path16.basename(file, path16.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
 }
 
 // src/build/islandsBuildPlugin.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 var ISLAND_PLACEHOLDER_RE = /__DEVORA_ISLAND_[0-9a-f]{16}__/g;
 function islandsBuildPlugin(collected) {
   return {
@@ -6741,7 +6941,7 @@ function islandsBuildPlugin(collected) {
           this.error(`[devora] island() import "${call.specifier}" doesn't resolve to a file in this app`, call.start);
         }
         const file = resolved.id.split("?")[0];
-        const placeholder = `__DEVORA_ISLAND_${createHash2("sha256").update(file).digest("hex").slice(0, 16)}__`;
+        const placeholder = `__DEVORA_ISLAND_${createHash3("sha256").update(file).digest("hex").slice(0, 16)}__`;
         collected.set(placeholder, file);
         edits.push({ insertAt: call.insertAt, url: placeholder });
       }
@@ -6753,16 +6953,16 @@ function islandsBuildPlugin(collected) {
 
 // src/build/buildAppServer.ts
 async function buildAppServer(appRoot, options = {}) {
-  const routesDir = path16.join(appRoot, "routes");
+  const routesDir = path17.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const entryServerPath = path16.join(appRoot, "entry-server.tsx");
-  const serverOutDir = path16.join(appRoot, "dist", "server");
-  const clientOutDir = path16.join(appRoot, "dist", "client");
+  const entryServerPath = path17.join(appRoot, "entry-server.tsx");
+  const serverOutDir = path17.join(appRoot, "dist", "server");
+  const clientOutDir = path17.join(appRoot, "dist", "client");
   const input = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
-  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path16.join(appRoot, f)).find((f) => existsSync9(f));
+  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path17.join(appRoot, f)).find((f) => existsSync9(f));
   if (errorPagePath) input[ERROR_PAGE_BUILD_KEY] = errorPagePath;
   for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
@@ -6775,7 +6975,7 @@ async function buildAppServer(appRoot, options = {}) {
   await viteBuild2({
     root: appRoot,
     logLevel: viteLogLevel(),
-    configFile: path16.join(appRoot, "vite.config.ts"),
+    configFile: path17.join(appRoot, "vite.config.ts"),
     plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
     build: {
       ssr: true,
@@ -6791,12 +6991,12 @@ async function buildAppServer(appRoot, options = {}) {
     await replaceIslandPlaceholders(serverOutDir, islandPlaceholders, islandUrls);
   }
   await publishSsrAssets(serverOutDir, clientOutDir);
-  await writeFile3(path16.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
+  await writeFile3(path17.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
   if (options.sessions) {
-    await writeFile3(path16.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
+    await writeFile3(path17.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
   }
   await writeFile3(
-    path16.join(serverOutDir, "island-manifest.json"),
+    path17.join(serverOutDir, "island-manifest.json"),
     JSON.stringify({ islandClientUrl: islandClientUrl ?? null }, null, 2)
   );
   const csrRoutes = {};
@@ -6804,7 +7004,7 @@ async function buildAppServer(appRoot, options = {}) {
     csrRoutes[toBuildKey(appRoot, absPath)] = url;
   }
   await writeFile3(
-    path16.join(serverOutDir, "csr-route-manifest.json"),
+    path17.join(serverOutDir, "csr-route-manifest.json"),
     JSON.stringify({ csrClientUrl: csrClientUrl ?? null, routes: csrRoutes }, null, 2)
   );
   return { serverOutDir };
@@ -6836,7 +7036,7 @@ function routeCssPlugin(out) {
 }
 async function replaceIslandPlaceholders(serverOutDir, placeholders, islandUrls) {
   for (const file of await listFiles(serverOutDir, ".js")) {
-    const code = await readFile4(file, "utf-8");
+    const code = await readFile5(file, "utf-8");
     if (!code.includes("__DEVORA_ISLAND_")) continue;
     const replaced = code.replace(ISLAND_PLACEHOLDER_RE, (placeholder) => {
       const source = placeholders.get(placeholder);
@@ -6850,19 +7050,19 @@ async function replaceIslandPlaceholders(serverOutDir, placeholders, islandUrls)
   }
 }
 async function publishSsrAssets(serverOutDir, clientOutDir) {
-  const assetsDir = path16.join(serverOutDir, "assets");
+  const assetsDir = path17.join(serverOutDir, "assets");
   if (!existsSync9(assetsDir)) return;
   for (const file of await listFiles(assetsDir)) {
     if (/\.(m?js|map)$/.test(file)) continue;
-    const dest = path16.join(clientOutDir, "assets", path16.relative(assetsDir, file));
-    await mkdir3(path16.dirname(dest), { recursive: true });
+    const dest = path17.join(clientOutDir, "assets", path17.relative(assetsDir, file));
+    await mkdir3(path17.dirname(dest), { recursive: true });
     await copyFile(file, dest);
   }
 }
 async function listFiles(dir, extension) {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path16.join(dir, entry.name);
+    const full = path17.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...await listFiles(full, extension));
     else if (!extension || entry.name.endsWith(extension)) out.push(full);
   }
@@ -6870,14 +7070,14 @@ async function listFiles(dir, extension) {
 }
 
 // src/build/buildAppStatic.ts
-import path17 from "node:path";
+import path18 from "node:path";
 import fs5 from "node:fs";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, options = {}) {
   if (options.backendOnly) return { staticRoutes: [] };
-  const routesDir = path17.join(appRoot, "routes");
-  const staticOutDir = path17.join(appRoot, "dist", "static");
-  const islandManifestPath = path17.join(serverOutDir, "island-manifest.json");
+  const routesDir = path18.join(appRoot, "routes");
+  const staticOutDir = path18.join(appRoot, "dist", "static");
+  const islandManifestPath = path18.join(serverOutDir, "island-manifest.json");
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
   const staticRoutes = [];
   const candidates = listRouteFiles(routesDir).filter((filePath) => {
@@ -6888,7 +7088,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   });
   if (candidates.length === 0) return { staticRoutes };
   const entryServer = await importBuilt2(serverOutDir, "entry-server");
-  const routeCss = readJson(path17.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
+  const routeCss = readJson(path18.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
   const origin = options.domain ? `https://${options.domain}` : "http://localhost";
   for (const filePath of candidates) {
     const key = toBuildKey(appRoot, filePath);
@@ -6924,7 +7124,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   return { staticRoutes };
 }
 async function importBuilt2(serverOutDir, key) {
-  const filePath = path17.join(serverOutDir, `${key}.js`);
+  const filePath = path18.join(serverOutDir, `${key}.js`);
   return import(pathToFileURL2(filePath).href);
 }
 var LITERAL_RENDER_MODE_RE = /export\s+(?:const|let|var)\s+renderMode\s*(?::\s*[\w.<>"' |]+)?=\s*["'](ssr|ssg|csr|streaming|isr)["']/;
@@ -6943,7 +7143,7 @@ function readJson(file) {
 }
 
 // src/build/runPrebuild.ts
-import path18 from "node:path";
+import path19 from "node:path";
 import { spawnSync } from "node:child_process";
 function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
   const commands = prebuild === void 0 ? [] : Array.isArray(prebuild) ? prebuild : [prebuild];
@@ -6952,8 +7152,8 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
       throw new Error(`[devora] "${appName}": prebuild entries must be non-empty strings`);
     }
     info(`[devora] "${appName}" prebuild: ${command}`);
-    const binDirs = [.../* @__PURE__ */ new Set([path18.join(appRoot, "node_modules", ".bin"), path18.join(projectRoot, "node_modules", ".bin")])];
-    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path18.delimiter) };
+    const binDirs = [.../* @__PURE__ */ new Set([path19.join(appRoot, "node_modules", ".bin"), path19.join(projectRoot, "node_modules", ".bin")])];
+    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path19.delimiter) };
     const result = spawnSync(command, { cwd: appRoot, shell: true, stdio: "inherit", env });
     if (result.error) {
       throw new Error(`[devora] "${appName}": prebuild "${command}" couldn't start: ${result.error.message}`);
@@ -6966,8 +7166,8 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
 }
 
 // src/build/preflight.ts
-import path19 from "node:path";
-import { existsSync as existsSync10, readFileSync as readFileSync3, statSync } from "node:fs";
+import path20 from "node:path";
+import { existsSync as existsSync10, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
 var PreflightError = class extends Error {
   constructor(appName) {
     super(`[devora] "${appName}": preflight checks failed \u2014 nothing was built.`);
@@ -7010,7 +7210,7 @@ function preflightSessions(input) {
 function preflightVercelLayout(input) {
   const { appRoot, outputDir, apiDir } = input;
   const issues = [];
-  const endsInVercelOutput = path19.basename(outputDir) === "output" && path19.basename(path19.dirname(outputDir)) === ".vercel";
+  const endsInVercelOutput = path20.basename(outputDir) === "output" && path20.basename(path20.dirname(outputDir)) === ".vercel";
   if (!endsInVercelOutput) {
     issues.push({
       level: "warning",
@@ -7018,9 +7218,9 @@ function preflightVercelLayout(input) {
     });
     return issues;
   }
-  const vercelRoot = path19.dirname(path19.dirname(outputDir));
-  const reservedApi = path19.join(vercelRoot, "api");
-  if (existsSync10(reservedApi) && statSync(reservedApi).isDirectory()) {
+  const vercelRoot = path20.dirname(path20.dirname(outputDir));
+  const reservedApi = path20.join(vercelRoot, "api");
+  if (existsSync10(reservedApi) && statSync2(reservedApi).isDirectory()) {
     const isThisAppsApiDir = vercelRoot === appRoot && apiDir === "api";
     issues.push({
       level: "warning",
@@ -7030,7 +7230,7 @@ function preflightVercelLayout(input) {
   return issues;
 }
 function preflightNetlifyToml(input) {
-  const tomlPath = path19.join(input.appRoot, "netlify.toml");
+  const tomlPath = path20.join(input.appRoot, "netlify.toml");
   if (input.apiDir === "api" || !existsSync10(tomlPath)) return [];
   const expected = `netlify/functions/ssr/${input.apiDir}/**`;
   if (readFileSync3(tomlPath, "utf-8").includes(expected)) return [];
@@ -7051,13 +7251,13 @@ function reportPreflight(appName, issues) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
-import path23 from "node:path";
+import path24 from "node:path";
 import { existsSync as existsSync14, readFileSync as readFileSync5 } from "node:fs";
-import { mkdir as mkdir4, writeFile as writeFile4, cp as cp2, readFile as readFile5, rm as rm2 } from "node:fs/promises";
+import { mkdir as mkdir4, writeFile as writeFile4, cp as cp2, readFile as readFile6, rm as rm2 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 
 // ../../adapters/adapter-vercel/src/bundleForDeploy.ts
-import path20 from "node:path";
+import path21 from "node:path";
 import { readdir as readdir2 } from "node:fs/promises";
 import { existsSync as existsSync11 } from "node:fs";
 import * as esbuild from "esbuild";
@@ -7073,15 +7273,15 @@ async function bundleForDeploy(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER },
     logLevel: "silent"
   });
-  const routesOutDir = path20.join(serverOutDir, "routes");
+  const routesOutDir = path21.join(serverOutDir, "routes");
   const routeFiles = existsSync11(routesOutDir) ? await findJsFiles(routesOutDir) : [];
-  const apiOutDir = path20.join(serverOutDir, options.apiDir ?? "api");
+  const apiOutDir = path21.join(serverOutDir, options.apiDir ?? "api");
   const apiFiles = existsSync11(apiOutDir) ? await findJsFiles(apiOutDir) : [];
-  const entryServerPath = path20.join(serverOutDir, "entry-server.js");
+  const entryServerPath = path21.join(serverOutDir, "entry-server.js");
   const entryPoints = existsSync11(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path20.join(serverOutDir, "session-store.js");
+  const sessionStorePath = path21.join(serverOutDir, "session-store.js");
   if (existsSync11(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path20.join(serverOutDir, "error-page.js");
+  const errorPagePath = path21.join(serverOutDir, "error-page.js");
   if (existsSync11(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
@@ -7101,7 +7301,7 @@ async function findJsFiles(dir) {
   const entries = await readdir2(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path20.join(dir, entry.name);
+    const full = path21.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles(full));
     } else if (entry.name.endsWith(".js")) {
@@ -7112,7 +7312,7 @@ async function findJsFiles(dir) {
 }
 
 // ../../adapters/adapter-vercel/src/runtime.ts
-import path21 from "node:path";
+import path22 from "node:path";
 import { existsSync as existsSync12, readFileSync as readFileSync4 } from "node:fs";
 var VERCEL_SUPPORTED_NODE_MAJORS = [24, 22];
 var VERCEL_DEFAULT_NODE_MAJOR = 24;
@@ -7176,7 +7376,7 @@ function pickWithoutEngines(runningNodeVersion) {
 }
 function readEnginesNode(appRoot, projectRoot) {
   for (const dir of [appRoot, projectRoot]) {
-    const pkgPath = path21.join(dir, "package.json");
+    const pkgPath = path22.join(dir, "package.json");
     if (!existsSync12(pkgPath)) continue;
     try {
       const engines = JSON.parse(readFileSync4(pkgPath, "utf-8")).engines;
@@ -7284,11 +7484,11 @@ function rangeAllowsMajor(range, major) {
 }
 
 // ../../adapters/adapter-vercel/src/deploy.ts
-import path22 from "node:path";
+import path23 from "node:path";
 import { existsSync as existsSync13 } from "node:fs";
 import { spawn } from "node:child_process";
 function isVercelLinked(appRoot) {
-  return existsSync13(path22.join(appRoot, ".vercel", "project.json"));
+  return existsSync13(path23.join(appRoot, ".vercel", "project.json"));
 }
 function deployToVercel(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -7307,43 +7507,43 @@ async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, se
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require2.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path23.dirname(pkgJsonPath);
-  await cp2(pkgDir, path23.join(destNodeModules, pkgName), { recursive: true, dereference: true });
-  const pkgJson = JSON.parse(await readFile5(pkgJsonPath, "utf-8"));
+  const pkgDir = path24.dirname(pkgJsonPath);
+  await cp2(pkgDir, path24.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgJson = JSON.parse(await readFile6(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency(pkgDir, dep, destNodeModules, seen);
   }
 }
 async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
-  const outputDir = options.outputDir ?? path23.join(appRoot, ".vercel", "output");
+  const outputDir = options.outputDir ?? path24.join(appRoot, ".vercel", "output");
   const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path23.join(outputDir, "functions", "index.func");
-  const clientOutDir = path23.join(appRoot, "dist", "client");
-  const staticOutDir = path23.join(appRoot, "dist", "static");
-  if (path23.basename(outputDir) === "output" && path23.basename(path23.dirname(outputDir)) === ".vercel") {
+  const funcDir = path24.join(outputDir, "functions", "index.func");
+  const clientOutDir = path24.join(appRoot, "dist", "client");
+  const staticOutDir = path24.join(appRoot, "dist", "static");
+  if (path24.basename(outputDir) === "output" && path24.basename(path24.dirname(outputDir)) === ".vercel") {
     await rm2(outputDir, { recursive: true, force: true });
   }
-  await mkdir4(path23.join(outputDir, "static"), { recursive: true });
+  await mkdir4(path24.join(outputDir, "static"), { recursive: true });
   await mkdir4(funcDir, { recursive: true });
-  if (existsSync14(path23.join(appRoot, "routes"))) {
-    await cp2(path23.join(appRoot, "routes"), path23.join(funcDir, "routes"), { recursive: true });
+  if (existsSync14(path24.join(appRoot, "routes"))) {
+    await cp2(path24.join(appRoot, "routes"), path24.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync14(path23.join(appRoot, apiDir))) {
-    await cp2(path23.join(appRoot, apiDir), path23.join(funcDir, apiDir), { recursive: true });
+  if (existsSync14(path24.join(appRoot, apiDir))) {
+    await cp2(path24.join(appRoot, apiDir), path24.join(funcDir, apiDir), { recursive: true });
   }
-  await cp2(path23.join(appRoot, "dist", "server"), path23.join(funcDir, "dist", "server"), { recursive: true });
+  await cp2(path24.join(appRoot, "dist", "server"), path24.join(funcDir, "dist", "server"), { recursive: true });
   if (existsSync14(clientOutDir)) {
-    await cp2(clientOutDir, path23.join(outputDir, "static"), { recursive: true });
+    await cp2(clientOutDir, path24.join(outputDir, "static"), { recursive: true });
   }
   if (existsSync14(staticOutDir)) {
-    await cp2(staticOutDir, path23.join(outputDir, "static"), { recursive: true });
-    await cp2(staticOutDir, path23.join(funcDir, "dist", "static"), { recursive: true });
+    await cp2(staticOutDir, path24.join(outputDir, "static"), { recursive: true });
+    await cp2(staticOutDir, path24.join(funcDir, "dist", "static"), { recursive: true });
   }
-  await writeFile4(path23.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile4(path24.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile4(
-    path23.join(funcDir, "index.mjs"),
+    path24.join(funcDir, "index.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 
 // appRoot is this function's own directory \u2014 routes/ and dist/server
@@ -7374,15 +7574,15 @@ export default async function handler(req, res) {
 }
 `
   );
-  await bundleForDeploy(path23.join(funcDir, "index.mjs"), path23.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path23.join(funcDir, "node_modules");
+  await bundleForDeploy(path24.join(funcDir, "index.mjs"), path24.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path24.join(funcDir, "node_modules");
   await mkdir4(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency(reactResolveBase(appRoot), "react", funcNodeModules);
-  if (existsSync14(path23.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync14(path24.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
   await writeFile4(
-    path23.join(funcDir, ".vc-config.json"),
+    path24.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
   const config = {
@@ -7393,7 +7593,7 @@ export default async function handler(req, res) {
       { src: "/(.*)", dest: "/index" }
     ]
   };
-  await writeFile4(path23.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
+  await writeFile4(path24.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
   console.log(
     `[adapter-vercel] wrote ${outputDir} for "${app.name}" (${runtime}). Deploy it with your Vercel project or \`vercel deploy --prebuilt\` \u2014 guide: ${VERCEL_DOCS_URL}`
   );
@@ -7411,26 +7611,26 @@ function reactResolveBase(appRoot) {
     require2.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path23.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path23.dirname(dir)) {
-      const pkgPath = path23.join(dir, "package.json");
+    let dir = path24.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path24.dirname(dir)) {
+      const pkgPath = path24.join(dir, "package.json");
       if (existsSync14(pkgPath) && JSON.parse(readFileSync5(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path23.dirname(dir);
+      dir = path24.dirname(dir);
     }
     return appRoot;
   }
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
-import path26 from "node:path";
+import path27 from "node:path";
 import { existsSync as existsSync17, readFileSync as readFileSync6 } from "node:fs";
-import { mkdir as mkdir5, writeFile as writeFile5, cp as cp3, readFile as readFile6 } from "node:fs/promises";
+import { mkdir as mkdir5, writeFile as writeFile5, cp as cp3, readFile as readFile7 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
 
 // ../../adapters/adapter-netlify/src/bundleForDeploy.ts
-import path24 from "node:path";
+import path25 from "node:path";
 import { readdir as readdir3 } from "node:fs/promises";
 import { existsSync as existsSync15 } from "node:fs";
 import * as esbuild2 from "esbuild";
@@ -7446,15 +7646,15 @@ async function bundleForDeploy2(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER2 },
     logLevel: "silent"
   });
-  const routesOutDir = path24.join(serverOutDir, "routes");
+  const routesOutDir = path25.join(serverOutDir, "routes");
   const routeFiles = existsSync15(routesOutDir) ? await findJsFiles2(routesOutDir) : [];
-  const apiOutDir = path24.join(serverOutDir, options.apiDir ?? "api");
+  const apiOutDir = path25.join(serverOutDir, options.apiDir ?? "api");
   const apiFiles = existsSync15(apiOutDir) ? await findJsFiles2(apiOutDir) : [];
-  const entryServerPath = path24.join(serverOutDir, "entry-server.js");
+  const entryServerPath = path25.join(serverOutDir, "entry-server.js");
   const entryPoints = existsSync15(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path24.join(serverOutDir, "session-store.js");
+  const sessionStorePath = path25.join(serverOutDir, "session-store.js");
   if (existsSync15(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path24.join(serverOutDir, "error-page.js");
+  const errorPagePath = path25.join(serverOutDir, "error-page.js");
   if (existsSync15(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild2.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
@@ -7474,7 +7674,7 @@ async function findJsFiles2(dir) {
   const entries = await readdir3(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path24.join(dir, entry.name);
+    const full = path25.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles2(full));
     } else if (entry.name.endsWith(".js")) {
@@ -7485,11 +7685,11 @@ async function findJsFiles2(dir) {
 }
 
 // ../../adapters/adapter-netlify/src/deploy.ts
-import path25 from "node:path";
+import path26 from "node:path";
 import { existsSync as existsSync16 } from "node:fs";
 import { spawn as spawn2 } from "node:child_process";
 function isNetlifyLinked(appRoot) {
-  return existsSync16(path25.join(appRoot, ".netlify", "state.json"));
+  return existsSync16(path26.join(appRoot, ".netlify", "state.json"));
 }
 function deployToNetlify(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -7508,9 +7708,9 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require3.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path26.dirname(pkgJsonPath);
-  await cp3(pkgDir, path26.join(destNodeModules, pkgName), { recursive: true, dereference: true });
-  const pkgJson = JSON.parse(await readFile6(pkgJsonPath, "utf-8"));
+  const pkgDir = path27.dirname(pkgJsonPath);
+  await cp3(pkgDir, path27.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgJson = JSON.parse(await readFile7(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency2(pkgDir, dep, destNodeModules, seen);
   }
@@ -7518,23 +7718,23 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
 async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path26.join(appRoot, "netlify", "functions", "ssr");
-  const staticOutDir = path26.join(appRoot, "dist", "static");
+  const funcDir = path27.join(appRoot, "netlify", "functions", "ssr");
+  const staticOutDir = path27.join(appRoot, "dist", "static");
   await mkdir5(funcDir, { recursive: true });
-  if (existsSync17(path26.join(appRoot, "routes"))) {
-    await cp3(path26.join(appRoot, "routes"), path26.join(funcDir, "routes"), { recursive: true });
+  if (existsSync17(path27.join(appRoot, "routes"))) {
+    await cp3(path27.join(appRoot, "routes"), path27.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync17(path26.join(appRoot, apiDir))) {
-    await cp3(path26.join(appRoot, apiDir), path26.join(funcDir, apiDir), { recursive: true });
+  if (existsSync17(path27.join(appRoot, apiDir))) {
+    await cp3(path27.join(appRoot, apiDir), path27.join(funcDir, apiDir), { recursive: true });
   }
-  await cp3(path26.join(appRoot, "dist", "server"), path26.join(funcDir, "dist", "server"), { recursive: true });
+  await cp3(path27.join(appRoot, "dist", "server"), path27.join(funcDir, "dist", "server"), { recursive: true });
   if (existsSync17(staticOutDir)) {
-    await cp3(staticOutDir, path26.join(funcDir, "dist", "static"), { recursive: true });
-    await cp3(staticOutDir, path26.join(appRoot, "dist", "client"), { recursive: true });
+    await cp3(staticOutDir, path27.join(funcDir, "dist", "static"), { recursive: true });
+    await cp3(staticOutDir, path27.join(appRoot, "dist", "client"), { recursive: true });
   }
-  await writeFile5(path26.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile5(path27.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile5(
-    path26.join(funcDir, "ssr.mjs"),
+    path27.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 import { Readable } from "node:stream";
 import { EventEmitter } from "node:events";
@@ -7580,7 +7780,8 @@ export default async (request, context) => {
   try {
     const handled = await handleRequest(req, res);
     if (!handled) return new Response("Not found", { status: 404 });
-    return new Response(Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });
+    const noBody = res.statusCode === 204 || res.statusCode === 304 || chunks.length === 0 && res.statusCode < 200;
+    return new Response(noBody ? null : Buffer.concat(chunks), { status: res.statusCode, headers: resHeaders });
   } catch (err) {
     console.error(err);
     return new Response("Internal Server Error", { status: 500 });
@@ -7588,18 +7789,18 @@ export default async (request, context) => {
 };
 `
   );
-  await bundleForDeploy2(path26.join(funcDir, "ssr.mjs"), path26.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path26.join(funcDir, "node_modules");
+  await bundleForDeploy2(path27.join(funcDir, "ssr.mjs"), path27.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path27.join(funcDir, "node_modules");
   await mkdir5(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency2(reactResolveBase2(appRoot), "react", funcNodeModules);
-  if (existsSync17(path26.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync17(path27.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
   if (security?.noindex === true) {
-    const clientOutDir = path26.join(appRoot, "dist", "client");
+    const clientOutDir = path27.join(appRoot, "dist", "client");
     await mkdir5(clientOutDir, { recursive: true });
-    const headersPath = path26.join(clientOutDir, "_headers");
-    const existing = existsSync17(headersPath) ? await readFile6(headersPath, "utf-8") : "";
+    const headersPath = path27.join(clientOutDir, "_headers");
+    const existing = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
     const rule = "/*\n  X-Robots-Tag: noindex\n";
     if (!existing.includes("X-Robots-Tag: noindex")) {
       await writeFile5(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
@@ -7615,13 +7816,13 @@ function reactResolveBase2(appRoot) {
     require3.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path26.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path26.dirname(dir)) {
-      const pkgPath = path26.join(dir, "package.json");
+    let dir = path27.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path27.dirname(dir)) {
+      const pkgPath = path27.join(dir, "package.json");
       if (existsSync17(pkgPath) && JSON.parse(readFileSync6(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path26.dirname(dir);
+      dir = path27.dirname(dir);
     }
     return appRoot;
   }
@@ -7635,8 +7836,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const authMode = resolveAuthMode(project, app.name);
   if (authMode === "none") {
     assertNoAuthUsage(app.name, [
-      ...listRouteFiles(path27.join(appRoot, "routes")),
-      ...listRouteFiles(path27.join(appRoot, apiDir))
+      ...listRouteFiles(path28.join(appRoot, "routes")),
+      ...listRouteFiles(path28.join(appRoot, apiDir))
     ]);
   }
   const sessionManifest = resolveSessionManifest({
@@ -7650,7 +7851,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   validateCorsConfig(app.name, appConfig.cors);
   const issues = [];
   let vercelRuntime;
-  const vercelOutputDir = options.out ? path27.resolve(root, options.out) : path27.join(appRoot, ".vercel", "output");
+  const vercelOutputDir = options.out ? path28.resolve(root, options.out) : path28.join(appRoot, ".vercel", "output");
   if (adapter === "vercel" || adapter === "netlify") {
     issues.push(...preflightSessions({ appName: app.name, authMode, sessions: project.shared.sessions, adapter, env: process.env }));
   }
@@ -7677,7 +7878,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const sessionsConfig = project.shared.sessions;
   const sessions = sessionManifest === void 0 ? void 0 : {
     manifest: sessionManifest,
-    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path27.resolve(root, sessionsConfig.store) : void 0
+    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path28.resolve(root, sessionsConfig.store) : void 0
   };
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
   info(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
@@ -7940,19 +8141,19 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path28 from "node:path";
+import path29 from "node:path";
 import { existsSync as existsSync18 } from "node:fs";
-import { writeFile as writeFile6, readFile as readFile7 } from "node:fs/promises";
+import { writeFile as writeFile6, readFile as readFile8 } from "node:fs/promises";
 async function detectScaffoldContext(root) {
-  if (existsSync18(path28.join(root, "packages", "cli", "dist", "index.js"))) {
+  if (existsSync18(path29.join(root, "packages", "cli", "dist", "index.js"))) {
     return { cliInvocation: "monorepo", coreVersion: "*" };
   }
   let coreVersion = "*";
   let cliVersion;
-  const rootPkgPath = path28.join(root, "package.json");
+  const rootPkgPath = path29.join(root, "package.json");
   if (existsSync18(rootPkgPath)) {
     try {
-      const rootPkg = JSON.parse(await readFile7(rootPkgPath, "utf-8"));
+      const rootPkg = JSON.parse(await readFile8(rootPkgPath, "utf-8"));
       coreVersion = rootPkg.dependencies?.["@devorajs/core"] ?? rootPkg.devDependencies?.["@devorajs/core"] ?? coreVersion;
       cliVersion = rootPkg.dependencies?.["@devorajs/cli"] ?? rootPkg.devDependencies?.["@devorajs/cli"];
     } catch {
@@ -7962,7 +8163,7 @@ async function detectScaffoldContext(root) {
 }
 async function scaffoldApp(appName, opts) {
   const root = process.cwd();
-  const appDir = path28.join(root, "apps", appName);
+  const appDir = path29.join(root, "apps", appName);
   if (existsSync18(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
@@ -7981,12 +8182,12 @@ async function scaffoldApp(appName, opts) {
     cliVersion: context.cliVersion,
     // A create-devora "frontend only" project has no packages/backend —
     // depending on @devorajs/backend there would break every install.
-    withBackend: existsSync18(path28.join(root, "packages", "backend", "package.json")),
+    withBackend: existsSync18(path29.join(root, "packages", "backend", "package.json")),
     kind
   });
-  const configPath = path28.join(root, "devora.config.ts");
+  const configPath = path29.join(root, "devora.config.ts");
   if (existsSync18(configPath)) {
-    const original = await readFile7(configPath, "utf-8");
+    const original = await readFile8(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
     const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
   ],`;
@@ -8008,7 +8209,7 @@ ${insertion}`);
 }
 var newApp = scaffoldApp;
 async function defaultAppKind(root) {
-  if (!existsSync18(path28.join(root, "devora.config.ts"))) return "pages";
+  if (!existsSync18(path29.join(root, "devora.config.ts"))) return "pages";
   try {
     const project = await loadProjectConfig(root);
     const configs = await Promise.all(project.apps.map((a) => loadAppConfig(resolveAppDir(root, a.dir)).catch(() => ({}))));
@@ -8019,16 +8220,16 @@ async function defaultAppKind(root) {
 }
 
 // src/commands/remove.ts
-import path29 from "node:path";
+import path30 from "node:path";
 import { existsSync as existsSync19 } from "node:fs";
-import { readFile as readFile8, writeFile as writeFile7, rm as rm3 } from "node:fs/promises";
+import { readFile as readFile9, writeFile as writeFile7, rm as rm3 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path29.join(root, "apps", appName);
-  const configPath = path29.join(root, "devora.config.ts");
+  const appDir = path30.join(root, "apps", appName);
+  const configPath = path30.join(root, "devora.config.ts");
   let removedFromConfig = false;
   if (existsSync19(configPath)) {
-    const original = await readFile8(configPath, "utf-8");
+    const original = await readFile9(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
     if (updated !== original) {
@@ -8072,7 +8273,7 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path30 from "node:path";
+import path31 from "node:path";
 import { writeFile as writeFile8 } from "node:fs/promises";
 var VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 function assertValidDomain(app) {
@@ -8128,23 +8329,23 @@ async function generateProxy(opts) {
     return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path30.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  const outPath = opts.out ?? path31.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
   await writeFile8(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }
 
 // src/commands/split.ts
-import path33 from "node:path";
+import path34 from "node:path";
 import { existsSync as existsSync20 } from "node:fs";
 import { rm as rm4 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
-import path32 from "node:path";
+import path33 from "node:path";
 
 // src/build/gitHelpers.ts
 import { execFileSync } from "node:child_process";
-import path31 from "node:path";
+import path32 from "node:path";
 function git(args, cwd) {
   try {
     const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
@@ -8172,10 +8373,10 @@ function listSubmodules(repoRoot) {
   const entries = [];
   for (const line of result.stdout.trim().split("\n")) {
     const [key, ...rest] = line.split(" ");
-    const path36 = rest.join(" ");
+    const path37 = rest.join(" ");
     const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
     const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
-    entries.push({ name, path: path36, url: urlResult.stdout.trim() });
+    entries.push({ name, path: path37, url: urlResult.stdout.trim() });
   }
   return entries;
 }
@@ -8186,9 +8387,9 @@ function revListCounts(cwd, theirRef, ourRef = "HEAD") {
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
 }
 function assertInsideRoot(root, targetPath, label) {
-  const resolvedRoot = path31.resolve(root);
-  const resolvedTarget = path31.resolve(targetPath);
-  if (!resolvedTarget.startsWith(resolvedRoot + path31.sep)) {
+  const resolvedRoot = path32.resolve(root);
+  const resolvedTarget = path32.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path32.sep)) {
     throw new Error(
       `[devora] refusing to operate on "${label}" \u2014 it resolves to "${resolvedTarget}", outside the project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
     );
@@ -8205,7 +8406,7 @@ function resolveSplitTarget(root, project, name) {
     if (!project.shared.backend) {
       throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
     }
-    const target2 = path32.join(root, project.shared.backend);
+    const target2 = path33.join(root, project.shared.backend);
     assertInsideRoot(root, target2, "shared.backend");
     return target2;
   }
@@ -8213,15 +8414,15 @@ function resolveSplitTarget(root, project, name) {
   if (!app) {
     throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
   }
-  const target = path32.join(root, app.dir);
+  const target = path33.join(root, app.dir);
   assertInsideRoot(root, target, `apps.${name}.dir`);
   return target;
 }
 function nameForSplitTarget(root, project, relativePath) {
-  if (project.shared.backend && path32.normalize(project.shared.backend) === path32.normalize(relativePath)) {
+  if (project.shared.backend && path33.normalize(project.shared.backend) === path33.normalize(relativePath)) {
     return "backend";
   }
-  const app = project.apps.find((a) => path32.normalize(a.dir) === path32.normalize(relativePath));
+  const app = project.apps.find((a) => path33.normalize(a.dir) === path33.normalize(relativePath));
   return app?.name ?? relativePath;
 }
 
@@ -8251,7 +8452,7 @@ async function split(name, opts) {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const targetPath = resolveSplitTarget(root, project, name);
-  const relPath = path33.relative(root, targetPath);
+  const relPath = path34.relative(root, targetPath);
   if (!existsSync20(targetPath)) {
     console.error(`[devora] ${relPath} doesn't exist`);
     process.exit(1);
@@ -8311,7 +8512,7 @@ Your real content (with its real history) is safely pushed to ${opts.repo} \u201
 }
 
 // src/commands/sync.ts
-import path34 from "node:path";
+import path35 from "node:path";
 async function sync(names, opts) {
   if (opts.fromMain === opts.toMain) {
     console.error(`[devora] specify exactly one of --from-main or --to-main.`);
@@ -8324,7 +8525,7 @@ async function sync(names, opts) {
   if (opts.all) {
     targets = [];
     for (const s of listSubmodules(root)) {
-      const targetPath = path34.join(root, s.path);
+      const targetPath = path35.join(root, s.path);
       try {
         assertInsideRoot(root, targetPath, s.path);
         targets.push({ name: s.path, path: targetPath });
@@ -8342,7 +8543,7 @@ async function sync(names, opts) {
     return;
   }
   for (const target of targets) {
-    const relPath = path34.relative(root, target.path);
+    const relPath = path35.relative(root, target.path);
     console.log(`
 [devora] ${relPath}:`);
     const fetch = git(["fetch", "origin"], target.path);
@@ -8418,7 +8619,7 @@ async function syncToMain(targetPath, relPath, opts) {
 }
 
 // src/commands/status.ts
-import path35 from "node:path";
+import path36 from "node:path";
 async function status() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -8430,7 +8631,7 @@ async function status() {
   console.log(`[devora] sync status:
 `);
   for (const sub of submodules) {
-    const targetPath = path35.join(root, sub.path);
+    const targetPath = path36.join(root, sub.path);
     try {
       assertInsideRoot(root, targetPath, sub.path);
     } catch (err) {

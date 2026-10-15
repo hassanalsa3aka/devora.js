@@ -22,11 +22,30 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - `resolveStaticRoutePath()` percent-encodes each segment (a `getStaticParams()` value with a space
   or non-ASCII characters is written under its encoded path, which is what `url.pathname` holds).
 - `sitemap.xml` now lists the URLs of dynamic routes that export `getStaticParams()`.
+- `devora start` answers a POST (or any method other than GET/HEAD) to a public file, a built
+  asset or a pre-rendered (`ssg`) page with `405` and `Allow: GET, HEAD`. It used to return the file.
+- Pre-rendered pages are sent with `Cache-Control: public, max-age=0, must-revalidate` and an
+  `ETag` (a repeat visit gets a 304). Pre-rendered and built files are held in memory after their
+  first request, so a file replaced on disk under a running server is not picked up until restart.
+- With `sitemap` off, a hand-written `public/sitemap.xml` is now served (it used to 404 in
+  production).
 
 ### `@devorajs/core`
 
 - Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `PAGES.md`).
 - `collectSitemapPaths()`; the sitemap includes `getStaticParams()` URLs of dynamic routes.
+
+- Static serving in `devora start` / the adapters: a memoized route table (the routes folder is no
+  longer read on every request), memoized module imports, in-memory pre-rendered pages and files
+  with strong ETags, `If-None-Match` → 304, `HEAD`, `Content-Length`, brotli/gzip for text types
+  (made once per file), and correct content types for `.xml`, `.webmanifest`, `.woff`, `.woff2`,
+  `.ttf`, `.otf`, `.gif`, `.avif`, `.pdf`, `.wasm` and more. Measured on the benchmark's
+  pre-rendered page: about 14,700 → 82,000 requests/s (see `benchmarks/results`).
+
+### `@devorajs/adapter-netlify`
+
+- The generated function returns a body-less `Response` for 204/304 (a `Response` with a body and
+  a 304 status throws).
 
 ### `@devorajs/cli`
 
