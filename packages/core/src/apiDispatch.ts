@@ -12,6 +12,7 @@ import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
+import type { RouteParams } from "./router.js";
 
 export interface ApiDispatchRequest {
   method: string;
@@ -20,7 +21,7 @@ export interface ApiDispatchRequest {
   cookieHeader?: string;
   /** Values captured from any `[param]` segments the route matched on
    * (router.ts) — empty/absent for an API route with no dynamic segments. */
-  params?: Record<string, string>;
+  params?: RouteParams;
   /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
   sessionCookieOptions?: SessionCookieOptions;
   body: Buffer;

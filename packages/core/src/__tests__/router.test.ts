@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "../router.js";
-import { generateSitemapXml } from "../sitemap.js";
+import { generateSitemapXml, collectSitemapPaths } from "../sitemap.js";
 
 let routesDir: string;
 
@@ -137,5 +137,107 @@ describe("resolveStaticRoutePath — architecture-v2.md §3.6 static-params API"
     expect(() =>
       resolveStaticRoutePath(routesDir, path.join(routesDir, "posts/[slug].tsx"), {})
     ).toThrow(/missing "slug"/);
+  });
+});
+
+describe("matchRoute — catch-all segments", () => {
+  it("[...slug] matches one or more segments as a string[]", () => {
+    touch("docs/[...slug].tsx");
+    expect(matchRoute(routesDir, "/docs/a")?.params).toEqual({ slug: ["a"] });
+    expect(matchRoute(routesDir, "/docs/a/b/c")?.params).toEqual({ slug: ["a", "b", "c"] });
+  });
+
+  it("[...slug] does not match zero segments", () => {
+    touch("docs/[...slug].tsx");
+    expect(matchRoute(routesDir, "/docs")).toBeNull();
+  });
+
+  it("[[...slug]] also matches zero segments", () => {
+    touch("docs/[[...slug]].tsx");
+    expect(matchRoute(routesDir, "/docs")?.params).toEqual({ slug: [] });
+    expect(matchRoute(routesDir, "/docs/x/y")?.params).toEqual({ slug: ["x", "y"] });
+  });
+
+  it("precedence: static, then [param], then [...slug]", () => {
+    touch("docs/intro.tsx");
+    touch("docs/[page].tsx");
+    touch("docs/[...rest].tsx");
+    expect(matchRoute(routesDir, "/docs/intro")?.filePath).toBe(path.join(routesDir, "docs/intro.tsx"));
+    expect(matchRoute(routesDir, "/docs/other")?.filePath).toBe(path.join(routesDir, "docs/[page].tsx"));
+    expect(matchRoute(routesDir, "/docs/a/b")?.filePath).toBe(path.join(routesDir, "docs/[...rest].tsx"));
+  });
+
+  it("a dotted segment is part of the match, not a file", () => {
+    touch("docs/[...slug].tsx");
+    expect(matchRoute(routesDir, "/docs/v1.2/intro")?.params).toEqual({ slug: ["v1.2", "intro"] });
+  });
+
+  it("decodes each segment once", () => {
+    touch("docs/[...slug].tsx");
+    expect(matchRoute(routesDir, "/docs/a%20b/c")?.params).toEqual({ slug: ["a b", "c"] });
+    // %252F decodes once, to the literal text "%2F" — never to a slash.
+    expect(matchRoute(routesDir, "/docs/a%252Fb")?.params).toEqual({ slug: ["a%2Fb"] });
+  });
+
+  it("rejects traversal, encoded slashes and empty segments", () => {
+    touch("docs/[...slug].tsx");
+    expect(matchRoute(routesDir, "/docs/../etc/passwd")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/%2e%2e/x")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/a%2Fb")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/a%5Cb")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/a%00b")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/a//b")).toBeNull();
+    expect(matchRoute(routesDir, "/docs/%E0%A4%A")).toBeNull();
+  });
+
+  it("a catch-all that is not the last segment is a build error", () => {
+    touch("docs/[...slug]/edit.tsx");
+    expect(() => matchRoute(routesDir, "/docs/a/edit")).toThrow(/last/i);
+  });
+
+  it("two routes with the same shape are an error naming both files", () => {
+    touch("docs/[a].tsx");
+    touch("docs/[b].tsx");
+    expect(() => matchRoute(routesDir, "/docs/x")).toThrow(/\[a\]\.tsx.*\[b\]\.tsx|\[b\]\.tsx.*\[a\]\.tsx/s);
+  });
+});
+
+describe("resolveStaticRoutePath — catch-all", () => {
+  it("joins a string[] and encodes each part", () => {
+    touch("docs/[...slug].tsx");
+    const file = path.join(routesDir, "docs/[...slug].tsx");
+    expect(resolveStaticRoutePath(routesDir, file, { slug: ["guide", "a b"] })).toBe("/docs/guide/a%20b");
+  });
+
+  it("rejects a string for a catch-all, an empty array, and unsafe parts", () => {
+    touch("docs/[...slug].tsx");
+    const file = path.join(routesDir, "docs/[...slug].tsx");
+    expect(() => resolveStaticRoutePath(routesDir, file, { slug: "a" })).toThrow();
+    expect(() => resolveStaticRoutePath(routesDir, file, { slug: [] })).toThrow();
+    expect(() => resolveStaticRoutePath(routesDir, file, { slug: [".."] })).toThrow();
+    expect(() => resolveStaticRoutePath(routesDir, file, { slug: ["a/b"] })).toThrow();
+  });
+
+  it("allows an empty array for [[...slug]]", () => {
+    touch("docs/[[...slug]].tsx");
+    const file = path.join(routesDir, "docs/[[...slug]].tsx");
+    expect(resolveStaticRoutePath(routesDir, file, { slug: [] })).toBe("/docs");
+  });
+});
+
+describe("collectSitemapPaths — dynamic routes listed by getStaticParams", () => {
+  it("lists concrete URLs, skips a dynamic route without getStaticParams", async () => {
+    touch("index.tsx");
+    touch("posts/[slug].tsx");
+    touch("docs/[...path].tsx");
+    touch("users/[id].tsx");
+    const modules: Record<string, { getStaticParams?: () => unknown }> = {
+      [path.join(routesDir, "posts/[slug].tsx")]: { getStaticParams: () => [{ slug: "a" }, { slug: "b" }] },
+      [path.join(routesDir, "docs/[...path].tsx")]: { getStaticParams: async () => [{ path: ["x", "y"] }] },
+      [path.join(routesDir, "users/[id].tsx")]: {},
+    };
+    const paths = await collectSitemapPaths(routesDir, async (f) => modules[f] as never);
+    expect(paths).toEqual(["/", "/docs/x/y", "/posts/a", "/posts/b"]);
+    expect(generateSitemapXml(paths, "example.com")).toContain("https://example.com/docs/x/y");
   });
 });

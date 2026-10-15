@@ -10,6 +10,7 @@ import type { ErrorPageModule, RouteModule } from "./route.js";
 import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { RenderMode } from "./config.js";
+import type { RouteParams } from "./router.js";
 
 /**
  * Streaming render (architecture-v2.md's Phase 3) — the piece the two-pass
@@ -48,7 +49,7 @@ export interface RenderStreamingRequest {
   cookieHeader?: string;
   /** The raw `Authorization` header, if any — see RenderRouteRequest's. */
   authorizationHeader?: string | string[];
-  params?: Record<string, string>;
+  params?: RouteParams;
   sessionCookieOptions?: SessionCookieOptions;
   islandClientUrl?: string;
   appDefaultRenderMode?: RenderMode;

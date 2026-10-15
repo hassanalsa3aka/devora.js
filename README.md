@@ -112,8 +112,10 @@ API with Bearer login, or a content site with `ssg` and islands.
 - **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
-  `ctx.params.id`. A static route at the same depth always wins over a dynamic one. There are no
-  catch-all (`[...slug]`) routes.
+  `ctx.params.id`. `routes/docs/[...slug].tsx` matches `/docs/a`, `/docs/a/b/c` and so on, with
+  `ctx.params.slug` a `string[]` (`[[...slug]]` also matches `/docs`). A static route always wins
+  over `[param]`, which wins over a catch-all. Works for page routes and API routes. See
+  `PAGES.md`.
 - **Backend modules & generic API routes (v2)** — `defineModule()` organizes shared backend logic
   with no DI container, ever; `apiRoute()` handlers live in each app's `apiDir` folder, matched by
   the same file-based router as page routes — a payment-provider webhook finally has somewhere to live
@@ -167,7 +169,6 @@ users) — but real, verified hardening in its own right.
 
 Stated plainly, not buried:
 
-- **No catch-all routes.** `[param]` matches one path segment; `[...slug]` isn't supported.
 - **API handlers set headers as a plain object**, so one response can't send several `Set-Cookie`
   headers yet, and responses are buffered (no SSE/WebSockets from an API route).
 - **Dynamic routes need `getStaticParams()` for `ssg`/`isr`.** `ssr`/`csr` work on a `[id].tsx`

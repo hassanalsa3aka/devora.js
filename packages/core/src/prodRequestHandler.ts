@@ -3,8 +3,8 @@ import { pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { matchRoute, listRoutePaths, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
-import { generateSitemapXml } from "./sitemap.js";
+import { matchRoute, isDynamicRouteFile, resolveStaticRoutePath } from "./router.js";
+import { collectSitemapPaths, generateSitemapXml } from "./sitemap.js";
 import type { SessionCookieOptions } from "./session.js";
 import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
 import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
@@ -145,6 +145,9 @@ export function createProdRequestHandler(
     return true;
   };
 
+  // Built once: the route list and every getStaticParams() are fixed for a build.
+  let sitemapXml: Promise<string> | undefined;
+
   return async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
@@ -155,7 +158,10 @@ export function createProdRequestHandler(
 
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return false;
-      const xml = generateSitemapXml(listRoutePaths(routesDir), domain);
+      sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
+        return (await importBuilt(serverOutDir, toBuildKey(appRoot, file))) as RouteModule;
+      }).then((paths) => generateSitemapXml(paths, domain));
+      const xml = await sitemapXml;
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
@@ -238,7 +244,11 @@ export function createProdRequestHandler(
       // (apps/*/vite.config.ts); this is production's equivalent, since
       // there's no running Vite dev server to delegate to here. Not
       // content-hashed, so a shorter, non-immutable cache than /assets/.
-      return serveAsset(clientOutDir, url.pathname, res, false);
+      //
+      // Only a file that exists ends the request here: a dot in a URL is
+      // also legal in a route (a catch-all page for /docs/v1.2/intro), so
+      // a dotted path that isn't a public file goes on to route matching.
+      if (await serveAsset(clientOutDir, url.pathname, res, false)) return true;
     }
 
     const match = matchRoute(routesDir, url.pathname);

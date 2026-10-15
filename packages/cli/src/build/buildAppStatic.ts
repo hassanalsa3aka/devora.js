@@ -64,7 +64,7 @@ export async function buildAppStatic(
   const entryServer = (await importBuilt(serverOutDir, "entry-server")) as {
     renderStatic: (
       routeModule: RouteModule,
-      opts: { islandClientUrl?: string; params?: Record<string, string>; url?: string; head?: HeadConfig; styles?: string[] }
+      opts: { islandClientUrl?: string; params?: Record<string, string | string[]>; url?: string; head?: HeadConfig; styles?: string[] }
     ) => Promise<{ html: string }>;
   };
   const routeCss = readJson<Record<string, string[]>>(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};

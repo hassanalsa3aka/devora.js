@@ -48,7 +48,7 @@ where pnpm 11's warning points, and check that pnpm 9 still applies it.
 
 ## Filing a useful issue
 
-- Check `README.md`'s "Current limitations" first — catch-all routes, `ssg`/`isr` for dynamic
+- Check `README.md`'s "Current limitations" first — `ssg`/`isr` for dynamic
   routes without `getStaticParams()`, several `Set-Cookie` headers from one API response, and
   `isr` regeneration on Vercel/Netlify's serverless filesystem are known gaps, not bugs.
 - Include: the Devora.js versions (`npx devora --version`, and `@devorajs/core` from your

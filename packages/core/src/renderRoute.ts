@@ -9,6 +9,7 @@ import type { ErrorPageModule, ErrorPageProps, RouteComponentProps, RouteModule 
 import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { RenderMode } from "./config.js";
+import type { RouteParams } from "./router.js";
 
 /**
  * `apps/{admin,dashboard,marketing}/entry-server.tsx` used to each carry a
@@ -34,7 +35,7 @@ export interface RenderRouteRequest {
   authorizationHeader?: string | string[];
   /** Values captured from any `[param]` segments the route matched on
    * (router.ts) — empty/absent for a route with no dynamic segments. */
-  params?: Record<string, string>;
+  params?: RouteParams;
   /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
   sessionCookieOptions?: SessionCookieOptions;
   /** Where to fetch the island hydration bootstrap — dev: "/island-client.tsx";
@@ -301,7 +302,7 @@ export interface RenderStaticOptions {
    * live request's own matched params for dev/isr-regeneration (which
    * already have a real value, no `getStaticParams()` involved). Empty for
    * a non-dynamic route. */
-  params?: Record<string, string>;
+  params?: RouteParams;
   /** Dev-mode-only React Refresh preamble virtual module URL — see
    * html.ts's `renderTail` doc comment. Never set in production (a real
    * build's ssg/isr pre-render has no Vite dev server/HMR to preamble for

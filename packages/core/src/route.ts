@@ -22,7 +22,7 @@ export interface RouteModule<Data = unknown> {
    * dynamic routes without this — a live request already carries its own
    * params) or a non-dynamic route (nothing to enumerate).
    */
-  getStaticParams?: () => Promise<Record<string, string>[]> | Record<string, string>[];
+  getStaticParams?: () => Promise<Record<string, string | string[]>[]> | Record<string, string | string[]>[];
   /** Runs for a POST. Return `redirect(to)` (303), `fail(status, data)`, or
    * any data — see actionResult.ts. Non-redirect results re-render the page
    * with the value as the `actionData` prop. A thrown `HttpError` keeps its

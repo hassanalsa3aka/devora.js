@@ -3176,33 +3176,101 @@ function requestContextFields(meta) {
 import fs from "node:fs";
 import path from "node:path";
 var ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
+var RANK = { static: 3, param: 2, catchAll: 1, optionalCatchAll: 0 };
 function matchRoute(routesDir, urlPath) {
-  const urlSegments = segmentsOf(normalizePath(urlPath));
-  let best = null;
-  for (const filePath of collectRouteFiles(routesDir)) {
-    const routeSegments = fileToRouteSegments(routesDir, filePath);
-    if (routeSegments.length !== urlSegments.length) continue;
-    const params = {};
-    let dynamicCount = 0;
-    let matched = true;
-    for (let i = 0; i < routeSegments.length; i++) {
-      const routeSeg = routeSegments[i];
-      const urlSeg = urlSegments[i];
-      if (isDynamicSegment(routeSeg)) {
-        params[paramName(routeSeg)] = decodeURIComponent(urlSeg);
-        dynamicCount++;
-      } else if (routeSeg !== urlSeg) {
-        matched = false;
-        break;
-      }
-    }
-    if (!matched) continue;
-    if (!best || dynamicCount < best.dynamicCount) {
-      best = { filePath, params, dynamicCount };
+  return matchInTable(buildRouteTable(routesDir), urlPath);
+}
+function buildRouteTable(routesDir) {
+  const entries = collectRouteFiles(routesDir).map((filePath) => {
+    const segments = fileToRouteSegments(routesDir, filePath).map(parseSegment);
+    return { filePath, segments, pattern: fileToRoutePath(routesDir, filePath) };
+  });
+  for (const entry of entries) {
+    const rest = entry.segments.findIndex((s) => s.kind === "catchAll" || s.kind === "optionalCatchAll");
+    if (rest !== -1 && rest !== entry.segments.length - 1) {
+      throw new Error(
+        `[devora] ${entry.filePath}: a catch-all segment must be the last part of the route (found ${JSON.stringify(entry.pattern)}). Move the files that sit under it elsewhere.`
+      );
     }
   }
+  const seen = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const shape = entry.segments.map((s) => s.kind === "static" ? `s:${s.value}` : s.kind).join("/");
+    const other = seen.get(shape);
+    if (other) {
+      throw new Error(
+        `[devora] two routes match the same URLs: ${other.filePath} and ${entry.filePath} (both are ${JSON.stringify(entry.pattern)}-shaped). Rename or remove one.`
+      );
+    }
+    seen.set(shape, entry);
+  }
+  return { entries };
+}
+function matchInTable(table, urlPath) {
+  const normalized = normalizePath(urlPath);
+  const urlSegments = segmentsOf(normalized);
+  const decoded = [];
+  for (const raw of urlSegments) {
+    const value = decodeSegment(raw);
+    if (value === null) return null;
+    decoded.push(value);
+  }
+  let best = null;
+  for (const entry of table.entries) {
+    const params = matchSegments(entry.segments, decoded);
+    if (!params) continue;
+    if (!best || moreSpecific(entry.segments, best.entry.segments)) best = { entry, params };
+  }
   if (!best) return null;
-  return { filePath: best.filePath, routePath: normalizePath(urlPath), params: best.params };
+  return { filePath: best.entry.filePath, routePath: normalized, params: best.params };
+}
+function matchSegments(route, url) {
+  const params = {};
+  for (let i = 0; i < route.length; i++) {
+    const seg = route[i];
+    if (seg.kind === "catchAll" || seg.kind === "optionalCatchAll") {
+      const rest = url.slice(i);
+      if (seg.kind === "catchAll" && rest.length === 0) return null;
+      params[seg.name] = rest;
+      return params;
+    }
+    const value = url[i];
+    if (value === void 0) return null;
+    if (seg.kind === "static") {
+      if (seg.value !== value) return null;
+    } else {
+      params[seg.name] = value;
+    }
+  }
+  return url.length === route.length ? params : null;
+}
+function moreSpecific(a, b) {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const ra = a[i] ? RANK[a[i].kind] : -1;
+    const rb = b[i] ? RANK[b[i].kind] : -1;
+    if (ra !== rb) return ra > rb;
+  }
+  return false;
+}
+function decodeSegment(raw) {
+  if (raw === "") return null;
+  let value;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  if (value === "" || value === "." || value === ".." || /[\\/\0]/.test(value)) return null;
+  return value;
+}
+function parseSegment(raw) {
+  let m = /^\[\[\.\.\.([^\[\]]+)\]\]$/.exec(raw);
+  if (m) return { kind: "optionalCatchAll", name: m[1] };
+  m = /^\[\.\.\.([^\[\]]+)\]$/.exec(raw);
+  if (m) return { kind: "catchAll", name: m[1] };
+  if (isDynamicSegment(raw)) return { kind: "param", name: paramName(raw) };
+  return { kind: "static", value: raw };
 }
 function listRoutePaths(routesDir) {
   return collectRouteFiles(routesDir).map((filePath) => fileToRoutePath(routesDir, filePath));
@@ -3217,24 +3285,45 @@ function isDynamicRouteFile(routesDir, filePath) {
   return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
 }
 function resolveStaticRoutePath(routesDir, filePath, params) {
-  const segments = fileToRouteSegments(routesDir, filePath).map((segment) => {
-    if (!isDynamicSegment(segment)) return segment;
-    const name = paramName(segment);
-    const value = params[name];
+  const out = [];
+  for (const segment of fileToRouteSegments(routesDir, filePath)) {
+    const parsed = parseSegment(segment);
+    if (parsed.kind === "static") {
+      out.push(parsed.value);
+      continue;
+    }
+    const value = params[parsed.name];
     if (value === void 0) {
       throw new Error(
-        `[devora] getStaticParams() entry is missing "${name}" for dynamic route segment "${segment}"`
+        `[devora] getStaticParams() entry is missing "${parsed.name}" for dynamic route segment "${segment}"`
       );
     }
-    return value;
-  });
-  return segments.length === 0 ? "/" : "/" + segments.join("/");
+    const isRest = parsed.kind === "catchAll" || parsed.kind === "optionalCatchAll";
+    if (isRest !== Array.isArray(value)) {
+      throw new Error(
+        `[devora] getStaticParams() "${parsed.name}" for "${segment}" must be ${isRest ? "a string[]" : "a string"}`
+      );
+    }
+    const parts = Array.isArray(value) ? value : [value];
+    if (parsed.kind === "catchAll" && parts.length === 0) {
+      throw new Error(`[devora] getStaticParams() "${parsed.name}" for "${segment}" must have at least one segment`);
+    }
+    for (const part of parts) {
+      if (typeof part !== "string" || part === "" || part === "." || part === ".." || /[\\/\0]/.test(part)) {
+        throw new Error(
+          `[devora] getStaticParams() "${parsed.name}" contains an unusable path segment ${JSON.stringify(part)} (empty, ".", "..", or containing a slash)`
+        );
+      }
+      out.push(encodeURIComponent(part));
+    }
+  }
+  return out.length === 0 ? "/" : "/" + out.join("/");
 }
 function isDynamicSegment(segment) {
   return segment.startsWith("[") && segment.endsWith("]") && segment.length > 2;
 }
 function paramName(segment) {
-  return segment.slice(1, -1);
+  return segment.replace(/^\[\[?(\.\.\.)?/, "").replace(/\]\]?$/, "");
 }
 function normalizePath(urlPath) {
   if (urlPath === "" || urlPath === "/") return "/";
@@ -4322,6 +4411,21 @@ function resolveSecurityHeaders(security, streamingNonce) {
 }
 
 // ../core/src/sitemap.ts
+async function collectSitemapPaths(routesDir, loadRoute) {
+  const out = /* @__PURE__ */ new Set();
+  for (const filePath of listRouteFiles(routesDir)) {
+    if (!isDynamicRouteFile(routesDir, filePath)) {
+      out.add(routeFileToPath(routesDir, filePath));
+      continue;
+    }
+    const mod = await loadRoute(filePath);
+    if (!mod?.getStaticParams) continue;
+    for (const params of await mod.getStaticParams()) {
+      out.add(resolveStaticRoutePath(routesDir, filePath, params));
+    }
+  }
+  return [...out].sort();
+}
 function generateSitemapXml(routePaths, domain) {
   const urls = routePaths.filter((routePath) => !routePath.includes("[")).map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -4678,6 +4782,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     res.end(renderError({ status: status2, error, head, errorPage: await loadErrorPage(), errorPageStyles }).html);
     return true;
   };
+  let sitemapXml;
   return async function handleRequest(req, res) {
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
@@ -4686,7 +4791,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return false;
-      const xml = generateSitemapXml(listRoutePaths(routesDir), domain);
+      sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
+        return await importBuilt(serverOutDir, toBuildKey(appRoot, file));
+      }).then((paths) => generateSitemapXml(paths, domain));
+      const xml = await sitemapXml;
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
@@ -4743,7 +4851,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     }
     if (url.pathname.startsWith("/@")) return false;
     if (url.pathname.includes(".")) {
-      return serveAsset(clientOutDir, url.pathname, res, false);
+      if (await serveAsset(clientOutDir, url.pathname, res, false)) return true;
     }
     const match = matchRoute(routesDir, url.pathname);
     if (!match) {
@@ -5030,7 +5138,7 @@ async function loadAppConfig(appRoot) {
 
 // src/server/ssrMiddleware.ts
 import path10 from "node:path";
-import { existsSync as existsSync6 } from "node:fs";
+import fs2, { existsSync as existsSync6 } from "node:fs";
 
 // src/server/devSessionOptions.ts
 import path9 from "node:path";
@@ -5100,13 +5208,19 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return next();
-      const xml = generateSitemapXml(listRoutePaths(routesDir), domain);
+      const xml = generateSitemapXml(
+        await collectSitemapPaths(routesDir, async (file) => await vite.ssrLoadModule(file)),
+        domain
+      );
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
       return;
     }
-    if (url.pathname.startsWith("/@") || url.pathname.includes(".")) {
+    if (url.pathname.startsWith("/@") || url.pathname.startsWith("/node_modules/")) {
+      return next();
+    }
+    if (url.pathname.includes(".") && isStaticFileRequest(vite, url.pathname)) {
       return next();
     }
     const match = matchRoute(routesDir, url.pathname);
@@ -5261,6 +5375,26 @@ function collectCssUrls(vite, file) {
   };
   for (const node of vite.moduleGraph.getModulesByFile(file) ?? []) visit(node);
   return urls;
+}
+function isStaticFileRequest(vite, pathname) {
+  let rel;
+  try {
+    rel = decodeURIComponent(pathname).replace(/^\/+/, "");
+  } catch {
+    return false;
+  }
+  if (rel.split("/").includes("..")) return false;
+  const publicDir = vite.config.publicDir;
+  const roots = [publicDir, vite.config.root].filter((dir) => typeof dir === "string" && dir !== "");
+  return roots.some((dir) => {
+    const full = path10.join(dir, rel);
+    if (!full.startsWith(dir + path10.sep)) return false;
+    try {
+      return fs2.statSync(full).isFile();
+    } catch {
+      return false;
+    }
+  });
 }
 
 // src/server/apiMiddleware.ts
@@ -5509,12 +5643,12 @@ function moduleDisposePlugin() {
 }
 
 // src/build/checkNoAuthUsage.ts
-import fs2 from "node:fs";
+import fs3 from "node:fs";
 var SESSION_METHOD_CALL_RE = /\bctx\.(requireAuth|setSession|revokeSession|clearSession|verifyCsrf)\s*\(/g;
 function checkNoAuthUsage(sourceFiles) {
   const violations = [];
   for (const file of sourceFiles) {
-    const code = fs2.readFileSync(file, "utf-8");
+    const code = fs3.readFileSync(file, "utf-8");
     for (const match of code.matchAll(SESSION_METHOD_CALL_RE)) {
       violations.push({ file, method: match[1] });
     }
@@ -6490,10 +6624,10 @@ import { build as viteBuild, resolveConfig } from "vite";
 import { createHash } from "node:crypto";
 
 // src/build/discoverCsrRouteFiles.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 var CSR_RENDER_MODE_RE = /renderMode\s*=\s*["']csr["']/;
 function discoverCsrRouteFiles(sourceFiles) {
-  return sourceFiles.filter((file) => CSR_RENDER_MODE_RE.test(fs3.readFileSync(file, "utf-8")));
+  return sourceFiles.filter((file) => CSR_RENDER_MODE_RE.test(fs4.readFileSync(file, "utf-8")));
 }
 
 // src/build/buildAppClient.ts
@@ -6737,7 +6871,7 @@ async function listFiles(dir, extension) {
 
 // src/build/buildAppStatic.ts
 import path17 from "node:path";
-import fs4 from "node:fs";
+import fs5 from "node:fs";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, options = {}) {
   if (options.backendOnly) return { staticRoutes: [] };
@@ -6747,7 +6881,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
   const staticRoutes = [];
   const candidates = listRouteFiles(routesDir).filter((filePath) => {
-    const declared = readDeclaredRenderMode(fs4.readFileSync(filePath, "utf-8"));
+    const declared = readDeclaredRenderMode(fs5.readFileSync(filePath, "utf-8"));
     if (declared === "unknown") return true;
     const mode = declared ?? appDefaultRenderMode ?? "ssr";
     return mode === "ssg" || mode === "isr";
@@ -6802,7 +6936,7 @@ function readDeclaredRenderMode(source) {
 }
 function readJson(file) {
   try {
-    return JSON.parse(fs4.readFileSync(file, "utf-8"));
+    return JSON.parse(fs5.readFileSync(file, "utf-8"));
   } catch {
     return void 0;
   }

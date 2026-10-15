@@ -21,6 +21,7 @@
  */
 import type { RequestContext } from "./serverFn.js";
 import { apiErrorResponse } from "./httpError.js";
+import type { RouteParams } from "./router.js";
 
 export interface ApiRequest {
   method: string;
@@ -29,7 +30,7 @@ export interface ApiRequest {
   headers: Record<string, string | string[] | undefined>;
   /** Values captured from any `[param]` segments (router.ts) — empty object
    * for an API route with no dynamic segments. */
-  params: Record<string, string>;
+  params: RouteParams;
   /**
    * Raw request body bytes. Deliberately not pre-parsed as JSON/form data —
    * a webhook's payload has to be verified (HMAC/signature) against its

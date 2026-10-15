@@ -10,6 +10,28 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased (0.3.3 draft)
+
+### Behavior changes
+
+- `ctx.params` / `req.params` are typed `Record<string, string | string[]>` (a catch-all value is an
+  array). Existing code that indexes with `ctx.params.id` needs a narrowing (`String(...)` or a
+  `typeof` check) under strict TypeScript; runtime values of `[param]` routes are unchanged.
+- A URL path containing a dot no longer ends at the static-file lookup: if no public file exists
+  at that path, it goes on to route matching (needed for `/docs/v1.2/intro`).
+- `resolveStaticRoutePath()` percent-encodes each segment (a `getStaticParams()` value with a space
+  or non-ASCII characters is written under its encoded path, which is what `url.pathname` holds).
+- `sitemap.xml` now lists the URLs of dynamic routes that export `getStaticParams()`.
+
+### `@devorajs/core`
+
+- Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `PAGES.md`).
+- `collectSitemapPaths()`; the sitemap includes `getStaticParams()` URLs of dynamic routes.
+
+### `@devorajs/cli`
+
+- Dev server: same catch-all matching and dotted-URL handling; sitemap includes dynamic routes.
+
 ## 0.3.2 — 2026-10-12
 
 Released together: `@devorajs/core` 0.3.2, `@devorajs/cli` 0.3.2, `@devorajs/adapter-vercel`

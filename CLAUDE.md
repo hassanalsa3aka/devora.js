@@ -329,7 +329,7 @@ between this project's 9.9.0 and whatever corepack grabs as "latest" with no pin
 
 **Not yet real** (see `README.md` "Current limitations" and `ROADMAP.md`'s Status section for the
 authoritative list):
-- Catch-all routes (`[...slug]`), several `Set-Cookie` headers or streamed (SSE) responses from an
+- Several `Set-Cookie` headers or streamed (SSE) responses from an
   API route, and a live Vercel/Netlify deployment of 0.3.2.
 - `"streaming"` is no longer on this list: it was deferred from v1 and shipped in v2 with a
   Suspense-based `<Island>` (`architecture-v2.md` §4, `renderStreaming.ts`). GET-only; buffered

@@ -1,10 +1,10 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
 import type { ServerResponse } from "node:http";
 import type { Connect, ViteDevServer } from "vite";
 import {
   matchRoute,
-  listRoutePaths,
+  collectSitemapPaths,
   generateSitemapXml,
   resolveRenderMode,
   renderCsrShell,
@@ -120,15 +120,22 @@ export function createSsrMiddleware(
 
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return next(); // opt-in — see ROADMAP.md #7.
-      const xml = generateSitemapXml(listRoutePaths(routesDir), domain);
+      const xml = generateSitemapXml(
+        await collectSitemapPaths(routesDir, async (file) => (await vite.ssrLoadModule(file)) as RouteModule),
+        domain
+      );
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.end(xml);
       return;
     }
 
-    if (url.pathname.startsWith("/@") || url.pathname.includes(".")) {
-      // Vite internals (HMR client, source maps) and asset requests — not routes.
+    if (url.pathname.startsWith("/@") || url.pathname.startsWith("/node_modules/")) {
+      // Vite internals (HMR client, source maps) — not routes.
+      return next();
+    }
+    if (url.pathname.includes(".") && isStaticFileRequest(vite, url.pathname)) {
+      // A real file Vite serves (public dir, source file) — not a route.
       return next();
     }
 
@@ -360,4 +367,30 @@ interface DevEntryServer {
   };
   renderStatic: (routeModule: RouteModule, options: RenderStaticOptions) => Promise<{ html: string }>;
   renderStreaming: (routeModule: RouteModule, request: RenderStreamingRequest) => Promise<StreamingRenderResult | null>;
+}
+
+/**
+ * A dotted URL is a file request only when a file is really there: in the
+ * public dir or under the app root (a source module Vite transforms). Any
+ * other dotted URL may be a route, e.g. a catch-all page for /docs/v1.2.
+ */
+function isStaticFileRequest(vite: ViteDevServer, pathname: string): boolean {
+  let rel: string;
+  try {
+    rel = decodeURIComponent(pathname).replace(/^\/+/, "");
+  } catch {
+    return false;
+  }
+  if (rel.split("/").includes("..")) return false;
+  const publicDir = vite.config.publicDir;
+  const roots = [publicDir, vite.config.root].filter((dir): dir is string => typeof dir === "string" && dir !== "");
+  return roots.some((dir) => {
+    const full = path.join(dir, rel);
+    if (!full.startsWith(dir + path.sep)) return false;
+    try {
+      return fs.statSync(full).isFile();
+    } catch {
+      return false;
+    }
+  });
 }

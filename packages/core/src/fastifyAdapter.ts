@@ -19,11 +19,12 @@
 import { apiRoute, type ApiRequest, type ApiRouteHandler } from "./apiRoute.js";
 import { defineModule, type DevoraModule } from "./module.js";
 import type { RequestContext } from "./serverFn.js";
+import type { RouteParams } from "./router.js";
 
 export interface FastifyLikeRequest {
   method: string;
   url: string;
-  params: Record<string, string>;
+  params: RouteParams;
   headers: Record<string, string | string[] | undefined>;
   /**
    * Real Fastify auto-parses an `application/json` body before a plugin

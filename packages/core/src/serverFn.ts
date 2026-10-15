@@ -1,3 +1,4 @@
+import type { RouteParams } from "./router.js";
 /**
  * serverFn — the one backend primitive v1 ships (see architecture doc §6).
  *
@@ -43,7 +44,7 @@ export interface RequestMeta {
 export interface RequestContext {
   /** Values captured from any `[param]` segments in the matched route file's
    * path (router.ts) — empty object for a route with no dynamic segments. */
-  params: Record<string, string>;
+  params: RouteParams;
   /** The request URL, query string included (`ctx.url.searchParams.get("q")`).
    * At build time (ssg/isr) it's the page's own URL with no query. */
   url: URL;

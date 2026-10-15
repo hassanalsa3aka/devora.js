@@ -153,6 +153,37 @@ shape: a literal path, so the build knows which file to ship to the browser. Any
 (`island(loader)`, a computed path) fails `devora dev`/`devora build` with the file and line, instead
 of rendering an island that never hydrates.
 
+## Dynamic and catch-all routes
+
+| File | Matches | `ctx.params` |
+|---|---|---|
+| `routes/users/[id].tsx` | `/users/42` | `{ id: "42" }` |
+| `routes/docs/[...slug].tsx` | `/docs/a`, `/docs/a/b/c` (not `/docs`) | `{ slug: ["a", "b", "c"] }` |
+| `routes/docs/[[...slug]].tsx` | `/docs`, `/docs/a`, `/docs/a/b` | `{ slug: [] }` for `/docs` |
+
+- Precedence is per segment: a static file wins over `[param]`, which wins over `[...slug]`. So
+  with `docs/intro.tsx` and `docs/[...slug].tsx`, `/docs/intro` is the static page.
+- A catch-all must be the last segment of the path. `docs/[...slug]/edit.tsx` is an error, and so
+  are two files that match the same URLs (`[a].tsx` and `[b].tsx` side by side); the message names
+  both files.
+- Each segment is URL-decoded once. A segment that is empty, `.`, `..`, or contains `/`, `\` or a
+  NUL byte (including as `%2F`, `%5C`, `%00`) never matches; the request gets the app's 404.
+- A dot in a URL is not a file: `/docs/v1.2/intro` reaches the catch-all unless a real file with
+  that path exists in the app's public folder.
+- `ctx.params` values are `string | string[]` in TypeScript. Narrow before use
+  (`typeof ctx.params.id === "string"`), or write `String(ctx.params.id)` for a `[param]`.
+- `ssg`/`isr` need `getStaticParams()`; for a catch-all it returns arrays:
+
+  ```ts
+  export function getStaticParams() {
+    return [{ slug: ["intro"] }, { slug: ["guide", "setup"] }]; // /docs/intro, /docs/guide/setup
+  }
+  ```
+
+  Those URLs are also what `sitemap.xml` lists for the route. A dynamic route without
+  `getStaticParams()` is left out of the sitemap.
+- API routes work the same way: `endpoints/files/[...path].ts` gets `req.params.path` as a `string[]`.
+
 ## What runs at build time
 
 `devora build` only imports (and so runs) routes that are `ssg` or `isr`, and what they import.

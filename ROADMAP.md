@@ -68,7 +68,6 @@ for exactly how):
 
 **Known gaps, not scheduled yet:**
 - Several `Set-Cookie` headers and streamed responses (SSE) from API routes
-- Catch-all routes (`[...slug]`)
 - Moving the `esbuild` override out of `package.json`'s `"pnpm"` field (pnpm 11 ignores it — see
   `CONTRIBUTING.md`)
 

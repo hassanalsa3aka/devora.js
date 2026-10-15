@@ -192,7 +192,7 @@ there's no `@auth/devora` adapter. The realistic integration point is `@auth/cor
 `Auth()` function directly from a Devora API route (architecture-v2.md §3.2), since that's the
 primitive built for exactly "a plain request handler, not tied to page rendering":
 
-Devora has no catch-all routes, so map Auth.js's paths explicitly — `/api/auth/<action>` and
+Auth.js's paths are fixed, so this section maps them explicitly (a `[...path]` catch-all works too) — `/api/auth/<action>` and
 `/api/auth/<action>/<provider>` (e.g. `/api/auth/signin`, `/api/auth/callback/github`) — with two
 files that share one handler:
 

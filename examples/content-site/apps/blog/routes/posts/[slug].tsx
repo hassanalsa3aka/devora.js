@@ -10,7 +10,7 @@ export async function getStaticParams() {
 }
 
 export async function loader(ctx: RequestContext) {
-  const post = findPost(ctx.params.slug ?? "");
+  const post = findPost(String(ctx.params.slug ?? ""));
   if (!post) throw new HttpError(404, "No such post");
   return { post };
 }
