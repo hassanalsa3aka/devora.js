@@ -10,29 +10,38 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## 0.3.3 — 2026-10-16
+## 0.3.4 — 2026-10-16
+
+0.3.3 was prepared but never published; 0.3.4 is its first release.
 
 ### Behavior changes
 
-- `ctx.params` / `req.params` are typed `Record<string, string | string[]>` (a catch-all value is an
-  array). Existing code that indexes with `ctx.params.id` needs a narrowing (`String(...)` or a
-  `typeof` check) under strict TypeScript; runtime values of `[param]` routes are unchanged.
-- A URL path containing a dot no longer ends at the static-file lookup: if no public file exists
-  at that path, it goes on to route matching (needed for `/docs/v1.2/intro`).
-- `resolveStaticRoutePath()` percent-encodes each segment (a `getStaticParams()` value with a space
-  or non-ASCII characters is written under its encoded path, which is what `url.pathname` holds).
-- `sitemap.xml` now lists the URLs of dynamic routes that export `getStaticParams()`.
-- `devora start` answers a POST (or any method other than GET/HEAD) to a public file, a built
-  asset or a pre-rendered (`ssg`) page with `405` and `Allow: GET, HEAD`. It used to return the file.
-- Pre-rendered pages are sent with `Cache-Control: public, max-age=0, must-revalidate` and an
-  `ETag` (a repeat visit gets a 304). Pre-rendered and built files are held in memory after their
-  first request, so a file replaced on disk under a running server is not picked up until restart.
-- With `sitemap` off, a hand-written `public/sitemap.xml` is now served (it used to 404 in
+Nothing here needs a code change in a typical app; each line says what to check.
+
+- **A file named `[...name].tsx` / `[[...name]].tsx` is now a catch-all route.** Before, such a
+  file was treated as a single `[param]` whose name started with dots. If you have one, rename it
+  or expect it to match more URLs. (`ctx.params` types are unchanged: every value is a `string`.)
+- **A URL path containing a dot no longer ends at the static-file lookup.** If no public file
+  exists at that path, it goes on to route matching (needed for `/docs/v1.2/intro`). Nothing to do.
+- **`getStaticParams()` values are percent-encoded in the output path** (`resolveStaticRoutePath()`):
+  a value with a space or non-ASCII characters is written under its encoded path, which is what
+  `url.pathname` holds. Nothing to do unless you read `dist/static` by hand.
+- **`sitemap.xml` now lists the URLs of dynamic routes** that export `getStaticParams()`. Nothing
+  to do; check the file if you post-process it.
+- **`devora start` answers any method other than GET/HEAD to a public file, a built asset or a
+  pre-rendered (`ssg`) page with `405` and `Allow: GET, HEAD`.** It used to return the file. A form
+  that posts to a pre-rendered page never worked (no action runs there); post to an `ssr` route.
+- **Pre-rendered pages are sent with `Cache-Control: public, max-age=0, must-revalidate` and an
+  `ETag`** (a repeat visit gets a 304), and pre-rendered pages and files are held in memory after
+  their first request. Restart `devora start` after a rebuild (it always needed it for route code).
+- **With `sitemap` off, a hand-written `public/sitemap.xml` is now served** (it used to 404 in
   production).
 
-### `@devorajs/core` 0.3.3
+### `@devorajs/core` 0.3.4
 
 - Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `PAGES.md`).
+  `ctx.params.slug` is the segments joined with `/` (still a `string`); `ctx.catchAll.slug` /
+  `req.catchAll.slug` is the `string[]`. `getStaticParams()` returns `{ slug: string[] }` entries.
 - `collectSitemapPaths()`; the sitemap includes `getStaticParams()` URLs of dynamic routes.
 
 - Static serving in `devora start` / the adapters: a memoized route table (the routes folder is no
@@ -47,18 +56,18 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - The generated function returns a body-less `Response` for 204/304 (a `Response` with a body and
   a 304 status throws).
 
-### `@devorajs/cli` 0.3.3
+### `@devorajs/cli` 0.3.4
 
 - Dev server: same catch-all matching and dotted-URL handling; sitemap includes dynamic routes.
 
 ### `create-devora` 0.3.2
 
-- New projects pin `@devorajs/core` and `@devorajs/cli` to `^0.3.3`.
+- New projects pin `@devorajs/core` and `@devorajs/cli` to `^0.3.4`.
 
 ### Not changed
 
 `@devorajs/adapter-node` 0.2.1 and `@devorajs/adapter-vercel` 0.2.3 have no source changes (their
-`@devorajs/core` range `^0.3.2` already allows 0.3.3).
+`@devorajs/core` range `^0.3.2` already allows 0.3.4).
 
 ### Also in this release
 

@@ -155,12 +155,16 @@ of rendering an island that never hydrates.
 
 ## Dynamic and catch-all routes
 
-| File | Matches | `ctx.params` |
-|---|---|---|
-| `routes/users/[id].tsx` | `/users/42` | `{ id: "42" }` |
-| `routes/docs/[...slug].tsx` | `/docs/a`, `/docs/a/b/c` (not `/docs`) | `{ slug: ["a", "b", "c"] }` |
-| `routes/docs/[[...slug]].tsx` | `/docs`, `/docs/a`, `/docs/a/b` | `{ slug: [] }` for `/docs` |
+| File | Matches | `ctx.params` | `ctx.catchAll` |
+|---|---|---|---|
+| `routes/users/[id].tsx` | `/users/42` | `{ id: "42" }` | `{}` |
+| `routes/docs/[...slug].tsx` | `/docs/a`, `/docs/a/b/c` (not `/docs`) | `{ slug: "a/b/c" }` | `{ slug: ["a", "b", "c"] }` |
+| `routes/docs/[[...slug]].tsx` | `/docs`, `/docs/a`, `/docs/a/b` | `{ slug: "" }` for `/docs` | `{ slug: [] }` for `/docs` |
 
+- `ctx.params` values are always strings, so code written for `[id]` routes compiles and runs
+  unchanged. A catch-all's segments are joined with `/` there; `ctx.catchAll` (and `req.catchAll`
+  in an API route) has them as an array. A segment can never contain a `/` (an encoded `%2F` does
+  not match), so the join loses nothing.
 - Precedence is per segment: a static file wins over `[param]`, which wins over `[...slug]`. So
   with `docs/intro.tsx` and `docs/[...slug].tsx`, `/docs/intro` is the static page.
 - A catch-all must be the last segment of the path. `docs/[...slug]/edit.tsx` is an error, and so
@@ -170,8 +174,6 @@ of rendering an island that never hydrates.
   NUL byte (including as `%2F`, `%5C`, `%00`) never matches; the request gets the app's 404.
 - A dot in a URL is not a file: `/docs/v1.2/intro` reaches the catch-all unless a real file with
   that path exists in the app's public folder.
-- `ctx.params` values are `string | string[]` in TypeScript. Narrow before use
-  (`typeof ctx.params.id === "string"`), or write `String(ctx.params.id)` for a `[param]`.
 - `ssg`/`isr` need `getStaticParams()`; for a catch-all it returns arrays:
 
   ```ts
@@ -182,7 +184,8 @@ of rendering an island that never hydrates.
 
   Those URLs are also what `sitemap.xml` lists for the route. A dynamic route without
   `getStaticParams()` is left out of the sitemap.
-- API routes work the same way: `endpoints/files/[...path].ts` gets `req.params.path` as a `string[]`.
+- API routes work the same way: `endpoints/files/[...path].ts` gets `req.params.path === "a/b"`
+  and `req.catchAll.path === ["a", "b"]`.
 
 ## What runs at build time
 

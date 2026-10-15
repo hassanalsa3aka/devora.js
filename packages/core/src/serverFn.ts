@@ -1,4 +1,4 @@
-import type { RouteParams } from "./router.js";
+import type { CatchAllParams, RouteParams } from "./router.js";
 /**
  * serverFn — the one backend primitive v1 ships (see architecture doc §6).
  *
@@ -43,8 +43,13 @@ export interface RequestMeta {
 
 export interface RequestContext {
   /** Values captured from any `[param]` segments in the matched route file's
-   * path (router.ts) — empty object for a route with no dynamic segments. */
+   * path (router.ts) — empty object for a route with no dynamic segments.
+   * Always strings: a catch-all's segments are joined with "/"
+   * (`/docs/a/b` → `params.slug === "a/b"`); use `catchAll` for the array. */
   params: RouteParams;
+  /** The segments a `[...slug]` / `[[...slug]]` matched, as arrays
+   * (`ctx.catchAll.slug === ["a", "b"]`). Empty for a route with none. */
+  catchAll: CatchAllParams;
   /** The request URL, query string included (`ctx.url.searchParams.get("q")`).
    * At build time (ssg/isr) it's the page's own URL with no query. */
   url: URL;

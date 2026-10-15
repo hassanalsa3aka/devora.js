@@ -21,7 +21,7 @@ export function meta(data?: { title: string }) {
 }
 
 export async function loader(ctx: RequestContext) {
-  const post = POSTS[String(ctx.params.slug)];
+  const post = POSTS[ctx.params.slug!];
   if (!post) throw new Error(`[marketing] unknown post slug: ${ctx.params.slug}`);
   return post;
 }

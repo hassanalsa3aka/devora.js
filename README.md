@@ -113,7 +113,7 @@ API with Bearer login, or a content site with `ssg` and islands.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
   `ctx.params.id`. `routes/docs/[...slug].tsx` matches `/docs/a`, `/docs/a/b/c` and so on, with
-  `ctx.params.slug` a `string[]` (`[[...slug]]` also matches `/docs`). A static route always wins
+  `ctx.params.slug === "a/b/c"` and `ctx.catchAll.slug` the array (`[[...slug]]` also matches `/docs`). A static route always wins
   over `[param]`, which wins over a catch-all. Works for page routes and API routes. See
   `PAGES.md`.
 - **Backend modules & generic API routes (v2)** — `defineModule()` organizes shared backend logic

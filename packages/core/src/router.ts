@@ -3,10 +3,34 @@ import path from "node:path";
 
 const ROUTE_EXTENSIONS = new Set([".tsx", ".ts"]);
 
-/** What a matched route's dynamic segments captured: `[id]` gives a string,
- * `[...slug]` and `[[...slug]]` give a string[] (empty for an optional
- * catch-all matching nothing). */
-export type RouteParams = Record<string, string | string[]>;
+/** What the router captured, before it is split for `ctx`: `[id]` gives a
+ * string, `[...slug]` and `[[...slug]]` give a string[] (empty for an
+ * optional catch-all matching nothing). */
+export type RawRouteParams = Record<string, string | string[]>;
+
+/** `ctx.params` / `req.params`: every value is a string. A catch-all's
+ * segments are joined with "/" (`/docs/a/b` → `"a/b"`; `""` for an optional
+ * catch-all that matched nothing), so code written for `[id]` routes keeps
+ * compiling unchanged. */
+export type RouteParams = Record<string, string>;
+
+/** `ctx.catchAll` / `req.catchAll`: the same catch-all segments as arrays. */
+export type CatchAllParams = Record<string, string[]>;
+
+/** Splits what the router captured into the two shapes a handler sees. */
+export function splitRouteParams(raw: RawRouteParams = {}): { params: RouteParams; catchAll: CatchAllParams } {
+  const params: RouteParams = {};
+  const catchAll: CatchAllParams = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) {
+      catchAll[name] = value;
+      params[name] = value.join("/");
+    } else {
+      params[name] = value;
+    }
+  }
+  return { params, catchAll };
+}
 
 export interface RouteMatch {
   filePath: string;
@@ -15,7 +39,7 @@ export interface RouteMatch {
   routePath: string;
   /** Values captured from the file's `[param]`, `[...rest]` and
    * `[[...rest]]` segments — empty for a route with none. */
-  params: RouteParams;
+  params: RawRouteParams;
 }
 
 type Segment =
@@ -108,7 +132,7 @@ export function matchInTable(table: RouteTable, urlPath: string): RouteMatch | n
     decoded.push(value);
   }
 
-  let best: { entry: RouteEntry; params: RouteParams } | null = null;
+  let best: { entry: RouteEntry; params: RawRouteParams } | null = null;
   for (const entry of table.entries) {
     const params = matchSegments(entry.segments, decoded);
     if (!params) continue;
@@ -118,8 +142,8 @@ export function matchInTable(table: RouteTable, urlPath: string): RouteMatch | n
   return { filePath: best.entry.filePath, routePath: normalized, params: best.params };
 }
 
-function matchSegments(route: Segment[], url: string[]): RouteParams | null {
-  const params: RouteParams = {};
+function matchSegments(route: Segment[], url: string[]): RawRouteParams | null {
+  const params: RawRouteParams = {};
   for (let i = 0; i < route.length; i++) {
     const seg = route[i] as Segment;
     if (seg.kind === "catchAll" || seg.kind === "optionalCatchAll") {

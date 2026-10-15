@@ -36,7 +36,7 @@ import { requestContextFields, type RequestContext, type RequestMeta, type Sessi
 import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
 import { HttpError } from "./httpError.js";
 import { getSessionState, type SessionRecord, type SessionState, type SessionStore } from "./sessionStore.js";
-import type { RouteParams } from "./router.js";
+import { splitRouteParams, type RawRouteParams } from "./router.js";
 
 export interface SessionCookieOptions {
   /** Cookie name, and also the auth scope the session ID is bound to — see
@@ -342,7 +342,7 @@ export interface RequestContextResult {
 export async function createRequestContext(
   request: SessionRequestInfo,
   opts: SessionCookieOptions,
-  params: RouteParams = {},
+  params: RawRouteParams = {},
   meta?: RequestMeta
 ): Promise<RequestContextResult> {
   const fields = requestContextFields(meta);
@@ -411,8 +411,10 @@ export async function createRequestContext(
     return track(() => opts.store.delete(key));
   };
 
+  const split = splitRouteParams(params);
   const ctx: RequestContext = {
-    params,
+    params: split.params,
+    catchAll: split.catchAll,
     url: fields.url,
     headers: fields.headers,
     method: fields.method,
@@ -516,10 +518,12 @@ function sessionsDisabledError(method: string): Error {
  * does nothing. See also `checkNoAuthUsage.ts` for the build-time version
  * of this same check, which catches the common case earlier.
  */
-export function createNoAuthContext(params: RouteParams = {}, meta?: RequestMeta): RequestContextResult {
+export function createNoAuthContext(params: RawRouteParams = {}, meta?: RequestMeta): RequestContextResult {
   const fields = requestContextFields(meta);
+  const split = splitRouteParams(params);
   const ctx: RequestContext = {
-    params,
+    params: split.params,
+    catchAll: split.catchAll,
     url: fields.url,
     headers: fields.headers,
     method: fields.method,

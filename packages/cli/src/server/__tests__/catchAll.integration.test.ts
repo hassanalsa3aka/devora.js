@@ -18,9 +18,9 @@ import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.j
 const PAGE_SOURCE = (marker: string) => `
 import { createElement } from "react";
 export const renderMode = "ssr";
-export function loader(ctx) { return { params: ctx.params }; }
+export function loader(ctx) { return { params: ctx.params, catchAll: ctx.catchAll }; }
 export default function Page(props) {
-  return createElement("pre", { id: ${JSON.stringify(marker)} }, JSON.stringify(props.data.params));
+  return createElement("pre", { id: ${JSON.stringify(marker)} }, JSON.stringify(props.data));
 }`;
 
 const SSG_SOURCE = `
@@ -34,20 +34,20 @@ import { apiRoute } from "@devorajs/core";
 export const handler = apiRoute((req) => ({
   status: 200,
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ params: req.params }),
+  body: JSON.stringify({ params: req.params, catchAll: req.catchAll }),
 }));`;
 
 const BUILT_API = `
 export function handler(req) {
-  return { status: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ params: req.params }) };
+  return { status: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ params: req.params, catchAll: req.catchAll }) };
 }`;
 
 const BUILT_PAGE = (marker: string) => `
 import { createElement } from "react";
 export const renderMode = "ssr";
-export function loader(ctx) { return { params: ctx.params }; }
+export function loader(ctx) { return { params: ctx.params, catchAll: ctx.catchAll }; }
 export default function Page(props) {
-  return createElement("pre", { id: ${JSON.stringify(marker)} }, JSON.stringify(props.data.params));
+  return createElement("pre", { id: ${JSON.stringify(marker)} }, JSON.stringify(props.data));
 }`;
 
 const BUILT_SSG = `
@@ -108,10 +108,10 @@ describe("catch-all routes — dev server", () => {
     await server?.close();
   });
 
-  it("a page catch-all gets string[] params, including a dotted segment", async () => {
+  it("a page catch-all gets joined params and catchAll arrays, including a dotted segment", async () => {
     const res = await fetch(`${base}/docs/v1.2/intro/deep`);
     expect(res.status).toBe(200);
-    expect(paramsIn(await bodyOf(res), "docs")).toEqual({ slug: ["v1.2", "intro", "deep"] });
+    expect(paramsIn(await bodyOf(res), "docs")).toEqual({ params: { slug: "v1.2/intro/deep" }, catchAll: { slug: ["v1.2", "intro", "deep"] } });
   });
 
   it("a static file beats the catch-all", async () => {
@@ -123,13 +123,13 @@ describe("catch-all routes — dev server", () => {
     expect((await fetch(`${base}/docs`)).status).toBe(404);
     const res = await fetch(`${base}/wiki`);
     expect(res.status).toBe(200);
-    expect(paramsIn(await bodyOf(res), "wiki")).toEqual({ path: [] });
+    expect(paramsIn(await bodyOf(res), "wiki")).toEqual({ params: { path: "" }, catchAll: { path: [] } });
   });
 
-  it("an API catch-all gets string[] params as JSON", async () => {
+  it("an API catch-all gets joined params and catchAll arrays as JSON", async () => {
     const res = await fetch(`${base}/api/files/a/b.txt`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ params: { path: ["a", "b.txt"] } });
+    expect(await res.json()).toEqual({ params: { path: "a/b.txt" }, catchAll: { path: ["a", "b.txt"] } });
   });
 
   it("encoded slashes and dot-dot segments never match", async () => {
@@ -191,22 +191,22 @@ describe("catch-all routes — production handler", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("a page catch-all gets string[] params, including a dotted segment", async () => {
+  it("a page catch-all gets joined params and catchAll arrays, including a dotted segment", async () => {
     const res = await fetch(`${base}/docs/v1.2/intro/deep`);
     expect(res.status).toBe(200);
-    expect(paramsIn(await bodyOf(res), "docs")).toEqual({ slug: ["v1.2", "intro", "deep"] });
+    expect(paramsIn(await bodyOf(res), "docs")).toEqual({ params: { slug: "v1.2/intro/deep" }, catchAll: { slug: ["v1.2", "intro", "deep"] } });
   });
 
   it("static beats catch-all; bare folder only matches the optional form", async () => {
     expect(paramsIn(await bodyOf(await fetch(`${base}/docs/intro`)), "static-intro")).toBeDefined();
     expect((await fetch(`${base}/docs`)).status).toBe(404);
-    expect(paramsIn(await bodyOf(await fetch(`${base}/wiki`)), "wiki")).toEqual({ path: [] });
+    expect(paramsIn(await bodyOf(await fetch(`${base}/wiki`)), "wiki")).toEqual({ params: { path: "" }, catchAll: { path: [] } });
   });
 
-  it("an API catch-all gets string[] params as JSON", async () => {
+  it("an API catch-all gets joined params and catchAll arrays as JSON", async () => {
     const res = await fetch(`${base}/api/files/x/y`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ params: { path: ["x", "y"] } });
+    expect(await res.json()).toEqual({ params: { path: "x/y" }, catchAll: { path: ["x", "y"] } });
   });
 
   it("an ssg catch-all only serves params that getStaticParams() listed", async () => {

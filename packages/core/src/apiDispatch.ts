@@ -12,7 +12,7 @@ import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
-import type { RouteParams } from "./router.js";
+import { splitRouteParams, type RawRouteParams } from "./router.js";
 
 export interface ApiDispatchRequest {
   method: string;
@@ -21,7 +21,7 @@ export interface ApiDispatchRequest {
   cookieHeader?: string;
   /** Values captured from any `[param]` segments the route matched on
    * (router.ts) — empty/absent for an API route with no dynamic segments. */
-  params?: RouteParams;
+  params?: RawRouteParams;
   /** Absent for an app with `auth: "none"` — see createNoAuthContext(). */
   sessionCookieOptions?: SessionCookieOptions;
   body: Buffer;
@@ -49,11 +49,13 @@ export async function dispatchApiRoute(
     return jsonMessageResponse(405, "Method Not Allowed", { Allow: routeModule.methods.join(", ") });
   }
 
+  const split = splitRouteParams(request.params);
   const apiReq: ApiRequest = {
     method: request.method,
     url: request.url,
     headers: request.headers,
-    params: request.params ?? {},
+    params: split.params,
+    catchAll: split.catchAll,
     body: request.body,
   };
 
