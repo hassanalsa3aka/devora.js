@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { assertPublishable } from "./checkPublishable.mjs";
 
 const [, , pkgDir, ...rest] = process.argv;
 if (!pkgDir) {
@@ -73,6 +74,8 @@ process.on("SIGTERM", () => {
 });
 
 try {
+  // Before anything is sent: dist/ present, every exports target exists and is in the pack list.
+  assertPublishable(merged, pkgDir);
   execFileSync("npm", ["publish", ...rest], { cwd: pkgDir, stdio: "inherit" });
 } finally {
   restore();

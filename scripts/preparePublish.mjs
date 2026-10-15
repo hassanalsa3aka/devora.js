@@ -28,6 +28,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { assertPublishable } from "./checkPublishable.mjs";
 
 const [, , pkgDir, ...rest] = process.argv;
 if (!pkgDir) {
@@ -60,6 +61,7 @@ if (hasSwap || hasPrepare) {
 }
 
 try {
+  assertPublishable(pkg, pkgDir); // dist/ present, exports targets exist and are in the pack list
   execSync(`npm publish ${npmArgs.join(" ")}`, { cwd: pkgDir, stdio: "inherit" });
 } finally {
   writeFileSync(pkgJsonPath, original);

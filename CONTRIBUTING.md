@@ -86,10 +86,14 @@ versions must point at `dist/`. Publish one package at a time:
 2. **Build it first.** Neither publish script builds anything: `pnpm --filter <package> build`
    (`tsc` for core and the adapters, `node build.mjs` for the CLI and `create-devora`). Skipping
    this is how adapter-node 0.2.0 and adapter-vercel/netlify 0.2.2 went out without `dist/`.
-3. Check the tarball: `npm pack --dry-run` in the package folder must list `dist/` files.
-4. Publish with `node scripts/preparePublish.mjs <package-dir> -- --access public`. It swaps
-   `exports`/`main`/`types` to `publishConfig`'s `dist/` values (npm ignores a nested
-   `publishConfig.exports`), drops the CLI's `prepare` script (it would fail for consumers), runs
-   `npm publish`, and restores `package.json` afterwards.
+3. Check it: `node scripts/checkPublishable.mjs <package-dir>...` stops when `dist/` is missing or
+   empty or an `exports`/`main`/`types`/`bin` target does not exist; `pnpm pack` in the package
+   folder must list `dist/` files. (`publish-package.mjs` and `preparePublish.mjs` run the same
+   check, plus one against `npm pack --dry-run`, before they publish.)
+4. Publish with `pnpm publish --access public --no-git-checks` from the package folder: pnpm
+   applies `publishConfig` (`exports`/`main`/`types` → `dist/`); plain `npm publish` ignores it.
+   The CLI's `prepare` script must not reach consumers: `node scripts/preparePublish.mjs
+   <package-dir> -- --access public` is the npm-based alternative that swaps those fields and
+   drops it, then restores `package.json`.
 5. Install the published version into a fresh `npm create devora@latest` project and run `dev`,
    `build` and `start` before announcing it.

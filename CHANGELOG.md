@@ -10,7 +10,7 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## Unreleased (0.3.3 draft)
+## 0.3.3 — 2026-10-16
 
 ### Behavior changes
 
@@ -30,7 +30,7 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - With `sitemap` off, a hand-written `public/sitemap.xml` is now served (it used to 404 in
   production).
 
-### `@devorajs/core`
+### `@devorajs/core` 0.3.3
 
 - Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `PAGES.md`).
 - `collectSitemapPaths()`; the sitemap includes `getStaticParams()` URLs of dynamic routes.
@@ -42,14 +42,32 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
   `.ttf`, `.otf`, `.gif`, `.avif`, `.pdf`, `.wasm` and more. Measured on the benchmark's
   pre-rendered page: about 14,700 → 82,000 requests/s (see `benchmarks/results`).
 
-### `@devorajs/adapter-netlify`
+### `@devorajs/adapter-netlify` 0.2.4
 
 - The generated function returns a body-less `Response` for 204/304 (a `Response` with a body and
   a 304 status throws).
 
-### `@devorajs/cli`
+### `@devorajs/cli` 0.3.3
 
 - Dev server: same catch-all matching and dotted-URL handling; sitemap includes dynamic routes.
+
+### `create-devora` 0.3.2
+
+- New projects pin `@devorajs/core` and `@devorajs/cli` to `^0.3.3`.
+
+### Not changed
+
+`@devorajs/adapter-node` 0.2.1 and `@devorajs/adapter-vercel` 0.2.3 have no source changes (their
+`@devorajs/core` range `^0.3.2` already allows 0.3.3).
+
+### Also in this release
+
+- `REALTIME.md` and `examples/realtime/`: a documented pattern for live updates (polling, or a
+  separate Socket.IO server with a 60-second HMAC token), including the `security.csp`
+  `connect-src` setting.
+- `scripts/preparePublish.mjs` and `scripts/publish-package.mjs` refuse to publish a package whose
+  `dist/` is missing or empty, whose `exports` point at missing files, or whose pack list lacks the
+  built entry.
 
 ## 0.3.2 — 2026-10-12
 
