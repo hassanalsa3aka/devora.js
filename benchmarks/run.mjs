@@ -17,6 +17,7 @@
  * Usage: node run.mjs [--only=devora,next] [--quick]
  *   CHROME_PATH=/path/to/chrome   use this Chromium instead of Playwright's
  */
+import http from "node:http";
 import { spawn, execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -173,6 +174,41 @@ function cannon(opts) {
   });
 }
 
+/**
+ * What actually comes back over the wire for one request (raw http, so
+ * nothing is decoded for us): status, Content-Encoding, Content-Length
+ * header, and the body bytes received. Sent twice: with only the headers
+ * the load tool uses (no Accept-Encoding), and with what a browser sends.
+ */
+function probeOnce(url, { method = "GET", headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const req = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method, headers }, (res) => {
+      let bytes = 0;
+      res.on("data", (c) => (bytes += c.length));
+      res.on("end", () =>
+        resolve({
+          status: res.statusCode,
+          contentEncoding: res.headers["content-encoding"] ?? null,
+          contentLength: res.headers["content-length"] ? Number(res.headers["content-length"]) : null,
+          bodyBytes: bytes,
+        })
+      );
+    });
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function probe(url, init = {}) {
+  const loadToolHeaders = { accept: ACCEPT, ...(init.headers ?? {}) };
+  return {
+    loadTool: await probeOnce(url, { ...init, headers: loadToolHeaders }),
+    browser: await probeOnce(url, { ...init, headers: { ...loadToolHeaders, "accept-encoding": "gzip, deflate, br" } }),
+  };
+}
+
 async function load(url, extra = {}) {
   await cannon({ url, duration: CONFIG.warmupSeconds, ...extra });
   const rps = [], p50 = [], p99 = [], errors = [], non2xx = [];
@@ -292,6 +328,14 @@ try {
         items: await load(`http://localhost:${PORT}/items`),
         form: await load(`http://localhost:${PORT}${form.path}`, { method: "POST", headers: form.headers, body: form.body }),
       };
+      r.wire = {
+        static: await probe(`http://localhost:${PORT}${staticPath}`),
+        items: await probe(`http://localhost:${PORT}/items`),
+        form: await probe(`http://localhost:${PORT}${form.path}`, { method: "POST", headers: form.headers, body: form.body }),
+      };
+      for (const [k, v] of Object.entries(r.wire)) {
+        console.log(`wire ${k}: load tool ${v.loadTool.bodyBytes} B (${v.loadTool.contentEncoding ?? "identity"}), browser ${v.browser.bodyBytes} B (${v.browser.contentEncoding ?? "identity"})`);
+      }
       for (const [k, v] of Object.entries(r.load)) console.log(`${k}: ${Math.round(v.rps.median)} req/s, p50 ${v.p50.median} ms, p99 ${v.p99.median} ms`);
       r.memoryAfterLoadMb = treeRssKb(child.pid) / 1024;
       r.browser = await browserMetrics(browser);

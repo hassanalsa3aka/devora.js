@@ -20,6 +20,7 @@ const kb = (n) => `${(n / 1024).toFixed(1)} kB`;
 const num = (n) => Math.round(n).toLocaleString("en-US");
 const spread = (s, f) => `${f(s.min)}–${f(s.max)}`;
 const label = (fw) => `${fw.name} ${fw.version}`;
+const label_ = label;
 
 function table(title, note, unit, rows, better) {
   const sorted = [...rows].sort((a, b) => (better === "lower" ? a.value - b.value : b.value - a.value));
@@ -61,6 +62,26 @@ for (const [key, title, note] of [
       })), "higher"),
   );
 }
+const bytes = (n) => `${n.toLocaleString("en-US")} B`;
+const enc = (p) => `${bytes(p.bodyBytes)} (${p.contentEncoding ?? "identity"})`;
+sections.push(
+  [
+    "### Response bytes on the wire",
+    "",
+    "One request per page after the run, read as raw bytes. \"Load tool\" sends only the headers autocannon sends (no `Accept-Encoding`), so it is exactly what the requests/second numbers above measured. \"Browser\" adds `Accept-Encoding: gzip, deflate, br`.",
+    "",
+    "| Framework | Page | Load tool | Browser |",
+    "|---|---|---:|---:|",
+    ...fws.flatMap((f) =>
+      f.wire
+        ? [["static", "/static (A)"], ["items", "/items (B)"], ["form", "form POST (C)"]].map(
+            ([k, label]) => `| ${label_(f)} | ${label} | ${enc(f.wire[k].loadTool)} | ${enc(f.wire[k].browser)} |`
+          )
+        : []
+    ),
+    "",
+  ].join("\n")
+);
 sections.push(
   table("JavaScript sent to the browser: SSR page", "Every script the `/items` page loads in Chromium, compressed here with gzip -9 (brotli in brackets).", "gzip (brotli)",
     fws.map((f) => ({ fw: label(f), value: f.browser["/items"].jsGzip, shown: `${kb(f.browser["/items"].jsGzip)} (${kb(f.browser["/items"].jsBrotli)})` })), "lower"),

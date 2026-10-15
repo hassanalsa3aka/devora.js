@@ -50,7 +50,9 @@ Nothing here needs a code change in a typical app; each line says what to check.
   with strong ETags, `If-None-Match` → 304, `HEAD`, `Content-Length`, brotli/gzip for text types
   (made once per file, kept only while the 64 MB allowance has room), and correct content types for `.xml`, `.webmanifest`, `.woff`, `.woff2`,
   `.ttf`, `.otf`, `.gif`, `.avif`, `.pdf`, `.wasm` and more. Measured on the benchmark's
-  pre-rendered page: about 14,700 → 82,000 requests/s (see `benchmarks/results`).
+  tiny pre-rendered page, one machine: about 14,700 → 71,000–82,000 requests/s in two full runs
+  (see `benchmarks/results`; Astro, SvelteKit and React Router measured about 36,000–38,000 on the
+  same page).
 
 ### `@devorajs/adapter-netlify` 0.2.4
 

@@ -42,6 +42,7 @@ Exact versions are pinned in each app's `package-lock.json`.
 | Idle memory | Resident memory of the server's process tree, 2 s after start |
 | Requests/second, p50/p99 latency | [autocannon](https://github.com/mcollina/autocannon), 50 connections, 5 s warm-up, then 5 runs of 10 s; median run reported with min–max |
 | JavaScript sent to the browser | Every script the page loads in Chromium, compressed with gzip -9 and brotli 11 |
+| Bytes on the wire | After the run, one request per page read as raw bytes, once with only the load tool's headers (no `Accept-Encoding`, exactly what the requests/second runs measured) and once with a browser's `Accept-Encoding`; reported with `Content-Encoding` |
 | Time until interactive | From navigation start until a click on the counter changes it |
 
 Client and server run on the same machine, so absolute numbers depend on it; compare frameworks
@@ -61,6 +62,12 @@ npm run report                           # results/report.md and results/latest.
 Port 4300 must be free. `results/raw-<date>.json` keeps every run's numbers.
 
 ## Caveats
+
+- The load tool sends no `Accept-Encoding`, so no framework compresses during the runs; page sizes still differ
+  because each framework emits different HTML (see "Response bytes on the wire" in the report). A smaller
+  page is part of why a framework is faster here; the report shows the sizes so that can be judged.
+- Devora.js is measured through its documented production path (`devora build`, `devora start`) with
+  locally packed builds of the release candidate until it is published.
 
 - Requests/second on localhost mostly measures the Node HTTP server and the rendering work per
   request. It says little about how many users an app can serve behind a real network and CDN.
