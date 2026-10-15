@@ -10,12 +10,13 @@ package.
 | [`multi-app`](multi-app) | One project, three apps: a public site, a logged-in dashboard and a JSON API sharing one backend and one login | `site` (auth: none), `app` (shared), `api` (shared, backend-only) |
 | [`api-bearer`](api-bearer) | A backend-only API for a mobile client: Bearer login, revocation, `csrf: false`, CORS | `api` (shared, backend-only) |
 | [`content-site`](content-site) | A content site: `ssg` pages, a dynamic route with `getStaticParams()`, one island, route CSS, a sitemap | `blog` (auth: none) |
+| [`realtime`](realtime) | Live updates: a token route, a separate Socket.IO server, a publish call, the CSP setting, a polling fallback (see [`REALTIME.md`](../REALTIME.md)) | `app` (shared) + `realtime/` (plain Node) |
 
 Run any of them from a fresh checkout (Node 20 or newer):
 
 ```bash
 git clone https://github.com/hassanalsa3aka/devora.js.git
-cd devora.js/examples/multi-app   # or api-bearer, content-site
+cd devora.js/examples/multi-app   # or api-bearer, content-site, realtime
 npm ci
 npm run dev
 ```

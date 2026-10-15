@@ -7,8 +7,9 @@
  * `devora start` serves the apps on 4173, 4174, ... in devora.config.ts order.
  */
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 const name = path.basename(process.cwd());
@@ -35,7 +36,7 @@ function expect(label, actual, wanted) {
 /** Cookie jar for one "browser". */
 function browser() {
   const jar = new Map();
-  return async (url, init = {}) => {
+  const send = async (url, init = {}) => {
     const headers = new Headers(init.headers);
     if (jar.size) headers.set("cookie", [...jar].map(([k, v]) => `${k}=${v}`).join("; "));
     const res = await fetch(url, { ...init, headers, redirect: "manual" });
@@ -46,6 +47,8 @@ function browser() {
     }
     return res;
   };
+  send.jar = jar;
+  return send;
 }
 
 const csrfFrom = (html) => html.match(/name="_csrf" value="([^"]+)"/)?.[1] ?? "";
@@ -124,6 +127,108 @@ const CHECKS = {
     expect("the route stylesheet is linked", html, (h) => /<link rel="stylesheet" href="\/assets\/[^"]+\.css"/.test(h));
   },
 };
+
+CHECKS.realtime = async () => {
+  const app = "http://localhost:4173";
+  const rt = "http://localhost:4400";
+  const tokenSecret = process.env.REALTIME_TOKEN_SECRET;
+  const publishSecret = process.env.REALTIME_PUBLISH_SECRET;
+  const { io } = createRequire(path.join(process.cwd(), "realtime", "package.json"))("socket.io-client");
+
+  const realtime = spawn("node", ["realtime/server.mjs"], {
+    env: { ...process.env, NODE_ENV: "production", PORT: "4400", REALTIME_ORIGINS: app },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  try {
+    await waitFor(`${rt}/health`);
+
+    const connect = (token) =>
+      new Promise((resolve) => {
+        const socket = io(rt, { auth: { token }, reconnection: false, transports: ["websocket"] });
+        socket.on("connect", () => resolve({ socket }));
+        socket.on("connect_error", (err) => {
+          socket.close();
+          resolve({ error: err.message });
+        });
+      });
+    const nextEvent = (socket, event, ms = 2000) =>
+      new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(undefined), ms);
+        socket.once(event, (data) => {
+          clearTimeout(timer);
+          resolve(data);
+        });
+      });
+    const forge = (sub, exp, secret = tokenSecret) => {
+      const payload = Buffer.from(JSON.stringify({ sub, exp })).toString("base64url");
+      return `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
+    };
+    const publish = (body, secret = publishSecret) =>
+      fetch(`${rt}/publish`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+        body: JSON.stringify(body),
+      });
+
+    // The token route needs a login.
+    expect("token route without a login is a 401", (await fetch(`${app}/api/realtime-token`)).status, 401);
+    const b = browser();
+    const login = await b(`${app}/login`);
+    const loggedIn = await b(`${app}/login`, form({ _csrf: csrfFrom(await login.text()), username: "alice" }));
+    expect("login is a 303", loggedIn.status, 303);
+    const tokenRes = await b(`${app}/api/realtime-token`);
+    const { token, url } = await tokenRes.json();
+    expect("token route with a login is a 200", tokenRes.status, 200);
+    expect("token route names the realtime server", url, rt);
+
+    // The realtime server checks the token.
+    const now = Math.floor(Date.now() / 1000);
+    expect("no token is rejected", (await connect(undefined)).error, "unauthorized");
+    expect("a garbage token is rejected", (await connect("nope")).error, "unauthorized");
+    expect("a tampered token is rejected", (await connect(token.slice(0, -2) + "xx")).error, "unauthorized");
+    expect("a token signed with another secret is rejected", (await connect(forge("alice", now + 60, "other"))).error, "unauthorized");
+    expect("an expired token is rejected", (await connect(forge("alice", now - 5))).error, "unauthorized");
+
+    // Publishing needs the shared secret and reaches only that user's room.
+    expect("publish with the wrong secret is a 401", (await publish({ userId: "alice", event: "order", data: 1 }, "wrong")).status, 401);
+    const alice = (await connect(token)).socket;
+    const bob = (await connect(forge("bob", now + 60))).socket;
+    expect("a valid token connects", alice?.connected, true);
+    const aliceGets = nextEvent(alice, "order");
+    const bobGets = nextEvent(bob, "order", 500);
+    const pub = await (await publish({ userId: "alice", event: "order", data: { id: 99 } })).json();
+    expect("publish reports one delivery", pub.delivered, 1);
+    expect("alice receives it", (await aliceGets)?.id, 99);
+    expect("bob does not", await bobGets, undefined);
+
+    // An order placed through the app's API is pushed to the browser.
+    const pushed = nextEvent(alice, "order");
+    const csrf = b.jar.get("devora_csrf");
+    expect("an order without CSRF is a 403", (await b(`${app}/api/orders`, json({ item: "x" }))).status, 403);
+    const placed = await b(`${app}/api/orders`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-devora-csrf": csrf },
+      body: JSON.stringify({ item: "Coffee" }),
+    });
+    expect("placing an order is a 201", placed.status, 201);
+    expect("the order reaches the connected client", (await pushed)?.item, "Coffee");
+    const list = await (await b(`${app}/api/orders`)).json();
+    expect("the polling fallback sees it too", list.orders.map((o) => o.item).join(","), "Coffee");
+
+    // The page's CSP allows the realtime connection.
+    const csp = (await fetch(`${app}/login`)).headers.get("content-security-policy") ?? "";
+    expect("CSP names the realtime server in connect-src", csp, (c) => c.includes(`connect-src 'self' ${rt} ws://localhost:4400`));
+    alice.close();
+    bob.close();
+  } finally {
+    realtime.kill("SIGTERM");
+  }
+};
+
+if (name === "realtime") {
+  process.env.REALTIME_TOKEN_SECRET = randomBytes(24).toString("base64url");
+  process.env.REALTIME_PUBLISH_SECRET = randomBytes(24).toString("base64url");
+}
 
 if (!CHECKS[name]) throw new Error(`no checks for "${name}"`);
 const server = spawn("npm", ["start"], {
