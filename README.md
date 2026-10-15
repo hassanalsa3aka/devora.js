@@ -7,12 +7,55 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/wYFYmFxdS8)
 
-A Vite-based React framework built around one idea : **a project is more than one app.**
+**One project. Several apps. One backend and one login.**
 
-Devora.js lets you define several apps in one repo — a marketing site, a product app, an admin
-panel — that share a core and a backend, but build and deploy independently. Each app gets its
-own render mode, its own auth mode, and its own deploy target, without duplicating the plumbing
-between them.
+📚 [Docs](https://devorajs-docs-docs.vercel.app) · 💬 [Discord](https://discord.gg/wYFYmFxdS8) ·
+🧪 [Try it in 15 minutes](TESTING.md) · 📦 [npm](https://www.npmjs.com/package/@devorajs/core)
+
+Devora.js is a Vite-based React framework built around one idea: **a project is more than one
+app.** A marketing site, a product app and an admin panel live in one repo, share a core and a
+backend, and build and deploy independently. Each app gets its own render mode, its own auth mode
+and its own deploy target, without duplicating the plumbing between them.
+
+```ts
+// devora.config.ts — three apps, one backend, one login
+export default defineProject({
+  apps: [
+    { name: "marketing", dir: "apps/marketing", domain: "example.com", auth: "none" },
+    { name: "dashboard", dir: "apps/dashboard", domain: "app.example.com", auth: "shared" },
+    { name: "admin", dir: "apps/admin", domain: "admin.example.com", auth: "isolated" },
+  ],
+  shared: { backend: "packages/backend", auth: "shared", sessions: { store: "memory" } },
+});
+```
+
+`devora dev` runs all three, `devora build` builds each one, and a function written once in
+`packages/backend` is called from any of them.
+
+## Status
+
+Honest version, so you can decide whether it fits:
+
+- **Early, pre-1.0.** The API can still change between minor versions (each change is listed in
+  the [changelog](CHANGELOG.md)).
+- **Maintained by one person.** Tested by the maintainer; there are no outside production users
+  yet.
+- **No third-party security audit yet.** Security is a default in the design (CSP, HSTS, CSRF,
+  revocable sessions), not a certification. See [SECURITY.md](SECURITY.md).
+- **What was and wasn't verified** is written down in [VERIFICATION.md](VERIFICATION.md): real
+  servers and real requests in CI, platform deploys checked by hand.
+
+If you try it, I'd genuinely like to hear what breaks or what's missing:
+[issues](https://github.com/hassanalsa3aka/devora.js/issues), PRs and
+[Discord](https://discord.gg/wYFYmFxdS8) are all welcome. [TESTING.md](TESTING.md) is a 15-minute
+guide for exactly that.
+
+## What's next
+
+Desktop and native mobile apps are **planned goals, not started**. If they happen, the business
+logic, backend client, validation and design tokens would be shared, and the UI would be
+platform-specific. There are no dates, and nothing about them is available today. See
+[ROADMAP.md](ROADMAP.md).
 
 ## Why
 
@@ -22,9 +65,10 @@ into one app with route groups, or maintaining separate repos that share nothing
 treats "one repo, several independently-deployed apps sharing a core" as the default, not a
 workaround bolted on later.
 
-The other design choice: no implicit caching. Every render mode (`ssr`/`ssg`/`csr`/`isr`) is an
-explicit, route-level opt-in — no hidden revalidation windows to reverse-engineer, no undocumented
-build format standing between you and a plain reverse proxy if you ever need one.
+The other design choice: no implicit caching. Every render mode (`ssr`/`ssg`/`csr`/`isr`/
+`streaming`) is an explicit, route-level opt-in — no hidden revalidation windows to
+reverse-engineer, no undocumented build format standing between you and a plain reverse proxy if
+you ever need one.
 
 ## Live demos
 
@@ -81,7 +125,8 @@ under each.
 React 18 and whichever Vite the install resolves).
 
 Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only
-API with Bearer login, or a content site with `ssg` and islands.
+API with Bearer login, a content site with `ssg` and islands, or live updates with a separate
+realtime server.
 
 ## Key features
 
@@ -185,7 +230,7 @@ Stated plainly, not buried:
 
 ## Testing
 
-`pnpm run test` runs 405 Vitest tests in 36 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 466 Vitest tests in 41 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
@@ -221,16 +266,17 @@ please open an issue.
 - 📝 [Changelog](CHANGELOG.md)
 - 📊 [Benchmarks](benchmarks/) — the same pages in Devora.js, Next.js, Astro, SvelteKit and React Router; [latest results](benchmarks/results/report.md)
 - 📚 [Full docs site](https://devorajs-docs-docs.vercel.app) — built with the published packages,
-  covers every feature with runnable examples
+  covers every feature with runnable examples: [Getting started](https://devorajs-docs-docs.vercel.app/getting-started),
+  [Render modes](https://devorajs-docs-docs.vercel.app/render-modes),
+  [Live updates](https://devorajs-docs-docs.vercel.app/live-updates),
+  [Examples](https://devorajs-docs-docs.vercel.app/examples),
+  [Compare](https://devorajs-docs-docs.vercel.app/compare),
+  [Performance](https://devorajs-docs-docs.vercel.app/performance) and the
+  [Blog](https://devorajs-docs-docs.vercel.app/blog)
+- 🔴 [Live updates (WebSockets)](REALTIME.md) — the supported pattern, with a runnable example
+- 🧪 [Try it in 15 minutes](TESTING.md) — for outside testers
 - 🤝 [Contributing](CONTRIBUTING.md) · 🛡️ [Security policy](SECURITY.md)
 - 💬 [Discord](https://discord.gg/wYFYmFxdS8)
-
-## Status
-
-Devora.js is early — pre-1.0, built by one person so far, actively developed. Two products have
-been built with it so far ([YallaDo](https://yalla-do-app.vercel.app) and
-[Khepra](https://khepra.vercel.app)), and their reviews drove most of 0.3.2. If you try it, I'd
-genuinely like to hear what breaks or what's missing — issues, PRs and Discord messages welcome.
 
 ## License
 

@@ -48,6 +48,15 @@ Exact versions are pinned in each app's `package-lock.json`.
 Client and server run on the same machine, so absolute numbers depend on it; compare frameworks
 within one run, not across machines.
 
+## Reading the static-page number
+
+Across two full runs on one machine, Devora.js measured about 71,000–82,000 requests/s on the
+`/static` page, against about 36,000–38,000 for Astro, SvelteKit and React Router and about
+14,000 for Next.js. The page is tiny (568 B for Devora.js; sizes for every framework are in
+`results/report.md`), the load generator runs on the same machine, and no framework compressed
+during the timed runs (the load tool sends no `Accept-Encoding`). SvelteKit leads the form POST
+scenario. Use the numbers to compare frameworks within one run, not as a claim about your app.
+
 ## Run it
 
 ```bash

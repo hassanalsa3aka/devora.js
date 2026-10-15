@@ -75,8 +75,13 @@ for exactly how):
 - Formal third-party security audit / signed release provenance — once the API surface stabilizes
 
 **Deliberately out of scope, not planned** (see architecture-v1.md §11 and "Explicitly not
-roadmap items" below): built-in ORM/auth/file storage, a real-time sync engine, React
-Native/Tauri targets, a custom RSC-style serialization protocol.
+roadmap items" below): built-in ORM/auth/file storage, a real-time sync engine, a custom
+RSC-style serialization protocol.
+
+**Planned goals, not started:** desktop and native mobile apps. Nothing exists yet and there are
+no dates. If they happen, the business logic, backend client, validation and design tokens would
+be shared and the UI would be platform-specific. React (rather than Solid/Qwik) was chosen partly
+to keep that door open.
 
 ## Work items, in dependency order
 
@@ -1037,10 +1042,12 @@ targets, all exercised for real, not just written and assumed:
 Re-listing so scope creep during the above work gets caught early:
 - Real-time/live-query sync engine
 - Built-in ORM, auth provider, or file storage
-- React Native / Tauri targets
 - Formal third-party security audit / signed provenance
 - Custom RSC-style server/client serialization protocol
 - AWS/Cloudflare/Docker-specific adapters, or hosting infrastructure of our own
+
+(Desktop and native mobile are not in this list: they are planned goals that have not been
+started — see the top of this file.)
 
 If work on #1–#12 starts pulling in any of these, stop and flag it rather than absorbing it quietly.
 

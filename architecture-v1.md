@@ -73,7 +73,7 @@ Each app can be built/deployed independently (`devora build --app=admin`) or all
 
 ## 5. Rendering pipeline
 
-We stay on **React** (not Solid/Qwik) — this keeps the door open to React Native for mobile in v3, and most of the "React feels heavy" complaints are actually Next.js implementation choices (implicit caching, App Router complexity), which we already fix via explicit routing/data-loading (see §4, §6). Rather than switching UI libraries to fix hydration cost, we support multiple rendering strategies per route, explicitly declared:
+We stay on **React** (not Solid/Qwik) — this keeps the door open to native mobile later (a planned goal, not started), and most of the "React feels heavy" complaints are actually Next.js implementation choices (implicit caching, App Router complexity), which we already fix via explicit routing/data-loading (see §4, §6). Rather than switching UI libraries to fix hydration cost, we support multiple rendering strategies per route, explicitly declared:
 
 ```ts
 export const renderMode = "ssr";        // default: server-rendered per request
@@ -164,7 +164,7 @@ This section exists to stop scope creep. If it's listed here, it does not go int
 
 - ❌ Real-time/live-query sync engine (the "modern Meteor" piece) — v2, only if v1 users ask for it.
 - ❌ Built-in ORM, auth provider, or file storage — bring your own in v1.
-- ❌ Mobile (React Native) or desktop (Tauri) targets — v3+, only if v1/v2 prove out.
+- ⏳ Desktop and native mobile apps — planned goals, not started, no dates. If they happen, business logic, backend client, validation and design tokens would be shared and the UI would be platform-specific. Not part of v1.
 - ❌ Formal third-party security audit / signed provenance — v2, once API is stable.
 - ❌ "Best in market" security or SEO claims — these are earned over time, not asserted at launch.
 - ❌ Custom RSC-style server/client serialization protocol — too large and too security-sensitive for v1.

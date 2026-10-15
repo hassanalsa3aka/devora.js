@@ -305,7 +305,7 @@ as its own follow-up release, not the same push as §3.
   one thing this entire v2 plan deliberately avoids, at every phase.
 - ❌ Built-in ORM or auth provider — §3.5 is guides only; this boundary from v1 doesn't move.
 - ❌ Real-time/live-query sync engine.
-- ❌ Mobile (React Native) / desktop (Tauri) targets — v3+.
+- ⏳ Desktop and native mobile apps — planned goals, not started, no dates (shared: business logic, backend client, validation, design tokens; platform-specific: UI). Not part of v2.
 - ❌ Custom RSC-style server/client serialization protocol.
 - ❌ Full Express or NestJS ecosystem parity — the adapters (§3.3) bridge specific packages
   explicitly; this is not a promise of drop-in compatibility with either ecosystem.

@@ -188,6 +188,26 @@ addons (`argon2`, `better-sqlite3`) or engine binaries haven't been verified ins
    class of gap: anything the function reads from disk at runtime instead of statically importing
    has to be named in that list explicitly, or it silently never reaches the deployed function.
 
+## Static files and pre-rendered pages in `devora start` (0.3.4)
+
+`devora start` (and the Vercel/Netlify functions, for requests that reach them) serves built
+assets, public files and pre-rendered (`ssg`) pages from memory:
+
+- **Limits:** 64 MB in total for held files and their compressed copies, 2 MB per file. A larger
+  file is streamed from disk with its real `Content-Length` and is never held in memory; once the
+  64 MB is used, further files are streamed too.
+- **Freshness:** a held file is checked against the disk at most once a second, so a rebuild into
+  a running server shows up within a second. Route code (the built `dist/server`) still needs a
+  restart.
+- **Headers:** a strong `ETag` and `If-None-Match` → `304`; `HEAD`; brotli or gzip for text types
+  when the client sends `Accept-Encoding` (made once per file); `Cache-Control` of one year and
+  `immutable` for hashed `/assets/`, one hour for public files, and `max-age=0, must-revalidate`
+  for pre-rendered HTML.
+- **Methods:** anything other than GET and HEAD to a file or a pre-rendered page is a `405`.
+
+`isr` pages are not held this way: they are re-rendered when stale and written back to disk, as
+before.
+
 ## Docker
 
 One `adapter-node` process per container (`devora start --app=<name>`).

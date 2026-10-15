@@ -18,7 +18,7 @@ explicit design reaction to Next.js's implicit caching and undocumented build fo
 - **Shared auth by default**, per-app `auth: "isolated"` override (admin panel uses this). Auth
   itself is opt-in per app: `auth: "none"` (marketing site uses this) disables sessions entirely
   for that app — no session secret required, `ctx.setSession()`/etc. throw a clear error if called.
-- **React**, not Solid/Qwik — keeps the door open to React Native in v3.
+- **React**, not Solid/Qwik — keeps the door open to native mobile later (a planned goal, not started).
 - **No built-in ORM/auth/file storage in v1** — bring your own. Don't add one.
 - **No RSC-style server/client serialization protocol in v1** — too large, too security-sensitive.
 - **Security is a default, not opt-in**: no `eval`/dynamic `Function()` anywhere in framework
