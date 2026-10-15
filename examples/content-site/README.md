@@ -21,7 +21,8 @@ npm run build      # pre-renders /, /posts/hello-islands, /posts/static-params
 npm start          # serves the build on http://localhost:4173
 ```
 
-Known gap (Devora.js 0.3.2): `/sitemap.xml` leaves out dynamic routes, even ones with
-`getStaticParams()`, so the posts aren't in it yet.
+Sitemap: from Devora.js 0.3.4, `/sitemap.xml` lists the posts that `getStaticParams()` returns. Up to
+0.3.2 it left out dynamic routes, so the posts were missing; `../check.mjs` asserts whichever behavior the
+installed version should have.
 
 This example hasn't been deployed; it's built and checked in CI (`../check.mjs`).

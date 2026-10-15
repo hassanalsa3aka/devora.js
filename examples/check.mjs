@@ -33,6 +33,12 @@ function expect(label, actual, wanted) {
   if (!ok) process.exitCode = 1;
 }
 
+async function installedCoreVersion() {
+  const { readFile } = await import("node:fs/promises");
+  const pkg = JSON.parse(await readFile(path.join(process.cwd(), "node_modules/@devorajs/core/package.json"), "utf-8"));
+  return pkg.version;
+}
+
 /** Cookie jar for one "browser". */
 function browser() {
   const jar = new Map();
@@ -122,8 +128,17 @@ const CHECKS = {
     expect("a pre-rendered post is 200", post.status, 200);
     expect("the post has an island", html, (h) => h.includes("data-island"));
     expect("an unknown post is a 404", (await fetch(`${site}/posts/nope`)).status, 404);
-    // The sitemap leaves out dynamic routes, even ones with getStaticParams() (see the README).
-    expect("sitemap is served", await (await fetch(`${site}/sitemap.xml`)).text(), (x) => x.includes("<loc>https://blog.example.com</loc>"));
+    // Up to 0.3.2 the sitemap left out dynamic routes, even ones with getStaticParams(); from 0.3.4
+    // it lists the URLs getStaticParams() returns. Assert what the installed version should do.
+    const [, minor, patch] = (await installedCoreVersion()).split(".").map(Number);
+    const listsDynamic = minor > 3 || (minor === 3 && patch >= 4);
+    const sitemap = await (await fetch(`${site}/sitemap.xml`)).text();
+    expect("sitemap is served", sitemap, (x) => x.includes("<loc>https://blog.example.com</loc>"));
+    expect(
+      listsDynamic ? "sitemap lists the getStaticParams() posts (0.3.4+)" : "sitemap omits dynamic routes (<= 0.3.3)",
+      sitemap.includes("/posts/hello-islands"),
+      listsDynamic
+    );
     expect("the route stylesheet is linked", html, (h) => /<link rel="stylesheet" href="\/assets\/[^"]+\.css"/.test(h));
   },
 };
