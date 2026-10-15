@@ -14,8 +14,8 @@
  */
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { createReadStream, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { readFile, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -68,17 +68,38 @@ function isCompressible(type: string): boolean {
 
 /** Below this a compressed body saves nothing worth the CPU. */
 const MIN_COMPRESS_BYTES = 1024;
-/** Larger files are streamed from disk instead of held in memory. */
-const MAX_MEMORY_BYTES = 2 * 1024 * 1024;
+/** A file larger than this is streamed from disk, never held in memory. */
+export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+/** Everything held in memory (bodies and their compressed forms) stays under this. */
+export const MAX_CACHE_BYTES = 64 * 1024 * 1024;
+/** A cached file is checked against the disk at most this often. */
+const REVALIDATE_MS = 1000;
+
+/** A shared byte allowance: what does not fit is served from disk instead of held. */
+export class ByteBudget {
+  used = 0;
+  constructor(readonly limit: number = MAX_CACHE_BYTES) {}
+  reserve(bytes: number): boolean {
+    if (this.used + bytes > this.limit) return false;
+    this.used += bytes;
+    return true;
+  }
+  release(bytes: number): void {
+    this.used = Math.max(0, this.used - bytes);
+  }
+}
 
 export interface StaticBody {
   body: Buffer;
   type: string;
   etag: string;
   cacheControl: string;
-  /** Lazily built, memoized compressed forms. */
+  /** Lazily built, memoized compressed forms (kept only while the budget has room). */
   br?: Promise<Buffer>;
   gz?: Promise<Buffer>;
+  /** Bytes this entry holds against its budget (body plus kept compressed forms). */
+  reserved?: number;
+  budget?: ByteBudget;
 }
 
 export function makeStaticBody(body: Buffer, type: string, cacheControl: string): StaticBody {
@@ -121,6 +142,18 @@ function compress(entry: StaticBody, kind: "br" | "gz"): Promise<Buffer> {
     }
   });
   entry[kind] = made;
+  made.then(
+    (out) => {
+      // Kept only if the shared allowance has room; otherwise made again next time.
+      if (entry.budget && entry.reserved !== undefined) {
+        if (entry.budget.reserve(out.length)) entry.reserved += out.length;
+        else entry[kind] = undefined;
+      }
+    },
+    () => {
+      entry[kind] = undefined;
+    }
+  );
   return made;
 }
 
@@ -171,15 +204,28 @@ export const PUBLIC_FILE_CACHE = "public, max-age=3600";
 /** Pre-rendered HTML: always revalidated (cheap with the ETag), never stale after a deploy. */
 export const HTML_CACHE = "public, max-age=0, must-revalidate";
 
+interface FileMeta {
+  file: string;
+  size: number;
+  mtimeMs: number;
+  type: string;
+  etag: string;
+  cacheControl: string;
+  checkedAt: number;
+  /** Present when the body is held in memory. */
+  body?: StaticBody;
+}
+
 /**
- * A folder of built files, served by URL path. Lookups are memoized: the
- * first request for a file stats and reads it, later ones are a Map hit.
- * A path that is not a file is never cached, so a file that appears later
- * (a rebuild into a running server) is still found.
+ * Serves files by absolute path (or URL path under a root): held in memory
+ * when small and while the shared byte allowance has room, streamed from disk
+ * otherwise. A cached file is re-checked against the disk at most once a
+ * second, so a rebuild into a running server shows up within a second.
+ * A path that is not a file is never cached.
  */
-export function createStaticFileServer(rootDir: string) {
+export function createStaticFileServer(rootDir: string, budget: ByteBudget = new ByteBudget()) {
   const root = path.resolve(rootDir);
-  const cache = new Map<string, StaticBody | { file: string; size: number; type: string; etag: string; cacheControl: string }>();
+  const metas = new Map<string, FileMeta>();
 
   function resolveInside(pathname: string): string | undefined {
     let decoded: string;
@@ -194,35 +240,68 @@ export function createStaticFileServer(rootDir: string) {
     return filePath;
   }
 
-  /** Returns true if a file answered the request (including 304/405). */
-  return async function serve(
-    req: IncomingMessage,
-    res: ServerResponse,
-    pathname: string,
-    immutable: boolean
-  ): Promise<boolean> {
-    const filePath = resolveInside(pathname);
-    if (!filePath) return false;
+  function forget(filePath: string): void {
+    const old = metas.get(filePath);
+    if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
+    metas.delete(filePath);
+  }
 
-    let entry = cache.get(filePath);
-    if (!entry) {
+  async function lookup(filePath: string, type: string, cacheControl: string): Promise<FileMeta | undefined> {
+    let meta = metas.get(filePath);
+    const now = Date.now();
+    if (meta && now - meta.checkedAt > REVALIDATE_MS) {
       let stat;
       try {
-        stat = statSync(filePath);
+        stat = await statAsync(filePath);
       } catch {
-        return false;
+        forget(filePath);
+        return undefined;
       }
-      if (!stat.isFile()) return false;
-      const type = contentTypeFor(filePath);
-      const cacheControl = immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE;
-      if (stat.size <= MAX_MEMORY_BYTES) {
-        entry = makeStaticBody(await readFile(filePath), type, cacheControl);
+      if (stat.isFile() && stat.size === meta.size && stat.mtimeMs === meta.mtimeMs) {
+        meta.checkedAt = now;
       } else {
-        const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-        entry = { file: filePath, size: stat.size, type, etag, cacheControl };
+        forget(filePath);
+        meta = undefined;
       }
-      cache.set(filePath, entry);
     }
+    if (meta) return meta;
+
+    let stat;
+    try {
+      stat = await statAsync(filePath);
+    } catch {
+      return undefined;
+    }
+    if (!stat.isFile()) return undefined;
+    meta = {
+      file: filePath,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      type,
+      etag: `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
+      cacheControl,
+      checkedAt: now,
+    };
+    if (stat.size <= MAX_FILE_BYTES && budget.reserve(stat.size)) {
+      const body = makeStaticBody(await readFile(filePath), type, cacheControl);
+      body.reserved = stat.size;
+      body.budget = budget;
+      meta.body = body;
+    }
+    metas.set(filePath, meta);
+    return meta;
+  }
+
+  /** Serves one file. Returns false if it is not a file (nothing was sent). */
+  async function serveFile(
+    req: IncomingMessage,
+    res: ServerResponse,
+    filePath: string,
+    type: string,
+    cacheControl: string
+  ): Promise<boolean> {
+    const meta = await lookup(filePath, type, cacheControl);
+    if (!meta) return false;
 
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;
@@ -230,29 +309,28 @@ export function createStaticFileServer(rootDir: string) {
       res.end("Method Not Allowed");
       return true;
     }
-
-    if ("body" in entry) {
-      await sendStaticBody(req, res, entry);
+    if (meta.body) {
+      await sendStaticBody(req, res, meta.body);
       return true;
     }
 
-    // Large file: stream it with its real length.
-    res.setHeader("Content-Type", entry.type);
-    res.setHeader("Cache-Control", entry.cacheControl);
-    res.setHeader("ETag", entry.etag);
-    if (matchesEtag(req.headers["if-none-match"], entry.etag)) {
+    // Large file, or no room in memory: stream it with its real length.
+    res.setHeader("Content-Type", meta.type);
+    res.setHeader("Cache-Control", meta.cacheControl);
+    res.setHeader("ETag", meta.etag);
+    if (matchesEtag(req.headers["if-none-match"], meta.etag)) {
       res.statusCode = 304;
       res.end();
       return true;
     }
     res.statusCode = 200;
-    res.setHeader("Content-Length", entry.size);
+    res.setHeader("Content-Length", meta.size);
     if (req.method === "HEAD") {
       res.end();
       return true;
     }
     await new Promise<void>((resolve) => {
-      const stream = createReadStream(entry.file);
+      const stream = createReadStream(meta.file);
       stream.on("error", () => {
         res.destroy();
         resolve();
@@ -261,9 +339,17 @@ export function createStaticFileServer(rootDir: string) {
         stream.destroy();
         resolve();
       });
-      stream.pipe(res);
       stream.on("end", resolve);
+      stream.pipe(res);
     });
     return true;
+  }
+
+  const serve = async (req: IncomingMessage, res: ServerResponse, pathname: string, immutable: boolean) => {
+    const filePath = resolveInside(pathname);
+    if (!filePath) return false;
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE);
   };
+
+  return { serve, serveFile, budget };
 }

@@ -32,7 +32,7 @@ export interface CachedRoute {
  * cache path. Same containment-check shape `prodRequestHandler.ts`'s
  * `serveAsset` already uses correctly for request-driven asset paths.
  */
-function cachePaths(staticOutDir: string, routePath: string): { htmlPath: string; metaPath: string } {
+export function cachedRoutePaths(staticOutDir: string, routePath: string): { htmlPath: string; metaPath: string } {
   const base = path.resolve(staticOutDir);
   const dir = routePath === "/" ? base : path.resolve(base, routePath.slice(1));
   if (dir !== base && !dir.startsWith(base + path.sep)) {
@@ -45,7 +45,7 @@ function cachePaths(staticOutDir: string, routePath: string): { htmlPath: string
 }
 
 export async function readCachedRoute(staticOutDir: string, routePath: string): Promise<CachedRoute | undefined> {
-  const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
+  const { htmlPath, metaPath } = cachedRoutePaths(staticOutDir, routePath);
   if (!existsSync(htmlPath)) return undefined;
 
   const html = await readFile(htmlPath, "utf-8");
@@ -81,7 +81,7 @@ async function writeAtomic(filePath: string, data: string): Promise<void> {
 }
 
 export async function writeCachedRoute(staticOutDir: string, routePath: string, html: string): Promise<void> {
-  const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
+  const { htmlPath, metaPath } = cachedRoutePaths(staticOutDir, routePath);
   await mkdir(path.dirname(htmlPath), { recursive: true });
   await writeAtomic(htmlPath, html);
   await writeAtomic(metaPath, JSON.stringify({ renderedAt: Date.now() }));
@@ -99,7 +99,7 @@ export function isStale(renderedAt: number, revalidateSeconds: number): boolean 
  * isr page, not two slightly-different ones.
  */
 export async function revalidatePath(staticOutDir: string, routePath: string): Promise<void> {
-  const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
+  const { htmlPath, metaPath } = cachedRoutePaths(staticOutDir, routePath);
   await rm(htmlPath, { force: true });
   await rm(metaPath, { force: true });
 }

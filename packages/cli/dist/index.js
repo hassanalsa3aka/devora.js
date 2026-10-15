@@ -3176,6 +3176,19 @@ function requestContextFields(meta) {
 import fs from "node:fs";
 import path from "node:path";
 var ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
+function splitRouteParams(raw = {}) {
+  const params = {};
+  const catchAll = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) {
+      catchAll[name] = value;
+      params[name] = value.join("/");
+    } else {
+      params[name] = value;
+    }
+  }
+  return { params, catchAll };
+}
 var RANK = { static: 3, param: 2, catchAll: 1, optionalCatchAll: 0 };
 function matchRoute(routesDir, urlPath) {
   return matchInTable(buildRouteTable(routesDir), urlPath);
@@ -4083,8 +4096,10 @@ async function createRequestContext(request, opts, params = {}, meta) {
     transport = void 0;
     return track(() => opts.store.delete(key));
   };
+  const split2 = splitRouteParams(params);
   const ctx = {
-    params,
+    params: split2.params,
+    catchAll: split2.catchAll,
     url: fields.url,
     headers: fields.headers,
     method: fields.method,
@@ -4155,8 +4170,10 @@ function sessionsDisabledError(method) {
 }
 function createNoAuthContext(params = {}, meta) {
   const fields = requestContextFields(meta);
+  const split2 = splitRouteParams(params);
   const ctx = {
-    params,
+    params: split2.params,
+    catchAll: split2.catchAll,
     url: fields.url,
     headers: fields.headers,
     method: fields.method,
@@ -4435,34 +4452,11 @@ ${urls}
 `;
 }
 
-// ../core/src/islandComponent.tsx
-var import_react2 = __toESM(require_react(), 1);
-var IslandCollectorContext = (0, import_react2.createContext)(null);
-var IslandStreamingContext = (0, import_react2.createContext)(null);
-var streamingModuleCache = /* @__PURE__ */ new Map();
-function clearStreamingModuleCache() {
-  streamingModuleCache.clear();
-}
-
-// ../core/src/buildKey.ts
-import path3 from "node:path";
-function toBuildKey(appRoot, filePath) {
-  const rel = path3.relative(appRoot, filePath);
-  const noExt = rel.slice(0, -path3.extname(rel).length);
-  return noExt.split(path3.sep).join("/").replace(/[[\]]/g, "_");
-}
-
-// ../core/src/prodRequestHandler.ts
-import path7 from "node:path";
-import { pathToFileURL } from "node:url";
-import { readFile as readFile3 } from "node:fs/promises";
-import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
-
 // ../core/src/staticFiles.ts
-import path4 from "node:path";
+import path3 from "node:path";
 import { createHash } from "node:crypto";
-import { createReadStream, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { readFile, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 var CONTENT_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -4495,13 +4489,30 @@ var CONTENT_TYPES = {
   ".mp3": "audio/mpeg"
 };
 function contentTypeFor(filePath) {
-  return CONTENT_TYPES[path4.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+  return CONTENT_TYPES[path3.extname(filePath).toLowerCase()] ?? "application/octet-stream";
 }
 function isCompressible(type) {
   return type.startsWith("text/") || type.startsWith("application/javascript") || type.startsWith("application/json") || type.startsWith("application/xml") || type.startsWith("application/manifest+json") || type.startsWith("image/svg+xml");
 }
 var MIN_COMPRESS_BYTES = 1024;
-var MAX_MEMORY_BYTES = 2 * 1024 * 1024;
+var MAX_FILE_BYTES = 2 * 1024 * 1024;
+var MAX_CACHE_BYTES = 64 * 1024 * 1024;
+var REVALIDATE_MS = 1e3;
+var ByteBudget = class {
+  constructor(limit = MAX_CACHE_BYTES) {
+    this.limit = limit;
+  }
+  limit;
+  used = 0;
+  reserve(bytes) {
+    if (this.used + bytes > this.limit) return false;
+    this.used += bytes;
+    return true;
+  }
+  release(bytes) {
+    this.used = Math.max(0, this.used - bytes);
+  }
+};
 function makeStaticBody(body, type, cacheControl) {
   const etag = `"${createHash("sha1").update(body).digest("base64url").slice(0, 22)}"`;
   return { body, type, etag, cacheControl };
@@ -4539,6 +4550,17 @@ function compress(entry, kind) {
     }
   });
   entry[kind] = made;
+  made.then(
+    (out) => {
+      if (entry.budget && entry.reserved !== void 0) {
+        if (entry.budget.reserve(out.length)) entry.reserved += out.length;
+        else entry[kind] = void 0;
+      }
+    },
+    () => {
+      entry[kind] = void 0;
+    }
+  );
   return made;
 }
 async function sendStaticBody(req, res, entry) {
@@ -4580,9 +4602,9 @@ async function sendStaticBody(req, res, entry) {
 var IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 var PUBLIC_FILE_CACHE = "public, max-age=3600";
 var HTML_CACHE = "public, max-age=0, must-revalidate";
-function createStaticFileServer(rootDir) {
-  const root = path4.resolve(rootDir);
-  const cache = /* @__PURE__ */ new Map();
+function createStaticFileServer(rootDir, budget = new ByteBudget()) {
+  const root = path3.resolve(rootDir);
+  const metas = /* @__PURE__ */ new Map();
   function resolveInside(pathname) {
     let decoded;
     try {
@@ -4591,58 +4613,88 @@ function createStaticFileServer(rootDir) {
       return void 0;
     }
     if (decoded.includes("\0") || decoded.includes("\\")) return void 0;
-    const filePath = path4.resolve(root, "." + decoded);
-    if (!filePath.startsWith(root + path4.sep)) return void 0;
+    const filePath = path3.resolve(root, "." + decoded);
+    if (!filePath.startsWith(root + path3.sep)) return void 0;
     return filePath;
   }
-  return async function serve(req, res, pathname, immutable) {
-    const filePath = resolveInside(pathname);
-    if (!filePath) return false;
-    let entry = cache.get(filePath);
-    if (!entry) {
-      let stat;
+  function forget(filePath) {
+    const old = metas.get(filePath);
+    if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
+    metas.delete(filePath);
+  }
+  async function lookup(filePath, type, cacheControl) {
+    let meta = metas.get(filePath);
+    const now = Date.now();
+    if (meta && now - meta.checkedAt > REVALIDATE_MS) {
+      let stat2;
       try {
-        stat = statSync(filePath);
+        stat2 = await statAsync(filePath);
       } catch {
-        return false;
+        forget(filePath);
+        return void 0;
       }
-      if (!stat.isFile()) return false;
-      const type = contentTypeFor(filePath);
-      const cacheControl = immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE;
-      if (stat.size <= MAX_MEMORY_BYTES) {
-        entry = makeStaticBody(await readFile(filePath), type, cacheControl);
+      if (stat2.isFile() && stat2.size === meta.size && stat2.mtimeMs === meta.mtimeMs) {
+        meta.checkedAt = now;
       } else {
-        const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-        entry = { file: filePath, size: stat.size, type, etag, cacheControl };
+        forget(filePath);
+        meta = void 0;
       }
-      cache.set(filePath, entry);
     }
+    if (meta) return meta;
+    let stat;
+    try {
+      stat = await statAsync(filePath);
+    } catch {
+      return void 0;
+    }
+    if (!stat.isFile()) return void 0;
+    meta = {
+      file: filePath,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      type,
+      etag: `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
+      cacheControl,
+      checkedAt: now
+    };
+    if (stat.size <= MAX_FILE_BYTES && budget.reserve(stat.size)) {
+      const body = makeStaticBody(await readFile(filePath), type, cacheControl);
+      body.reserved = stat.size;
+      body.budget = budget;
+      meta.body = body;
+    }
+    metas.set(filePath, meta);
+    return meta;
+  }
+  async function serveFile(req, res, filePath, type, cacheControl) {
+    const meta = await lookup(filePath, type, cacheControl);
+    if (!meta) return false;
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;
       res.setHeader("Allow", "GET, HEAD");
       res.end("Method Not Allowed");
       return true;
     }
-    if ("body" in entry) {
-      await sendStaticBody(req, res, entry);
+    if (meta.body) {
+      await sendStaticBody(req, res, meta.body);
       return true;
     }
-    res.setHeader("Content-Type", entry.type);
-    res.setHeader("Cache-Control", entry.cacheControl);
-    res.setHeader("ETag", entry.etag);
-    if (matchesEtag(req.headers["if-none-match"], entry.etag)) {
+    res.setHeader("Content-Type", meta.type);
+    res.setHeader("Cache-Control", meta.cacheControl);
+    res.setHeader("ETag", meta.etag);
+    if (matchesEtag(req.headers["if-none-match"], meta.etag)) {
       res.statusCode = 304;
       res.end();
       return true;
     }
     res.statusCode = 200;
-    res.setHeader("Content-Length", entry.size);
+    res.setHeader("Content-Length", meta.size);
     if (req.method === "HEAD") {
       res.end();
       return true;
     }
     await new Promise((resolve) => {
-      const stream = createReadStream(entry.file);
+      const stream = createReadStream(meta.file);
       stream.on("error", () => {
         res.destroy();
         resolve();
@@ -4651,12 +4703,41 @@ function createStaticFileServer(rootDir) {
         stream.destroy();
         resolve();
       });
-      stream.pipe(res);
       stream.on("end", resolve);
+      stream.pipe(res);
     });
     return true;
+  }
+  const serve = async (req, res, pathname, immutable) => {
+    const filePath = resolveInside(pathname);
+    if (!filePath) return false;
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE);
   };
+  return { serve, serveFile, budget };
 }
+
+// ../core/src/islandComponent.tsx
+var import_react2 = __toESM(require_react(), 1);
+var IslandCollectorContext = (0, import_react2.createContext)(null);
+var IslandStreamingContext = (0, import_react2.createContext)(null);
+var streamingModuleCache = /* @__PURE__ */ new Map();
+function clearStreamingModuleCache() {
+  streamingModuleCache.clear();
+}
+
+// ../core/src/buildKey.ts
+import path4 from "node:path";
+function toBuildKey(appRoot, filePath) {
+  const rel = path4.relative(appRoot, filePath);
+  const noExt = rel.slice(0, -path4.extname(rel).length);
+  return noExt.split(path4.sep).join("/").replace(/[[\]]/g, "_");
+}
+
+// ../core/src/prodRequestHandler.ts
+import path7 from "node:path";
+import { pathToFileURL } from "node:url";
+import { readFile as readFile3 } from "node:fs/promises";
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
 
 // ../core/src/branding.tsx
 var import_react3 = __toESM(require_react(), 1);
@@ -4688,7 +4769,7 @@ import path5 from "node:path";
 import { existsSync as existsSync2 } from "node:fs";
 import { mkdir, readFile as readFile2, writeFile, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-function cachePaths(staticOutDir, routePath) {
+function cachedRoutePaths(staticOutDir, routePath) {
   const base = path5.resolve(staticOutDir);
   const dir = routePath === "/" ? base : path5.resolve(base, routePath.slice(1));
   if (dir !== base && !dir.startsWith(base + path5.sep)) {
@@ -4699,7 +4780,7 @@ function cachePaths(staticOutDir, routePath) {
   return { htmlPath: path5.join(dir, "index.html"), metaPath: path5.join(dir, "index.meta.json") };
 }
 async function readCachedRoute(staticOutDir, routePath) {
-  const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
+  const { htmlPath, metaPath } = cachedRoutePaths(staticOutDir, routePath);
   if (!existsSync2(htmlPath)) return void 0;
   const html = await readFile2(htmlPath, "utf-8");
   let renderedAt = 0;
@@ -4717,7 +4798,7 @@ async function writeAtomic(filePath, data) {
   await rename(tempPath, filePath);
 }
 async function writeCachedRoute(staticOutDir, routePath, html) {
-  const { htmlPath, metaPath } = cachePaths(staticOutDir, routePath);
+  const { htmlPath, metaPath } = cachedRoutePaths(staticOutDir, routePath);
   await mkdir(path5.dirname(htmlPath), { recursive: true });
   await writeAtomic(htmlPath, html);
   await writeAtomic(metaPath, JSON.stringify({ renderedAt: Date.now() }));
@@ -4734,11 +4815,13 @@ async function dispatchApiRoute(routeModule, request) {
   if (routeModule.methods && !routeModule.methods.includes(request.method)) {
     return jsonMessageResponse(405, "Method Not Allowed", { Allow: routeModule.methods.join(", ") });
   }
+  const split2 = splitRouteParams(request.params);
   const apiReq = {
     method: request.method,
     url: request.url,
     headers: request.headers,
-    params: request.params ?? {},
+    params: split2.params,
+    catchAll: split2.catchAll,
     body: request.body
   };
   let getSetCookie = () => void 0;
@@ -4972,8 +5055,8 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   let routeTable;
   const matchPageRoute = (urlPath) => matchInTable(routeTable ??= buildRouteTable(routesDir), urlPath);
   let apiTable;
-  const serveClientFile = createStaticFileServer(clientOutDir);
-  const ssgPages = /* @__PURE__ */ new Map();
+  const staticFiles = createStaticFileServer(clientOutDir);
+  const serveClientFile = staticFiles.serve;
   return async function handleRequest(req, res) {
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
@@ -5120,21 +5203,9 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     }
     if (renderMode === "ssg" || renderMode === "isr") {
       if (renderMode === "ssg") {
-        let page = ssgPages.get(match.routePath);
-        if (!page) {
-          const found = await readCachedRoute(staticOutDir, match.routePath);
-          if (!found) return sendErrorPage(res, 404);
-          page = makeStaticBody(Buffer.from(found.html, "utf-8"), "text/html; charset=utf-8", HTML_CACHE);
-          ssgPages.set(match.routePath, page);
-        }
-        if (req.method !== "GET" && req.method !== "HEAD") {
-          res.statusCode = 405;
-          res.setHeader("Allow", "GET, HEAD");
-          res.end("Method Not Allowed");
-          return true;
-        }
-        await sendStaticBody(req, res, page);
-        return true;
+        const { htmlPath } = cachedRoutePaths(staticOutDir, match.routePath);
+        if (await staticFiles.serveFile(req, res, htmlPath, "text/html; charset=utf-8", HTML_CACHE)) return true;
+        return sendErrorPage(res, 404);
       }
       let cached = await readCachedRoute(staticOutDir, match.routePath);
       {
@@ -6474,7 +6545,7 @@ function stripAnsi(text) {
 }
 
 // src/terminal/output.ts
-var CLI_VERSION = true ? "0.3.3" : "0.0.0-source";
+var CLI_VERSION = true ? "0.3.4" : "0.0.0-source";
 var quiet = false;
 function setQuiet(value) {
   quiet = value === true;
@@ -7167,7 +7238,7 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
 
 // src/build/preflight.ts
 import path20 from "node:path";
-import { existsSync as existsSync10, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync10, readFileSync as readFileSync3, statSync } from "node:fs";
 var PreflightError = class extends Error {
   constructor(appName) {
     super(`[devora] "${appName}": preflight checks failed \u2014 nothing was built.`);
@@ -7220,7 +7291,7 @@ function preflightVercelLayout(input) {
   }
   const vercelRoot = path20.dirname(path20.dirname(outputDir));
   const reservedApi = path20.join(vercelRoot, "api");
-  if (existsSync10(reservedApi) && statSync2(reservedApi).isDirectory()) {
+  if (existsSync10(reservedApi) && statSync(reservedApi).isDirectory()) {
     const isThisAppsApiDir = vercelRoot === appRoot && apiDir === "api";
     issues.push({
       level: "warning",

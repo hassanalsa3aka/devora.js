@@ -32,8 +32,9 @@ Nothing here needs a code change in a typical app; each line says what to check.
   pre-rendered (`ssg`) page with `405` and `Allow: GET, HEAD`.** It used to return the file. A form
   that posts to a pre-rendered page never worked (no action runs there); post to an `ssr` route.
 - **Pre-rendered pages are sent with `Cache-Control: public, max-age=0, must-revalidate` and an
-  `ETag`** (a repeat visit gets a 304), and pre-rendered pages and files are held in memory after
-  their first request. Restart `devora start` after a rebuild (it always needed it for route code).
+  `ETag`** (a repeat visit gets a 304). Pages and public/built files are held in memory (up to
+  64 MB in total, 2 MB per file; anything larger is streamed from disk) and checked against the
+  disk at most once a second, so a rebuild shows up within a second without a restart. Nothing to do.
 - **With `sitemap` off, a hand-written `public/sitemap.xml` is now served** (it used to 404 in
   production).
 
@@ -47,7 +48,7 @@ Nothing here needs a code change in a typical app; each line says what to check.
 - Static serving in `devora start` / the adapters: a memoized route table (the routes folder is no
   longer read on every request), memoized module imports, in-memory pre-rendered pages and files
   with strong ETags, `If-None-Match` → 304, `HEAD`, `Content-Length`, brotli/gzip for text types
-  (made once per file), and correct content types for `.xml`, `.webmanifest`, `.woff`, `.woff2`,
+  (made once per file, kept only while the 64 MB allowance has room), and correct content types for `.xml`, `.webmanifest`, `.woff`, `.woff2`,
   `.ttf`, `.otf`, `.gif`, `.avif`, `.pdf`, `.wasm` and more. Measured on the benchmark's
   pre-rendered page: about 14,700 → 82,000 requests/s (see `benchmarks/results`).
 

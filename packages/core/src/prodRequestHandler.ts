@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { buildRouteTable, matchInTable, isDynamicRouteFile, resolveStaticRoutePath, type RouteTable } from "./router.js";
-import { createStaticFileServer, makeStaticBody, sendStaticBody, HTML_CACHE, type StaticBody } from "./staticFiles.js";
+import { createStaticFileServer, HTML_CACHE } from "./staticFiles.js";
 import { collectSitemapPaths, generateSitemapXml } from "./sitemap.js";
 import type { SessionCookieOptions } from "./session.js";
 import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
@@ -19,7 +19,7 @@ import {
 import type { RenderStreamingRequest, StreamingRenderResult } from "./renderStreaming.js";
 import { HttpError } from "./httpError.js";
 import { renderCsrShell } from "./csrRoute.js";
-import { readCachedRoute, writeCachedRoute, isStale } from "./isrCache.js";
+import { readCachedRoute, writeCachedRoute, isStale, cachedRoutePaths } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
 import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, MAX_BODY_BYTES } from "./readBody.js";
 import { apiErrorResponse, apiNotFoundResponse, backendStatusFor, jsonMessageResponse } from "./httpError.js";
@@ -139,9 +139,9 @@ export function createProdRequestHandler(
   let routeTable: RouteTable | undefined;
   const matchPageRoute = (urlPath: string) => matchInTable((routeTable ??= buildRouteTable(routesDir)), urlPath);
   let apiTable: RouteTable | undefined;
-  const serveClientFile = createStaticFileServer(clientOutDir);
-  // ssg pages never change at runtime: kept in memory after the first read.
-  const ssgPages = new Map<string, StaticBody>();
+  // One byte allowance for built files and pre-rendered pages together.
+  const staticFiles = createStaticFileServer(clientOutDir);
+  const serveClientFile = staticFiles.serve;
 
   return async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -345,23 +345,12 @@ export function createProdRequestHandler(
         // Never regenerated at request time — a missing entry means the
         // build ran before this route existed (or without --app covering
         // it); honest 404 rather than silently rendering something the
-        // build step never produced. A found page is kept in memory (it
-        // can't change until the next build, which needs a restart).
-        let page = ssgPages.get(match.routePath);
-        if (!page) {
-          const found = await readCachedRoute(staticOutDir, match.routePath);
-          if (!found) return sendErrorPage(res, 404);
-          page = makeStaticBody(Buffer.from(found.html, "utf-8"), "text/html; charset=utf-8", HTML_CACHE);
-          ssgPages.set(match.routePath, page);
-        }
-        if (req.method !== "GET" && req.method !== "HEAD") {
-          res.statusCode = 405;
-          res.setHeader("Allow", "GET, HEAD");
-          res.end("Method Not Allowed");
-          return true;
-        }
-        await sendStaticBody(req, res, page);
-        return true;
+        // build step never produced. The page is held in memory (within the
+        // shared byte allowance) and re-checked against the disk at most
+        // once a second, so a rebuild shows up without a restart.
+        const { htmlPath } = cachedRoutePaths(staticOutDir, match.routePath);
+        if (await staticFiles.serveFile(req, res, htmlPath, "text/html; charset=utf-8", HTML_CACHE)) return true;
+        return sendErrorPage(res, 404);
       }
 
       let cached = await readCachedRoute(staticOutDir, match.routePath);
