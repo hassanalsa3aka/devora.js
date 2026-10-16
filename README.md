@@ -52,10 +52,8 @@ guide for exactly that.
 
 ## What's next
 
-Desktop and native mobile apps are **planned goals, not started**. If they happen, the business
-logic, backend client, validation and design tokens would be shared, and the UI would be
-platform-specific. There are no dates, and nothing about them is available today. See
-[ROADMAP.md](ROADMAP.md).
+What is next, what is open and what is only a vision (desktop and native mobile apps, **not
+started, no dates**) is in [ROADMAP.md](ROADMAP.md).
 
 ## Why
 
@@ -73,8 +71,8 @@ you ever need one.
 ## Live demos
 
 The three example apps from this repo, deployed by the maintainer. Which Devora.js version each
-deployment runs isn't stated here; 0.3.2 has not yet been verified on a live Vercel or Netlify
-deployment (see `docs/guides/DEPLOYING.md`).
+deployment runs isn't stated here; 0.3.5 is not yet verified on a live deployment by this project
+(see `docs/guides/DEPLOYING.md`).
 
 - Vercel: [marketing](https://devora-js-marketing.vercel.app) ·
   [dashboard](https://devora-js-dashboard.vercel.app) ·
@@ -183,8 +181,8 @@ realtime server.
 - **No built-in ORM or auth provider** — bring your own (Prisma, Drizzle, Clerk, Lucia, whatever
   you already use).
 
-What changed in 0.3.2, and what an existing app has to do about it: the 0.3.2 section of
-[`CHANGELOG.md`](CHANGELOG.md), which opens with the behavior changes.
+What changed in each release, and what an existing app has to do about it: the newest section of
+[`CHANGELOG.md`](CHANGELOG.md) (0.3.5), which opens with the behavior changes.
 
 ## Security hardening (v2)
 
@@ -212,25 +210,15 @@ users) — but real, verified hardening in its own right.
 
 ## Current limitations
 
-Stated plainly, not buried:
-
-- **API handlers set headers as a plain object**, so one response can't send several `Set-Cookie`
-  headers yet, and responses are buffered (no SSE/WebSockets from an API route).
-- **Dynamic routes need `getStaticParams()` for `ssg`/`isr`.** `ssr`/`csr` work on a `[id].tsx`
-  route with no extra work; `ssg`/`isr` need a `getStaticParams()` export saying which concrete
-  values to pre-render — one static file per entry — and fail the build with a clear error if it's
-  missing, rather than silently mis-building.
-- **`isr` is weaker on Vercel/Netlify than on a self-hosted `adapter-node` server.** A serverless
-  function's filesystem isn't guaranteed to persist between requests, so ongoing background
-  regeneration there hasn't been verified (the initial build's output still serves correctly).
-- **No DB client, by design.** Framework internals never touch a database — you bring your own
-  ORM (architecture-v1.md §6). If you use a driver with native bindings, see
-  `packages/backend/DATABASE.md` for a verified pattern that avoids a real crash this framework's
-  own dev server can otherwise cause.
+What is open, partial or not verified lives in one place: [ROADMAP.md](ROADMAP.md) (status board
+and findings table). The short version: API handlers set headers as a plain object (several
+`Set-Cookie` headers and SSE are not supported), `ssg`/`isr` on a dynamic route need
+`getStaticParams()`, `isr` regeneration on a serverless filesystem is unverified, you bring your own
+database client, and 0.3.5 is not yet verified on a live deployment by this project.
 
 ## Testing
 
-`pnpm run test` runs 466 Vitest tests in 41 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 498 Vitest tests in 50 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
