@@ -139,8 +139,30 @@ export function resolveSessionCookieOptions(
  * a cookie or as a Bearer token (which has no name of its own to check).
  */
 export function sessionStoreKey(sessionId: string, opts: Pick<SessionCookieOptions, "name" | "secret">): string {
-  return createHmac("sha256", opts.secret).update(`${opts.name}:${sessionId}`).digest("base64url");
+  // The same session ID is looked up on every request it authenticates, and creating an HMAC is
+  // about a tenth of an authenticated API request (measured with --cpu-prof). The result is a pure
+  // function of (secret, name, id), so it is remembered; the memory is bounded and emptied when
+  // full, so a flood of made-up IDs cannot grow it. Nothing about the key or what it protects changes.
+  let perSecret = storeKeyMemo.get(opts.secret);
+  if (!perSecret) storeKeyMemo.set(opts.secret, (perSecret = new Map()));
+  const memoKey = `${opts.name}:${sessionId}`;
+  let key = perSecret.get(memoKey);
+  if (key === undefined) {
+    key = createHmac("sha256", opts.secret).update(memoKey).digest("base64url");
+    if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
+      storeKeyMemo.clear();
+      storeKeyMemoSize = 0;
+      storeKeyMemo.set(opts.secret, (perSecret = new Map()));
+    }
+    perSecret.set(memoKey, key);
+    storeKeyMemoSize++;
+  }
+  return key;
 }
+
+const STORE_KEY_MEMO_MAX = 5000;
+const storeKeyMemo = new Map<string, Map<string, string>>();
+let storeKeyMemoSize = 0;
 
 /** 32 random bytes, base64url — exactly 43 characters. */
 export function generateSessionId(): string {

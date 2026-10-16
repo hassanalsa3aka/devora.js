@@ -4013,8 +4013,25 @@ function resolveSessionScope(authMode, appName) {
   return { name: "devora_session", secret: resolveSecret("DEVORA_SESSION_SECRET") };
 }
 function sessionStoreKey(sessionId, opts) {
-  return createHmac("sha256", opts.secret).update(`${opts.name}:${sessionId}`).digest("base64url");
+  let perSecret = storeKeyMemo.get(opts.secret);
+  if (!perSecret) storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
+  const memoKey = `${opts.name}:${sessionId}`;
+  let key = perSecret.get(memoKey);
+  if (key === void 0) {
+    key = createHmac("sha256", opts.secret).update(memoKey).digest("base64url");
+    if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
+      storeKeyMemo.clear();
+      storeKeyMemoSize = 0;
+      storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
+    }
+    perSecret.set(memoKey, key);
+    storeKeyMemoSize++;
+  }
+  return key;
 }
+var STORE_KEY_MEMO_MAX = 5e3;
+var storeKeyMemo = /* @__PURE__ */ new Map();
+var storeKeyMemoSize = 0;
 function generateSessionId() {
   return randomBytes2(32).toString("base64url");
 }

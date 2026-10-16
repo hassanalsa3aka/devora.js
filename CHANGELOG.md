@@ -27,6 +27,9 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
   and a plain request path is read straight from the request line (anything unusual still goes through the
   URL parser, and a test compares both on thousands of generated paths). Interleaved A/B on one machine:
   about +8 to 17% on API routes, about +39% on a pre-rendered page, about +5% on a server-rendered page.
+- Performance: the store key for a session ID (an HMAC) is remembered per secret, cookie name and ID, in a memory
+  bounded to 5,000 entries. The key is the same value as before, so existing sessions keep working and an
+  isolated app still cannot read a shared app's sessions. About +6% on an authenticated API route.
 
 ## 0.3.4 — 2026-10-16
 
