@@ -110,3 +110,13 @@ Every change that a user could notice comes with its documentation, in the same 
 - [ ] A test that fails without the change. A claim that could not be tested says so in
       `docs/history/VERIFICATION.md`.
 - [ ] `node scripts/checkMarkdownLinks.mjs` reports no broken links.
+
+### Tracking changes
+
+Every change that is user-visible, or that closes or opens a finding, updates three things in the same commit:
+
+1. **CHANGELOG.md**: one line under "Unreleased" (or the release heading), naming the behavior, not the file.
+2. **ROADMAP.md**: the status of every item the change touches (Now, Next, Later, the status board, the work-item table).
+3. **The findings table in ROADMAP.md**: a fixed finding gets its release and the file, test or CHANGELOG line that proves it; every new finding from a tester, audit or review gets a new row, with status Open or Unconfirmed, before anything is fixed. Never delete a row; change its status.
+
+A claim of "fixed" needs evidence. If it cannot be checked, the status is Unconfirmed, not Fixed. ROADMAP.md is the single place that says what is open; other documents summarize and link to it.
