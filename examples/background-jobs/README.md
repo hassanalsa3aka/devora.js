@@ -20,7 +20,7 @@ node ../check.mjs     # starts the app and the workers, runs every pattern, stop
 
 CI runs this example with the others (`.github/workflows/ci.yml`, job `examples`). `../check.mjs`:
 
-- **SQLite queue and node-cron always run.** They need nothing but a Node with `node:sqlite`: Node's release notes say it is available without a flag from 22.13, and CI uses Node 22. It has only been run on Node 24 here, so the first CI run is the real test on 22.
+- **SQLite queue and node-cron always run.** They need nothing but a Node with `node:sqlite`: Node's release notes say it is available without a flag from 22.13, and CI uses Node 22. It was run on Node 24 and on Node 22.23.3 locally. The first CI run on Node 22 failed with `database is locked` when the API route and the worker opened a new database file at the same moment; both now retry the open for up to 5 seconds.
 - **The BullMQ part needs Redis, and skips when there is none.** It starts its own `redis-server` on
   port 6390 (and stops it) when that binary is on the PATH. If it is missing or does not start, the
   check prints `skip BullMQ checks: no redis-server is available here (the SQLite and cron checks still run)`

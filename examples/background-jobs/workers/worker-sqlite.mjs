@@ -1,6 +1,20 @@
 import { DatabaseSync } from "node:sqlite";
-const db = new DatabaseSync(process.env.JOBS_DB ?? "data/jobs.db");
-db.exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'waiting', result TEXT, created INTEGER NOT NULL)");
+// Opening the file for the first time switches it to WAL, and two processes doing that at once (the API
+// route and the worker both start on the first request) can get "database is locked" even with a
+// busy_timeout. Retry the open for up to 5 s instead of failing.
+function openQueue(file) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const db = new DatabaseSync(file);
+      db.exec("PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'waiting', result TEXT, created INTEGER NOT NULL)");
+      return db;
+    } catch (e) {
+      if (e.errstr !== "database is locked" || attempt >= 50) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+}
+const db = openQueue(process.env.JOBS_DB ?? "data/jobs.db");
 console.log("sqlite worker up, pid", process.pid);
 setInterval(() => {
   // Claim one waiting job atomically, run it, store the result.
