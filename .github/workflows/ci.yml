@@ -136,7 +136,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [multi-app, api-bearer, content-site, realtime]
+        example: [multi-app, api-bearer, content-site, realtime, background-jobs]
     defaults:
       run:
         working-directory: examples/${{ matrix.example }}

@@ -6,9 +6,10 @@
  *
  * `devora start` serves the apps on 4173, 4174, ... in devora.config.ts order.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
-import { rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import net from "node:net";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -70,6 +71,59 @@ const json = (body, token) => ({
 });
 
 const CHECKS = {
+  "background-jobs": async () => {
+    // SQLite queue and cron always run. The BullMQ part needs a Redis: it runs only when
+    // `redis-server` is installed and starts, and says so when it is skipped.
+    const api = "http://localhost:4173", REDIS_PORT = 6390;
+    mkdirSync("data", { recursive: true });
+    for (const f of ["jobs.db", "jobs.db-shm", "jobs.db-wal", "cron.log"]) rmSync(`data/${f}`, { force: true });
+    const children = [];
+    const launch = (cmd, args, env = {}) => {
+      const child = spawn(cmd, args, { stdio: "ignore", detached: true, env: { ...process.env, ...env } });
+      child.on("error", () => {});
+      children.push(child);
+      return child;
+    };
+    const portOpen = (port) => new Promise((resolve) => {
+      const socket = net.connect(port, "127.0.0.1");
+      socket.on("connect", () => { socket.destroy(); resolve(true); });
+      socket.on("error", () => resolve(false));
+    });
+    try {
+      let redis = false;
+      try {
+        execFileSync("redis-server", ["--version"], { stdio: "ignore" });
+        launch("redis-server", ["--port", String(REDIS_PORT), "--save", "", "--appendonly", "no", "--dir", "data"]);
+        for (let i = 0; i < 20 && !redis; i++) { redis = await portOpen(REDIS_PORT); if (!redis) await new Promise((r) => setTimeout(r, 250)); }
+      } catch {}
+      if (!redis) console.log("skip BullMQ checks: no redis-server is available here (the SQLite and cron checks still run)");
+      else launch("node", ["workers/worker-bullmq.mjs"], { REDIS_PORT: String(REDIS_PORT) });
+      launch("node", ["workers/worker-sqlite.mjs"]);
+
+      const login = await fetch(`${api}/api/session`, json({ username: "ann" }));
+      const { token } = await login.json();
+      expect("login gives a token", typeof token, "string");
+      for (const kind of redis ? ["bullmq", "sqlite"] : ["sqlite"]) {
+        expect(`${kind}: enqueue without a login is a 401`, (await fetch(`${api}/api/jobs-${kind}`, json({ n: 12 }))).status, 401);
+        const enq = await fetch(`${api}/api/jobs-${kind}`, json({ n: 12 }, token));
+        const { id } = await enq.json();
+        expect(`${kind}: enqueue is a 202`, enq.status, 202);
+        let last;
+        for (let i = 0; i < 60; i++) {
+          last = await (await fetch(`${api}/api/jobs-${kind}?id=${id}`, { headers: { authorization: `Bearer ${token}` } })).json();
+          if (last.state === "completed") break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        expect(`${kind}: the worker ran the job`, last?.result?.square, 144);
+      }
+      expect("cron: nothing is scheduled before the first request", existsSync("data/cron.log"), false);
+      await fetch(`${api}/api/cron-status`);
+      await new Promise((r) => setTimeout(r, 3500));
+      expect("cron: ticks after the first request", (await (await fetch(`${api}/api/cron-status`)).json()).ticksSoFar, (n) => n >= 2);
+    } finally {
+      for (const child of children) try { process.kill(-child.pid, "SIGTERM"); } catch {}
+    }
+  },
   "multi-app": async () => {
     rmSync("notes.json", { force: true });
     const site = "http://localhost:4173", app = "http://localhost:4174", api = "http://localhost:4175";
@@ -239,6 +293,8 @@ CHECKS.realtime = async () => {
     realtime.kill("SIGTERM");
   }
 };
+
+if (name === "background-jobs") process.env.REDIS_PORT = "6390";
 
 if (name === "realtime") {
   process.env.REALTIME_TOKEN_SECRET = randomBytes(24).toString("base64url");
