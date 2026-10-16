@@ -28,6 +28,7 @@ import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
 import type { RouteModule } from "./route.js";
 import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
+import { requestPathname } from "./fastPathname.js";
 import { resolveApiDir } from "./apiDir.js";
 import { describeRequest, isHttpsRequest } from "./trustProxy.js";
 import { corsResponse, type CorsConfig } from "./cors.js";
@@ -98,6 +99,7 @@ export function createProdRequestHandler(
     resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : undefined;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
+  const securityHeaderEntries = Object.entries(securityHeaders);
   // Written by buildAppServer.ts after the client build (ROADMAP.md #4) —
   // absent (and islandClientUrl undefined) for an app with no islands.
   const islandManifestPath = path.join(serverOutDir, "island-manifest.json");
@@ -106,6 +108,13 @@ export function createProdRequestHandler(
   const head = options.head;
   // CSS each built page imports (buildAppServer.ts), keyed by build key.
   const routeStyles = readRouteCssManifest(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
+  // A route file's build key never changes, so compute it once per file, not once per request.
+  const buildKeys = new Map<string, string>();
+  const buildKeyFor = (file: string): string => {
+    let key = buildKeys.get(file);
+    if (key === undefined) buildKeys.set(file, (key = toBuildKey(appRoot, file)));
+    return key;
+  };
   const hasEntryServer = existsSync(path.join(serverOutDir, "entry-server.js"));
   const hasErrorPage = existsSync(path.join(serverOutDir, `${ERROR_PAGE_BUILD_KEY}.js`));
   const loadErrorPage = async (): Promise<ErrorPageModule | undefined> =>
@@ -144,18 +153,16 @@ export function createProdRequestHandler(
   const serveClientFile = staticFiles.serve;
 
   return async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
-    for (const [name, value] of Object.entries(securityHeaders)) {
-      res.setHeader(name, value);
-    }
+    for (let i = 0; i < securityHeaderEntries.length; i++) res.setHeader(securityHeaderEntries[i]![0], securityHeaderEntries[i]![1]);
 
     if (!req.url) return false;
-    const url = new URL(req.url, "http://localhost");
+    const pathname = requestPathname(req.url);
 
     // With `sitemap` off this falls through, so a hand-written
     // public/sitemap.xml is served like any other public file.
-    if (url.pathname === "/sitemap.xml" && sitemapEnabled) {
+    if (pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
-        return (await importBuilt(serverOutDir, toBuildKey(appRoot, file))) as RouteModule;
+        return (await importBuilt(serverOutDir, buildKeyFor(file))) as RouteModule;
       }).then((paths) => generateSitemapXml(paths, domain));
       const xml = await sitemapXml;
       res.statusCode = 200;
@@ -172,7 +179,7 @@ export function createProdRequestHandler(
     // matched" (a JSON 404, not `return false` → the adapter's plain 404)
     // and any error (a JSON `{ message }`, not the adapter's generic 500) —
     // docs/history/devora-pre-v3-hotfixes.md #2/#6.
-    if (isApiPath(url.pathname)) {
+    if (isApiPath(pathname)) {
       const cors = corsResponse(options.cors, req.method ?? "GET", req.headers);
       for (const [name, value] of Object.entries(cors.headers)) res.setHeader(name, value);
       if (cors.preflight) {
@@ -180,14 +187,14 @@ export function createProdRequestHandler(
         res.end();
         return true;
       }
-      const apiMatch = matchInTable((apiTable ??= buildRouteTable(apiDir)), url.pathname.slice(4) || "/");
+      const apiMatch = matchInTable((apiTable ??= buildRouteTable(apiDir)), pathname.slice(4) || "/");
       if (!apiMatch) {
         sendApiResponse(res, apiNotFoundResponse());
         return true;
       }
 
       try {
-        const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
+        const apiBuildKey = buildKeyFor(apiMatch.filePath);
         const apiRouteModule = (await importBuilt(serverOutDir, apiBuildKey)) as ApiRouteModule;
         let body: Buffer;
         try {
@@ -227,13 +234,13 @@ export function createProdRequestHandler(
     // gets an aggressive immutable cache (safe — the filename changes if
     // the content does); matched before the generic public-file fallback
     // below purely so it gets that stronger cache header.
-    if (url.pathname.startsWith("/assets/")) {
-      return serveClientFile(req, res, url.pathname, true);
+    if (pathname.startsWith("/assets/")) {
+      return serveClientFile(req, res, pathname, true);
     }
 
-    if (url.pathname.startsWith("/@")) return false;
+    if (pathname.startsWith("/@")) return false;
 
-    if (url.pathname.includes(".")) {
+    if (pathname.includes(".")) {
       // Any other dotted path (the logo, favicon.ico, robots.txt, etc.) —
       // try serving it as a plain public-dir file. Vite's own dev server
       // already does this automatically for anything under publicDir
@@ -244,19 +251,19 @@ export function createProdRequestHandler(
       // Only a file that exists ends the request here: a dot in a URL is
       // also legal in a route (a catch-all page for /docs/v1.2/intro), so
       // a dotted path that isn't a public file goes on to route matching.
-      if (await serveClientFile(req, res, url.pathname, false)) return true;
+      if (await serveClientFile(req, res, pathname, false)) return true;
     }
 
-    const match = matchPageRoute(url.pathname);
+    const match = matchPageRoute(pathname);
     if (!match) {
-      if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
+      if (!hasEntryServer && pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
         sendApiResponse(res, backendStatusFor(appName, req.headers.accept));
         return true;
       }
       return sendErrorPage(res, 404);
     }
 
-    const buildKey = toBuildKey(appRoot, match.filePath);
+    const buildKey = buildKeyFor(match.filePath);
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
     const styles = routeStyles[buildKey];
@@ -517,17 +524,21 @@ async function readCsrManifest(manifestPath: string): Promise<CsrManifest> {
   }
 }
 
-const builtModules = new Map<string, Promise<unknown>>();
+// serverOutDir -> build key -> the module's import promise. Looked up by the two strings directly,
+// so a request does no path joining; the file path is built once, on the first import.
+const builtModules = new Map<string, Map<string, Promise<unknown>>>();
 
 /** Node caches the module itself; this skips re-resolving the path and URL on every request. */
 function importBuilt(serverOutDir: string, key: string): Promise<unknown> {
-  const filePath = path.join(serverOutDir, `${key}.js`);
-  let loaded = builtModules.get(filePath);
+  let perDir = builtModules.get(serverOutDir);
+  if (!perDir) builtModules.set(serverOutDir, (perDir = new Map()));
+  let loaded = perDir.get(key);
   if (!loaded) {
-    loaded = importBuiltUncached(filePath);
-    builtModules.set(filePath, loaded);
+    const modules = perDir;
+    loaded = importBuiltUncached(path.join(serverOutDir, `${key}.js`));
+    modules.set(key, loaded);
     // A failed import is not remembered, so a fixed file can load later.
-    loaded.catch(() => builtModules.delete(filePath));
+    loaded.catch(() => modules.delete(key));
   }
   return loaded;
 }

@@ -4797,7 +4797,18 @@ import path5 from "node:path";
 import { existsSync as existsSync2 } from "node:fs";
 import { mkdir, readFile as readFile2, writeFile, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+var ROUTE_PATHS_MEMO_MAX = 2e3;
+var routePathsMemo = /* @__PURE__ */ new Map();
 function cachedRoutePaths(staticOutDir, routePath) {
+  const memoKey = `${staticOutDir}\0${routePath}`;
+  const hit = routePathsMemo.get(memoKey);
+  if (hit) return hit;
+  const value = computeCachedRoutePaths(staticOutDir, routePath);
+  if (routePathsMemo.size >= ROUTE_PATHS_MEMO_MAX) routePathsMemo.clear();
+  routePathsMemo.set(memoKey, value);
+  return value;
+}
+function computeCachedRoutePaths(staticOutDir, routePath) {
   const base = path5.resolve(staticOutDir);
   const dir = routePath === "/" ? base : path5.resolve(base, routePath.slice(1));
   if (dir !== base && !dir.startsWith(base + path5.sep)) {
@@ -4922,6 +4933,18 @@ async function parseFormBody(body, contentType) {
 // ../core/src/apiRoute.ts
 function isApiPath(pathname) {
   return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+// ../core/src/fastPathname.ts
+var PLAIN_TARGET = /^\/[A-Za-z0-9_\-./]*(?:\?[^#]*)?$/;
+var DOT_SEGMENT = /(?:^|\/)\.\.?(?:\/|$)/;
+function requestPathname(target) {
+  if (PLAIN_TARGET.test(target)) {
+    const q = target.indexOf("?");
+    const p = q === -1 ? target : target.slice(0, q);
+    if (!p.includes("//") && !DOT_SEGMENT.test(p)) return p;
+  }
+  return new URL(target, "http://localhost").pathname;
 }
 
 // ../core/src/apiDir.ts
@@ -5057,11 +5080,18 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const sessionOptionsForRequest = async (req) => resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : void 0;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
+  const securityHeaderEntries = Object.entries(securityHeaders);
   const islandManifestPath = path7.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path7.join(serverOutDir, "csr-route-manifest.json");
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
   const head = options.head;
   const routeStyles = readRouteCssManifest(path7.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
+  const buildKeys = /* @__PURE__ */ new Map();
+  const buildKeyFor = (file) => {
+    let key = buildKeys.get(file);
+    if (key === void 0) buildKeys.set(file, key = toBuildKey(appRoot, file));
+    return key;
+  };
   const hasEntryServer = existsSync3(path7.join(serverOutDir, "entry-server.js"));
   const hasErrorPage = existsSync3(path7.join(serverOutDir, `${ERROR_PAGE_BUILD_KEY}.js`));
   const loadErrorPage = async () => hasErrorPage ? await importBuilt(serverOutDir, ERROR_PAGE_BUILD_KEY) : void 0;
@@ -5086,14 +5116,12 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const staticFiles = createStaticFileServer(clientOutDir);
   const serveClientFile = staticFiles.serve;
   return async function handleRequest(req, res) {
-    for (const [name, value] of Object.entries(securityHeaders)) {
-      res.setHeader(name, value);
-    }
+    for (let i = 0; i < securityHeaderEntries.length; i++) res.setHeader(securityHeaderEntries[i][0], securityHeaderEntries[i][1]);
     if (!req.url) return false;
-    const url = new URL(req.url, "http://localhost");
-    if (url.pathname === "/sitemap.xml" && sitemapEnabled) {
+    const pathname = requestPathname(req.url);
+    if (pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
-        return await importBuilt(serverOutDir, toBuildKey(appRoot, file));
+        return await importBuilt(serverOutDir, buildKeyFor(file));
       }).then((paths) => generateSitemapXml(paths, domain));
       const xml = await sitemapXml;
       res.statusCode = 200;
@@ -5101,7 +5129,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       res.end(xml);
       return true;
     }
-    if (isApiPath(url.pathname)) {
+    if (isApiPath(pathname)) {
       const cors = corsResponse(options.cors, req.method ?? "GET", req.headers);
       for (const [name, value] of Object.entries(cors.headers)) res.setHeader(name, value);
       if (cors.preflight) {
@@ -5109,13 +5137,13 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         res.end();
         return true;
       }
-      const apiMatch = matchInTable(apiTable ??= buildRouteTable(apiDir), url.pathname.slice(4) || "/");
+      const apiMatch = matchInTable(apiTable ??= buildRouteTable(apiDir), pathname.slice(4) || "/");
       if (!apiMatch) {
         sendApiResponse(res, apiNotFoundResponse());
         return true;
       }
       try {
-        const apiBuildKey = toBuildKey(appRoot, apiMatch.filePath);
+        const apiBuildKey = buildKeyFor(apiMatch.filePath);
         const apiRouteModule = await importBuilt(serverOutDir, apiBuildKey);
         let body;
         try {
@@ -5147,22 +5175,22 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       }
       return true;
     }
-    if (url.pathname.startsWith("/assets/")) {
-      return serveClientFile(req, res, url.pathname, true);
+    if (pathname.startsWith("/assets/")) {
+      return serveClientFile(req, res, pathname, true);
     }
-    if (url.pathname.startsWith("/@")) return false;
-    if (url.pathname.includes(".")) {
-      if (await serveClientFile(req, res, url.pathname, false)) return true;
+    if (pathname.startsWith("/@")) return false;
+    if (pathname.includes(".")) {
+      if (await serveClientFile(req, res, pathname, false)) return true;
     }
-    const match = matchPageRoute(url.pathname);
+    const match = matchPageRoute(pathname);
     if (!match) {
-      if (!hasEntryServer && url.pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
+      if (!hasEntryServer && pathname === "/" && (req.method === "GET" || req.method === "HEAD")) {
         sendApiResponse(res, backendStatusFor(appName, req.headers.accept));
         return true;
       }
       return sendErrorPage(res, 404);
     }
-    const buildKey = toBuildKey(appRoot, match.filePath);
+    const buildKey = buildKeyFor(match.filePath);
     const routeModule = await importBuilt(serverOutDir, buildKey);
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);
     const styles = routeStyles[buildKey];
@@ -5348,12 +5376,14 @@ async function readCsrManifest(manifestPath) {
 }
 var builtModules = /* @__PURE__ */ new Map();
 function importBuilt(serverOutDir, key) {
-  const filePath = path7.join(serverOutDir, `${key}.js`);
-  let loaded = builtModules.get(filePath);
+  let perDir = builtModules.get(serverOutDir);
+  if (!perDir) builtModules.set(serverOutDir, perDir = /* @__PURE__ */ new Map());
+  let loaded = perDir.get(key);
   if (!loaded) {
-    loaded = importBuiltUncached(filePath);
-    builtModules.set(filePath, loaded);
-    loaded.catch(() => builtModules.delete(filePath));
+    const modules = perDir;
+    loaded = importBuiltUncached(path7.join(serverOutDir, `${key}.js`));
+    modules.set(key, loaded);
+    loaded.catch(() => modules.delete(key));
   }
   return loaded;
 }

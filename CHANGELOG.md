@@ -22,6 +22,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - Performance: `ctx.url` and `ctx.headers` are built the first time a handler reads them, not on every
   request. No behavior change: the same objects, built later. About 3 to 5% more requests/s on API
   routes that never read them (interleaved A/B, same machine; see `benchmarks/results/`).
+- Performance: the production handler no longer joins paths, computes build keys or builds a URL object for
+  the request path on every request: build keys, module lookups and pre-rendered page paths are remembered,
+  and a plain request path is read straight from the request line (anything unusual still goes through the
+  URL parser, and a test compares both on thousands of generated paths). Interleaved A/B on one machine:
+  about +8 to 17% on API routes, about +39% on a pre-rendered page, about +5% on a server-rendered page.
 
 ## 0.3.4 — 2026-10-16
 

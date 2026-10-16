@@ -32,7 +32,23 @@ export interface CachedRoute {
  * cache path. Same containment-check shape `prodRequestHandler.ts`'s
  * `serveAsset` already uses correctly for request-driven asset paths.
  */
+// The paths for a route never change, and resolving them is a measurable part of serving a
+// pre-rendered page. Only a successful result is remembered (a refused path throws every time), and
+// the memo is emptied when it grows past a bound, because a dynamic route's path comes from the URL.
+const ROUTE_PATHS_MEMO_MAX = 2000;
+const routePathsMemo = new Map<string, { htmlPath: string; metaPath: string }>();
+
 export function cachedRoutePaths(staticOutDir: string, routePath: string): { htmlPath: string; metaPath: string } {
+  const memoKey = `${staticOutDir}\0${routePath}`;
+  const hit = routePathsMemo.get(memoKey);
+  if (hit) return hit;
+  const value = computeCachedRoutePaths(staticOutDir, routePath);
+  if (routePathsMemo.size >= ROUTE_PATHS_MEMO_MAX) routePathsMemo.clear();
+  routePathsMemo.set(memoKey, value);
+  return value;
+}
+
+function computeCachedRoutePaths(staticOutDir: string, routePath: string): { htmlPath: string; metaPath: string } {
   const base = path.resolve(staticOutDir);
   const dir = routePath === "/" ? base : path.resolve(base, routePath.slice(1));
   if (dir !== base && !dir.startsWith(base + path.sep)) {
