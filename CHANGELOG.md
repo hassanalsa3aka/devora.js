@@ -454,6 +454,6 @@ history". Nothing here comes from memory. Where git cannot say something, the la
 - `@devorajs/core` 0.2.1 (2026-09-16 08:35 UTC): footer structure in the branding component and theme styles (ebee286).
 - `@devorajs/core` 0.2.2 (2026-09-16 09:26 UTC): footer style changes and a package `exports` restructure so the published package resolves `dist` through `publishConfig` (d1a593c, 92f88ea).
 - `@devorajs/core` 0.2.3: appears in package.json (08e1e81: heading/list styles, exports) but is not on npm; the next published core is 0.3.0.
-- `@devorajs/adapter-vercel` 0.1.3 and `@devorajs/adapter-netlify` 0.1.4 to 0.1.6 (2026-09-16, published 10:07-10:37 UTC): version bumps while the `scripts/publish-package.mjs` publishing script was being made correct (af54997, 08e1e81, be55165, 5c2d781).
+- `@devorajs/adapter-vercel` 0.1.3 and 0.1.4 and `@devorajs/adapter-netlify` 0.1.4 to 0.1.6 (2026-09-16, published 10:07-10:37 UTC): version bumps while the `scripts/publish-package.mjs` publishing script was being made correct (af54997, 08e1e81, be55165, 5c2d781).
 
 Not recoverable from git: the reason for the 0.2.1/0.2.2 publish order beyond the commit messages; which exact commit each publish was taken from (publish times only bracket commits).
