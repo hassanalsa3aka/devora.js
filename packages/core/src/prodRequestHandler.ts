@@ -65,7 +65,7 @@ export interface ProdRequestHandlerOptions {
  * and react resolve via the existing pnpm-linked node_modules, since Vite's
  * SSR build externalizes them rather than bundling them in). A fully
  * standalone deployable bundle is real adapter work this doesn't do — see
- * ROADMAP.md #4.
+ * docs/history/BUILD-LOG.md #4.
  */
 export function createProdRequestHandler(
   appRoot: string,
@@ -171,7 +171,7 @@ export function createProdRequestHandler(
     // Every outcome under /api/** is a JSON response, including "no route
     // matched" (a JSON 404, not `return false` → the adapter's plain 404)
     // and any error (a JSON `{ message }`, not the adapter's generic 500) —
-    // devora-pre-v3-hotfixes.md #2/#6.
+    // docs/history/devora-pre-v3-hotfixes.md #2/#6.
     if (isApiPath(url.pathname)) {
       const cors = corsResponse(options.cors, req.method ?? "GET", req.headers);
       for (const [name, value] of Object.entries(cors.headers)) res.setHeader(name, value);
@@ -357,7 +357,7 @@ export function createProdRequestHandler(
       {
         // isr: regenerate synchronously once stale, then serve — simpler
         // and more deterministic than stale-while-revalidate for v1 (see
-        // ROADMAP.md). Only reliable under adapter-node's long-lived
+        // docs/history/BUILD-LOG.md). Only reliable under adapter-node's long-lived
         // process/writable disk — see isrCache.ts.
         //
         // Real, previously-undiscovered bug closed here: for a DYNAMIC

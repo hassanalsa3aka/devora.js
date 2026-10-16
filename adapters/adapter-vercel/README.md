@@ -9,6 +9,6 @@ Vercel, targeting Vercel's [Build Output API](https://vercel.com/docs/build-outp
 This is used automatically when you run `devora build --adapter=vercel` (or `devora deploy
 --adapter=vercel`) inside a devora.js project — there's nothing to install or configure here
 directly. See the main repo's
-**[Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/DEPLOYING.md)** guide for
+**[Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/docs/guides/DEPLOYING.md)** guide for
 the actual setup steps (project settings, environment variables, and the one-time `vercel.json`
 that's already generated for you).

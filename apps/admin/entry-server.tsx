@@ -3,7 +3,7 @@ import { renderToString, renderToPipeableStream } from "react-dom/server";
 import { createRenderRoute, createRenderStatic, createRenderStreaming } from "@devorajs/core";
 
 /**
- * Framework SSR entry point for this app (see ROADMAP.md #1). Loaded via
+ * Framework SSR entry point for this app (see docs/history/BUILD-LOG.md #1). Loaded via
  * vite.ssrLoadModule so react-dom/server resolves against this app's own
  * node_modules — the same pattern Vite's own SSR guide uses. The actual
  * render logic lives once in @devorajs/core's renderRoute.ts, shared by all

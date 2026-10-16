@@ -1,6 +1,6 @@
 # Wiring in a real auth provider
 
-Guides, not built-in integrations — `architecture-v1.md` §6/§11's boundary holds in v2: this
+Guides, not built-in integrations — `docs/design/architecture-v1.md` §6/§11's boundary holds in v2: this
 framework provides the session itself (an opaque, server-side, revocable session ID carried in an
 HttpOnly cookie or an `Authorization: Bearer` header, plus CSRF protection —
 `packages/core/src/session.ts`/`sessionStore.ts`/`csrf.ts`), not an identity provider. "Checking who someone is"
@@ -12,7 +12,7 @@ real choices for the "checking who someone is" half.
 Neither guide below has been run against a real provider account/database inside this repo — code
 is illustrative, matching the framework's real, current `ctx`/`serverFn`/`RequestContext` shapes
 (`packages/core/src/serverFn.ts`), not verified end-to-end the way this project's own session/CSRF
-carrier is (see `VERIFICATION.md`).
+carrier is (see `docs/history/VERIFICATION.md`).
 
 ## Sessions: storage, browsers, and API/mobile clients
 
@@ -120,7 +120,7 @@ export default defineApp({
 **Logins over plain HTTP.** Browsers drop `Secure` cookies on plain-HTTP origins (localhost
 excepted), so with the default `secure: true` a login served over plain HTTP never sticks. The
 server now logs a warning the first time it sends a `Secure` cookie on what looks like a plain-HTTP
-request. Fix it by serving the app over HTTPS (Caddy, or nginx + certbot — see `DEPLOYING.md`), or
+request. Fix it by serving the app over HTTPS (Caddy, or nginx + certbot — see `docs/guides/DEPLOYING.md`), or
 set `secure: "auto"` (plus `trustProxy: true` when an HTTPS proxy sits in front of `devora start`),
 or `secure: false` for a deployment that is deliberately plain HTTP.
 
@@ -241,7 +241,7 @@ rest of your app (mirroring the same Option A/B choice Lucia's guide above lays 
 
 - Neither changes this framework's CSRF story: `ctx.verifyCsrf()` still only makes sense for a
   request that was actually issued this app's own CSRF cookie (a same-origin form or API call, per
-  architecture-v2.md §3.2.2) — an OAuth provider's callback request wasn't, and shouldn't be forced
+  docs/design/architecture-v2.md §3.2.2) — an OAuth provider's callback request wasn't, and shouldn't be forced
   through it.
 - Both stay entirely inside the "bring your own auth provider" boundary
   (architecture-v1.md §6/§11) — nothing here is wired into `packages/core` or shipped as a

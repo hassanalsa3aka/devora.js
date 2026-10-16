@@ -5,7 +5,7 @@ import path from "node:path";
  * extension stripped (e.g. "routes/settings", "entry-server"). Used both as
  * the rollup input name (so output files land at predictable paths, no
  * manifest needed for route resolution) and, at request time, to compute
- * the built file for a given source file. See ROADMAP.md #4.
+ * the built file for a given source file. See docs/history/BUILD-LOG.md #4.
  *
  * A dynamic route's file name (`routes/users/[id].tsx`) contains `[`/`]` —
  * Rollup silently sanitizes those out of a chunk's actual output filename

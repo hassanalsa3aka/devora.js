@@ -5,7 +5,7 @@
  * what was missing was a dispatcher that does renderRoute.ts's other job
  * (pulling cookie header/params off a raw request, building `ctx`, calling
  * a handler, collecting Set-Cookie) for a request that never went through
- * page-route matching. See architecture-v2.md §3.2.3.
+ * page-route matching. See docs/design/architecture-v2.md §3.2.3.
  */
 import { createRequestContext, createNoAuthContext } from "./session.js";
 import type { SessionCookieOptions } from "./session.js";

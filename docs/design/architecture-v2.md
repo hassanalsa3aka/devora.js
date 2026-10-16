@@ -2,7 +2,7 @@
 
 *Status: implemented. Everything below shipped in `@devorajs/core`/`@devorajs/cli` 0.2–0.3,
 including streaming (§4). This file started as a planning draft and was corrected as the code
-landed; where it and the code disagree, the code wins. Read it alongside architecture-v1.md and
+landed; where it and the code disagree, the code wins. Read it alongside docs/design/architecture-v1.md and
 `CHANGELOG.md` (0.3.2 added request access, action results, error pages, the head API, `apiDir`
 and CORS on top of this).*
 
@@ -14,7 +14,7 @@ becoming an ORM, an auth provider, or a dependency-injection framework.
 
 ## 2. Core principle carried forward, unchanged
 
-Everything in architecture-v1.md §2 still holds. v2 adds one explicit rule on top:
+Everything in docs/design/architecture-v1.md §2 still holds. v2 adds one explicit rule on top:
 
 6. **No dependency injection, no decorator-based reflection, anywhere.** Modularity comes from
    explicit scoping (plain function composition), not runtime metadata scanning. This is a locked
@@ -153,7 +153,7 @@ maintained guides for the popular real choices (Prisma, Drizzle for DB; Lucia, A
 each showing the wiring into `ctx.setSession()` and the shared backend pattern.
 
 **Native-driver reload hazard — corrected: the obvious fix was already tried and rejected.**
-ROADMAP.md #6 documented a real native-addon crash (`better-sqlite3` + Vite's SSR module reload).
+docs/history/BUILD-LOG.md #6 documented a real native-addon crash (`better-sqlite3` + Vite's SSR module reload).
 `packages/backend/DATABASE.md`'s current workaround (a manual `globalThis.__db` singleton the
 developer writes themselves, `DATABASE.md:24-33`) is pure documentation — no framework plumbing
 exists. The draft's suggestion to "evaluate a real `onDispose`-style lifecycle hook" needs a
@@ -319,5 +319,5 @@ v2 is "done" when: a real project can define shared backend modules, expose plai
 ecosystem adapter), optionally split any app or the backend into its own repo for independent
 team ownership, and do all of this without a security regression in the sessions/CSRF/headers
 protections v1 already established — verified the same way v1 was: real tests where they exist,
-honest "manually verified, not automated" labeling where they don't (see VERIFICATION.md's
+honest "manually verified, not automated" labeling where they don't (see docs/history/VERIFICATION.md's
 existing convention), and a formal third-party audit once this surface stabilizes.

@@ -1,6 +1,6 @@
 /**
  * Route module contract — what a file under apps/<name>/routes/ must export
- * to be servable by the SSR request handler (see ROADMAP.md #1).
+ * to be servable by the SSR request handler (see docs/history/BUILD-LOG.md #1).
  */
 import type { RequestContext } from "./serverFn.js";
 import type { RenderMode, RevalidateConfig } from "./config.js";

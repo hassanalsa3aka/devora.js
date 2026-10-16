@@ -76,7 +76,7 @@ commits not yet pulled, diverged (both), or "gitlink change not yet committed in
 
 ## Ownership and governance rules that matter more once repos are actually split
 
-Two conventions from architecture-v2.md's backend work (§3.2/§3.3) are worth restating here,
+Two conventions from docs/design/architecture-v2.md's backend work (§3.2/§3.3) are worth restating here,
 since they matter most exactly when different people own different split-off pieces:
 
 - **API route ownership** (§3.2.1): shared backend logic goes in `packages/backend` — an app-local

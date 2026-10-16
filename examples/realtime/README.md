@@ -1,7 +1,7 @@
 # Example: realtime
 
 A logged-in dashboard that updates without a reload, using a small separate realtime server.
-Devora.js has no built-in WebSockets (see `REALTIME.md` at the repo root for why and for the
+Devora.js has no built-in WebSockets (see `docs/guides/REALTIME.md` at the repo root for why and for the
 deployment notes); this is the supported pattern, runnable.
 
 ```text

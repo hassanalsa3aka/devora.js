@@ -4,6 +4,6 @@ import { defineApp } from "@devorajs/core/config";
 export default defineApp({
   backendOnly: true,
   // API routes live in endpoints/ (served under /api) — not api/, which
-  // Vercel would turn into separate functions. See DEPLOYING.md.
+  // Vercel would turn into separate functions. See docs/guides/DEPLOYING.md.
   apiDir: "endpoints",
 });

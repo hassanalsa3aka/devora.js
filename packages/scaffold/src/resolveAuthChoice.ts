@@ -5,7 +5,7 @@ export type AuthChoice = "shared" | "isolated" | "none";
 /**
  * Auth is per-app, not per-project — a marketing site and a dashboard in
  * the same project routinely differ (confirmed with the user; see
- * ROADMAP.md's auth-opt-in item) — so this asks once per scaffolded app
+ * docs/history/BUILD-LOG.md's auth-opt-in item) — so this asks once per scaffolded app
  * rather than once per project. `--auth` skips the prompt entirely (CI/
  * scripted use); with no flag and a real TTY, asks interactively; with no
  * flag and no TTY (piped/non-interactive), defaults to "shared" rather than

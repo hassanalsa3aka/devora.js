@@ -5,7 +5,7 @@ Devora.js has no built-in WebSockets or server-sent events. API routes return on
 serverless platforms (Vercel, Netlify) cannot hold a connection open anyway. This page is the
 supported answer: poll, or run a small separate realtime server next to your app.
 
-A runnable version of everything below is in [`examples/realtime/`](examples/realtime/).
+A runnable version of everything below is in [`examples/realtime/`](../../examples/realtime).
 
 ## Polling or a realtime server?
 

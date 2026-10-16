@@ -1,5 +1,5 @@
 /**
- * Real evaluation result for architecture-v2.md §3.5's native-driver reload
+ * Real evaluation result for docs/design/architecture-v2.md §3.5's native-driver reload
  * hazard (ROADMAP.md #6, `packages/backend/DATABASE.md`): `import.meta.hot`
  * is `undefined` inside a module loaded via `vite.ssrLoadModule` (confirmed
  * directly, recorded in DATABASE.md), so there is no working *module-side*

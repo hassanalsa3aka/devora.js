@@ -1,5 +1,5 @@
 /**
- * island — partial hydration (§5, ROADMAP.md #3). `island(() => import(X))`
+ * island — partial hydration (§5, docs/history/BUILD-LOG.md #3). `island(() => import(X))`
  * is transformed by packages/cli's Vite plugin (islandsPlugin.ts) into
  * `island(() => import(X), "/@fs/<resolved-path>")` — the second argument is
  * how the client knows what URL to re-import for hydration. Written by hand

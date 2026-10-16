@@ -1,5 +1,5 @@
 /**
- * Standard page chrome every app uses (see ROADMAP.md's shared-design
+ * Standard page chrome every app uses (see docs/history/BUILD-LOG.md's shared-design
  * item) — one header with the real logo + wordmark + nav, one content
  * container, shared across marketing/dashboard/admin so a page looks the
  * same regardless of which app rendered it. Styling comes from theme.ts's

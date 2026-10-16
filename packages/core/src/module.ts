@@ -16,7 +16,7 @@
  * parent or siblings — true Fastify-style "child inherits parent's
  * decorations at registration time" would need passing a live context
  * object down into the child's own setup callback, which starts to look
- * like the very DI-shaped mechanism this plan (CLAUDE.md, architecture-v2.md
+ * like the very DI-shaped mechanism this plan (CLAUDE.md, docs/design/architecture-v2.md
  * §2) locks out. If one module's function genuinely needs another's logic,
  * it imports it directly and explicitly — a plain module import, not
  * framework-mediated — same as any other TypeScript code.

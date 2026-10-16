@@ -272,7 +272,7 @@ devora generate:proxy --target=nginx      # or --target=caddy
 `devora generate:proxy` reads every app's domain straight out of `devora.config.ts`.
 
 To start the servers from your own script (a process manager, a custom `CMD`), use
-`createNodeServer()` from [`@devorajs/adapter-node`](adapters/adapter-node/README.md) — the same
+`createNodeServer()` from [`@devorajs/adapter-node`](../../adapters/adapter-node/README.md) — the same
 server `devora start` runs.
 
 **Behind the proxy:**

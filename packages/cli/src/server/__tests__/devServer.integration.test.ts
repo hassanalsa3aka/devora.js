@@ -1,7 +1,7 @@
 /**
  * Real `devora dev` servers (createAppDevServer — the exact function `dev()`
  * calls), listening on real ports, hit with real HTTP requests. Covers
- * devora-pre-v3-hotfixes.md #2/#6 (the api/** JSON contract) and the
+ * docs/history/devora-pre-v3-hotfixes.md #2/#6 (the api/** JSON contract) and the
  * unified session auth addendum (cookie + Bearer through one store,
  * revocation, transport-aware CSRF, idle renewal, expiry).
  */

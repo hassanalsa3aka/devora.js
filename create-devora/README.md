@@ -68,7 +68,7 @@ later with `npx devora add <name>` (`--kind=api` for a backend-only API app).
 
 Before deploying an app with login, set `shared.sessions.store` in `devora.config.ts` to a store
 backed by your database (production refuses to start without one) and a `DEVORA_SESSION_SECRET`
-— see the [Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/DEPLOYING.md) guide.
+— see the [Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/docs/guides/DEPLOYING.md) guide.
 
 ## Full documentation
 

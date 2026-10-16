@@ -1,7 +1,7 @@
 # Wiring in a real database
 
 `db/index.ts` ships as a throw-on-use stub by design — no built-in ORM in v1 (see
-architecture-v1.md §6/§11). This is the pattern to follow when you wire in a real one, and the
+docs/design/architecture-v1.md §6/§11). This is the pattern to follow when you wire in a real one, and the
 fix for the one real integration issue this framework's own SSR dev server causes.
 
 ## The problem
@@ -77,7 +77,7 @@ There's no working HMR API *inside the reloaded module itself*, so that idea doe
 
 ## v2 update: a real plugin-side dispose hook, evaluated and confirmed to work
 
-architecture-v2.md §3.5 asked whether a real `onDispose`-style lifecycle hook, built into
+docs/design/architecture-v2.md §3.5 asked whether a real `onDispose`-style lifecycle hook, built into
 `packages/core`, could make this safe by default rather than safe-only-if-the-guide-is-followed.
 The module-side answer above is still "no" — but the *server* side of Vite (as opposed to the
 reloaded module) does have a working hook: `handleHotUpdate`, a Vite plugin hook that fires with

@@ -3,7 +3,7 @@ import * as esbuild from "esbuild";
 
 /**
  * Bundles the CLI into a single plain-Node-executable file (see
- * ROADMAP.md's CLI bin item). Two real problems, not one, made
+ * docs/history/BUILD-LOG.md's CLI bin item). Two real problems, not one, made
  * `pnpm exec devora` fail before this:
  *
  * 1. `src/index.ts`'s relative imports use `.js` specifiers over `.ts`

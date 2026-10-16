@@ -90,7 +90,7 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
         // includes both) and only breaks on a platform's production-only
         // install — exactly the kind of gap this project's own "works
         // locally, fails on the platform" bugs have repeatedly turned out
-        // to be (see ROADMAP.md #4).
+        // to be (see docs/history/BUILD-LOG.md #4).
         dependencies: {
           "@devorajs/core": coreVersion,
           "@devorajs/cli": cliVersion,

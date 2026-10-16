@@ -13,7 +13,7 @@ export async function loader() {
 
 // ctx is supplied by the framework's SSR request handler — a real, signed
 // session (or undefined if not logged in; see apps/dashboard/routes/login.tsx
-// and ROADMAP.md #2), not a stub.
+// and docs/history/BUILD-LOG.md #2), not a stub.
 export async function action(formData: FormData, ctx: RequestContext) {
   ctx.verifyCsrf(formData);
   return updateSettings(

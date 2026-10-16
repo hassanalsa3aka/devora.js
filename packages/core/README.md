@@ -51,7 +51,7 @@ Node 20 or newer. `react` is a peer dependency: `^18.3.0 || ^19.0.0`.
 ## Page routes
 
 Request access, action results, error pages, the head API, route CSS and islands: see
-[PAGES.md](https://github.com/hassanalsa3aka/devora.js/blob/main/PAGES.md).
+[PAGES.md](https://github.com/hassanalsa3aka/devora.js/blob/main/docs/guides/PAGES.md).
 
 ## Hardening (v2)
 

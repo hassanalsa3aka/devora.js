@@ -1,6 +1,6 @@
 # Project brief for Claude Code
 
-Read `architecture-v1.md` first (full spec — vision, security defaults, rendering model, CLI,
+Read `docs/design/architecture-v1.md` first (full spec — vision, security defaults, rendering model, CLI,
 deployment adapters, explicit v1 boundaries). This file is the fast-start summary + current state.
 
 ## What this is
@@ -42,34 +42,34 @@ Scaffolded and structurally real:
 **Now real:**
 - The SSR request handler — `renderMode: "ssr"` routes get a real HTTP response (route matched,
   `action` then `loader` run, component rendered to HTML). Verified end-to-end against
-  `apps/dashboard/routes/settings.tsx` and `apps/admin/routes/bulk-import.tsx`. See `ROADMAP.md`
+  `apps/dashboard/routes/settings.tsx` and `apps/admin/routes/bulk-import.tsx`. See `docs/history/BUILD-LOG.md`
   #1 for what it does and doesn't cover.
 - Request context / sessions — `ctx.setSession()`/`ctx.requireAuth()`/`ctx.session` are backed by an
   opaque, server-side, revocable session (`packages/core/src/session.ts` + `sessionStore.ts`; was a
-  signed cookie until the pre-v3 hotfixes — see `devora-pre-v3-hotfixes.md`), carried by HttpOnly
+  signed cookie until the pre-v3 hotfixes — see `docs/history/devora-pre-v3-hotfixes.md`), carried by HttpOnly
   cookie or `Authorization: Bearer`, no new dependency. This is where "shared auth by default, per-app isolated override" (the locked
   decision above) stops being config-shape and starts being enforced: shared apps get one
   project-wide cookie, `apps/admin` (`auth: "isolated"`) gets its own cookie name and can be given
   its own secret. Verified end-to-end, including that a tampered cookie is rejected. Checking who
-  the caller *is* stays bring-your-own (§6/§11) — see `ROADMAP.md` #2.
+  the caller *is* stays bring-your-own (§6/§11) — see `docs/history/BUILD-LOG.md` #2.
 - CSP/HSTS/X-Frame-Options — every response carries these by default (§7 "security is a default,
   not opt-in"), even when an app declares no `security` block; `app.config.ts` is now actually
   loaded (it wasn't before) so per-app overrides work. Verified end-to-end including a per-app
   override. One documented dev-mode-only gap: Vite's own 404 fallback overwrites these headers on
   truly unmatched routes — doesn't affect real routes, resolves itself once #4 (adapters) exists.
-  See `ROADMAP.md` #5.
+  See `docs/history/BUILD-LOG.md` #5.
 - SEO primitives — `meta()` renders OG tags (falling back to title/description automatically); a
   real `sitemap.xml` is served per app, generated from the same file-based route scan routing
   itself uses, so it can't drift out of sync — gated behind `sitemap: true` in `app.config.ts`
   (opt-in, default off: a newly scaffolded internal app stays unlisted with no extra config, only
   a public app has to remember to turn it on). Only `apps/marketing` has it on. Verified end-to-end
-  per app, including the opt-in gate itself. See `ROADMAP.md` #7.
+  per app, including the opt-in gate itself. See `docs/history/BUILD-LOG.md` #7.
 - DB client — checked, not changed. A real Drizzle+`better-sqlite3` client was wired into
   `packages/backend/db/index.ts` and verified end-to-end (real writes, real upsert, `requireAuth()`
   still gating correctly), then reverted — the stub still throws intentionally (§6/§11: bring your
   own, don't add one). The check surfaced a real issue worth knowing before picking a driver: a
   native-addon crash when Vite's SSR module graph reloaded the module holding the connection. See
-  `ROADMAP.md` #6 for the full writeup and a recommendation.
+  `docs/history/BUILD-LOG.md` #6 for the full writeup and a recommendation.
 - Islands / partial hydration, dev AND production — `island()` + `<Island>` do real work in both:
   SSR renders the real content, a client script hydrates it independently, using a real hashed
   asset URL from a real client build in production (not just dev). Verified end-to-end in both
@@ -80,7 +80,7 @@ Scaffolded and structurally real:
   bug where every request, including island asset requests, hit the function instead of static
   file serving. Added `react` as a real `packages/core` dependency for this (justified in
   `DEPENDENCIES.md`, per the locked-decision process above — not a workaround of it). See
-  `ROADMAP.md` #3 and #4.
+  `docs/history/BUILD-LOG.md` #3 and #4.
 - A real SSR production build (`devora build`) and `adapter-node` (`devora start`) — fully
   verified point-by-point against dev-mode behavior: SSR content, security headers, sessions
   (including that errors are logged server-side but not leaked to the client, correct prod
@@ -94,14 +94,14 @@ Scaffolded and structurally real:
   blocked, island markup and hydration script both present. `react`/`react-dom` were placed in a
   local `node_modules` by hand to simulate what a platform's own dependency tracer does for ordinary
   npm packages — that simulation, and an actual deploy, are what's still unverified (no platform
-  access here) — stated explicitly in `ROADMAP.md` #4. Several real bugs were found and fixed along
+  access here) — stated explicitly in `docs/history/BUILD-LOG.md` #4. Several real bugs were found and fixed along
   the way: neither generated function originally caught errors from the handler (crashed instead of
   returning a 500); Vercel's routing sent every request to the function including static asset
   requests, which the bundle didn't have (fixed by restoring `{ "handle": "filesystem" }` and
   copying client assets); bundling react-dom inline hit a real esbuild+Node ESM interop failure,
   fixing that a different way then hit a CJS default-export interop gap, and bundling each route
   file separately (no code-splitting) gave each its own copy of `@devorajs/core`, silently breaking
-  island hydration via two non-identical React Context objects — see `ROADMAP.md` #4 for the full
+  island hydration via two non-identical React Context objects — see `docs/history/BUILD-LOG.md` #4 for the full
   account of each.
 - SSR bundle size — fixed with a measured 98% reduction, correcting this document's own earlier
   wrong theory. Previously blamed on "no build step for `packages/core`" causing a duplicated React
@@ -115,7 +115,7 @@ Scaffolded and structurally real:
   separate improvement — kept available, not wired into the build pipeline, since it wasn't what
   fixed the bloat. Two real latent type errors were found and fixed getting `tsc` to run cleanly
   (this package had never actually been type-checked with real `@types/node`/`@types/react`
-  installed before). See `ROADMAP.md` #4 for the full investigation.
+  installed before). See `docs/history/BUILD-LOG.md` #4 for the full investigation.
 - Multi-package-manager support — verified with fresh installs under npm, Yarn (classic, via
   corepack), and pnpm, not just declared. Every `workspace:*` version string became a plain `"*"`,
   and root `package.json` gained a `"workspaces"` array for npm/Yarn. One real, pnpm-specific
@@ -171,7 +171,7 @@ Scaffolded and structurally real:
   4-line shim supplying only the React bindings that genuinely can't be shared. Pure refactor,
   re-verified against every prior end-to-end test with no behavior change.
 - **`ssg`/`csr`/`isr` render modes are real** (`"streaming"` explicitly deferred to v2 — see
-  `ROADMAP.md` for why). `ssg`/`isr` get a real build-time pre-render step (new
+  `docs/history/BUILD-LOG.md` for why). `ssg`/`isr` get a real build-time pre-render step (new
   `packages/cli/src/build/buildAppStatic.ts`, `packages/core/src/isrCache.ts`) writing to
   `dist/static/<route>/index.html`; `isr` regenerates synchronously once stale
   (`revalidate: { seconds }`, now actually attached to `RouteModule`). `csr` never runs `loader`
@@ -236,7 +236,7 @@ uncoordinated output directories with no project/site identity and no way to act
 anything. New `devora deploy --adapter=vercel|netlify [--app=<name>] [--prod]` rebuilds each app
 fresh, relies on each platform's own linking convention (`vercel link`/`netlify link` →
 `.vercel/project.json`/`.netlify/state.json`, deliberately not a devora-invented config field — see
-ROADMAP.md #13), and shells out to the real platform CLI via `npx` for every linked app, skipping
+docs/history/BUILD-LOG.md #13), and shells out to the real platform CLI via `npx` for every linked app, skipping
 unlinked ones with a clear instruction rather than failing. Verified for real: confirmed no `vercel`
 invocation happens at all when unlinked; confirmed a fake link file makes the command genuinely
 invoke the real Vercel CLI (downloaded and ran v59.11.7), which correctly failed with a real
@@ -281,7 +281,7 @@ cookie name and `DEVORA_SESSION_SECRET_ADMIN`).
 ships the round-3 fixes) is not yet verified on a live deployment.** Vercel has since discontinued
 `nodejs20.x`, which releases before 0.3.2 hardcoded, so a new Vercel deploy of those fails; the demo apps also never
 exercised a CommonJS dependency (`pg`-style `require("events")` crashed real functions) or the
-`api/` folder collision. Round 3 phase 1 (`devora-hotfix-round3.md`, `CHANGELOG.md`) fixes all
+`api/` folder collision. Round 3 phase 1 (`docs/history/devora-hotfix-round3.md`, `CHANGELOG.md`) fixes all
 three, verified by running the generated functions outside the monorepo — not re-deployed live.
 History of the original confirmation: the user did
 real, live deployments of all three apps to both platforms (not this environment; no platform
@@ -292,18 +292,18 @@ actual live deployment that failed, not just re-simulated locally:
    local testing simulated them" was false specifically for Vercel's Build Output API v3, which
    never traces a function you hand it pre-built. Fixed by having the adapters vendor the real
    resolved `react`/`react-dom` package trees (recursing into their own `dependencies`) directly
-   into the function — see `ROADMAP.md` #4.
+   into the function — see `docs/history/BUILD-LOG.md` #4.
 2. `jsxDEV is not a function` (Vercel, admin only) — `devora build` never set `NODE_ENV` itself and
    silently depended on the caller having done so; invisible in every local test here because it
    was always exported by hand first, but Vercel's custom `buildCommand` path doesn't reliably set
    it during the build step (only at runtime). Fixed by having `devora build` set
-   `NODE_ENV=production` unconditionally (`packages/cli/src/commands/build.ts`) — see `ROADMAP.md`
+   `NODE_ENV=production` unconditionally (`packages/cli/src/commands/build.ts`) — see `docs/history/BUILD-LOG.md`
    #4.
 3. `Could not resolve entry module "index.html"` (Netlify) — `netlify.toml` had only ever been
    written as build *output*, gitignored, never committed — too late for the very build meant to
    produce it, so Netlify's dashboard fell back to zero-config `vite build` detection. Fixed by
    making `netlify.toml` a static, pre-committed file per app (`apps/*/netlify.toml`, generated by
-   `devora new`/`add`), the same role `vercel.json` already played — see `ROADMAP.md` #4. (Netlify
+   `devora new`/`add`), the same role `vercel.json` already played — see `docs/history/BUILD-LOG.md` #4. (Netlify
    dashboards created via auto-detection may also need their own Build command/Publish directory
    settings cleared once, since those take precedence over `netlify.toml` when both are set —
    documented in `README.md`'s new "Deploying to Vercel or Netlify" section, not something a code
@@ -322,17 +322,17 @@ real `caddy validate`. A real, previously unnoticed bug fixed along the way: `ge
 `start.ts` used to compute each app's port completely independently (`4000` vs. `4173`) — now share
 one function (`packages/cli/src/build/portScheme.ts`). New `.github/workflows/ci.yml` builds every
 app under all three package managers, both adapter targets — the exact sequence that would have
-caught all three real deploy bugs above before a push. See `ROADMAP.md` #14 for the full account,
+caught all three real deploy bugs above before a push. See `docs/history/BUILD-LOG.md` #14 for the full account,
 including two more real bugs found building the Docker image specifically (a `.dockerignore`
 pattern that silently excluded the committed CLI bundle it needed, and a pnpm-version mismatch
 between this project's 9.9.0 and whatever corepack grabs as "latest" with no pin).
 
-**Not yet real** (see `README.md` "Current limitations" and `ROADMAP.md`'s Status section for the
+**Not yet real** (see `README.md` "Current limitations" and `docs/history/BUILD-LOG.md`'s Status section for the
 authoritative list):
 - Several `Set-Cookie` headers or streamed (SSE) responses from an
   API route, and a live Vercel/Netlify deployment of 0.3.2.
 - `"streaming"` is no longer on this list: it was deferred from v1 and shipped in v2 with a
-  Suspense-based `<Island>` (`architecture-v2.md` §4, `renderStreaming.ts`). GET-only; buffered
+  Suspense-based `<Island>` (`docs/design/architecture-v2.md` §4, `renderStreaming.ts`). GET-only; buffered
   rather than progressive on Netlify.
 
 `pnpm install` (the recommended manager, and the state the repo is currently left in) has been run;
@@ -344,7 +344,7 @@ CLI bin, `clientOnly()`, login/logout/CSRF, `ssg`/`csr`/`isr` render modes, and 
 orchestration have all been exercised against running servers/real external CLIs — not just built —
 and (temporarily, then reverted) so was a real DB client.
 
-**Pre-publish cleanup (before this repo went public on GitHub)** — see ROADMAP.md's "Pre-publish
+**Pre-publish cleanup (before this repo went public on GitHub)** — see docs/history/BUILD-LOG.md's "Pre-publish
 cleanup" section for the full account. Summary: secrets scan came back clean (no hardcoded
 keys/tokens, no `.env` file, nothing to leak); added `LICENSE` (MIT) and `.env.example`; fixed a
 real `.gitignore` gap (no `.env` exclusion existed); and renamed `@project/core`/`@project/backend`
@@ -354,7 +354,7 @@ implied), while `packages/backend` and every scaffolded app genuinely are user-o
 kept `@project/*`. Full regression (all CLI commands, all three apps, cross-package calls) re-run
 under both pnpm and a fresh npm install after the rename.
 
-**Pre-v3 hotfixes (released as 0.3.0, 2026-09-23)** — `devora-pre-v3-hotfixes.md` is the source
+**Pre-v3 hotfixes (released as 0.3.0, 2026-09-23)** — `docs/history/devora-pre-v3-hotfixes.md` is the source
 of truth. In short: `api/**` always returns JSON (`apiRoute()` really wraps now; unmatched
 `/api/**` is a JSON 404); unified session auth (opaque IDs in a bring-your-own `SessionStore`,
 cookie + Bearer through one lookup, `ctx.revokeSession()`, active/idle/dead, CSRF only for cookie
@@ -362,7 +362,7 @@ auth — `shared.sessions.store` in `devora.config.ts`, production refuses to st
 `devora dev --host`, LAN URLs + exposure warning, route table on boot, dev ports 10000+index.
 Covered by real-server integration tests in `packages/cli/src/server/__tests__/`.
 
-**Hotfix round 3 — released as 0.3.2 (published to npm; tag `v0.3.2`)** — `devora-hotfix-round3.md`
+**Hotfix round 3 — released as 0.3.2 (published to npm; tag `v0.3.2`)** — `docs/history/devora-hotfix-round3.md`
 was the source of truth;
 `CHANGELOG.md`'s 0.3.2 section has the list per package and the behavior changes.
 `@devorajs/adapter-node` is published from this release on (0.2.1; smoke test in
@@ -372,7 +372,7 @@ without `dist/` and were replaced by 0.2.1/0.2.3 — `CONTRIBUTING.md` "Releasin
 (new apps use `endpoints/`), `devora build --out`, preflight checks, `prebuild`. Phase 2: cookie
 `secure: true|"auto"|false` + `trustProxy`, SameSite/Domain/per-app lifetimes/`noindex`/`csrf:
 false` (validated per app into `session-manifest.json`), `devora start` PORT/HOST, `--adapter`
-validation, a Netlify multi-`Set-Cookie` fix. Phase 3 (`PAGES.md`): `ctx.url/headers/ip/request`,
+validation, a Netlify multi-`Set-Cookie` fix. Phase 3 (`docs/guides/PAGES.md`): `ctx.url/headers/ip/request`,
 `actionData`/`fail()`/303, page errors keep their status + `error.tsx`, head API, framework theme
 only with `PageShell`, route CSS linked, islands discovered by the SSR build (AST-checked), multipart
 uploads + `maxBodyBytes`, build imports only ssg/isr routes, fresh-scaffold typecheck in CI.
@@ -387,7 +387,7 @@ prints URLs first and then routes per app (API routes counted past 10; `--routes
 
 ## Suggested next task
 
-Every `ROADMAP.md` item now has real work behind it, and real Vercel/Netlify deployment — the one
+Every `docs/history/BUILD-LOG.md` item now has real work behind it, and real Vercel/Netlify deployment — the one
 item that used to need platform access this environment doesn't have — was confirmed live
 on both platforms with releases before 0.3.2; 0.3.2 itself is not yet verified on a live
 deployment. What's left of the locally-closeable work is the disk-cache/serverless mismatch for

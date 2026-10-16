@@ -7,7 +7,7 @@ import { checkNoAuthUsage, assertNoAuthUsage } from "../checkNoAuthUsage.js";
 /**
  * Real files on disk, not in-memory strings handed straight to the regex —
  * this is the actual build-time gate for `auth: "none"` apps (see
- * ROADMAP.md's auth-opt-in item), and it's specifically a filesystem scan
+ * docs/history/BUILD-LOG.md's auth-opt-in item), and it's specifically a filesystem scan
  * (`fs.readFileSync`), so a test that skipped the filesystem would miss
  * exactly the part worth verifying.
  */

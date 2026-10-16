@@ -2,15 +2,15 @@
 
 > **Reading this file:** the "Status" section below is current as of 0.3.2 (2026-10-12). The
 > numbered work items after it are a build log: each describes the state *when it landed*, so an
-> older item can say something is missing that a later item, `architecture-v2.md` or the
+> older item can say something is missing that a later item, `docs/design/architecture-v2.md` or the
 > `CHANGELOG.md` shows as done. Where they disagree, the Status section and the CHANGELOG win.
 
 This document tracks the gap between the current scaffold and a *real* v1, ordered by what
 unblocks what. It exists so "make this framework succeed" is a checklist, not a vibe. Source of
-truth for scope stays `architecture-v1.md`; this file is derived from it and should be updated as
+truth for scope stays `docs/design/architecture-v1.md`; this file is derived from it and should be updated as
 work lands, not treated as a spec of its own.
 
-## Definition of success (from architecture-v1.md §14)
+## Definition of success (from docs/design/architecture-v1.md §14)
 
 > v1 is "done" when: a solo/small team can build a real project with a marketing site + app + admin
 > panel sharing auth and a core, deploy each independently, get good SEO out of the box, and not
@@ -21,7 +21,7 @@ Unpacked, that requires five things to all be true at once:
 
 1. Routes actually render (SSR/SSG/CSR/streaming/ISR per `renderMode`) — SSR (#1), SSG/CSR/ISR
    (#12) done in v1; `"streaming"` was deferred from v1 and shipped in v2
-   (`architecture-v2.md` §4).
+   (`docs/design/architecture-v2.md` §4).
 2. Auth/session context is real, shared by default, isolable per app — done (#2, #10).
 3. Client-only libraries (three.js, fabric.js, etc.) never crash on the server — done (#9),
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
@@ -36,17 +36,17 @@ on a serverless filesystem specifically — see the Status section immediately b
 
 ## Status: done, in progress, planned
 
-**Done** — built and verified (see "Automated tests" vs. "manually verified" in `VERIFICATION.md`
+**Done** — built and verified (see "Automated tests" vs. "manually verified" in `docs/history/VERIFICATION.md`
 for exactly how):
-- SSR, SSG, CSR, ISR and streaming rendering (`renderMode`) — #1, #12, architecture-v2.md §4
+- SSR, SSG, CSR, ISR and streaming rendering (`renderMode`) — #1, #12, docs/design/architecture-v2.md §4
 - Sessions, CSRF, and per-app auth modes (`shared`/`isolated`/`none`) — #2, #10
 - Security headers (CSP/HSTS/X-Frame-Options) on by default — #5
 - Islands / partial hydration, in dev and production — #3
 - SEO primitives: OG tags, opt-in `sitemap.xml` — #7
 - Dynamic routes (`routes/users/[id].tsx`), with `getStaticParams()` for `ssg`/`isr` — #1,
-  architecture-v2.md §3.6 (no catch-all `[...slug]` routes)
+  docs/design/architecture-v2.md §3.6 (no catch-all `[...slug]` routes)
 - v2 backend: modules, generic API routes (`apiDir`), middleware, backend-only apps,
-  repo-splitting — architecture-v2.md
+  repo-splitting — docs/design/architecture-v2.md
 - 0.3.2: request access in loaders/actions, action results, error pages, the head API, uploads,
   cookie/proxy settings, CORS, `.env` loading, the published `@devorajs/adapter-node` — `CHANGELOG.md`
 - `clientOnly()` — #9
@@ -74,7 +74,7 @@ for exactly how):
 **Planned:**
 - Formal third-party security audit / signed release provenance — once the API surface stabilizes
 
-**Deliberately out of scope, not planned** (see architecture-v1.md §11 and "Explicitly not
+**Deliberately out of scope, not planned** (see docs/design/architecture-v1.md §11 and "Explicitly not
 roadmap items" below): built-in ORM/auth/file storage, a real-time sync engine, a custom
 RSC-style serialization protocol.
 
@@ -656,7 +656,7 @@ by inspecting the real bundled output, not assumed).
   package has never been published; the `prepare` script is the mechanism that would matter there.
 
 ### 9. `clientOnly()` verification — ✅ done
-Per architecture-v1.md §9, `clientOnly()`'s actual documented promise is "no server-side execution,
+Per docs/design/architecture-v1.md §9, `clientOnly()`'s actual documented promise is "no server-side execution,
 no `window is not defined` crash" — not "renders SSR content." The existing implementation
 (`packages/core/src/serverFn.ts`) already matched that exactly; what was missing was ever exercising
 it for real. **Decision: don't add a fallback/placeholder-rendering feature** — that would be scope
@@ -749,7 +749,7 @@ squashing, avoided doing the real work three times over.
 
 ### 12. Render modes: `ssg`, `csr`, `isr` real; `streaming` explicitly deferred to v2 — ✅ done
 
-> Later: `streaming` shipped in v2 — see `architecture-v2.md` §4. The deferral below describes v1.
+> Later: `streaming` shipped in v2 — see `docs/design/architecture-v2.md` §4. The deferral below describes v1.
 Before this, `RenderMode`'s full union (`"ssr"|"ssg"|"csr"|"streaming"|"isr"`) was fully typed
 end-to-end (`RouteModule.renderMode`, `AppRuntimeConfig.defaultRenderMode`) but only interpreted as
 a negative check (`!== "ssr"` → 404) — nothing partially built for any of the other four modes.
@@ -788,7 +788,7 @@ again across three repeated production requests (removed after confirming); dev'
 confirmed by watching the same route's timestamp change on every dev request; `about.tsx`'s
 inherited `ssg` confirmed.
 
-**`csr`**, scoped tightly (no new server/client data protocol — architecture-v1.md §5 already rules
+**`csr`**, scoped tightly (no new server/client data protocol — docs/design/architecture-v1.md §5 already rules
 that out for v1): a `csr` route never runs `loader` anywhere, server or client — data fetching is
 the component's own job (`useEffect`+`fetch`, or `clientOnly()`, #9). Server returns a minimal shell
 via new `packages/core/src/csrRoute.ts` (`meta()` still runs, for whatever SEO value remains
@@ -829,7 +829,7 @@ verified going forward.
 
 **`isr`** (built on `ssg`'s pre-render mechanics): `RouteModule` gains `revalidate?: RevalidateConfig`
 (the `{ seconds }` shape already existed in `config.ts`, just never attached to the route contract —
-a route now writes `export const revalidate = { seconds: 3600 };`, matching architecture-v1.md §5's
+a route now writes `export const revalidate = { seconds: 3600 };`, matching docs/design/architecture-v1.md §5's
 documented syntax exactly). New `packages/core/src/isrCache.ts`: a disk-backed cache (literal files
 under `dist/static/<route>/`, doubling as both `ssg`'s build output and `isr`'s initial cache entry
 — not a separate mechanism), `isStale()`, and an explicit `revalidatePath()` (deletes the cached
@@ -909,7 +909,7 @@ happened at all, a real failure in that narrower case) — but not merely for "s
 yet" when deploying broadly, since that's expected.
 
 **Verified for real, not assumed — the exact same discipline the original adapter work
-(`ROADMAP.md` #4) already established for what can and can't be checked without platform access:**
+(`docs/history/BUILD-LOG.md` #4) already established for what can and can't be checked without platform access:**
 - `devora deploy --adapter=vercel --app=dashboard` with no `.vercel/project.json` present → confirmed
   it builds, prints the link instruction, and exits 1 **without invoking `vercel` at all** (no
   network activity, no CLI download).
@@ -1037,7 +1037,7 @@ targets, all exercised for real, not just written and assumed:
   (new). See `README.md`'s "Running in Docker", "Self-hosting on a VPS", and "GitHub Actions CI"
   sections for the practical how-to.
 
-## Explicitly not roadmap items (see architecture-v1.md §11)
+## Explicitly not roadmap items (see docs/design/architecture-v1.md §11)
 
 Re-listing so scope creep during the above work gets caught early:
 - Real-time/live-query sync engine

@@ -7,7 +7,7 @@ package(s) a change actually shipped in rather than a single project-wide versio
 
 This file starts where this repo's git history starts (2026-09-07). Everything before that —
 the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI, all three
-adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
+adapters, Docker/VPS/CI support — landed as one large initial commit; see `docs/history/BUILD-LOG.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
 ## Unreleased
@@ -48,7 +48,7 @@ Nothing here needs a code change in a typical app; each line says what to check.
 
 ### `@devorajs/core` 0.3.4
 
-- Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `PAGES.md`).
+- Catch-all routes: `[...slug]` and `[[...slug]]`, for pages and API routes (see `docs/guides/PAGES.md`).
   `ctx.params.slug` is the segments joined with `/` (still a `string`); `ctx.catchAll.slug` /
   `req.catchAll.slug` is the `string[]`. `getStaticParams()` returns `{ slug: string[] }` entries.
 - `collectSitemapPaths()`; the sitemap includes `getStaticParams()` URLs of dynamic routes.
@@ -82,7 +82,7 @@ Nothing here needs a code change in a typical app; each line says what to check.
 
 ### Also in this release
 
-- `REALTIME.md` and `examples/realtime/`: a documented pattern for live updates (polling, or a
+- `docs/guides/REALTIME.md` and `examples/realtime/`: a documented pattern for live updates (polling, or a
   separate Socket.IO server with a 60-second HMAC token), including the `security.csp`
   `connect-src` setting.
 - `scripts/preparePublish.mjs` and `scripts/publish-package.mjs` refuse to publish a package whose
@@ -312,7 +312,7 @@ What each change means, and what an existing app has to do.
   to `@devorajs/core`/`@devorajs/cli` `^0.3.0` — it was still pinning `^0.1.0`, which is how new
   projects ended up on a core without `defineModule`/`apiRoute` (hotfix #1).
 
-See `devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly what changed.
+See `docs/history/devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly what changed.
 
 - **`@devorajs/core`, BREAKING — unified session auth.** Sessions are now opaque random IDs backed
   by a server-side `SessionStore` (bring your own; `"memory"` for dev/single-process), replacing
@@ -374,7 +374,7 @@ See `devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly wh
   a `package.json` (`{"type":"module"}`, fixing `SyntaxError: Cannot use import statement outside a
   module`), and the vendored `node_modules` (fixing `Cannot find package 'react'`) — both now listed
   in every app's committed `netlify.toml` and the scaffolder template.
-- **Docs**: `README.md`, `DEPLOYING.md`, `VERIFICATION.md`, and every package's own `README.md`
+- **Docs**: `README.md`, `docs/guides/DEPLOYING.md`, `docs/history/VERIFICATION.md`, and every package's own `README.md`
   updated for all of the above.
 
 ## 2026-09-09
@@ -407,7 +407,7 @@ See `devora-pre-v3-hotfixes.md` for the evidence behind each item and exactly wh
 
 - Initial commit: the framework itself — SSR/SSG/CSR/ISR render modes, islands, per-app
   session/CSRF handling, security headers by default, SEO primitives, the `devora` CLI, and
-  `@devorajs/adapter-node`/`adapter-vercel`/`adapter-netlify`. See `ROADMAP.md` for the detailed
+  `@devorajs/adapter-node`/`adapter-vercel`/`adapter-netlify`. See `docs/history/BUILD-LOG.md` for the detailed
   build history behind this commit.
 - Fixed a real Vercel deploy failure: `devora build` wasn't setting `NODE_ENV=production` itself,
   which silently depended on the caller having set it — invisible locally, but Vercel's custom

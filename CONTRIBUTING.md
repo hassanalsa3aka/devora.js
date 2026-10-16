@@ -2,7 +2,7 @@
 
 Devora.js is early (pre-1.0) and built by one person so far — feedback, bug reports, and small
 fixes are genuinely welcome. Bigger features are worth opening an issue to discuss first, since
-the framework's scope is deliberately kept tight (see architecture-v1.md §11 for what's
+the framework's scope is deliberately kept tight (see docs/design/architecture-v1.md §11 for what's
 explicitly out of scope). Questions and early ideas are also welcome on
 [Discord](https://discord.gg/wYFYmFxdS8).
 
@@ -16,7 +16,7 @@ pnpm exec devora dev --app=dashboard
 pnpm run test
 ```
 
-npm and Yarn also work — see `VERIFICATION.md` for what's actually tested under each. Node
+npm and Yarn also work — see `docs/history/VERIFICATION.md` for what's actually tested under each. Node
 `>=20` required.
 
 ### pnpm versions
@@ -60,13 +60,13 @@ where pnpm 11's warning points, and check that pnpm 9 still applies it.
 ## What's welcome right now
 
 - Bug reports against anything in `README.md`'s "Key features" list.
-- Tests — see `VERIFICATION.md` for exactly what's uncovered today.
+- Tests — see `docs/history/VERIFICATION.md` for exactly what's uncovered today.
 - Small, focused fixes with a clear before/after.
 
 ## What to discuss first (open an issue before a PR)
 
 - Anything touching `packages/core`'s public API shape.
-- New render modes, new adapters, or anything in architecture-v1.md §11's "not building yet"
+- New render modes, new adapters, or anything in docs/design/architecture-v1.md §11's "not building yet"
   list.
 
 ## Versioning

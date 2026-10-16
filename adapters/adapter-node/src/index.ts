@@ -4,7 +4,7 @@ import { createProdRequestHandler, type AuthMode, type AppRuntimeConfig, type Co
 /**
  * Self-hosted fallback (§13). Boots a real Node HTTP server against an
  * app's `dist/server` output (see packages/cli/src/build/buildAppServer.ts,
- * ROADMAP.md #4) — same request-handling behavior as `devora dev`
+ * docs/history/BUILD-LOG.md #4) — same request-handling behavior as `devora dev`
  * (routing, sessions, security headers, sitemap), just serving pre-built
  * files instead of going through Vite's dev transform. Pair with
  * `devora generate:proxy` for the nginx/caddy front door across

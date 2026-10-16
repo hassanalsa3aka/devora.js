@@ -105,7 +105,7 @@ describe("listRoutePaths + sitemap — dynamic routes are excluded, not listed l
   });
 });
 
-describe("resolveStaticRoutePath — architecture-v2.md §3.6 static-params API", () => {
+describe("resolveStaticRoutePath — docs/design/architecture-v2.md §3.6 static-params API", () => {
   it("substitutes a single dynamic segment", () => {
     touch("posts/[slug].tsx");
     const resolved = resolveStaticRoutePath(routesDir, path.join(routesDir, "posts/[slug].tsx"), {

@@ -226,7 +226,7 @@ export interface AppRuntimeConfig {
    * Serve /sitemap.xml for this app (§8). Opt-in, default false — a safer
    * default than opt-out: a newly scaffolded internal/admin app stays
    * unlisted with no extra config, and only a public-facing app (e.g.
-   * marketing) needs to turn this on. See ROADMAP.md #7.
+   * marketing) needs to turn this on. See docs/history/BUILD-LOG.md #7.
    */
   sitemap?: boolean;
   /**
@@ -247,7 +247,7 @@ export interface AppRuntimeConfig {
    * changes — URLs stay under `/api` (`endpoints/health.ts` → `/api/health`).
    * Use anything but `"api"` if this app deploys to Vercel with its Root
    * Directory set to the app: Vercel treats a top-level `api/` folder as its
-   * own functions (see DEPLOYING.md). See apiDir.ts.
+   * own functions (see docs/guides/DEPLOYING.md). See apiDir.ts.
    */
   apiDir?: string;
   /**

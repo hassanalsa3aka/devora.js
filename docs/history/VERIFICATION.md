@@ -1,7 +1,7 @@
 # Testing & verification
 
 What's covered by an automated test, what's been manually verified but has no regression
-protection, and what hasn't been exercised at all. `ROADMAP.md` is the detailed build log; this
+protection, and what hasn't been exercised at all. `docs/history/BUILD-LOG.md` is the detailed build log; this
 file is the short summary of where the safety net does and doesn't exist today.
 
 ## Automated tests (run in CI on every push/PR)
@@ -65,7 +65,7 @@ against real remotes, `devora generate:proxy` against a real nginx/Caddy, browse
 
 ## Manually verified, not automated
 
-Everything else described as working in `ROADMAP.md` was verified by hand during development —
+Everything else described as working in `docs/history/BUILD-LOG.md` was verified by hand during development —
 real `curl`/browser requests, real `docker run`, real deploys, real Playwright screenshots taken
 once and not committed — not by a test that runs again on the next change. In practice this
 means a regression here would only be caught by someone (or something) re-running these checks
@@ -107,7 +107,7 @@ by hand. Areas covered this way:
 - Live deployments to Vercel and Netlify by the maintainer with releases before 0.3.2 (all three
   apps, both platforms — see the live demo links in `README.md`), including the `netlify.toml`
   `included_files` fixes (`package.json`, `node_modules`), found against the live sites' function
-  logs (see `DEPLOYING.md`'s Netlify section). For 0.3.2 the generated functions were run outside
+  logs (see `docs/guides/DEPLOYING.md`'s Netlify section). For 0.3.2 the generated functions were run outside
   the monorepo; a live 0.3.2 deployment is not yet verified.
 - Docker (`docker build`/`run`/`compose up`), including the full login/CSRF/cookie regression
   re-run inside a running container
@@ -116,7 +116,7 @@ by hand. Areas covered this way:
   under npm, Yarn, and pnpm
 - **`devora deploy`'s authenticated deploy**, on both Vercel and Netlify, with a release before
   0.3.2 — a real account, real `vercel link`/`netlify link`, a deploy that rendered correctly in a
-  browser. Two bugs were found and fixed getting a clean run — see `DEPLOYING.md`'s
+  browser. Two bugs were found and fixed getting a clean run — see `docs/guides/DEPLOYING.md`'s
   `devora deploy` section. Not yet repeated with 0.3.2.
 
 ## Not verified at all

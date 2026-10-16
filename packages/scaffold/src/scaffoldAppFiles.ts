@@ -72,7 +72,7 @@ export interface ScaffoldAppOptions {
   /**
    * `"pages"` (default) — a normal app: `routes/`, SSR entry, island/csr
    * client bootstraps, React. `"api"` — a backend-only app
-   * (`backendOnly: true` in its app.config.ts, architecture-v2.md §3.4): an
+   * (`backendOnly: true` in its app.config.ts, docs/design/architecture-v2.md §3.4): an
    * `api/` directory and nothing that renders a page, so no React, no
    * entry-server.tsx, no client bootstraps. Same shape as this repo's own
    * apps/api-only. create-devora's "backend only" scope uses this.
@@ -98,7 +98,7 @@ export const SCAFFOLD_API_DIR = "endpoints";
 
 const API_DIR_CONFIG_LINES =
   `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) — not api/, which\n` +
-  `  // Vercel would turn into separate functions. See DEPLOYING.md.\n` +
+  `  // Vercel would turn into separate functions. See docs/guides/DEPLOYING.md.\n` +
   `  apiDir: "${SCAFFOLD_API_DIR}",\n`;
 
 /**
@@ -353,7 +353,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
       // it into the deployed function without this. `included_files` is
       // Netlify's documented escape hatch for exactly this "the tracer
       // can't see it" case (the same class of problem Vercel's own tracer
-      // had with react/react-dom, ROADMAP.md #4, just missing here for a
+      // had with react/react-dom, docs/history/BUILD-LOG.md #4, just missing here for a
       // different reason).
       //
       // `.../ssr/package.json` in the list too — a second, later real bug:

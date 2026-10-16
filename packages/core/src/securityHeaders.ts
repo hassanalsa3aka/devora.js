@@ -13,7 +13,7 @@ import type { AppRuntimeConfig } from "./config.js";
 // style-src additionally allows 'unsafe-inline' as a deliberate, documented
 // tradeoff: React's style={{...}} prop compiles to an inline `style`
 // attribute, which a strict default-src would otherwise silently break for
-// every app — see ROADMAP.md #5.
+// every app — see docs/history/BUILD-LOG.md #5.
 const DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
 // Typed as the literal union, not derived from the (optional, so
 // possibly-undefined) config property — real tsc build caught that the

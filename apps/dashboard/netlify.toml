@@ -10,7 +10,7 @@
 # route, including "/" — Netlify's function packager only zips up what it
 # can trace from ssr.mjs's static imports; routes/ and dist/server/ are
 # read at runtime via fs.readdirSync/dynamic import(), invisible to that
-# tracer. See ROADMAP.md #4/#13's "real live deploy" account.
+# tracer. See docs/history/BUILD-LOG.md #4/#13's "real live deploy" account.
 #
 # `.../ssr/package.json` added for the identical reason, found the same
 # way (a real live deploy, this time on apps/admin — still throwing

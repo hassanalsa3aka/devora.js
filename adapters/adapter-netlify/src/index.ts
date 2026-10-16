@@ -8,7 +8,7 @@ import { bundleForDeploy } from "./bundleForDeploy.js";
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
 export { CJS_REQUIRE_BANNER } from "./bundleForDeploy.js";
 
-/** Public docs page for deploying — the npm package doesn't ship ROADMAP.md. */
+/** Public docs page for deploying — the npm package doesn't ship docs/history/BUILD-LOG.md. */
 export const NETLIFY_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
 
 export interface NetlifyOutputOptions {

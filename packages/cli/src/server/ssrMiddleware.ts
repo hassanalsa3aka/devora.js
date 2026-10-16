@@ -51,12 +51,12 @@ const DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
  * once at build time — only a real `devora build && devora start` exercises
  * their actual "rendered once, cached" semantics (see prodRequestHandler.ts).
  * `"csr"` serves a minimal shell + this app's generic csr-client.tsx
- * bootstrap; `"streaming"` isn't implemented (see ROADMAP.md).
+ * bootstrap; `"streaming"` isn't implemented (see docs/history/BUILD-LOG.md).
  *
  * Also resolves this app's session cookie (ROADMAP.md #2) once per server
  * instance — shared apps get one project-wide cookie, an isolated app gets
  * its own, per §3 — and, if this app opted in (`sitemap: true` in
- * app.config.ts, default false — see ROADMAP.md #7), serves /sitemap.xml,
+ * app.config.ts, default false — see docs/history/BUILD-LOG.md #7), serves /sitemap.xml,
  * generated from the route tree on every request rather than cached (no
  * build step exists yet to generate it once at build time).
  */
@@ -119,7 +119,7 @@ export function createSsrMiddleware(
     const url = new URL(req.url, "http://localhost");
 
     if (url.pathname === "/sitemap.xml") {
-      if (!sitemapEnabled) return next(); // opt-in — see ROADMAP.md #7.
+      if (!sitemapEnabled) return next(); // opt-in — see docs/history/BUILD-LOG.md #7.
       const xml = generateSitemapXml(
         await collectSitemapPaths(routesDir, async (file) => (await vite.ssrLoadModule(file)) as RouteModule),
         domain
@@ -296,7 +296,7 @@ export function createSsrMiddleware(
         params: match.params,
         sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
-        // production resolves a real hashed URL instead, see ROADMAP.md #4.
+        // production resolves a real hashed URL instead, see docs/history/BUILD-LOG.md #4.
         islandClientUrl: "/island-client.tsx",
         appDefaultRenderMode,
         devPreambleUrl: DEV_PREAMBLE_URL,

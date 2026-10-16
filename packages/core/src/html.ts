@@ -199,7 +199,7 @@ function renderTail(opts: { islandScriptUrl?: string; csrScriptUrl?: string; dev
 export function renderHtmlDocument(opts: {
   bodyHtml: string;
   meta?: DocumentMeta;
-  /** Set only when the page rendered at least one island — see ROADMAP.md #3. */
+  /** Set only when the page rendered at least one island — see docs/history/BUILD-LOG.md #3. */
   islandScriptUrl?: string;
   /** Set only for a renderMode: "csr" page — the generic csr-client bootstrap
    * that mounts the route's component client-side (see csrRoute.ts). Mutually

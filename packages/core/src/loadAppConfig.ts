@@ -5,7 +5,7 @@ import type { AppRuntimeConfig } from "./config.js";
 
 /**
  * Loads apps/<name>/app.config.ts, same jiti (no eval) approach as
- * loadProjectConfig.ts. Nothing read this file before ROADMAP.md #5 — it's
+ * loadProjectConfig.ts. Nothing read this file before docs/history/BUILD-LOG.md #5 — it's
  * where `security` (CSP/HSTS/frameOptions overrides) lives.
  */
 export async function loadAppConfig(appRoot: string): Promise<AppRuntimeConfig> {

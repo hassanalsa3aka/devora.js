@@ -102,7 +102,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     configFile: path.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
-    // plugins array (see ROADMAP.md #3).
+    // plugins array (see docs/history/BUILD-LOG.md #3).
     // apiMiddlewarePlugin must run before Vite's own internal middlewares
     // (see apiMiddleware.ts's doc comment on why) — passed as a plugin,
     // not a post-hoc server.middlewares.use() call, for exactly that

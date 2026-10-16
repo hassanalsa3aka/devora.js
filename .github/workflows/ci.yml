@@ -6,7 +6,7 @@ name: CI
 # (react/react-dom left out of the Vercel function, devora build silently
 # depending on the caller's NODE_ENV, netlify.toml only ever existing as
 # build output) before any of them ever reached a live deployment. See
-# ROADMAP.md #4 for the full account of each.
+# docs/history/BUILD-LOG.md #4 for the full account of each.
 #
 # Also runs the real Vitest suite (packages/**/*.test.ts) — regression
 # protection that persists, replacing the "verify by hand via curl, then

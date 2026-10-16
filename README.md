@@ -42,7 +42,7 @@ Honest version, so you can decide whether it fits:
   yet.
 - **No third-party security audit yet.** Security is a default in the design (CSP, HSTS, CSRF,
   revocable sessions), not a certification. See [SECURITY.md](SECURITY.md).
-- **What was and wasn't verified** is written down in [VERIFICATION.md](VERIFICATION.md): real
+- **What was and wasn't verified** is written down in [VERIFICATION.md](docs/history/VERIFICATION.md): real
   servers and real requests in CI, platform deploys checked by hand.
 
 If you try it, I'd genuinely like to hear what breaks or what's missing:
@@ -74,7 +74,7 @@ you ever need one.
 
 The three example apps from this repo, deployed by the maintainer. Which Devora.js version each
 deployment runs isn't stated here; 0.3.2 has not yet been verified on a live Vercel or Netlify
-deployment (see `DEPLOYING.md`).
+deployment (see `docs/guides/DEPLOYING.md`).
 
 - Vercel: [marketing](https://devora-js-marketing.vercel.app) ·
   [dashboard](https://devora-js-dashboard.vercel.app) ·
@@ -118,7 +118,7 @@ Or start a brand-new standalone project, outside this repo:
 npm create devora@latest
 ```
 
-npm and Yarn work too, not just pnpm — see `VERIFICATION.md` for what's actually been tested
+npm and Yarn work too, not just pnpm — see `docs/history/VERIFICATION.md` for what's actually been tested
 under each.
 
 **Requirements:** Node 20 or newer, React 18.3 or 19, Vite 5.4 or 6 (new projects start on
@@ -153,14 +153,14 @@ realtime server.
   loaders and actions; actions return data (`fail(400, …)`) or a 303 `redirect()`; thrown errors
   keep their status and render the app's `error.tsx`; multipart uploads (bodies capped by
   `maxBodyBytes`, 10 MB by default); a `<head>` API; route CSS linked automatically. See
-  `PAGES.md`.
+  `docs/guides/PAGES.md`.
 - **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
   `ctx.params.id`. `routes/docs/[...slug].tsx` matches `/docs/a`, `/docs/a/b/c` and so on, with
   `ctx.params.slug === "a/b/c"` and `ctx.catchAll.slug` the array (`[[...slug]]` also matches `/docs`). A static route always wins
   over `[param]`, which wins over a catch-all. Works for page routes and API routes. See
-  `PAGES.md`.
+  `docs/guides/PAGES.md`.
 - **Backend modules & generic API routes (v2)** — `defineModule()` organizes shared backend logic
   with no DI container, ever; `apiRoute()` handlers live in each app's `apiDir` folder, matched by
   the same file-based router as page routes — a payment-provider webhook finally has somewhere to live
@@ -173,7 +173,7 @@ realtime server.
   ownership, without giving up the shared-core/shared-backend development model day to day.
 - **Deploy targets** — Vercel, Netlify, Docker, or a plain VPS with a generated nginx/Caddy
   config (`devora start`, or `@devorajs/adapter-node` from your own entry point). See
-  `DEPLOYING.md`.
+  `docs/guides/DEPLOYING.md`.
 - **A CLI that says what it does** — `devora dev` prints every app's URLs, then its routes;
   `--host` exposes dev on your LAN (with a warning), `--routes` lists every API route, `--quiet`
   keeps only warnings, errors and URLs. `devora start` reads `PORT`/`HOST`; `devora build
@@ -236,7 +236,7 @@ that boot real dev and production servers and send real HTTP requests (sessions,
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
 packed packages, smoke-tests the packed `@devorajs/adapter-node`, and builds every app for all
 three targets. Docker, the proxy generator against a real nginx/Caddy, and live platform deploys
-were checked by hand, not by a test. Full breakdown in `VERIFICATION.md`. If something's broken,
+were checked by hand, not by a test. Full breakdown in `docs/history/VERIFICATION.md`. If something's broken,
 please open an issue.
 
 ## Packages
@@ -255,14 +255,14 @@ please open an issue.
 
 ## Docs
 
-- 📖 [Architecture & design spec — v1](architecture-v1.md) — the original vision doc
-- 📖 [Architecture & design spec — v2](architecture-v2.md) — backend modules, API routes,
+- 📖 [Architecture & design spec — v1](docs/design/architecture-v1.md) — the original vision doc
+- 📖 [Architecture & design spec — v2](docs/design/architecture-v2.md) — backend modules, API routes,
   middleware, repo-splitting, streaming
 - 🗺️ [Roadmap](ROADMAP.md) — what's done, in progress, and planned, with the detailed build log
-- 🚀 [Deploying](DEPLOYING.md) — Vercel, Netlify, Docker, container platforms, self-hosted VPS, CI
-- 📄 [Pages, forms and errors](PAGES.md) — request access, action results, uploads, the head API
+- 🚀 [Deploying](docs/guides/DEPLOYING.md) — Vercel, Netlify, Docker, container platforms, self-hosted VPS, CI
+- 📄 [Pages, forms and errors](docs/guides/PAGES.md) — request access, action results, uploads, the head API
 - 🔐 [Auth and sessions](packages/backend/AUTH.md) — session stores, cookies behind proxies, CSRF
-- ✅ [Testing & verification](VERIFICATION.md)
+- ✅ [Testing & verification](docs/history/VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)
 - 📊 [Benchmarks](benchmarks/) — the same pages in Devora.js, Next.js, Astro, SvelteKit and React Router; [latest results](benchmarks/results/report.md)
 - 📚 [Full docs site](https://devorajs-docs-docs.vercel.app) — built with the published packages,
@@ -273,7 +273,7 @@ please open an issue.
   [Compare](https://devorajs-docs-docs.vercel.app/compare),
   [Performance](https://devorajs-docs-docs.vercel.app/performance) and the
   [Blog](https://devorajs-docs-docs.vercel.app/blog)
-- 🔴 [Live updates (WebSockets)](REALTIME.md) — the supported pattern, with a runnable example
+- 🔴 [Live updates (WebSockets)](docs/guides/REALTIME.md) — the supported pattern, with a runnable example
 - 🧪 [Try it in 15 minutes](TESTING.md) — for outside testers
 - 🤝 [Contributing](CONTRIBUTING.md) · 🛡️ [Security policy](SECURITY.md)
 - 💬 [Discord](https://discord.gg/wYFYmFxdS8)

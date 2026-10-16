@@ -4,7 +4,7 @@ import { defineApp } from "@devorajs/core/config";
 export default defineApp({
   backendOnly: true,
   // API routes live in endpoints/ (served under /api) — not api/, which
-  // Vercel would turn into separate functions. See DEPLOYING.md.
+  // Vercel would turn into separate functions. See docs/guides/DEPLOYING.md.
   apiDir: "endpoints",
   // Clients log in with POST /api/session and send Authorization: Bearer.
   // They keep no cookies, so never issue the CSRF cookie.

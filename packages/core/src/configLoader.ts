@@ -14,7 +14,7 @@
  * from the theory. This is the actual "give core a real build step" fix; a
  * separate `pnpm --filter @devorajs/core build` (real `tsc`, see that
  * package's `package.json`) exists too, for a different, smaller reason —
- * see ROADMAP.md #4.
+ * see docs/history/BUILD-LOG.md #4.
  */
 export * from "./loadProjectConfig.js";
 export * from "./loadAppConfig.js";

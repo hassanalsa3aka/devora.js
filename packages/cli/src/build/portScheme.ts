@@ -2,7 +2,7 @@ import type { AppConfig } from "@devorajs/core";
 
 /**
  * Shared port-assignment scheme for `devora start` (running every app
- * together — the real, multi-process self-hosting shape architecture-v1.md
+ * together — the real, multi-process self-hosting shape docs/design/architecture-v1.md
  * §13 assumes) and `devora generate:proxy`. A real, previously unnoticed bug
  * had these compute two *different* base ports completely independently —
  * `generate-proxy.ts` started at `4000`, `start.ts` at `4173` — so following

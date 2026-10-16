@@ -5603,7 +5603,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         params: match.params,
         sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : void 0,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
-        // production resolves a real hashed URL instead, see ROADMAP.md #4.
+        // production resolves a real hashed URL instead, see docs/history/BUILD-LOG.md #4.
         islandClientUrl: "/island-client.tsx",
         appDefaultRenderMode,
         devPreambleUrl: DEV_PREAMBLE_URL,
@@ -5982,7 +5982,7 @@ import path12 from "node:path";
 import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
 var SCAFFOLD_API_DIR = "endpoints";
 var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served under /api) \u2014 not api/, which
-  // Vercel would turn into separate functions. See DEPLOYING.md.
+  // Vercel would turn into separate functions. See docs/guides/DEPLOYING.md.
   apiDir: "${SCAFFOLD_API_DIR}",
 `;
 async function scaffoldAppFiles(appDir, appName, opts) {
@@ -6739,7 +6739,7 @@ async function createAppDevServer(opts) {
     configFile: path15.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
-    // plugins array (see ROADMAP.md #3).
+    // plugins array (see docs/history/BUILD-LOG.md #3).
     // apiMiddlewarePlugin must run before Vite's own internal middlewares
     // (see apiMiddleware.ts's doc comment on why) — passed as a plugin,
     // not a post-hoc server.middlewares.use() call, for exactly that

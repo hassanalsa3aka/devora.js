@@ -55,7 +55,7 @@ import { viteLogLevel } from "../terminal/output.js";
  * separate bundled React copy. Not proof it's safe for every hook in every
  * case, just what was actually verified. The real fix is giving
  * `packages/core` an actual build step (compiled `.js` output) so it can be
- * externalized like any other dependency — not done here, see ROADMAP.md #4.
+ * externalized like any other dependency — not done here, see docs/history/BUILD-LOG.md #4.
  */
 export async function buildAppServer(
   appRoot: string,

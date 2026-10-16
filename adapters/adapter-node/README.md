@@ -41,4 +41,4 @@ createNodeServer({
 
 Production sessions need `shared.sessions.store` in `devora.config.ts` and
 `DEVORA_SESSION_SECRET`; see the
-[Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/DEPLOYING.md) guide.
+[Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/docs/guides/DEPLOYING.md) guide.

@@ -6,7 +6,7 @@
  * them, so this exercises the real production dispatch, session, and error
  * paths without a multi-second Vite build per test run. (A full
  * `devora build && devora start` run was also done by hand — see
- * devora-pre-v3-hotfixes.md.)
+ * docs/history/devora-pre-v3-hotfixes.md.)
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
