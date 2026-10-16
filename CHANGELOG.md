@@ -17,6 +17,8 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - A missing session store or (in production) a missing `DEVORA_SESSION_SECRET` now stops
   `devora start` with one clear line and exit status 1, instead of a stack trace. It still refuses
   to start. The error is a new exported `DevoraConfigError`.
+- The header's brand link now has the accessible name "devora.js home" (it was "Home", which did not
+  contain the visible text and failed the WCAG label-in-name check).
 
 ## 0.3.4 — 2026-10-16
 

@@ -257,7 +257,7 @@ export function renderShellMarkup(mainHtml: string, options: { mainClass?: strin
   return (
     `<div class="devora-shell">` +
     `<header class="devora-header"><div class="devora-header-inner">` +
-    `<a href="/" class="devora-brand" aria-label="Home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}` +
+    `<a href="/" class="devora-brand" aria-label="devora.js home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}` +
     `</div></header>` +
     `<main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main>` +
     `<footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row">` +

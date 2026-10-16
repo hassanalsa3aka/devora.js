@@ -31,7 +31,7 @@ export function AppHeader({ appName, nav }: { appName?: string; nav?: NavLink[] 
   return (
     <header className="devora-header">
       <div className="devora-header-inner">
-        <a href="/" className="devora-brand" aria-label="Home">
+        <a href="/" className="devora-brand" aria-label="devora.js home">
           {/* Intrinsic size on the element, so the header never shifts while the image loads. */}
           <img src={DEVORA_LOGO_URL} alt="" width={28} height={28} />
           <span>
