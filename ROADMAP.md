@@ -50,6 +50,8 @@ Nothing here is planned, scheduled or numbered.
 
 The aim is to close the gaps and publish measured results, including where Devora.js is behind. Numbers come from the benchmark harness in [benchmarks/](benchmarks/README.md) and are never edited by hand.
 
+State after the first pass (the changes are in CHANGELOG "Unreleased", not released): Devora.js leads the pre-rendered page, the server-rendered page and the form POST in the five-framework harness, and is 4th to 6th of 10 on the JSON API scenarios, behind Fastify, Hono and NestJS on Fastify (findings S1 to S4). The numbers are in [benchmarks/results/before-after.md](benchmarks/results/before-after.md).
+
 ## Not planned
 
 - A built-in ORM, auth provider or file storage (bring your own).
@@ -206,7 +208,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 
 ## Findings
 
-75 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O) and [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X). Fixed 50, Partly fixed 4, Open 17, Unconfirmed 3, N/A 1.
+79 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O) and [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X). Fixed 51, Partly fixed 4, Open 20, Unconfirmed 3, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
@@ -285,3 +287,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 | N5 | A DB client under sustained production load | Open | - | A real Drizzle + better-sqlite3 client was verified in dev and reverted; no load test. | VERIFICATION not verified |
 | X1 | A dynamic route without getStaticParams() cannot use ssg/isr | Open | - | By design: the build fails with a clear error (docs/history/VERIFICATION.md Known unsupported). | VERIFICATION known unsupported |
 | X2 | isr disk cache unverified under real serverless conditions | Open | - | Same as N3. | VERIFICATION known unsupported |
+| S1 | Every request re-did work that never changes (path joins, build keys, a URL object and a Headers object, a session-key HMAC, two manifest reads from disk) | Fixed | Unreleased | Five commits on perf/backend-speed (CHANGELOG Unreleased). Interleaved A/B on one machine: +15% JSON list, +32% authenticated GET, +21% POST, +41% pre-rendered page, +23% server-rendered page; form POST 32,000 to 80,000 req/s in the full run (benchmarks/results/before-after.md, ab-published-vs-final.txt) | benchmarks |
+| S2 | Devora.js API routes are still behind Fastify, Hono and NestJS on Fastify: JSON list 4th of 10 (22% below the leader), authenticated GET 6th (41% below), POST 5th (35% below) | Open | - | benchmarks/results/backend-report.md. Part of the gap is not in the framework (the same JSON.stringify runs in every app, about half of the list scenario); the rest is per-request work the bare frameworks do not do (security headers, a request context with session and CSRF methods, a real session lookup). | benchmarks |
+| S3 | The built-in memory session store clones each record on every read (structuredClone, about 8% of an authenticated request) | Open | - | CPU profile of the authenticated scenario. Not changed: the clone keeps a handler from mutating the stored record; a cheaper copy needs a decision on that behavior. | benchmarks |
+| S4 | Memory after load is higher than the bare backend frameworks (352 MB against 178 to 264 MB for Express, Fastify, Hono and NestJS) | Open | - | benchmarks/results/backend-report.md. A faster server also keeps more heap, so this is not proof of a leak; no leak test was run. | benchmarks |

@@ -1,0 +1,57 @@
+
+== Devora.js
+build cold 422 ms, warm 412 ms
+start 173 ms, idle 158 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4902 B (identity), browser 4902 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 101542 req/s, p50 0 ms, p99 0 ms
+items: 11973 req/s, p50 3 ms, p99 8 ms
+form: 80015 req/s, p50 0 ms, p99 1 ms
+items JS 46657 B gzip, hydration 20 ms
+
+== Next.js
+build cold 2022 ms, warm 1227 ms
+start 239 ms, idle 175 MB
+wire static: load tool 5559 B (identity), browser 1812 B (gzip)
+wire items: load tool 17105 B (identity), browser 3566 B (gzip)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 14432 req/s, p50 3 ms, p99 6 ms
+items: 1919 req/s, p50 25 ms, p99 34 ms
+form: 8831 req/s, p50 5 ms, p99 10 ms
+items JS 135218 B gzip, hydration 35 ms
+
+== Astro
+build cold 546 ms, warm 507 ms
+start 169 ms, idle 161 MB
+wire static: load tool 398 B (identity), browser 398 B (identity)
+wire items: load tool 8391 B (identity), browser 8391 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 38500 req/s, p50 1 ms, p99 1 ms
+items: 9775 req/s, p50 5 ms, p99 9 ms
+form: 19609 req/s, p50 2 ms, p99 5 ms
+items JS 69060 B gzip, hydration 23 ms
+
+== SvelteKit
+build cold 972 ms, warm 980 ms
+start 142 ms, idle 141 MB
+wire static: load tool 1868 B (identity), browser 630 B (br)
+wire items: load tool 7824 B (identity), browser 7824 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 36417 req/s, p50 1 ms, p99 3 ms
+items: 7323 req/s, p50 6 ms, p99 11 ms
+form: 38788 req/s, p50 1 ms, p99 3 ms
+items JS 34209 B gzip, hydration 22 ms
+
+== React Router
+build cold 414 ms, warm 407 ms
+start 171 ms, idle 149 MB
+wire static: load tool 4601 B (identity), browser 1754 B (br)
+wire items: load tool 15153 B (identity), browser 3463 B (br)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 36633 req/s, p50 1 ms, p99 2 ms
+items: 4022 req/s, p50 12 ms, p99 18 ms
+form: 23752 req/s, p50 1 ms, p99 3 ms
+items JS 111241 B gzip, hydration 35 ms
+
+wrote results/raw-2026-10-16-after.json

@@ -48,14 +48,65 @@ Exact versions are pinned in each app's `package-lock.json`.
 Client and server run on the same machine, so absolute numbers depend on it; compare frameworks
 within one run, not across machines.
 
-## Reading the static-page number
+## Reading the page numbers
 
-Across three full runs on one machine, Devora.js measured about 71,000–82,000 requests/s on the
-`/static` page, against about 36,000–38,000 for Astro, SvelteKit and React Router and about
-14,000 for Next.js. The page is tiny (568 B for Devora.js; sizes for every framework are in
-`results/report.md`), the load generator runs on the same machine, and no framework compressed
-during the timed runs (the load tool sends no `Accept-Encoding`). SvelteKit leads the form POST
-scenario. Use the numbers to compare frameworks within one run, not as a claim about your app.
+Three full runs of the published 0.3.4 packages on one machine measured about 71,000-82,000
+requests/s on the `/static` page. After the performance work in this branch (see `CHANGELOG.md`
+"Unreleased" and `results/before-after.md`) one full run measured about 101,500, against about
+36,400-38,500 for Astro, SvelteKit and React Router and about 14,400 for Next.js. The page is tiny
+(568 B for Devora.js; sizes for every framework are in `results/report.md`), the load generator
+runs on the same machine, and no framework compressed during the timed runs (the load tool sends no
+`Accept-Encoding`). In that run Devora.js also led the server-rendered page and the form POST.
+Use the numbers to compare frameworks within one run, not as a claim about your app.
+
+## Backend scenarios (D to G)
+
+`run-backend.mjs` measures the same API in ten apps: Devora.js (a backend-only app), Express 5,
+Fastify 5, Hono, NestJS on its Express and on its Fastify platform, and the API routes of Next.js,
+SvelteKit, React Router and Astro. The contract (identical payloads, status codes and validation in
+every app, checked before any timing) is in [backend/CONTRACT.md](backend/CONTRACT.md).
+
+| Scenario | What it is |
+|---|---|
+| D | `GET /api/items`: a JSON list of 100 items |
+| E | `GET /api/me` with a Bearer token from `POST /api/session`: a session lookup, then JSON |
+| F | `POST /api/items` with a JSON body: valid (201) and invalid (422), validated by the same function in every app |
+| G | `GET /api/slow`: one awaited 2 ms timer (a stand-in for a database round trip), then JSON |
+
+Fairness notes specific to these scenarios:
+
+- Defaults everywhere: no logging, no tuning, `NODE_ENV=production`. No app strips headers, sessions or
+  CSRF handling to be faster. Devora.js sends CSP, HSTS and X-Frame-Options on every response (the
+  report lists header bytes per response) and runs its real session layer for E; the bare backend
+  frameworks do neither. A `Map` lookup in an Express app does less work than Devora.js's session lookup.
+- G is limited by the timer: every framework lands within about 15% of 15,000 requests/s, and the order
+  between runs changes. Do not read a winner into it.
+- Memory after load is the resident memory of the process tree after the last scenario; V8 keeps more
+  heap when a server is faster, so compare it with care.
+
+```bash
+node run-backend.mjs [--only=devora-api,express] [--quick] [--tag=name]
+node report-backend.mjs results/backend-raw-<date>.json     # results/backend-report.md
+node compare.mjs <backend-before> <backend-after> <pages-before> <pages-after>   # results/before-after.md
+```
+
+The two Devora.js apps (`apps/devora`, `apps/devora-api`) install the published 0.3.4 packages;
+`scripts/use-local-build.sh` copies a build of this working tree over them, which is how the "after"
+numbers were produced (commit `9c191f7`). `npm ci` inside an app restores the published packages.
+
+## Results kept in the repository
+
+| File | What |
+|---|---|
+| `results/*-baseline.json`, `*-baseline.md` | Before the optimizations: published 0.3.4, all scenarios, all frameworks |
+| `results/*-after.json` | After: this working tree, same harness |
+| `results/before-after.md` | Devora.js before and after, with ranks (generated) |
+| `results/backend-report.md`, `report.md`, `latest.json`, `backend-latest.json` | Reports of the newest run (the "after" run) |
+| `results/ab-published-vs-final.txt` | Interleaved A/B of the published build against the final one, same machine state |
+
+The baseline backend run was noisy for Devora.js (scenario D ranged 26,001-37,802 requests/s across its five
+runs). Because of that, the interleaved A/B is the more reliable before/after for Devora.js alone: +15% on D,
++32% on E, +21% on F1, +41% on the static page and +23% on the server-rendered page.
 
 ## Run it
 
