@@ -344,12 +344,14 @@ try {
       stopServer(child);
     }
     results.frameworks[fw.key] = r;
+    mkdirSync(path.join(HERE, "results"), { recursive: true });
+    writeFileSync(path.join(HERE, "results", `raw-${results.date.slice(0, 10)}${QUICK ? "-quick" : ""}${args.tag ? "-" + args.tag : ""}.json`), JSON.stringify(results, null, 2) + "\n");
   }
 } finally {
   await browser.close();
 }
 
 mkdirSync(path.join(HERE, "results"), { recursive: true });
-const file = path.join(HERE, "results", `raw-${results.date.slice(0, 10)}${QUICK ? "-quick" : ""}.json`);
+const file = path.join(HERE, "results", `raw-${results.date.slice(0, 10)}${QUICK ? "-quick" : ""}${args.tag ? "-" + args.tag : ""}.json`);
 writeFileSync(file, JSON.stringify(results, null, 2) + "\n");
 console.log(`\nwrote ${path.relative(HERE, file)}`);

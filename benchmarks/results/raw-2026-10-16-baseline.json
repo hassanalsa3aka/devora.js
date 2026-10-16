@@ -1,0 +1,1443 @@
+{
+  "date": "2026-10-16T05:17:55.852Z",
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "memoryGb": 16,
+    "os": "Darwin 27.0.0 (darwin arm64)",
+    "node": "v24.19.0"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "browserRuns": 5,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora": {
+      "name": "Devora.js",
+      "version": "0.3.4",
+      "coreVersion": "0.3.4",
+      "build": {
+        "coldMs": {
+          "median": 417.38404200000014,
+          "min": 412.41316700000016,
+          "max": 497.095958,
+          "runs": [
+            497.095958,
+            417.38404200000014,
+            412.41316700000016
+          ]
+        },
+        "warmMs": {
+          "median": 419.81558300000006,
+          "min": 417.4290420000002,
+          "max": 422.0082500000003,
+          "runs": [
+            419.81558300000006,
+            417.4290420000002,
+            422.0082500000003
+          ]
+        }
+      },
+      "startMs": {
+        "median": 197.23704200000066,
+        "min": 174.37141599999995,
+        "max": 199.68970799999988,
+        "runs": [
+          174.37141599999995,
+          199.68970799999988,
+          197.23704200000066,
+          198.08141700000124,
+          196.20991700000013
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 157.390625,
+        "min": 157.140625,
+        "max": 157.515625,
+        "runs": [
+          157.390625,
+          157.515625,
+          157.140625,
+          157.328125,
+          157.421875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 71479.28,
+            "min": 68049.46,
+            "max": 73376,
+            "runs": [
+              73376,
+              72986.19,
+              68049.46,
+              70939.64,
+              71479.28
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 9475.28,
+            "min": 9158.91,
+            "max": 9484,
+            "runs": [
+              9475.28,
+              9478.19,
+              9484,
+              9455.64,
+              9158.91
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 7,
+            "max": 9,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              9
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 31987.64,
+            "min": 28630.55,
+            "max": 32093.82,
+            "runs": [
+              31987.64,
+              32093.82,
+              32019.64,
+              31810.19,
+              28630.55
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 4,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            351831,
+            353039,
+            352224,
+            349939,
+            314924
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4902,
+            "bodyBytes": 4902
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4902,
+            "bodyBytes": 4902
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 286.078125,
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 143414,
+          "jsGzip": 46657,
+          "jsBrotli": 40911,
+          "hydrationMs": {
+            "median": 32,
+            "min": 26.899999998509884,
+            "max": 56.399999998509884,
+            "runs": [
+              56.399999998509884,
+              26.899999998509884,
+              37.100000001490116,
+              32,
+              27.600000001490116
+            ]
+          }
+        }
+      }
+    },
+    "next": {
+      "name": "Next.js",
+      "version": "16.4.1",
+      "build": {
+        "coldMs": {
+          "median": 2378.7830419999955,
+          "min": 2320.9769999999844,
+          "max": 2448.4015409999993,
+          "runs": [
+            2378.7830419999955,
+            2448.4015409999993,
+            2320.9769999999844
+          ]
+        },
+        "warmMs": {
+          "median": 1388.3573329999927,
+          "min": 1275.3846670000057,
+          "max": 1510.9297500000102,
+          "runs": [
+            1510.9297500000102,
+            1388.3573329999927,
+            1275.3846670000057
+          ]
+        }
+      },
+      "startMs": {
+        "median": 244.22550000000047,
+        "min": 236.8782089999877,
+        "max": 279.6869580000057,
+        "runs": [
+          279.6869580000057,
+          247.6887090000091,
+          236.8782089999877,
+          240.21812500001397,
+          244.22550000000047
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 174.15625,
+        "min": 173.921875,
+        "max": 174.921875,
+        "runs": [
+          174.5625,
+          174.15625,
+          173.921875,
+          174.921875,
+          174.046875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 200,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 14231.64,
+            "min": 13638.91,
+            "max": 14412,
+            "runs": [
+              14098.55,
+              14231.64,
+              14281.82,
+              13638.91,
+              14412
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 6,
+            "max": 7,
+            "runs": [
+              6,
+              6,
+              6,
+              7,
+              6
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 1925,
+            "min": 1800,
+            "max": 1943.8,
+            "runs": [
+              1925,
+              1941.2,
+              1943.8,
+              1924.9,
+              1800
+            ]
+          },
+          "p50": {
+            "median": 25,
+            "min": 25,
+            "max": 25,
+            "runs": [
+              25,
+              25,
+              25,
+              25,
+              25
+            ]
+          },
+          "p99": {
+            "median": 34,
+            "min": 33,
+            "max": 55,
+            "runs": [
+              33,
+              34,
+              34,
+              34,
+              55
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 8425.64,
+            "min": 7167.1,
+            "max": 8456.37,
+            "runs": [
+              7167.1,
+              8456.37,
+              8298.73,
+              8444.73,
+              8425.64
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              6,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "p99": {
+            "median": 11,
+            "min": 11,
+            "max": 14,
+            "runs": [
+              14,
+              11,
+              11,
+              11,
+              11
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            78838,
+            93006,
+            91279,
+            92868,
+            92671
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 5559,
+            "bodyBytes": 5559
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 1813
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 17105
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 3564
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 423.5625,
+      "browser": {
+        "/static": {
+          "jsBytes": 456139,
+          "jsGzip": 134953,
+          "jsBrotli": 115952
+        },
+        "/items": {
+          "jsBytes": 456466,
+          "jsGzip": 135218,
+          "jsBrotli": 116161,
+          "hydrationMs": {
+            "median": 39.70000000298023,
+            "min": 36.29999999701977,
+            "max": 69.30000000447035,
+            "runs": [
+              36.29999999701977,
+              69.30000000447035,
+              41.5,
+              36.399999998509884,
+              39.70000000298023
+            ]
+          }
+        }
+      }
+    },
+    "astro": {
+      "name": "Astro",
+      "version": "7.3.8",
+      "build": {
+        "coldMs": {
+          "median": 557.5193749999744,
+          "min": 556.6061669999617,
+          "max": 943.803459000017,
+          "runs": [
+            943.803459000017,
+            556.6061669999617,
+            557.5193749999744
+          ]
+        },
+        "warmMs": {
+          "median": 518.755999999994,
+          "min": 515.6899170000106,
+          "max": 519.7590840000194,
+          "runs": [
+            515.6899170000106,
+            519.7590840000194,
+            518.755999999994
+          ]
+        }
+      },
+      "startMs": {
+        "median": 190.8087500000256,
+        "min": 164.82662500004517,
+        "max": 194.57291599997552,
+        "runs": [
+          194.57291599997552,
+          165.18379199999617,
+          190.8087500000256,
+          164.82662500004517,
+          193.297750000027
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 160.765625,
+        "min": 160.71875,
+        "max": 160.953125,
+        "runs": [
+          160.71875,
+          160.953125,
+          160.765625,
+          160.8125,
+          160.75
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 38139.64,
+            "min": 38043.64,
+            "max": 38599.28,
+            "runs": [
+              38599.28,
+              38354.91,
+              38043.64,
+              38084.37,
+              38139.64
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 9332.73,
+            "min": 9265.82,
+            "max": 9381.46,
+            "runs": [
+              9265.82,
+              9332.73,
+              9351.64,
+              9381.46,
+              9331.28
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "p99": {
+            "median": 10,
+            "min": 9,
+            "max": 10,
+            "runs": [
+              10,
+              10,
+              9,
+              10,
+              10
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 19062.55,
+            "min": 19005.82,
+            "max": 19090.19,
+            "runs": [
+              19090.19,
+              19005.82,
+              19062.55,
+              19066.91,
+              19011.64
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            209990,
+            209047,
+            209697,
+            209712,
+            209116
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8391
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8391
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 394.9375,
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 221290,
+          "jsGzip": 69060,
+          "jsBrotli": 59828,
+          "hydrationMs": {
+            "median": 22.30000000447035,
+            "min": 21.600000001490116,
+            "max": 26.600000001490116,
+            "runs": [
+              26.600000001490116,
+              22.30000000447035,
+              21.600000001490116,
+              21.69999999552965,
+              23.099999994039536
+            ]
+          }
+        }
+      }
+    },
+    "sveltekit": {
+      "name": "SvelteKit",
+      "version": "3.0.1",
+      "build": {
+        "coldMs": {
+          "median": 964.3792499999981,
+          "min": 962.417291999911,
+          "max": 1185.3462500000605,
+          "runs": [
+            1185.3462500000605,
+            964.3792499999981,
+            962.417291999911
+          ]
+        },
+        "warmMs": {
+          "median": 980.9387080000015,
+          "min": 977.4300000000512,
+          "max": 993.2751660000067,
+          "runs": [
+            977.4300000000512,
+            993.2751660000067,
+            980.9387080000015
+          ]
+        }
+      },
+      "startMs": {
+        "median": 139.00674999994226,
+        "min": 138.56825000001118,
+        "max": 139.51587499992456,
+        "runs": [
+          138.56825000001118,
+          139.51587499992456,
+          139.00674999994226,
+          138.84645799989812,
+          139.08270799997263
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 141.21875,
+        "min": 141.0625,
+        "max": 141.25,
+        "runs": [
+          141.0625,
+          141.21875,
+          141.078125,
+          141.21875,
+          141.25
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 35408,
+            "min": 35361.46,
+            "max": 35928.73,
+            "runs": [
+              35928.73,
+              35602.91,
+              35361.46,
+              35408,
+              35370.19
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 6992.8,
+            "min": 6852.19,
+            "max": 7127.1,
+            "runs": [
+              7111.82,
+              7127.1,
+              6954.37,
+              6852.19,
+              6992.8
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 12,
+            "min": 11,
+            "max": 12,
+            "runs": [
+              11,
+              11,
+              12,
+              12,
+              12
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 37720.73,
+            "min": 37255.28,
+            "max": 37930.19,
+            "runs": [
+              37930.19,
+              37255.28,
+              37720.73,
+              37827.2,
+              37554.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 4,
+            "runs": [
+              3,
+              4,
+              3,
+              3,
+              3
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            417202,
+            409818,
+            414901,
+            378289,
+            413060
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1870,
+            "bodyBytes": 1870
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": 628,
+            "bodyBytes": 628
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7826,
+            "bodyBytes": 7826
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7826,
+            "bodyBytes": 7826
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 287.71875,
+      "browser": {
+        "/static": {
+          "jsBytes": 87944,
+          "jsGzip": 34159,
+          "jsBrotli": 30829
+        },
+        "/items": {
+          "jsBytes": 88058,
+          "jsGzip": 34209,
+          "jsBrotli": 30907,
+          "hydrationMs": {
+            "median": 23.899999998509884,
+            "min": 23.5,
+            "max": 24.299999997019768,
+            "runs": [
+              24.299999997019768,
+              24,
+              23.700000002980232,
+              23.899999998509884,
+              23.5
+            ]
+          }
+        }
+      }
+    },
+    "react-router": {
+      "name": "React Router",
+      "version": "8.4.0",
+      "build": {
+        "coldMs": {
+          "median": 403.6952919999603,
+          "min": 403.2133329999633,
+          "max": 563.0337499999441,
+          "runs": [
+            563.0337499999441,
+            403.2133329999633,
+            403.6952919999603
+          ]
+        },
+        "warmMs": {
+          "median": 403.57916600001045,
+          "min": 402.75137499999255,
+          "max": 415.0300419999985,
+          "runs": [
+            415.0300419999985,
+            403.57916600001045,
+            402.75137499999255
+          ]
+        }
+      },
+      "startMs": {
+        "median": 168.1409579999745,
+        "min": 166.65379200002644,
+        "max": 194.68391699995846,
+        "runs": [
+          194.68391699995846,
+          168.1409579999745,
+          168.82641700003296,
+          167.87937500001863,
+          166.65379200002644
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 148.703125,
+        "min": 148.625,
+        "max": 149.484375,
+        "runs": [
+          148.671875,
+          148.703125,
+          149.140625,
+          149.484375,
+          148.625
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static/",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 35256,
+            "min": 33656.73,
+            "max": 36402.91,
+            "runs": [
+              36402.91,
+              33656.73,
+              35256,
+              35135.28,
+              35698.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 3,
+            "runs": [
+              2,
+              3,
+              2,
+              2,
+              2
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 3981.55,
+            "min": 3775.37,
+            "max": 4023,
+            "runs": [
+              3981.55,
+              4023,
+              3979.37,
+              3995.19,
+              3775.37
+            ]
+          },
+          "p50": {
+            "median": 12,
+            "min": 12,
+            "max": 12,
+            "runs": [
+              12,
+              12,
+              12,
+              12,
+              12
+            ]
+          },
+          "p99": {
+            "median": 18,
+            "min": 18,
+            "max": 26,
+            "runs": [
+              18,
+              18,
+              18,
+              18,
+              26
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 23823.28,
+            "min": 23321.46,
+            "max": 23933.82,
+            "runs": [
+              23321.46,
+              23823.28,
+              23555.64,
+              23933.82,
+              23872.73
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 2,
+            "runs": [
+              2,
+              1,
+              2,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 4,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4,
+              4,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            256516,
+            262017,
+            259129,
+            263268,
+            262590
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4601,
+            "bodyBytes": 4601
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 1754
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 15153
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 3463
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 494.421875,
+      "browser": {
+        "/static": {
+          "jsBytes": 346383,
+          "jsGzip": 111192,
+          "jsBrotli": 97340
+        },
+        "/items": {
+          "jsBytes": 346438,
+          "jsGzip": 111241,
+          "jsBrotli": 97405,
+          "hydrationMs": {
+            "median": 34.600000001490116,
+            "min": 33.600000001490116,
+            "max": 83.29999999701977,
+            "runs": [
+              83.29999999701977,
+              43.69999999552965,
+              34.600000001490116,
+              33.600000001490116,
+              33.79999999701977
+            ]
+          }
+        }
+      }
+    }
+  }
+}

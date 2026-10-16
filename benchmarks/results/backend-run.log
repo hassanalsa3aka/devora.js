@@ -1,0 +1,102 @@
+
+== Devora.js
+build cold 222 ms, warm 219 ms
+start 198 ms, idle 161 MB
+items: 30524 req/s, p50 1 ms, p99 3 ms, 3966 B body + 340 B headers (identity)
+me: 43169 req/s, p50 1 ms, p99 2 ms, 16 B body + 338 B headers (identity)
+postValid: 43981 req/s, p50 1 ms, p99 2 ms, 38 B body + 338 B headers (identity)
+postInvalid: 43036 req/s, p50 1 ms, p99 2 ms, 48 B body + 338 B headers (identity)
+slow: 17752 req/s, p50 2 ms, p99 4 ms, 43 B body + 338 B headers (identity)
+memory after load 276 MB
+
+== Express 5
+build cold 101 ms, warm 99 ms
+start 139 ms, idle 138 MB
+items: 36167 req/s, p50 1 ms, p99 2 ms, 3966 B body + 219 B headers (identity)
+me: 58721 req/s, p50 0 ms, p99 1 ms, 16 B body + 216 B headers (identity)
+postValid: 66454 req/s, p50 0 ms, p99 1 ms, 38 B body + 216 B headers (identity)
+postInvalid: 73981 req/s, p50 0 ms, p99 1 ms, 48 B body + 216 B headers (identity)
+slow: 15500 req/s, p50 3 ms, p99 5 ms, 43 B body + 216 B headers (identity)
+memory after load 218 MB
+
+== Fastify 5
+build cold 101 ms, warm 101 ms
+start 166 ms, idle 143 MB
+items: 63539 req/s, p50 0 ms, p99 1 ms, 3966 B body + 154 B headers (identity)
+me: 128532 req/s, p50 0 ms, p99 0 ms, 16 B body + 152 B headers (identity)
+postValid: 110467 req/s, p50 0 ms, p99 0 ms, 38 B body + 152 B headers (identity)
+postInvalid: 111677 req/s, p50 0 ms, p99 0 ms, 48 B body + 152 B headers (identity)
+slow: 15118 req/s, p50 3 ms, p99 4 ms, 43 B body + 152 B headers (identity)
+memory after load 178 MB
+
+== Hono
+build cold 103 ms, warm 106 ms
+start 139 ms, idle 136 MB
+items: 63741 req/s, p50 0 ms, p99 1 ms, 3966 B body + 138 B headers (identity)
+me: 126892 req/s, p50 0 ms, p99 0 ms, 16 B body + 136 B headers (identity)
+postValid: 106575 req/s, p50 0 ms, p99 0 ms, 38 B body + 136 B headers (identity)
+postInvalid: 107558 req/s, p50 0 ms, p99 0 ms, 48 B body + 136 B headers (identity)
+slow: 15159 req/s, p50 3 ms, p99 5 ms, 43 B body + 136 B headers (identity)
+memory after load 201 MB
+
+== NestJS (Express platform)
+build cold 368 ms, warm 366 ms
+start 220 ms, idle 171 MB
+items: 44906 req/s, p50 1 ms, p99 2 ms, 3966 B body + 219 B headers (identity)
+me: 75191 req/s, p50 0 ms, p99 1 ms, 16 B body + 216 B headers (identity)
+postValid: 65466 req/s, p50 0 ms, p99 1 ms, 38 B body + 216 B headers (identity)
+postInvalid: 54073 req/s, p50 0 ms, p99 1 ms, 48 B body + 216 B headers (identity)
+slow: 15291 req/s, p50 3 ms, p99 5 ms, 43 B body + 216 B headers (identity)
+memory after load 249 MB
+
+== NestJS (Fastify platform)
+build cold 513 ms, warm 517 ms
+start 245 ms, idle 166 MB
+items: 60115 req/s, p50 0 ms, p99 1 ms, 3966 B body + 154 B headers (identity)
+me: 112096 req/s, p50 0 ms, p99 0 ms, 16 B body + 152 B headers (identity)
+postValid: 96125 req/s, p50 0 ms, p99 1 ms, 38 B body + 152 B headers (identity)
+postInvalid: 76628 req/s, p50 0 ms, p99 1 ms, 48 B body + 152 B headers (identity)
+slow: 14069 req/s, p50 3 ms, p99 5 ms, 43 B body + 152 B headers (identity)
+memory after load 239 MB
+
+== Next.js
+build cold 1956 ms, warm 1233 ms
+start 241 ms, idle 175 MB
+items: 11397 req/s, p50 3 ms, p99 9 ms, 3966 B body + 231 B headers (identity)
+me: 13256 req/s, p50 3 ms, p99 7 ms, 16 B body + 231 B headers (identity)
+postValid: 11941 req/s, p50 3 ms, p99 7 ms, 38 B body + 231 B headers (identity)
+postInvalid: 11944 req/s, p50 3 ms, p99 7 ms, 48 B body + 231 B headers (identity)
+slow: 12941 req/s, p50 3 ms, p99 7 ms, 43 B body + 231 B headers (identity)
+memory after load 410 MB
+
+== SvelteKit
+build cold 972 ms, warm 1000 ms
+start 141 ms, idle 142 MB
+items: 33203 req/s, p50 1 ms, p99 2 ms, 3966 B body + 138 B headers (identity)
+me: 53014 req/s, p50 0 ms, p99 1 ms, 16 B body + 136 B headers (identity)
+postValid: 41846 req/s, p50 1 ms, p99 2 ms, 38 B body + 136 B headers (identity)
+postInvalid: 42038 req/s, p50 1 ms, p99 2 ms, 48 B body + 136 B headers (identity)
+slow: 14683 req/s, p50 3 ms, p99 5 ms, 43 B body + 136 B headers (identity)
+memory after load 614 MB
+
+== React Router
+build cold 407 ms, warm 406 ms
+start 178 ms, idle 153 MB
+items: 17663 req/s, p50 2 ms, p99 4 ms, 3966 B body + 182 B headers (identity)
+me: 20495 req/s, p50 2 ms, p99 4 ms, 16 B body + 182 B headers (identity)
+postValid: 23368 req/s, p50 1 ms, p99 4 ms, 38 B body + 182 B headers (identity)
+postInvalid: 23393 req/s, p50 1 ms, p99 5 ms, 48 B body + 182 B headers (identity)
+slow: 13277 req/s, p50 3 ms, p99 6 ms, 43 B body + 182 B headers (identity)
+memory after load 345 MB
+
+== Astro
+build cold 588 ms, warm 546 ms
+start 169 ms, idle 161 MB
+items: 19523 req/s, p50 2 ms, p99 5 ms, 3966 B body + 144 B headers (identity)
+me: 22652 req/s, p50 2 ms, p99 4 ms, 16 B body + 144 B headers (identity)
+postValid: 19788 req/s, p50 2 ms, p99 5 ms, 38 B body + 144 B headers (identity)
+postInvalid: 19765 req/s, p50 2 ms, p99 5 ms, 48 B body + 144 B headers (identity)
+slow: 14354 req/s, p50 3 ms, p99 5 ms, 43 B body + 144 B headers (identity)
+memory after load 347 MB
+
+wrote results/backend-raw-2026-10-16.json
