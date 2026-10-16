@@ -97,6 +97,9 @@ versions must point at `dist/`. Publish one package at a time:
    drops it, then restores `package.json`.
 5. Install the published version into a fresh `npm create devora@latest` project and run `dev`,
    `build` and `start` before announcing it.
+6. Then, in `devorajs-docs`: raise `@devorajs/core` and `@devorajs/cli` to the new version, reinstall, set
+   `apps/docs/data/release.json`, re-run the benchmark harness on the published packages and sync
+   `latest.json` (`scripts/sync-benchmarks.mjs`), and rebuild the site.
 
 ## Documenting changes
 
@@ -109,7 +112,9 @@ Every change that a user could notice comes with its documentation, in the same 
       anything public.
 - [ ] A test that fails without the change. A claim that could not be tested says so in
       `docs/history/VERIFICATION.md`.
-- [ ] `node scripts/checkMarkdownLinks.mjs` reports no broken links.
+- [ ] `pnpm run check:docs` passes: no broken relative links (`scripts/checkMarkdownLinks.mjs`) and no old version
+      named as current or wording about an unfinished release outside the CHANGELOG and `docs/history/`
+      (`scripts/checkVersions.mjs`; add `version-ok` to a line that deliberately names an old version).
 
 ### Tracking changes
 
