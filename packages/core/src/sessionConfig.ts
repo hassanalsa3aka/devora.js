@@ -7,6 +7,7 @@
  * including production refusing to guess — lives here once.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { DevoraConfigError } from "./configError.js";
 import path from "node:path";
 import type { AppSessionsConfig, AuthMode, CookieSameSite, SessionCookieConfig, SessionsConfig } from "./config.js";
 import { resolveSessionScope, type ResolvedCookieAttributes, type SessionCookieOptions } from "./session.js";
@@ -244,11 +245,11 @@ let warnedUnconfigured = false;
 export function assertSessionStoreConfigured(manifest: SessionManifest): void {
   if (manifest.store !== null) return;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `[devora] no session store configured. Set shared.sessions.store in devora.config.ts — ` +
-        `a path to a module whose default export is a SessionStore backed by your database ` +
-        `(see packages/backend/AUTH.md), or "memory" to explicitly accept in-process sessions ` +
-        `(single long-lived server only — not serverless).`
+    throw new DevoraConfigError(
+      `[devora] no session store configured: add sessions: { store: "memory" } under shared in ` +
+        `devora.config.ts (one long-running server only; for serverless or several instances use a ` +
+        `path to a module that default-exports a SessionStore backed by your database), and set ` +
+        `DEVORA_SESSION_SECRET (openssl rand -base64 32). See packages/backend/AUTH.md`
     );
   }
   if (!warnedUnconfigured) {

@@ -40,15 +40,16 @@ npm run build
 Expected: `built 3 apps`, no errors.
 
 `npm start` serves the production build, and it **refuses to start until you say where login
-sessions are stored**. Right after a scaffold this prints an error that begins
-`no session store configured`. That is by design, not a crash of your project. Open
-`devora.config.ts` and add one line inside `shared`:
+sessions are stored**. Right after a scaffold it prints one line and exits with status 1:
+`[devora] no session store configured: add sessions: { store: "memory" } under shared in
+devora.config.ts ...`. That is by design, not a crash of your project. Open `devora.config.ts` and
+add one line inside `shared`:
 
 ```ts
 sessions: { store: "memory" },   // one long-running server only; use a database-backed store to deploy
 ```
 
-Then set a secret and start:
+Rebuild (`npm run build`, the store choice is baked into the build), then set a secret and start:
 
 ```bash
 export DEVORA_SESSION_SECRET="$(openssl rand -base64 32)"

@@ -31,6 +31,7 @@
  * requests, and makes it revocable.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { DevoraConfigError } from "./configError.js";
 import type { AuthMode } from "./config.js";
 import { requestContextFields, type RequestContext, type RequestMeta, type SessionData, type SessionTransport } from "./serverFn.js";
 import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
@@ -86,9 +87,9 @@ function resolveSecret(envKey: string): string {
     envKey === "DEVORA_SESSION_SECRET" ? envKey : `${envKey} (or DEVORA_SESSION_SECRET)`;
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `[devora] no session secret configured. Set ${label} before running in production ` +
-        `(e.g. \`openssl rand -base64 32\`) — see ${SESSION_SECRET_DOCS}`
+    throw new DevoraConfigError(
+      `[devora] no session secret configured: set ${label} before running in production ` +
+        `(e.g. \`openssl rand -base64 32\`). See ${SESSION_SECRET_DOCS}`
     );
   }
   if (warnedForKey !== envKey) {

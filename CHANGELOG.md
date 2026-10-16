@@ -10,6 +10,14 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `ROADMAP.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## Unreleased
+
+### `@devorajs/core` and `@devorajs/cli`
+
+- A missing session store or (in production) a missing `DEVORA_SESSION_SECRET` now stops
+  `devora start` with one clear line and exit status 1, instead of a stack trace. It still refuses
+  to start. The error is a new exported `DevoraConfigError`.
+
 ## 0.3.4 — 2026-10-16
 
 0.3.3 was prepared but never published; 0.3.4 is its first release.

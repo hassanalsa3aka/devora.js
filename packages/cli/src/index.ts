@@ -12,6 +12,7 @@ import { split } from "./commands/split.js";
 import { sync } from "./commands/sync.js";
 import { status } from "./commands/status.js";
 import { CLI_VERSION, setQuiet } from "./terminal/output.js";
+import { reportFatal } from "./fatal.js";
 
 const program = new Command();
 
@@ -135,4 +136,7 @@ program
 // rather than special-cased per package manager.
 const argv = process.argv.filter((arg) => arg !== "--");
 
-program.parseAsync(argv);
+program.parseAsync(argv).catch((err) => {
+  if (reportFatal(err)) return;
+  throw err;
+});

@@ -11,6 +11,7 @@ export * from "./sessionStore.js";
 export * from "./sessionConfig.js";
 export * from "./securityHeaders.js";
 export * from "./sitemap.js";
+export * from "./configError.js";
 export * from "./staticFiles.js";
 export * from "./island.js";
 // Not "./Island.js" — that collides with island.ts above on a

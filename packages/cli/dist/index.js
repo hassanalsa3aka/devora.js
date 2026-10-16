@@ -3835,6 +3835,11 @@ function renderShellMarkup(mainHtml, options = {}) {
 // ../core/src/session.ts
 import { createHmac, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 
+// ../core/src/configError.ts
+var DevoraConfigError = class extends Error {
+  name = "DevoraConfigError";
+};
+
 // ../core/src/csrf.ts
 var import_react = __toESM(require_react(), 1);
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -3973,8 +3978,8 @@ function resolveSecret(envKey) {
   if (configured) return configured;
   const label = envKey === "DEVORA_SESSION_SECRET" ? envKey : `${envKey} (or DEVORA_SESSION_SECRET)`;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `[devora] no session secret configured. Set ${label} before running in production (e.g. \`openssl rand -base64 32\`) \u2014 see ${SESSION_SECRET_DOCS}`
+    throw new DevoraConfigError(
+      `[devora] no session secret configured: set ${label} before running in production (e.g. \`openssl rand -base64 32\`). See ${SESSION_SECRET_DOCS}`
     );
   }
   if (warnedForKey !== envKey) {
@@ -4345,8 +4350,8 @@ var warnedUnconfigured = false;
 function assertSessionStoreConfigured(manifest) {
   if (manifest.store !== null) return;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `[devora] no session store configured. Set shared.sessions.store in devora.config.ts \u2014 a path to a module whose default export is a SessionStore backed by your database (see packages/backend/AUTH.md), or "memory" to explicitly accept in-process sessions (single long-lived server only \u2014 not serverless).`
+    throw new DevoraConfigError(
+      `[devora] no session store configured: add sessions: { store: "memory" } under shared in devora.config.ts (one long-running server only; for serverless or several instances use a path to a module that default-exports a SessionStore backed by your database), and set DEVORA_SESSION_SECRET (openssl rand -base64 32). See packages/backend/AUTH.md`
     );
   }
   if (!warnedUnconfigured) {
@@ -8732,6 +8737,16 @@ async function status() {
   }
 }
 
+// src/fatal.ts
+function reportFatal(err) {
+  if (err instanceof Error && err.name === "DevoraConfigError") {
+    console.error(err.message);
+    process.exitCode = 1;
+    return true;
+  }
+  return false;
+}
+
 // src/index.ts
 var program = new Command();
 program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version(CLI_VERSION);
@@ -8760,7 +8775,10 @@ program.command("sync [names...]").description("Pull/push a split-off app or bac
 program.command("status").description("Sync state (up to date / unpushed / unpulled / diverged) across every split-off app/backend").action(async () => status());
 program.command("generate:proxy").description("Generate a reverse-proxy config from devora.config.ts domains").requiredOption("--target <target>", "nginx or caddy").option("--out <path>", "output file path").action(async (opts) => generateProxy(opts));
 var argv = process.argv.filter((arg) => arg !== "--");
-program.parseAsync(argv);
+program.parseAsync(argv).catch((err) => {
+  if (reportFatal(err)) return;
+  throw err;
+});
 /*! Bundled license information:
 
 react/cjs/react.production.min.js:

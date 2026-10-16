@@ -198,6 +198,17 @@ describe("production handler — refuses to guess a session store", () => {
       expect(() =>
         createProdRequestHandler(bare.appRoot, "fixture", "shared", "fixture.example.com", undefined, false)
       ).toThrow(/no session store configured/);
+      // A typed configuration error whose message says what to add.
+      let caught: unknown;
+      try {
+        createProdRequestHandler(bare.appRoot, "fixture", "shared", "fixture.example.com", undefined, false);
+      } catch (err) {
+        caught = err;
+      }
+      expect((caught as Error).name).toBe("DevoraConfigError");
+      expect((caught as Error).message).toContain('sessions: { store: "memory" }');
+      expect((caught as Error).message).toContain("DEVORA_SESSION_SECRET");
+      expect((caught as Error).message).not.toContain("\n");
     } finally {
       bare.cleanup();
     }
