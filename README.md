@@ -12,10 +12,15 @@
 📚 [Docs](https://devorajs-docs-docs.vercel.app) · 💬 [Discord](https://discord.gg/wYFYmFxdS8) ·
 🧪 [Try it in 15 minutes](TESTING.md) · 📦 [npm](https://www.npmjs.com/package/@devorajs/core)
 
-Devora.js is a Vite-based React framework built around one idea: **a project is more than one
-app.** A marketing site, a product app and an admin panel live in one repo, share a core and a
+Devora.js is a React framework for projects with more than one app: one shared backend, one login, each app deployed on its own.
+
+The idea: **a project is more than one app.** A marketing site, a product app and an admin panel live in one repo, share a core and a
 backend, and build and deploy independently. Each app gets its own render mode, its own auth mode
 and its own deploy target, without duplicating the plumbing between them.
+
+**How it works.** Devora.js currently uses Vite for the dev server (one per app, which also loads and reloads
+your server modules) and for the client build. Routing, the render modes, sessions, the shared backend and the
+production server (`devora start`, which runs without a Vite dev server) are Devora.js's own code.
 
 ```ts
 // devora.config.ts — three apps, one backend, one login

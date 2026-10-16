@@ -32,6 +32,8 @@ Kept as **Unconfirmed**, not ranked: Y1 (native addons on serverless), Y6 (trans
 
 Also open: move the `esbuild` override out of `package.json`'s `"pnpm"` field (pnpm 11 ignores it).
 
+Also open: `create-devora/README.md` (published on npm) still says Vite-based; change at the next create-devora release.
+
 ## Later
 
 - A third-party security audit and signed release provenance, once the API surface settles.

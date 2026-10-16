@@ -5,8 +5,8 @@ deployment adapters, explicit v1 boundaries). This file is the fast-start summar
 
 ## What this is
 
-**Devora.js** — a Vite-based, security-first web framework whose headline feature is **native
-multi-app support**: one project can declare multiple apps (marketing site, product app, admin
+**Devora.js** — a security-first React framework (it currently uses Vite for the dev server and the
+client build) whose headline feature is **native multi-app support**: one project can declare multiple apps (marketing site, product app, admin
 panel) that share a core and a backend, but build/deploy independently. Not another Next.js — the
 explicit design reaction to Next.js's implicit caching and undocumented build format (see doc §2,
 §5, §13).

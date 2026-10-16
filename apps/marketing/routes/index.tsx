@@ -7,7 +7,7 @@ export function meta() {
   return {
     title: "My Framework — security-first, multi-app by default",
     description:
-      "A Vite-based framework with native multi-app support: marketing site, product app, and admin panel sharing one core.",
+      "A React framework for projects with more than one app: one shared backend, one login, each app deployed on its own.",
   };
 }
 
