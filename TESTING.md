@@ -83,16 +83,17 @@ Expose it in `packages/backend/package.json` by adding `"./greeting": "./greetin
 `apps/reports/routes/hello.tsx`, changing the name string in each:
 
 ```tsx
+import type { RequestContext } from "@devorajs/core";
 import { PageShell } from "@devorajs/core";
 import { greet } from "@devorajs/backend/greeting";
 
 export const renderMode = "ssr";
 
-export async function loader(ctx) {
+export async function loader(ctx: RequestContext) {
   return { message: await greet({ name: "marketing" }, ctx) };
 }
 
-export default function Hello({ data }) {
+export default function Hello({ data }: { data?: { message: string } }) {
   return (
     <PageShell appName="marketing">
       <h1>{data?.message}</h1>
