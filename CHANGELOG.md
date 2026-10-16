@@ -33,6 +33,8 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - Performance: the island and client-rendered-route manifests are read from disk at most once a second instead of on
   every server-rendered request. A rebuilt manifest is picked up within a second, as built static files already
   are. About +18% on a server-rendered page.
+- Performance: the absolute request URL behind `ctx.url`/`ctx.request` is parsed when first read (what it is built
+  from is still read when the request arrives, so a later rewrite of the request does not change it). 1 to 3%.
 
 ## 0.3.4 — 2026-10-16
 

@@ -5035,13 +5035,23 @@ function describeRequest(req, trustProxy) {
   const scheme = isHttpsRequest(req, trustProxy) ? "https" : "http";
   const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : void 0;
   const host = forwardedHost ?? firstHeaderValue(req.headers.host) ?? "localhost";
+  const target = req.url ?? "/";
   let url;
-  try {
-    url = new URL(req.url ?? "/", `${scheme}://${host}`).href;
-  } catch {
-    url = new URL(req.url ?? "/", "http://localhost").href;
-  }
-  return { url, method: req.method ?? "GET", headers: req.headers, ip: clientIp(req, trustProxy) };
+  return {
+    get url() {
+      if (url === void 0) {
+        try {
+          url = new URL(target, `${scheme}://${host}`).href;
+        } catch {
+          url = new URL(target, "http://localhost").href;
+        }
+      }
+      return url;
+    },
+    method: req.method ?? "GET",
+    headers: req.headers,
+    ip: clientIp(req, trustProxy)
+  };
 }
 function firstHeaderValue(value) {
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();

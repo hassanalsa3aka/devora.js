@@ -83,16 +83,29 @@ function normalizeIp(value: unknown): string | undefined {
  * checking it against your known domain.
  */
 export function describeRequest(req: ProxiedRequestLike, trustProxy: TrustProxySetting | undefined): RequestMeta {
+  // What the URL is built from is read now; the URL itself is parsed and re-serialised the first
+  // time `url` is read (ctx.url, or ctx.request), not for every request. It is a measurable part
+  // of a small request, and most handlers never look at it.
   const scheme = isHttpsRequest(req, trustProxy) ? "https" : "http";
   const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : undefined;
   const host = forwardedHost ?? firstHeaderValue(req.headers.host) ?? "localhost";
-  let url: string;
-  try {
-    url = new URL(req.url ?? "/", `${scheme}://${host}`).href;
-  } catch {
-    url = new URL(req.url ?? "/", "http://localhost").href;
-  }
-  return { url, method: req.method ?? "GET", headers: req.headers, ip: clientIp(req, trustProxy) };
+  const target = req.url ?? "/";
+  let url: string | undefined;
+  return {
+    get url() {
+      if (url === undefined) {
+        try {
+          url = new URL(target, `${scheme}://${host}`).href;
+        } catch {
+          url = new URL(target, "http://localhost").href;
+        }
+      }
+      return url;
+    },
+    method: req.method ?? "GET",
+    headers: req.headers,
+    ip: clientIp(req, trustProxy),
+  };
 }
 
 function firstHeaderValue(value: string | string[] | undefined): string | undefined {
