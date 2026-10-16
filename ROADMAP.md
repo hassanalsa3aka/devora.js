@@ -7,8 +7,7 @@ Status words in the tables: **Fixed** (a release, and a file, test or CHANGELOG 
 ## Now
 
 - Outside testers: [TESTING.md](TESTING.md) is a 15-minute guide; what they hit goes into the findings table below.
-- Publish 0.3.5, then re-run the benchmark harness against the published 0.3.5 packages and replace the
-  numbers on the docs site's /performance page (they come from a build of this release's code).
+- Deploy the docs site with the 0.3.5 numbers (measured on the published 0.3.5 packages) and the release post.
 - Verify 0.3.5 on a live Vercel and Netlify deployment (finding N1).
 
 ## Next
@@ -53,7 +52,7 @@ Nothing here is planned, scheduled or numbered.
 
 The aim is to close the gaps and publish measured results, including where Devora.js is behind. Numbers come from the benchmark harness in [benchmarks/](benchmarks/README.md) and are never edited by hand.
 
-State after the first pass (released in 0.3.5): Devora.js leads the pre-rendered page, the server-rendered page and the form POST in the five-framework harness, and is 4th to 6th of 10 on the JSON API scenarios, behind Fastify, Hono and NestJS on Fastify (findings S1 to S4). The numbers are in [benchmarks/results/before-after.md](benchmarks/results/before-after.md).
+State after the first pass (published 0.3.5, one full run, 5 runs per scenario; a difference inside a framework's own run-to-run spread counts as a tie): Devora.js is ahead of the other four frameworks on the pre-rendered page, the server-rendered page and the form POST. On the JSON API scenarios it is behind Fastify, Hono and NestJS on Fastify, and behind Express and NestJS on Express on the authenticated one; on the 2 ms async scenario it is level with four frameworks (findings S1 to S4). The numbers are in [benchmarks/results/before-after.md](benchmarks/results/before-after.md).
 
 ## Not planned
 
@@ -97,8 +96,9 @@ Everything else is indexed in [docs/README.md](docs/README.md).
 - `api/**` always answers JSON; `devora dev --host`; dev ports start at 10000.
 - [CHANGELOG: 0.3.0](CHANGELOG.md#030--2026-09-23-pre-v3-hotfixes)
 
-### 0.2.2 and 0.2.1
-- No CHANGELOG entry.
+### 0.2.2 and 0.2.1 — 2026-09-16
+- `@devorajs/core` 0.2.1 (footer structure in the branding component) and 0.2.2 (footer styles and a package `exports` restructure).
+- [CHANGELOG: reconstructed package notes](CHANGELOG.md#package-notes-reconstructed-from-git-history-and-npm-publish-times)
 
 ### 0.2.0 — 2026-09-16
 - The v2 backend: `defineModule()`, API routes, middleware, backend-only apps, `getStaticParams()` for `ssg`/`isr`.
@@ -108,7 +108,7 @@ Everything else is indexed in [docs/README.md](docs/README.md).
 
 ### 0.1.x
 - 0.1.1 and `@devorajs/cli` 0.1.2 — 2026-09-08: the npm scope became `@devorajs`, the shared scaffold package, per-package READMEs. [CHANGELOG: 2026-09-08](CHANGELOG.md#2026-09-08)
-- `@devorajs/core` 0.1.2: no CHANGELOG entry.
+- `@devorajs/core` 0.1.2 (2026-09-09): dynamic routes and the `devora deploy` fixes of that day; its note in the CHANGELOG was reconstructed from git history.
 - 0.1.0: the CHANGELOG records only the initial commit, 2026-09-07 (SSR/SSG/CSR/ISR, islands, sessions, security headers, SEO, the CLI, the three adapters), without a version number. [CHANGELOG: 2026-09-07](CHANGELOG.md#2026-09-07)
 - 2026-09-09 has a CHANGELOG entry (CI fix, docs) with no version bump. [CHANGELOG: 2026-09-09](CHANGELOG.md#2026-09-09)
 
@@ -218,7 +218,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 
 ## Findings
 
-86 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O) [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S) and the lab tests of WebSockets and jobs (R). Fixed 55, Partly fixed 5, Open 21, Unconfirmed 4, N/A 1.
+88 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R) and the 0.3.5 smoke test (T). Fixed 55, Partly fixed 5, Open 23, Unconfirmed 4, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
@@ -298,9 +298,9 @@ Only the maintainer can deploy live; none of this was run from the development e
 | X1 | A dynamic route without getStaticParams() cannot use ssg/isr | Open | - | By design: the build fails with a clear error (docs/history/VERIFICATION.md Known unsupported). | VERIFICATION known unsupported |
 | X2 | isr disk cache unverified under real serverless conditions | Open | - | Same as N3. | VERIFICATION known unsupported |
 | S1 | Every request re-did work that never changes (path joins, build keys, a URL object and a Headers object, a session-key HMAC, two manifest reads from disk) | Fixed | 0.3.5 | Five commits on perf/backend-speed (CHANGELOG 0.3.5). Interleaved A/B on one machine: +15% JSON list, +32% authenticated GET, +21% POST, +41% pre-rendered page, +23% server-rendered page; form POST 32,000 to 80,000 req/s in the full run (benchmarks/results/before-after.md, ab-published-vs-final.txt) | benchmarks |
-| S2 | Devora.js API routes are still behind Fastify, Hono and NestJS on Fastify: JSON list 4th of 10 (22% below the leader), authenticated GET 6th (41% below), POST 5th (35% below) | Open | - | benchmarks/results/backend-report.md. Part of the gap is not in the framework (the same JSON.stringify runs in every app, about half of the list scenario); the rest is per-request work the bare frameworks do not do (security headers, a request context with session and CSRF methods, a real session lookup). | benchmarks |
+| S2 | Devora.js API routes are behind Fastify, Hono and NestJS on Fastify on every JSON scenario | Open | - | Published 0.3.5, medians: JSON list 4th of 10 (26% below the leader), authenticated GET 6th (43% below), POST valid 5th (39%) and invalid 4th (36%); on POST it is level with Express (ranges overlap). Part of the gap is not in the framework (the same JSON.stringify runs in every app, about half of the list scenario); the rest is per-request work the bare frameworks do not do (security headers, a request context with session and CSRF methods, a real session lookup). benchmarks/results/backend-report.md | benchmarks |
 | S3 | The built-in memory session store clones each record on every read (structuredClone, about 8% of an authenticated request) | Open | - | CPU profile of the authenticated scenario. Not changed: the clone keeps a handler from mutating the stored record; a cheaper copy needs a decision on that behavior. | benchmarks |
-| S4 | Memory after load is higher than the bare backend frameworks (352 MB against 178 to 264 MB for Express, Fastify, Hono and NestJS) | Open | - | benchmarks/results/backend-report.md. A faster server also keeps more heap, so this is not proof of a leak; no leak test was run. | benchmarks |
+| S4 | Memory after load is higher than the bare backend frameworks | Open | - | Published 0.3.5: Devora.js 285 MB after the API scenarios against 167 to 258 MB for Express, Fastify and both NestJS platforms (Hono 222 MB; Next.js, SvelteKit, React Router and Astro are higher, 329 to 600 MB). A faster server also keeps more heap, so this is not proof of a leak; the 10-minute soak on the 0.3.5 code held steady (about 314 MB, +3 MB between the halves of the run). | benchmarks |
 | R1 | `ws` on the same port as `devora start` | Partly fixed | - | Works through a wrapper script that calls `createNodeServer` (the function the CLI calls; a public, documented export of `@devorajs/adapter-node` that returns the `http.Server`) and handles `upgrade` itself: bad token 401, good token connected and echoed, API and security headers unchanged on the same port. Plain `devora start` exposes no server and no hook. Smallest core change: an `onServer(server)` option. Guide: Live updates (WebSockets). | lab |
 | R2 | Server-sent events from an API route | Open | - | A string body is sent complete after the handler finishes (first byte at 1.5 s for three events 0.5 s apart, then the connection closes, so an `EventSource` reconnects in a loop); a `ReadableStream`, an async iterable or a `Readable` as the body answers 500. Smallest core change: let `sendApiResponse` pipe a stream or async iterable and destroy it when the client disconnects. | lab |
 | R3 | Socket.IO as a separate server (`examples/realtime`) | Fixed | 0.3.4 | Run from a scratch copy on the published 0.3.4 packages: all 19 checks of `examples/check.mjs` pass. Not tested in a browser. | lab |
@@ -308,3 +308,5 @@ Only the maintainer can deploy live; none of this was run from the development e
 | R5 | Background jobs without Redis: a SQLite queue and a worker | Fixed | 0.3.5 | `node:sqlite`: result in about 100 to 220 ms. One server only (both processes share the file). In CI as `examples/background-jobs`, always run. | lab |
 | R6 | `node-cron` inside `devora start` | Partly fixed | - | Works, but there is no start-up hook: the schedule registers when the route that contains it is first imported (at its first request). | lab |
 | R7 | Each of the above on Vercel or Netlify | Unconfirmed | - | Not deployed, so not verified. Expected from the platforms' documented model, not tested: WebSockets, long-lived timers and a SQLite file on a function's disk do not fit functions; a BullMQ worker must run elsewhere. | lab |
+| T1 | A fresh scaffold prints `npm warn Unknown project config "link-workspace-packages"` on every npm command | Open | - | Source: `packages/scaffold/src/scaffoldProjectFiles.ts:137` writes a project `.npmrc` containing `link-workspace-packages=true`, a pnpm setting (pnpm needs it so the plain `"*"` workspace dependencies link locally instead of being fetched from the registry). npm 11 does not know it and warns, saying it will stop working in the next major version. Verified: in a scaffold, `npm config get registry` warns with the `.npmrc` in place and is silent with it moved away. The repo root and every example carry the same file. Not fixed. | smoke test of 0.3.5 |
+| T2 | On newer npm, install prints an `allow-scripts` warning for esbuild's postinstall | Open | - | Reproduced with npm 11.17.0 in an empty project: `npm install esbuild@0.25.12` prints "1 package has install scripts not yet covered by allowScripts: esbuild@0.25.12 (postinstall: node install.js)". esbuild comes in through Vite. Install, `devora dev` and `devora build` still work. The warning comes from npm, not from Devora.js code; getting-started says so in one line. Not fixed. | smoke test of 0.3.5 |
