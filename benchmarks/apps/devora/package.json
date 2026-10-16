@@ -14,8 +14,8 @@
     "apps/*"
   ],
   "dependencies": {
-    "@devorajs/cli": "^0.3.4",
-    "@devorajs/core": "^0.3.4"
+    "@devorajs/cli": "0.3.5",
+    "@devorajs/core": "0.3.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

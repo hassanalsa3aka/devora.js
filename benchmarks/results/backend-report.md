@@ -1,6 +1,6 @@
 # Backend benchmark report
 
-Generated from `results/backend-raw-2026-10-16-after.json` (never edited by hand). Run: 2026-10-16T06:18:01.585Z.
+Generated from `results/backend-raw-2026-10-16-published-0.3.5.json` (never edited by hand). Run: 2026-10-16T12:31:53.748Z.
 
 Machine: Apple M5, 10 cores, 16 GB, Darwin 27.0.0 (darwin arm64), Node v24.19.0. Load tool: autocannon 8.0.0, 50 connections, 5 s warm-up, 5 runs of 10 s, median reported. The load tool and the server share one machine.
 
@@ -10,7 +10,7 @@ Contract: [backend/CONTRACT.md](../backend/CONTRACT.md). Every response was chec
 
 | Framework | Version | Kind |
 |---|---|---|
-| Devora.js | 0.3.4 (core 0.3.4) | Devora.js backend-only app |
+| Devora.js | 0.3.5 (core 0.3.5) | Devora.js backend-only app |
 | Express 5 | 5.3.0 | backend framework |
 | Fastify 5 | 5.12.7 | backend framework |
 | Hono | 4.13.13 | backend framework |
@@ -25,101 +25,101 @@ Contract: [backend/CONTRACT.md](../backend/CONTRACT.md). Every response was chec
 
 | # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |
 |---|---|---|---|---|---|
-| 1 | Fastify 5 | 66,054 (65,177–67,425) | 0 | 1 | 0 |
-| 2 | Hono | 65,542 (64,359–66,464) | 0 | 1 | 0 |
-| 3 | NestJS (Fastify platform) | 61,599 (61,357–63,097) | 0 | 1 | 0 |
-| 4 | Devora.js | 51,440 (50,881–51,524) | 0 | 2 | 0 |
-| 5 | Express 5 | 48,191 (48,176–48,452) | 1 | 2 | 0 |
-| 6 | NestJS (Express platform) | 44,467 (44,394–44,761) | 1 | 2 | 0 |
-| 7 | SvelteKit | 33,441 (33,383–33,933) | 1 | 2 | 0 |
-| 8 | Astro | 19,845 (19,764–19,854) | 2 | 5 | 0 |
-| 9 | React Router | 17,854 (17,817–17,899) | 2 | 4 | 0 |
-| 10 | Next.js | 12,083 (12,051–12,125) | 3 | 7 | 0 |
+| 1 | Fastify 5 | 66,678 (62,941–68,180) | 0 | 1 | 0 |
+| 2 | Hono | 66,215 (65,210–66,644) | 0 | 1 | 0 |
+| 3 | NestJS (Fastify platform) | 61,927 (61,377–62,305) | 0 | 1 | 0 |
+| 4 | Devora.js | 49,529 (49,258–51,050) | 0 | 2 | 0 |
+| 5 | Express 5 | 48,388 (46,477–48,499) | 1 | 1 | 0 |
+| 6 | NestJS (Express platform) | 44,700 (43,626–44,979) | 1 | 2 | 0 |
+| 7 | SvelteKit | 32,976 (30,394–33,430) | 1 | 2 | 0 |
+| 8 | Astro | 19,844 (19,746–19,854) | 2 | 5 | 0 |
+| 9 | React Router | 17,985 (17,109–18,087) | 2 | 4 | 0 |
+| 10 | Next.js | 12,069 (11,565–12,195) | 3 | 7 | 0 |
 
-Leader: **Fastify 5**. Devora.js is 4 of 10, 22% below the leader (51,440 against 66,054 req/s).
+Leader: **Fastify 5**. Devora.js is behind 3 frameworks beyond its run-to-run spread (median 49,529 against 66,678 req/s, 26% lower).
 
 ## E. Authenticated GET (Bearer lookup, then JSON)
 
 | # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |
 |---|---|---|---|---|---|
-| 1 | Fastify 5 | 129,783 (129,571–130,461) | 0 | 0 | 0 |
-| 2 | Hono | 127,636 (126,473–128,579) | 0 | 0 | 0 |
-| 3 | NestJS (Fastify platform) | 113,999 (113,719–114,772) | 0 | 0 | 0 |
-| 4 | Express 5 | 87,136 (86,653–87,532) | 0 | 1 | 0 |
-| 5 | NestJS (Express platform) | 77,664 (77,420–77,926) | 0 | 1 | 0 |
-| 6 | Devora.js | 77,059 (76,733–77,431) | 0 | 2 | 0 |
-| 7 | SvelteKit | 55,108 (51,418–55,821) | 0 | 1 | 0 |
-| 8 | Astro | 23,130 (22,953–23,317) | 2 | 4 | 0 |
-| 9 | React Router | 21,042 (20,978–21,084) | 2 | 3 | 0 |
-| 10 | Next.js | 13,552 (13,537–13,570) | 3 | 6 | 0 |
+| 1 | Fastify 5 | 134,383 (129,958–134,988) | 0 | 0 | 0 |
+| 2 | Hono | 128,375 (123,418–129,440) | 0 | 0 | 0 |
+| 3 | NestJS (Fastify platform) | 119,165 (118,816–119,212) | 0 | 0 | 0 |
+| 4 | Express 5 | 85,420 (84,529–88,282) | 0 | 1 | 0 |
+| 5 | NestJS (Express platform) | 79,404 (79,159–80,480) | 0 | 1 | 0 |
+| 6 | Devora.js | 77,228 (76,431–77,635) | 0 | 2 | 0 |
+| 7 | SvelteKit | 50,291 (47,666–53,852) | 0 | 2 | 0 |
+| 8 | Astro | 22,319 (21,877–22,690) | 2 | 5 | 0 |
+| 9 | React Router | 21,080 (20,251–21,202) | 2 | 3 | 0 |
+| 10 | Next.js | 13,216 (12,418–13,656) | 3 | 7 | 0 |
 
-Leader: **Fastify 5**. Devora.js is 6 of 10, 41% below the leader (77,059 against 129,783 req/s).
+Leader: **Fastify 5**. Devora.js is behind 5 frameworks beyond its run-to-run spread (median 77,228 against 134,383 req/s, 43% lower).
 
 ## F1. POST JSON, valid body (201)
 
 | # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |
 |---|---|---|---|---|---|
-| 1 | Fastify 5 | 112,620 (110,717–114,004) | 0 | 0 | 0 |
-| 2 | Hono | 105,452 (105,103–105,946) | 0 | 0 | 0 |
-| 3 | NestJS (Fastify platform) | 96,730 (96,125–96,899) | 0 | 1 | 0 |
-| 4 | Express 5 | 74,359 (74,103–74,743) | 0 | 1 | 0 |
-| 5 | Devora.js | 73,446 (72,806–73,551) | 0 | 1 | 0 |
-| 6 | NestJS (Express platform) | 64,534 (60,860–65,177) | 0 | 1 | 0 |
-| 7 | SvelteKit | 42,276 (41,034–42,522) | 1 | 2 | 0 |
-| 8 | React Router | 23,362 (23,272–23,422) | 1 | 4 | 0 |
-| 9 | Astro | 20,511 (20,453–20,599) | 2 | 5 | 0 |
-| 10 | Next.js | 12,288 (12,276–12,297) | 3 | 7 | 0 |
+| 1 | Fastify 5 | 116,186 (113,568–116,617) | 0 | 0 | 0 |
+| 2 | Hono | 106,772 (100,681–107,773) | 0 | 0 | 0 |
+| 3 | NestJS (Fastify platform) | 100,425 (100,192–100,797) | 0 | 0 | 0 |
+| 4 | Express 5 | 75,395 (73,104–75,645) | 0 | 1 | 0 |
+| 5 | Devora.js | 71,450 (69,767–74,167) | 0 | 2 | 0 |
+| 6 | NestJS (Express platform) | 65,789 (65,293–66,128) | 0 | 1 | 0 |
+| 7 | SvelteKit | 40,831 (38,706–42,029) | 1 | 3 | 0 |
+| 8 | React Router | 22,318 (22,033–23,106) | 1 | 5 | 0 |
+| 9 | Astro | 19,669 (19,282–20,072) | 2 | 5 | 0 |
+| 10 | Next.js | 11,911 (11,389–12,377) | 3 | 8 | 0 |
 
-Leader: **Fastify 5**. Devora.js is 5 of 10, 35% below the leader (73,446 against 112,620 req/s).
+Leader: **Fastify 5**. Devora.js is behind 3 frameworks beyond its run-to-run spread (median 71,450 against 116,186 req/s, 39% lower), and level with Express 5.
 
 ## F2. POST JSON, invalid body (422)
 
 | # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |
 |---|---|---|---|---|---|
-| 1 | Fastify 5 | 112,765 (112,463–115,005) | 0 | 0 | 0 |
-| 2 | Hono | 105,853 (105,457–106,406) | 0 | 0 | 0 |
-| 3 | NestJS (Fastify platform) | 76,884 (76,436–77,356) | 0 | 1 | 0 |
-| 4 | Express 5 | 74,545 (74,010–74,639) | 0 | 1 | 0 |
-| 5 | Devora.js | 73,818 (73,673–74,144) | 0 | 1 | 0 |
-| 6 | NestJS (Express platform) | 54,079 (53,994–54,244) | 0 | 1 | 0 |
-| 7 | SvelteKit | 42,435 (42,240–42,512) | 1 | 2 | 0 |
-| 8 | React Router | 23,534 (23,263–23,583) | 1 | 4 | 0 |
-| 9 | Astro | 20,559 (20,550–20,629) | 2 | 5 | 0 |
-| 10 | Next.js | 12,298 (12,283–12,328) | 3 | 7 | 0 |
+| 1 | Fastify 5 | 115,901 (111,124–116,337) | 0 | 0 | 0 |
+| 2 | Hono | 109,402 (108,931–109,699) | 0 | 0 | 0 |
+| 3 | NestJS (Fastify platform) | 77,152 (76,132–78,048) | 0 | 1 | 0 |
+| 4 | Devora.js | 74,592 (70,423–75,302) | 0 | 1 | 0 |
+| 5 | Express 5 | 73,545 (71,334–75,197) | 0 | 1 | 0 |
+| 6 | NestJS (Express platform) | 53,860 (53,750–54,009) | 0 | 1 | 0 |
+| 7 | SvelteKit | 42,003 (41,540–42,852) | 1 | 2 | 0 |
+| 8 | React Router | 23,307 (23,028–23,576) | 1 | 4 | 0 |
+| 9 | Astro | 20,059 (19,404–20,173) | 2 | 5 | 0 |
+| 10 | Next.js | 11,929 (11,783–12,422) | 3 | 8 | 0 |
 
-Leader: **Fastify 5**. Devora.js is 5 of 10, 35% below the leader (73,818 against 112,765 req/s).
+Leader: **Fastify 5**. Devora.js is behind 3 frameworks beyond its run-to-run spread (median 74,592 against 115,901 req/s, 36% lower), and level with Express 5.
 
 ## G. One awaited 2 ms step, then JSON
 
 | # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |
 |---|---|---|---|---|---|
-| 1 | Devora.js | 15,476 (15,193–15,537) | 3 | 5 | 0 |
-| 2 | Fastify 5 | 15,044 (14,982–15,505) | 3 | 4 | 0 |
-| 3 | Hono | 14,949 (14,881–15,029) | 3 | 4 | 0 |
-| 4 | NestJS (Express platform) | 14,816 (14,722–14,904) | 3 | 5 | 0 |
-| 5 | Express 5 | 14,812 (14,638–14,918) | 3 | 5 | 0 |
-| 6 | NestJS (Fastify platform) | 14,791 (14,681–15,022) | 3 | 5 | 0 |
-| 7 | SvelteKit | 14,576 (14,507–14,641) | 3 | 5 | 0 |
-| 8 | Astro | 13,924 (13,789–13,934) | 3 | 6 | 0 |
-| 9 | Next.js | 13,506 (13,476–13,546) | 3 | 6 | 0 |
-| 10 | React Router | 12,565 (12,541–12,745) | 3 | 6 | 0 |
+| 1 | Devora.js | 15,967 (15,348–17,436) | 2 | 5 | 0 |
+| 2 | Fastify 5 | 15,455 (15,279–15,699) | 3 | 4 | 0 |
+| 3 | Hono | 15,412 (15,332–15,512) | 3 | 4 | 0 |
+| 4 | NestJS (Fastify platform) | 15,226 (15,106–15,541) | 3 | 4 | 0 |
+| 5 | SvelteKit | 15,200 (15,056–15,947) | 3 | 5 | 0 |
+| 6 | NestJS (Express platform) | 15,132 (15,035–15,331) | 3 | 5 | 0 |
+| 7 | Express 5 | 14,972 (14,519–15,240) | 3 | 5 | 0 |
+| 8 | Astro | 14,435 (14,230–14,685) | 3 | 6 | 0 |
+| 9 | React Router | 13,317 (13,032–13,383) | 3 | 6 | 0 |
+| 10 | Next.js | 13,293 (12,536–13,496) | 3 | 6 | 0 |
 
-Devora.js is first (15,476 req/s).
+Devora.js is not behind anyone beyond the spread; it is level with Fastify 5, Hono, NestJS (Fastify platform), SvelteKit (median 15,967 req/s).
 
 ## Memory, start and build
 
 | Framework | Idle MB | After load MB | Start ms (median) | Build cold ms | Build warm ms |
 |---|---|---|---|---|---|
-| Devora.js | 161 | 352 | 174 | 220 | 222 |
-| Express 5 | 138 | 243 | 143 | 95 | 94 |
-| Fastify 5 | 143 | 211 | 143 | 97 | 97 |
-| Hono | 136 | 262 | 140 | 96 | 96 |
-| NestJS (Express platform) | 170 | 264 | 223 | 369 | 367 |
-| NestJS (Fastify platform) | 166 | 243 | 226 | 515 | 502 |
-| Next.js | 175 | 433 | 234 | 1,908 | 1,205 |
-| SvelteKit | 141 | 1,249 | 145 | 995 | 983 |
-| React Router | 153 | 419 | 179 | 410 | 397 |
-| Astro | 161 | 482 | 171 | 545 | 521 |
+| Devora.js | 161 | 285 | 197 | 211 | 216 |
+| Express 5 | 138 | 172 | 139 | 95 | 96 |
+| Fastify 5 | 143 | 167 | 166 | 103 | 102 |
+| Hono | 136 | 222 | 138 | 96 | 95 |
+| NestJS (Express platform) | 171 | 258 | 227 | 366 | 357 |
+| NestJS (Fastify platform) | 166 | 245 | 218 | 505 | 498 |
+| Next.js | 175 | 395 | 232 | 1,912 | 1,204 |
+| SvelteKit | 141 | 600 | 141 | 969 | 968 |
+| React Router | 153 | 343 | 203 | 410 | 407 |
+| Astro | 161 | 329 | 168 | 548 | 510 |
 
 Backend frameworks written in plain JavaScript have no build step; their "build" is a no-op command.
 
@@ -195,9 +195,15 @@ Body bytes, header bytes and `Content-Encoding` for one request per scenario, se
 | React Router | yes | yes | yes | yes | yes |
 | Astro | yes | yes | yes | yes | yes |
 
-## Where Devora.js is first and where it is behind
+## Where Devora.js is ahead, level or behind
 
-Devora.js is first in: G. Behind in: D (Fastify 5, 22% ahead); E (Fastify 5, 41% ahead); F1 (Fastify 5, 35% ahead); F2 (Fastify 5, 35% ahead).
+A difference inside the run-to-run spread (ranges of the runs that overlap) is a tie.
+
+Ahead of every other framework: no scenario.
+
+Level: G (with Fastify 5, Hono, NestJS (Fastify platform), SvelteKit).
+
+Behind: D (Fastify 5); E (Fastify 5); F1 (Fastify 5); F2 (Fastify 5).
 
 Devora.js sends CSP, HSTS and X-Frame-Options on every response and runs a real session layer for the authenticated scenario; the bare backend frameworks do neither. See the header bytes above and `backend/CONTRACT.md`.
 

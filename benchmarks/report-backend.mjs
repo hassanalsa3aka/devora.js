@@ -33,11 +33,16 @@ for (const [key, title] of SC) {
   const rows = fws.filter(([, f]) => f.load?.[key]).map(([k, f]) => ({ k, name: f.name, ...f.load[key] })).sort((a, b) => b.rps.median - a.rps.median);
   out.push(`## ${title}`, "", "| # | Framework | Requests/s (median, min–max) | p50 ms | p99 ms | Errors or unexpected |", "|---|---|---|---|---|---|");
   rows.forEach((r, i) => out.push(`| ${i + 1} | ${r.name} | ${n(r.rps.median)} (${n(r.rps.min)}–${n(r.rps.max)}) | ${f1(r.p50.median)} | ${f1(r.p99.median)} | ${r.errorsOrUnexpected.reduce((a, b) => a + b, 0)} |`));
-  const dev = rows.findIndex((r) => r.k === "devora-api");
+  const d = rows.find((r) => r.k === "devora-api");
   const leader = rows[0];
-  const d = rows[dev];
-  summary[key] = { leader: leader?.name, devoraRank: dev + 1, of: rows.length, devoraRps: d?.rps.median, leaderRps: leader?.rps.median, behindPercent: d && leader ? Math.round((1 - d.rps.median / leader.rps.median) * 100) : null };
-  out.push("", dev === 0 ? `Devora.js is first (${n(d.rps.median)} req/s).` : `Leader: **${leader.name}**. Devora.js is ${dev + 1} of ${rows.length}, ${summary[key].behindPercent}% below the leader (${n(d.rps.median)} against ${n(leader.rps.median)} req/s).`, "");
+  // A difference inside the run-to-run spread is a tie: ranges (min to max of the runs) that overlap.
+  const overlaps = (a, b) => a.rps.min <= b.rps.max && b.rps.min <= a.rps.max;
+  const beyond = rows.filter((r) => r.k !== "devora-api" && r.rps.min > d.rps.max);
+  const tied = rows.filter((r) => r.k !== "devora-api" && overlaps(r, d));
+  summary[key] = { leader: leader?.name, devoraRank: rows.indexOf(d) + 1, of: rows.length, devoraRps: d.rps.median, leaderRps: leader.rps.median, behindPercent: Math.round((1 - d.rps.median / leader.rps.median) * 100), beyondCount: beyond.length, tiedWith: tied.map((r) => r.name), kind: beyond.length ? "behind" : tied.length ? "tie" : "first" };
+  out.push("", beyond.length
+    ? `Leader: **${leader.name}**. Devora.js is behind ${beyond.length} framework${beyond.length === 1 ? "" : "s"} beyond its run-to-run spread (median ${n(d.rps.median)} against ${n(leader.rps.median)} req/s, ${summary[key].behindPercent}% lower)${tied.length ? `, and level with ${tied.map((r) => r.name).join(", ")}` : ""}.`
+    : tied.length ? `Devora.js is not behind anyone beyond the spread; it is level with ${tied.map((r) => r.name).join(", ")} (median ${n(d.rps.median)} req/s).` : `Devora.js is ahead of every other framework (${n(d.rps.median)} req/s).`, "");
 }
 
 out.push("## Memory, start and build", "", "| Framework | Idle MB | After load MB | Start ms (median) | Build cold ms | Build warm ms |", "|---|---|---|---|---|---|");
@@ -54,10 +59,10 @@ for (const [, f] of fws) for (const [key] of SC) {
 out.push("", "## Contract conformance", "", "| Framework | " + SC.map(([k]) => k).join(" | ") + " |", "|---|" + SC.map(() => "---").join("|") + "|");
 for (const [, f] of fws) out.push(`| ${f.name} | ${SC.map(([k]) => (f.conforms?.[k] ? "yes" : "NO")).join(" | ")} |`);
 
-out.push("", "## Where Devora.js is first and where it is behind", "");
-const first = SC.filter(([k]) => summary[k]?.devoraRank === 1).map(([, t]) => t.split(".")[0]);
-const behind = SC.filter(([k]) => summary[k] && summary[k].devoraRank !== 1).map(([k, t]) => `${t.split(".")[0]} (${summary[k].leader}, ${summary[k].behindPercent}% ahead)`);
-out.push(`Devora.js is first in: ${first.length ? first.join(", ") : "no scenario"}. Behind in: ${behind.length ? behind.join("; ") : "none"}.`, "");
+out.push("", "## Where Devora.js is ahead, level or behind", "", "A difference inside the run-to-run spread (ranges of the runs that overlap) is a tie.", "");
+const label = (k) => SC.find(([x]) => x === k)[1].split(".")[0];
+const grp = (kind) => SC.filter(([k]) => summary[k]?.kind === kind).map(([k]) => (kind === "behind" ? `${label(k)} (${summary[k].leader})` : kind === "tie" ? `${label(k)} (with ${summary[k].tiedWith.join(", ")})` : label(k)));
+out.push(`Ahead of every other framework: ${grp("first").join("; ") || "no scenario"}.`, "", `Level: ${grp("tie").join("; ") || "no scenario"}.`, "", `Behind: ${grp("behind").join("; ") || "no scenario"}.`, "");
 out.push("Devora.js sends CSP, HSTS and X-Frame-Options on every response and runs a real session layer for the authenticated scenario; the bare backend frameworks do neither. See the header bytes above and `backend/CONTRACT.md`.", "");
 
 writeFileSync(path.join(dir, "backend-report.md"), out.join("\n") + "\n");
