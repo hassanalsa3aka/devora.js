@@ -416,8 +416,12 @@ export async function createRequestContext(
   const ctx: RequestContext = {
     params: split.params,
     catchAll: split.catchAll,
-    url: fields.url,
-    headers: fields.headers,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
     method: fields.method,
     ip: fields.ip,
     get request() {
@@ -525,8 +529,12 @@ export function createNoAuthContext(params: RawRouteParams = {}, meta?: RequestM
   const ctx: RequestContext = {
     params: split.params,
     catchAll: split.catchAll,
-    url: fields.url,
-    headers: fields.headers,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
     method: fields.method,
     ip: fields.ip,
     get request() {

@@ -19,6 +19,9 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
   to start. The error is a new exported `DevoraConfigError`.
 - The header's brand link now has the accessible name "devora.js home" (it was "Home", which did not
   contain the visible text and failed the WCAG label-in-name check).
+- Performance: `ctx.url` and `ctx.headers` are built the first time a handler reads them, not on every
+  request. No behavior change: the same objects, built later. About 3 to 5% more requests/s on API
+  routes that never read them (interleaved A/B, same machine; see `benchmarks/results/`).
 
 ## 0.3.4 — 2026-10-16
 

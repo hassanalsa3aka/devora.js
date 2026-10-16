@@ -14,8 +14,12 @@ export function createBuildTimeContext(params: RawRouteParams = {}, meta?: Reque
   return {
     params: split.params,
     catchAll: split.catchAll,
-    url: fields.url,
-    headers: fields.headers,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
     method: fields.method,
     ip: fields.ip,
     get request() {

@@ -3138,33 +3138,48 @@ var DEFAULT_REQUEST_META = { url: "http://localhost/", method: "GET", headers: {
 function requestContextFields(meta) {
   const source = meta ?? DEFAULT_REQUEST_META;
   let url;
-  try {
-    url = new URL(source.url);
-  } catch {
-    url = new URL(DEFAULT_REQUEST_META.url);
-  }
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(source.headers)) {
-    if (value === void 0) continue;
-    for (const item of Array.isArray(value) ? value : [value]) {
+  let headers;
+  const getUrl = () => {
+    if (!url) {
       try {
-        headers.append(name, item);
+        url = new URL(source.url);
       } catch {
+        url = new URL(DEFAULT_REQUEST_META.url);
       }
     }
-  }
+    return url;
+  };
+  const getHeaders = () => {
+    if (!headers) {
+      headers = new Headers();
+      for (const [name, value] of Object.entries(source.headers)) {
+        if (value === void 0) continue;
+        for (const item of Array.isArray(value) ? value : [value]) {
+          try {
+            headers.append(name, item);
+          } catch {
+          }
+        }
+      }
+    }
+    return headers;
+  };
   let request;
   return {
-    url,
-    headers,
+    get url() {
+      return getUrl();
+    },
+    get headers() {
+      return getHeaders();
+    },
     method: source.method,
     ip: source.ip,
     get request() {
       if (!request) {
         try {
-          request = new Request(url, { method: source.method, headers });
+          request = new Request(getUrl(), { method: source.method, headers: getHeaders() });
         } catch {
-          request = new Request(url, { headers });
+          request = new Request(getUrl(), { headers: getHeaders() });
         }
       }
       return request;
@@ -3829,7 +3844,7 @@ function escapeHtml(value) {
 function renderShellMarkup(mainHtml, options = {}) {
   const logo = options.logo === false ? "" : `<img src="${DEVORA_LOGO_URL}" alt="" width="28" height="28" />`;
   const badge = options.badge ? `<span class="devora-app-badge">${escapeHtml(options.badge)}</span>` : "";
-  return `<div class="devora-shell"><header class="devora-header"><div class="devora-header-inner"><a href="/" class="devora-brand" aria-label="Home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}</div></header><main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main><footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row"><div class="devora-footer-brand"><span>Built with <a href="https://github.com/hassanalsa3aka/devora.js">devora.js</a></span></div></div></div></footer></div>`;
+  return `<div class="devora-shell"><header class="devora-header"><div class="devora-header-inner"><a href="/" class="devora-brand" aria-label="devora.js home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}</div></header><main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main><footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row"><div class="devora-footer-brand"><span>Built with <a href="https://github.com/hassanalsa3aka/devora.js">devora.js</a></span></div></div></div></footer></div>`;
 }
 
 // ../core/src/session.ts
@@ -4105,8 +4120,12 @@ async function createRequestContext(request, opts, params = {}, meta) {
   const ctx = {
     params: split2.params,
     catchAll: split2.catchAll,
-    url: fields.url,
-    headers: fields.headers,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
     method: fields.method,
     ip: fields.ip,
     get request() {
@@ -4179,8 +4198,12 @@ function createNoAuthContext(params = {}, meta) {
   const ctx = {
     params: split2.params,
     catchAll: split2.catchAll,
-    url: fields.url,
-    headers: fields.headers,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
     method: fields.method,
     ip: fields.ip,
     get request() {

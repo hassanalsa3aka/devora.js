@@ -143,38 +143,57 @@ export function requestContextFields(
   meta: RequestMeta | undefined
 ): Pick<RequestContext, "url" | "headers" | "method" | "ip" | "request"> {
   const source = meta ?? DEFAULT_REQUEST_META;
-  let url: URL;
-  try {
-    url = new URL(source.url);
-  } catch {
-    url = new URL(DEFAULT_REQUEST_META.url);
-  }
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(source.headers)) {
-    if (value === undefined) continue;
-    // A value the Fetch spec's Headers rejects (it's stricter than Node's
-    // parser) is dropped rather than failing the whole request.
-    for (const item of Array.isArray(value) ? value : [value]) {
+  // `url` and `headers` are built the first time a handler reads them. Most
+  // API handlers never do, and building a URL and a Headers object costs
+  // about a tenth of a request's CPU (measured with --cpu-prof), so a
+  // request that doesn't look doesn't pay.
+  let url: URL | undefined;
+  let headers: Headers | undefined;
+  const getUrl = (): URL => {
+    if (!url) {
       try {
-        headers.append(name, item);
+        url = new URL(source.url);
       } catch {
-        // skip
+        url = new URL(DEFAULT_REQUEST_META.url);
       }
     }
-  }
+    return url;
+  };
+  const getHeaders = (): Headers => {
+    if (!headers) {
+      headers = new Headers();
+      for (const [name, value] of Object.entries(source.headers)) {
+        if (value === undefined) continue;
+        // A value the Fetch spec's Headers rejects (it's stricter than Node's
+        // parser) is dropped rather than failing the whole request.
+        for (const item of Array.isArray(value) ? value : [value]) {
+          try {
+            headers.append(name, item);
+          } catch {
+            // skip
+          }
+        }
+      }
+    }
+    return headers;
+  };
   let request: Request | undefined;
   return {
-    url,
-    headers,
+    get url() {
+      return getUrl();
+    },
+    get headers() {
+      return getHeaders();
+    },
     method: source.method,
     ip: source.ip,
     get request() {
       if (!request) {
         try {
-          request = new Request(url, { method: source.method, headers });
+          request = new Request(getUrl(), { method: source.method, headers: getHeaders() });
         } catch {
           // A method the Fetch spec forbids (CONNECT/TRACE): describe it as a GET.
-          request = new Request(url, { headers });
+          request = new Request(getUrl(), { headers: getHeaders() });
         }
       }
       return request;
