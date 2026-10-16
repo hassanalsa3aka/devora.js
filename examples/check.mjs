@@ -189,7 +189,7 @@ const CHECKS = {
     const sitemap = await (await fetch(`${site}/sitemap.xml`)).text();
     expect("sitemap is served", sitemap, (x) => x.includes("<loc>https://blog.example.com</loc>"));
     expect(
-      listsDynamic ? "sitemap lists the getStaticParams() posts (0.3.4+)" : "sitemap omits dynamic routes (<= 0.3.3)",
+      listsDynamic ? "sitemap lists the getStaticParams() posts (0.3.4+)" : "sitemap omits dynamic routes (<= 0.3.3)", // version-ok: the behavior each version has
       sitemap.includes("/posts/hello-islands"),
       listsDynamic
     );

@@ -147,7 +147,7 @@ export const handler = apiRoute(() => {
 
 ## What was verified, and what was not
 
-Checked on 0.3.4 on one local Node server: enqueueing without a login answers 401, with a Bearer token
+Tested with 0.3.4 on one local Node server: enqueueing without a login answers 401, with a Bearer token
 202 and an id; BullMQ returned `completed` with the result in about 330 ms (a local `redis-server`);
 SQLite in about 100 to 220 ms; node-cron wrote no log before the first request and four ticks in the
 next 3.5 seconds.

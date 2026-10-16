@@ -54,7 +54,7 @@ shared brand assets, and each app scaffolded with API routes in `endpoints/` (`a
 "endpoints"`, served under `/api`), a `vite.config.ts` and committed `vercel.json`/`netlify.toml`.
 Page apps also get routes, an `error.tsx` error page and (for `shared`/`isolated` apps) a working
 login/logout flow; backend-only apps get API routes only (plus a Bearer login when they use auth). The
-project depends on `@devorajs/core` and `@devorajs/cli` `^0.3.2`, has a `typecheck` script, and
+project depends on `@devorajs/core` and `@devorajs/cli` `^0.3.5`, has a `typecheck` script, and
 runs on React 18 (19 is supported too). Dependencies are installed automatically, so once it
 finishes:
 

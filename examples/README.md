@@ -1,7 +1,7 @@
 # Examples
 
 Small, runnable Devora.js projects. Each one is a standalone project that installs the
-**published** packages (`@devorajs/core` and `@devorajs/cli` `^0.3.2`) from npm, not the source
+**published** packages (`@devorajs/core` and `@devorajs/cli`, each example's own range) from npm, not the source
 in this repo, so it shows exactly what a new user gets. None of them is part of any published
 package.
 

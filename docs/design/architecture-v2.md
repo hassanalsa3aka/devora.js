@@ -194,7 +194,7 @@ Closes a real, documented v1 gap: `ssg`/`isr` currently fail the build on a dyna
 there's no way to know which concrete values to pre-render. `ssr`/`csr` on dynamic routes already
 work and are unaffected by this addition.
 
-**Catch-all segments (0.3.4).** `routes/docs/[...slug].tsx` matches one or more segments;
+**Catch-all segments (added in 0.3.4).** `routes/docs/[...slug].tsx` matches one or more segments;
 `ctx.params.slug` is the segments joined with `/` (every `ctx.params` value stays a string, so
 existing code compiles unchanged) and `ctx.catchAll.slug` is the `string[]`;
 `routes/docs/[[...slug]].tsx` also matches `/docs` (`slug` is `""` / `[]`). Precedence per segment: static, then `[param]`, then `[...slug]`. A catch-all must be the

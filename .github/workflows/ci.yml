@@ -91,6 +91,12 @@ jobs:
         if: matrix.package-manager == 'pnpm'
         run: pnpm run test
 
+      # Every relative Markdown link resolves, and no document names an old version as current or uses
+      # wording about an unfinished release outside the CHANGELOG and docs/history.
+      - name: Check documents
+        if: matrix.package-manager == 'pnpm'
+        run: pnpm run check:docs
+
       # Fresh create-devora projects (full-stack and backend-only), installed
       # from the packed tarballs and typechecked with their own `typecheck`
       # script — tests the published .d.ts files the way a user gets them.

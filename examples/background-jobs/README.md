@@ -1,6 +1,6 @@
 # Example: background jobs
 
-A backend-only Devora.js project (`--scope=backend`, 0.3.4) with the three tested ways to run work
+A backend-only Devora.js project (`--scope=backend`, `@devorajs/core` and `@devorajs/cli` 0.3.4 or later) with the three tested ways to run work
 outside a request. Guide: the "Background jobs" page.
 
 | Pattern | Files | Needs |

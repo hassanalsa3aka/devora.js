@@ -9,7 +9,7 @@ file is the short summary of where the safety net does and doesn't exist today.
 
 ## Automated tests (run in CI on every push/PR)
 
-`pnpm run test` runs 466 Vitest tests in 41 files (as of 0.3.4). The integration tests boot a real
+`pnpm run test` runs 498 Vitest tests in 50 files (as of 0.3.5). The integration tests boot a real
 dev server (`createAppDevServer`, exactly what `devora dev` boots) or the real production handler
 against a real `devora build` output, and send real HTTP requests.
 

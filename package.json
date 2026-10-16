@@ -7,7 +7,8 @@
     "build": "tsx packages/cli/src/index.ts build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs"
   },
   "workspaces": ["packages/*", "apps/*", "adapters/*", "create-devora"],
   "dependencies": {

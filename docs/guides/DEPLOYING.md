@@ -9,9 +9,9 @@ Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain
 (`adapter-node` + nginx/Caddy). Container platforms that run a Docker image are covered below,
 untested.
 
-**What's verified for 0.3.4:** the Vercel and Netlify functions it generates were run outside this
+**What's verified for 0.3.5:** the Vercel and Netlify functions it generates were run outside this
 monorepo (real pages, login, CSRF, a CommonJS dependency), and the Docker image and `devora start`
-were run locally. 0.3.4 is **not yet verified on a live deployment by this project**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
+were run locally. 0.3.5 is **not yet verified on a live deployment by this project**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
 releases were deployed live to both platforms by the maintainer.
 
 ## Environment variables and `.env` files
@@ -188,7 +188,7 @@ addons (`argon2`, `better-sqlite3`) or engine binaries haven't been verified ins
    class of gap: anything the function reads from disk at runtime instead of statically importing
    has to be named in that list explicitly, or it silently never reaches the deployed function.
 
-## Static files and pre-rendered pages in `devora start` (0.3.4)
+## Static files and pre-rendered pages in `devora start` (since 0.3.4)
 
 `devora start` (and the Vercel/Netlify functions, for requests that reach them) serves built
 assets, public files and pre-rendered (`ssg`) pages from memory:
@@ -317,7 +317,7 @@ An app that isn't linked is skipped with a clear instruction rather than failing
 
 The maintainer ran a real, authenticated `devora deploy` on both platforms with a release before
 0.3.2 — not just link detection. That was before Vercel discontinued `nodejs20.x`, which the
-adapter then hardcoded; with 0.3.4 this path is **not yet verified on a live deployment by this project**. Two
+adapter then hardcoded; with 0.3.5 this path is **not yet verified on a live deployment by this project**. Two
 bugs were found and fixed getting a clean run, both of a kind that only surfaces on a real
 platform:
 - `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did), so the

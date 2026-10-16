@@ -2,7 +2,7 @@
 
 For anyone who has never used it. You will scaffold a project, run it, build it, serve the build,
 then add a second app that shares a function with the first. Everything below was run on a fresh
-project from the published packages (`@devorajs/core` and `@devorajs/cli` 0.3.4).
+project from the published packages (`@devorajs/core` and `@devorajs/cli` 0.3.5).
 
 ## Before you start
 
@@ -25,7 +25,7 @@ one shared backend in `packages/backend`. Dependencies are installed for you.
 npm run dev
 ```
 
-You should see `devora.js 0.3.4  dev · 3 apps`, then each app's URL and its routes. The apps start
+You should see `devora.js 0.3.5  dev · 3 apps`, then each app's URL and its routes. The apps start
 on port 10000 and move up if a port is taken, so read the URLs it prints. Open the first one. Try
 `/login` on any app: any username works (it is a demo, there is no password check).
 

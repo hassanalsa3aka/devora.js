@@ -1,14 +1,15 @@
 # Roadmap
 
-Devora.js is early and pre-1.0, built by one person. This page is the single status document: what has shipped, version by version; what is done, partial, open and planned; what the 14 build items were; where each live deployment stands; and every finding testers or audits raised, with its status. The long, dated account of how each piece was built and verified is the [build log](docs/history/BUILD-LOG.md); every release block below is taken from [CHANGELOG.md](CHANGELOG.md) and the git tags (`v0.3.2` and `v0.3.4` are the only tags).
+Devora.js is early and pre-1.0, built by one person. This page is the single status document: what has shipped, version by version; what is done, partial, open and planned; what the 14 build items were; where each live deployment stands; and every finding testers or audits raised, with its status. The long, dated account of how each piece was built and verified is the [build log](docs/history/BUILD-LOG.md); every release block below is taken from [CHANGELOG.md](CHANGELOG.md) and the git tags (`v0.3.2`, `v0.3.4` and `v0.3.5` are the only tags).
 
 Status words in the tables: **Fixed** (a release, and a file, test or CHANGELOG line that proves it), **Partly fixed**, **Open**, **Unconfirmed** (never reproduced or checked; not guessed), **N/A**.
 
 ## Now
 
 - Outside testers: [TESTING.md](TESTING.md) is a 15-minute guide; what they hit goes into the findings table below.
-- Ship the clear "no session store configured" message (CHANGELOG "Unreleased") and the package README links.
-- Verify 0.3.4 on a live Vercel and Netlify deployment (finding N1).
+- Publish 0.3.5, then re-run the benchmark harness against the published 0.3.5 packages and replace the
+  numbers on the docs site's /performance page (they come from a build of this release's code).
+- Verify 0.3.5 on a live Vercel and Netlify deployment (finding N1).
 
 ## Next
 
@@ -16,7 +17,7 @@ Open findings, in a **proposed** order by impact. The order is a proposal for th
 
 | Order | Finding | Why it ranks here |
 |-------|---------|-------------------|
-| 1 | N1: 0.3.4 not verified on a live deployment | Every deploy claim depends on it |
+| 1 | N1: 0.3.5 not verified on a live deployment | Every deploy claim depends on it |
 | 2 | B5: several `Set-Cookie` headers and SSE from API routes | A real capability gap testers hit |
 | 3 | O4: the scaffold writes `@devorajs/backend` into new projects | Name could collide with a future real package; harder to change later |
 | 4 | U13, U14: an official session-store pattern or package; a built-in health route | Every production app needs both |
@@ -45,12 +46,14 @@ Also open: move the `esbuild` override out of `package.json`'s `"pnpm"` field (p
 Nothing here is planned, scheduled or numbered.
 
 - *Example:* an idea goes here as one line, with no version and no date. (The maintainer fills this in.)
+- A server hook so a project can attach its own handlers to the HTTP server `devora start` creates (`ws`, a start-up task); the wrapper in the Live updates (WebSockets) guide works today (finding R1).
+- Streamed API responses, so an API route can send server-sent events (finding R2).
 
 ## Performance program
 
 The aim is to close the gaps and publish measured results, including where Devora.js is behind. Numbers come from the benchmark harness in [benchmarks/](benchmarks/README.md) and are never edited by hand.
 
-State after the first pass (the changes are in CHANGELOG "Unreleased", not released): Devora.js leads the pre-rendered page, the server-rendered page and the form POST in the five-framework harness, and is 4th to 6th of 10 on the JSON API scenarios, behind Fastify, Hono and NestJS on Fastify (findings S1 to S4). The numbers are in [benchmarks/results/before-after.md](benchmarks/results/before-after.md).
+State after the first pass (released in 0.3.5): Devora.js leads the pre-rendered page, the server-rendered page and the form POST in the five-framework harness, and is 4th to 6th of 10 on the JSON API scenarios, behind Fastify, Hono and NestJS on Fastify (findings S1 to S4). The numbers are in [benchmarks/results/before-after.md](benchmarks/results/before-after.md).
 
 ## Not planned
 
@@ -61,6 +64,13 @@ State after the first pass (the changes are in CHANGELOG "Unreleased", not relea
 Everything else is indexed in [docs/README.md](docs/README.md).
 
 ## Done, by version
+
+### 0.3.5 — 2026-10-16 (tag `v0.3.5`)
+- Faster request handling in `devora start`: per-request work that never changes is now done once. Interleaved A/B on one machine: +15% JSON list, +32% authenticated GET, +21% POST, +41% pre-rendered page, +23% server-rendered page, form POST about 32,000 to 82,000 req/s. Five commits, each with tests; no security default weakened.
+- A missing session store or secret stops `devora start` with one clear line; the header brand link's accessible name contains its visible text.
+- Documentation: everything moved into `docs/`, the roadmap restored, guides for Live updates (WebSockets) and Background jobs, a new `examples/background-jobs`, backend benchmark scenarios.
+- Packages: `@devorajs/core` 0.3.5, `@devorajs/cli` 0.3.5, `create-devora` 0.3.3; the adapters are unchanged.
+- [CHANGELOG: 0.3.5](CHANGELOG.md#035--2026-10-16)
 
 ### 0.3.4 — 2026-10-16 (tag `v0.3.4`)
 - Catch-all routes (`[...slug]`, `[[...slug]]`) for pages and API routes; `ctx.params` stays a string, the array is `ctx.catchAll`.
@@ -119,7 +129,7 @@ Unpacked, that requires five things to all be true at once:
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
 4. Each app deploys independently to at least one real target — done: `adapter-node`, Vercel, and
    Netlify were all deployed live by the maintainer with releases before 0.3.2, via both git
-   integration and `devora deploy`. A live deployment of 0.3.4 is not yet verified on a live deployment by this project (its generated
+   integration and `devora deploy`. 0.3.5 is not yet verified on a live deployment by this project (its generated
    functions were run outside the monorepo). See [#4](docs/history/BUILD-LOG.md#4-adapters-real-build-output-not-just-config---done-including-real-live-vercel-and-netlify-deployments) and [#13](docs/history/BUILD-LOG.md#13-multi-app-aware-vercelnetlify---done-including-a-real-authenticated-deploy-on-both-platforms).
 5. SEO primitives work — done (#7): OG tags + per-app opt-in sitemap.xml, both verified.
 
@@ -128,7 +138,7 @@ on a serverless filesystem specifically — see the Status section immediately b
 
 ## Status board
 
-Restored in full from the old roadmap (kept in the [build log](docs/history/BUILD-LOG.md)) and brought up to 0.3.4. Where a line changed, the change is noted in *italics*.
+Restored in full from the old roadmap (kept in the [build log](docs/history/BUILD-LOG.md)) and brought up to 0.3.5. Where a line changed, the change is noted in *italics*.
 
 ### Done: built and verified
 
@@ -152,7 +162,7 @@ Automated tests versus manual checks are listed in [VERIFICATION.md](docs/histor
 
 ### In progress / partial
 
-- 0.3.4 on a live Vercel/Netlify deployment: not yet verified by this project (the generated functions were run outside the monorepo)
+- 0.3.5 on a live Vercel/Netlify deployment: not yet verified by this project (the generated functions were run outside the monorepo)
 - `isr` on Vercel/Netlify: the initial build's static output serves correctly; ongoing regeneration on a serverless function's non-persistent filesystem is unverified: #12
 - Domain auto-binding for a `devora deploy`-managed app: not built, deliberately scoped out of that pass: #13
 
@@ -204,15 +214,15 @@ Only the maintainer can deploy live; none of this was run from the development e
 - **Docker**: real `docker build`/`run`/`compose up`, login/CSRF/tampered-cookie regression inside the container, all three apps concurrently ([#14](docs/history/BUILD-LOG.md#14-three-more-environments-tried-for-real--docker-a-bare-vps-nginxcaddy-ci---done)). Not verified: container platforms (Cloud Run, App Runner/Fargate, Azure Container Apps).
 - **VPS**: `devora generate:proxy` verified against a real local nginx and `caddy validate`; one shared port scheme. The `deploy/devora.service` systemd template is untested on a host.
 - **CI**: `.github/workflows/ci.yml` builds every app under npm, Yarn and pnpm, both adapter targets, and typechecks fresh scaffolds.
-- **0.3.4 live**: not yet verified on a live deployment by this project. The Vercel runtime hardcoded `nodejs20.x` before 0.3.2, so a new deploy of the older releases fails; 0.3.4's generated functions were run outside the monorepo only.
+- **0.3.5 live**: not yet verified on a live deployment by this project. The Vercel runtime hardcoded `nodejs20.x` before 0.3.2, so a new deploy of the older releases fails; 0.3.5's generated functions were run outside the monorepo only.
 
 ## Findings
 
-79 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O) and [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X). Fixed 51, Partly fixed 4, Open 20, Unconfirmed 3, N/A 1.
+86 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O) [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S) and the lab tests of WebSockets and jobs (R). Fixed 55, Partly fixed 5, Open 21, Unconfirmed 4, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
-| P1 | Published package was behind the docs (core 0.1.2 lacked defineModule/apiRoute) | Fixed | 0.3.0 | create-devora pins ^0.3.0 (CHANGELOG 0.3.0); core 0.3.0 to 0.3.4 are on npm. The suggested CI check that fails a docs deploy when versions differ does not exist. | pre #1 |
+| P1 | Published package was behind the docs (core 0.1.2 lacked defineModule/apiRoute) | Fixed | 0.3.0 | create-devora pins ^0.3.0 (CHANGELOG 0.3.0); core 0.3.0 to 0.3.5 are on npm. The suggested CI check that fails a docs deploy when versions differ does not exist. | pre #1 |
 | P2 | apiRoute() was a no-op; uncaught errors leaked HTML to API clients | Fixed | 0.3.0 | packages/core/src/httpError.ts + apiRoute.ts wrapper; real-server tests devServer/prodServer.integration (JSON 500, message hidden in production); CHANGELOG 0.3.0 | pre #2 |
 | P3 | Dev server localhost-only; no --host, no LAN URL | Fixed | 0.3.0 | devora dev --host, packages/cli/src/server/devNetwork.ts; CHANGELOG 0.3.0 | pre #3 |
 | P4 | No route listing on dev boot | Fixed | 0.3.0 | CHANGELOG 0.3.0 (boot output includes each app's route table); packages/cli/src/terminal/bootSummary.ts | pre #4 |
@@ -273,7 +283,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 | Y5 | devora add api generated unneeded page-app files | Fixed | 0.3.2 | devora add --kind=pages\|api (CHANGELOG 0.3.2) | r3 YallaDo |
 | Y6 | Transient 'invalid hook call' on first dev load (Vite re-optimization) | Unconfirmed | - | Not reproduced in this audit; no documented note in the docs. | r3 YallaDo |
 | Y7 | CSRF cookie set on JSON responses to Bearer-only clients | Fixed | 0.3.2 | csrf: false per app (no CSRF cookie issued; CHANGELOG 0.3.2) | r3 YallaDo |
-| Y8 | Docs contradicted each other on streaming maturity | Partly fixed | 0.3.2 | Current docs say streaming shipped; CLAUDE.md line 173 and BUILD-LOG items still carry the old 'deferred' wording with a later note (see the audit) | r3 YallaDo |
+| Y8 | Docs contradicted each other on streaming maturity | Fixed | 0.3.5 | Every current document says streaming shipped in v2 (GET-only; buffered on Netlify); the old "deferred" wording is kept only in dated history (BUILD-LOG items, `docs/history/CLAUDE-repo-state-archive.md`, each marked as of its date) | r3 YallaDo |
 | L1 | Shared login did not carry across subdomains | Fixed | 0.3.2 | shared.sessions.cookie.domain (CHANGELOG 0.3.2) | r3 known limitation |
 | O1 | devora --version printed 0.1.0 | Fixed | 0.3.1 | CHANGELOG 0.3.1 | r3 also open |
 | O2 | Docs examples with bare devora commands | Unconfirmed | - | No bare 'devora <command>' line found by search in the site routes; pages were not read one by one. | r3 also open |
@@ -287,7 +297,14 @@ Only the maintainer can deploy live; none of this was run from the development e
 | N5 | A DB client under sustained production load | Open | - | A real Drizzle + better-sqlite3 client was verified in dev and reverted; no load test. | VERIFICATION not verified |
 | X1 | A dynamic route without getStaticParams() cannot use ssg/isr | Open | - | By design: the build fails with a clear error (docs/history/VERIFICATION.md Known unsupported). | VERIFICATION known unsupported |
 | X2 | isr disk cache unverified under real serverless conditions | Open | - | Same as N3. | VERIFICATION known unsupported |
-| S1 | Every request re-did work that never changes (path joins, build keys, a URL object and a Headers object, a session-key HMAC, two manifest reads from disk) | Fixed | Unreleased | Five commits on perf/backend-speed (CHANGELOG Unreleased). Interleaved A/B on one machine: +15% JSON list, +32% authenticated GET, +21% POST, +41% pre-rendered page, +23% server-rendered page; form POST 32,000 to 80,000 req/s in the full run (benchmarks/results/before-after.md, ab-published-vs-final.txt) | benchmarks |
+| S1 | Every request re-did work that never changes (path joins, build keys, a URL object and a Headers object, a session-key HMAC, two manifest reads from disk) | Fixed | 0.3.5 | Five commits on perf/backend-speed (CHANGELOG 0.3.5). Interleaved A/B on one machine: +15% JSON list, +32% authenticated GET, +21% POST, +41% pre-rendered page, +23% server-rendered page; form POST 32,000 to 80,000 req/s in the full run (benchmarks/results/before-after.md, ab-published-vs-final.txt) | benchmarks |
 | S2 | Devora.js API routes are still behind Fastify, Hono and NestJS on Fastify: JSON list 4th of 10 (22% below the leader), authenticated GET 6th (41% below), POST 5th (35% below) | Open | - | benchmarks/results/backend-report.md. Part of the gap is not in the framework (the same JSON.stringify runs in every app, about half of the list scenario); the rest is per-request work the bare frameworks do not do (security headers, a request context with session and CSRF methods, a real session lookup). | benchmarks |
 | S3 | The built-in memory session store clones each record on every read (structuredClone, about 8% of an authenticated request) | Open | - | CPU profile of the authenticated scenario. Not changed: the clone keeps a handler from mutating the stored record; a cheaper copy needs a decision on that behavior. | benchmarks |
 | S4 | Memory after load is higher than the bare backend frameworks (352 MB against 178 to 264 MB for Express, Fastify, Hono and NestJS) | Open | - | benchmarks/results/backend-report.md. A faster server also keeps more heap, so this is not proof of a leak; no leak test was run. | benchmarks |
+| R1 | `ws` on the same port as `devora start` | Partly fixed | - | Works through a wrapper script that calls `createNodeServer` (the function the CLI calls; a public, documented export of `@devorajs/adapter-node` that returns the `http.Server`) and handles `upgrade` itself: bad token 401, good token connected and echoed, API and security headers unchanged on the same port. Plain `devora start` exposes no server and no hook. Smallest core change: an `onServer(server)` option. Guide: Live updates (WebSockets). | lab |
+| R2 | Server-sent events from an API route | Open | - | A string body is sent complete after the handler finishes (first byte at 1.5 s for three events 0.5 s apart, then the connection closes, so an `EventSource` reconnects in a loop); a `ReadableStream`, an async iterable or a `Readable` as the body answers 500. Smallest core change: let `sendApiResponse` pipe a stream or async iterable and destroy it when the client disconnects. | lab |
+| R3 | Socket.IO as a separate server (`examples/realtime`) | Fixed | 0.3.4 | Run from a scratch copy on the published 0.3.4 packages: all 19 checks of `examples/check.mjs` pass. Not tested in a browser. | lab |
+| R4 | Background jobs: BullMQ with Redis and a separate worker | Fixed | 0.3.5 | Tested on one Node server: an authenticated route enqueued (202), the worker ran it, the route returned `completed` in about 330 ms; unauthenticated enqueue is 401. `bullmq` needs `ioredis` installed separately. In CI as `examples/background-jobs` (the Redis part skips when there is no Redis). Guide: Background jobs. | lab |
+| R5 | Background jobs without Redis: a SQLite queue and a worker | Fixed | 0.3.5 | `node:sqlite`: result in about 100 to 220 ms. One server only (both processes share the file). In CI as `examples/background-jobs`, always run. | lab |
+| R6 | `node-cron` inside `devora start` | Partly fixed | - | Works, but there is no start-up hook: the schedule registers when the route that contains it is first imported (at its first request). | lab |
+| R7 | Each of the above on Vercel or Netlify | Unconfirmed | - | Not deployed, so not verified. Expected from the platforms' documented model, not tested: WebSockets, long-lived timers and a SQLite file on a function's disk do not fit functions; a BullMQ worker must run elsewhere. | lab |

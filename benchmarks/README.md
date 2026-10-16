@@ -51,8 +51,8 @@ within one run, not across machines.
 ## Reading the page numbers
 
 Three full runs of the published 0.3.4 packages on one machine measured about 71,000-82,000
-requests/s on the `/static` page. After the performance work in this branch (see `CHANGELOG.md`
-"Unreleased" and `results/before-after.md`) one full run measured about 101,500, against about
+requests/s on the `/static` page. After the performance work released in 0.3.5 (see `CHANGELOG.md`
+and `results/before-after.md`; measured on a build of that code before it was published) one full run measured about 101,500, against about
 36,400-38,500 for Astro, SvelteKit and React Router and about 14,400 for Next.js. The page is tiny
 (568 B for Devora.js; sizes for every framework are in `results/report.md`), the load generator
 runs on the same machine, and no framework compressed during the timed runs (the load tool sends no
