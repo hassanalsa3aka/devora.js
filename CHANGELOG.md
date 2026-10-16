@@ -12,13 +12,33 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-### `@devorajs/core` and `@devorajs/cli`
+Nothing yet.
 
-- A missing session store or (in production) a missing `DEVORA_SESSION_SECRET` now stops
-  `devora start` with one clear line and exit status 1, instead of a stack trace. It still refuses
-  to start. The error is a new exported `DevoraConfigError`.
-- The header's brand link now has the accessible name "devora.js home" (it was "Home", which did not
-  contain the visible text and failed the WCAG label-in-name check).
+## 0.3.5 — 2026-10-16
+
+Packages: `@devorajs/core` 0.3.5, `@devorajs/cli` 0.3.5, `create-devora` 0.3.3. The adapters are unchanged
+(`@devorajs/adapter-node` 0.2.1, `adapter-vercel` 0.2.3, `adapter-netlify` 0.2.4); their `@devorajs/core`
+range `^0.3.2` accepts 0.3.5.
+
+### Behavior changes
+
+Nothing here needs a code change in a typical app; each line says what to check.
+
+- **A missing session store, or (in production) a missing `DEVORA_SESSION_SECRET`, now stops
+  `devora start` with one clear line and exit status 1**, instead of a stack trace. It refused to start
+  before and still does. The error is a new exported `DevoraConfigError`. Nothing to do.
+- **`ctx.url` and `ctx.headers` are built the first time a handler reads them.** Reading them is
+  unchanged (the same `URL` and `Headers` objects, returned every time). They are now getters, so a
+  handler that assigns to them (`ctx.url = ...`) throws in strict mode; the types never marked them
+  read-only and nothing in the framework assigns them. Nothing to do unless your code does.
+- **A rebuilt island or client-route manifest is picked up within a second** instead of on the next
+  request, as built static files already are. Nothing to do.
+- **The header's brand link has the accessible name "devora.js home"** (it was "Home", which did not
+  contain the visible text and failed the WCAG label-in-name check). A test that selects it by
+  `aria-label="Home"` needs the new name.
+
+### `@devorajs/core` 0.3.5 and `@devorajs/cli` 0.3.5
+
 - Performance: `ctx.url` and `ctx.headers` are built the first time a handler reads them, not on every
   request. No behavior change: the same objects, built later. About 3 to 5% more requests/s on API
   routes that never read them (interleaved A/B, same machine; see `benchmarks/results/`).
@@ -35,6 +55,38 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
   are. About +18% on a server-rendered page.
 - Performance: the absolute request URL behind `ctx.url`/`ctx.request` is parsed when first read (what it is built
   from is still read when the request arrives, so a later rewrite of the request does not change it). 1 to 3%.
+- Tests added for the above: remembered session keys never outlive a session (revocation, deletion, expiry,
+  a flooded memory, another app's scope), the remembered page paths stay bounded and keep refusing
+  traversal, and a page form POST through the production handler (403 without, with a missing or with a
+  wrong CSRF token, 303 with a valid one; security headers and cookie flags pinned to 0.3.4's values).
+
+### `create-devora` 0.3.3
+
+- New projects depend on `@devorajs/core` and `@devorajs/cli` `^0.3.5` (read from the packages when
+  `create-devora` is built).
+
+### Not changed
+
+- `@devorajs/adapter-node` 0.2.1, `@devorajs/adapter-vercel` 0.2.3 and `@devorajs/adapter-netlify` 0.2.4:
+  no source or range change since they were published (comments and documentation paths only).
+
+### Documentation, examples and benchmarks (not part of any package)
+
+- The Markdown guides, design notes and history moved into `docs/` (`docs/README.md` is the index);
+  `PAGES.md` and `DEPLOYING.md` remain at the root as stubs that point to the new paths. Links in the
+  package READMEs and the code comments point to the new paths.
+- `ROADMAP.md` is the single status document: version timeline, status board, the 14 build items,
+  live deployment history and a findings table. `CONTRIBUTING.md` has a "Tracking changes" rule.
+- New guides: "Live updates (WebSockets)" (`docs/guides/REALTIME.md`: Socket.IO as a separate server, `ws`
+  through a wrapper around `createNodeServer`, polling, and why server-sent events do not work yet) and
+  "Background jobs" (`docs/guides/BACKGROUND-JOBS.md`: BullMQ with Redis, a SQLite queue, node-cron).
+- New example `examples/background-jobs`, in the examples CI job; its Redis check skips when Redis is
+  not available.
+- Benchmarks: backend scenarios D to G across ten frameworks (`benchmarks/run-backend.mjs`), baseline and
+  after results, a before/after comparison. The "after" numbers were measured on this release's code
+  before it was published.
+- CHANGELOG: entries for 2026-09-12 to 2026-09-15 and the core 0.1.2, 0.2.1 and 0.2.2 releases,
+  reconstructed from git history.
 
 ## 0.3.4 — 2026-10-16
 

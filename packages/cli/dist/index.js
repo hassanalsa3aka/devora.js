@@ -6650,7 +6650,7 @@ function stripAnsi(text) {
 }
 
 // src/terminal/output.ts
-var CLI_VERSION = true ? "0.3.4" : "0.0.0-source";
+var CLI_VERSION = true ? "0.3.5" : "0.0.0-source";
 var quiet = false;
 function setQuiet(value) {
   quiet = value === true;
