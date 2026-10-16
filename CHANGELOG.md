@@ -421,3 +421,39 @@ See `docs/history/devora-pre-v3-hotfixes.md` for the evidence behind each item a
 - Added `auth: "none"` as a third `AuthMode` — an app with no login (e.g. `marketing`) can now
   opt out of the entire session/cookie/CSRF carrier instead of needing an unused session secret.
 - Added `vercel.json`/`netlify.toml` per app and wrote up the Vercel/Netlify deployment steps.
+
+## Earlier releases, reconstructed from git history
+
+Dates and package versions below were not recorded in this changelog when they happened. They are
+rebuilt from git commits and npm publish times, and every entry is marked "reconstructed from git
+history". Nothing here comes from memory. Where git cannot say something, the last section says so.
+
+### 2026-09-15 (reconstructed from git history)
+
+- Fixes from the Phase 4 security audit (commit b8bdc09): rejected island imports no longer poison the cache; unresolved Suspense boundaries time out instead of hanging a connection; backpressure handling for streamed responses; the CSP nonce also applies to `script-src-elem`; session cookie signatures include the cookie name; request body size limits; proxy-generation domain input validation. (The 2026-09-16 entry above summarises these fixes.)
+- API routes enforce a method allowlist so an undeclared method no longer falls through silently (commit 36e9e53).
+
+### 2026-09-14 (reconstructed from git history)
+
+- `devora split`, `devora sync`, `devora status` for managing apps as git submodules (a440532); history-preserving `git subtree split` and clearer errors (e374ef5).
+- `renderStreaming`, `hydrateCsr`/`hydrateIslands` client helpers and tests, in the same commit as the repo-splitting commands.
+
+### 2026-09-13 (reconstructed from git history)
+
+- "Phase 0" of v2: `architecture-v2.md`, version bumps for adapters and CLI, scaffold changes (a68843a).
+- Generic API route handling and middleware (21cee6d); backend-only app mode (2b55352).
+- `getStaticParams()` for dynamic `ssg`/`isr` routes, `resolveStaticRoutePath()`, and a module dispose hook in dev (45f7974); AUTH/DATABASE/DRIZZLE/PRISMA guides under `packages/backend/`.
+
+### 2026-09-12 (reconstructed from git history)
+
+- README description spacing fix (e9cb6a2). No code change.
+
+### Package notes (reconstructed from git history and npm publish times)
+
+- `@devorajs/core` 0.1.2 (published 2026-09-09 12:42 UTC): npm version for the 2026-09-09 entry (dynamic routes, `devora deploy` fixes, `NODE_ENV`).
+- `@devorajs/core` 0.2.1 (2026-09-16 08:35 UTC): footer structure in the branding component and theme styles (ebee286).
+- `@devorajs/core` 0.2.2 (2026-09-16 09:26 UTC): footer style changes and a package `exports` restructure so the published package resolves `dist` through `publishConfig` (d1a593c, 92f88ea).
+- `@devorajs/core` 0.2.3: appears in package.json (08e1e81: heading/list styles, exports) but is not on npm; the next published core is 0.3.0.
+- `@devorajs/adapter-vercel` 0.1.3 and `@devorajs/adapter-netlify` 0.1.4 to 0.1.6 (2026-09-16, published 10:07-10:37 UTC): version bumps while the `scripts/publish-package.mjs` publishing script was being made correct (af54997, 08e1e81, be55165, 5c2d781).
+
+Not recoverable from git: the reason for the 0.2.1/0.2.2 publish order beyond the commit messages; which exact commit each publish was taken from (publish times only bracket commits).
