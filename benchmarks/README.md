@@ -11,7 +11,7 @@ defaults, measured the same way. Not published to npm; nothing here is used by t
 
 | App | Framework | Production setup |
 |---|---|---|
-| `apps/devora` | Devora.js (`@devorajs/core`/`cli` 0.3.4; runs before its publication used locally packed builds of it) | `devora build`, `devora start` (adapter-node). `/static` is `ssg`; the counter is an `island()` |
+| `apps/devora` | Devora.js (`@devorajs/core`/`cli` 0.3.4, installed from npm) | `devora build`, `devora start` (adapter-node). `/static` is `ssg`; the counter is an `island()` |
 | `apps/next` | Next.js 16.4.1 | `next build`, `next start`, App Router. `/static` is static by default; `/items` uses `dynamic = "force-dynamic"` and a client component; the form is a Server Action with `useActionState` |
 | `apps/astro` | Astro 7.3.8 | `output: "server"` on `@astrojs/node` (standalone); `/static` has `prerender = true`; the counter is a React component with `client:load` |
 | `apps/sveltekit` | SvelteKit 3.0.1 | `@sveltejs/adapter-node` 6; `/static` has `prerender = true`; the form uses form actions with `fail()` and `redirect()` |
@@ -50,7 +50,7 @@ within one run, not across machines.
 
 ## Reading the static-page number
 
-Across two full runs on one machine, Devora.js measured about 71,000–82,000 requests/s on the
+Across three full runs on one machine, Devora.js measured about 71,000–82,000 requests/s on the
 `/static` page, against about 36,000–38,000 for Astro, SvelteKit and React Router and about
 14,000 for Next.js. The page is tiny (568 B for Devora.js; sizes for every framework are in
 `results/report.md`), the load generator runs on the same machine, and no framework compressed
@@ -75,8 +75,8 @@ Port 4300 must be free. `results/raw-<date>.json` keeps every run's numbers.
 - The load tool sends no `Accept-Encoding`, so no framework compresses during the runs; page sizes still differ
   because each framework emits different HTML (see "Response bytes on the wire" in the report). A smaller
   page is part of why a framework is faster here; the report shows the sizes so that can be judged.
-- Devora.js is measured through its documented production path (`devora build`, `devora start`) with
-  locally packed builds of the release candidate until it is published.
+- Devora.js is measured through its documented production path (`devora build`, `devora start`),
+  installed from the published npm packages.
 
 - Requests/second on localhost mostly measures the Node HTTP server and the rendering work per
   request. It says little about how many users an app can serve behind a real network and CDN.
