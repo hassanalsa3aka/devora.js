@@ -30,6 +30,9 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - Performance: the store key for a session ID (an HMAC) is remembered per secret, cookie name and ID, in a memory
   bounded to 5,000 entries. The key is the same value as before, so existing sessions keep working and an
   isolated app still cannot read a shared app's sessions. About +6% on an authenticated API route.
+- Performance: the island and client-rendered-route manifests are read from disk at most once a second instead of on
+  every server-rendered request. A rebuilt manifest is picked up within a second, as built static files already
+  are. About +18% on a server-rendered page.
 
 ## 0.3.4 — 2026-10-16
 

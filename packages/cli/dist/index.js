@@ -4964,6 +4964,24 @@ function requestPathname(target) {
   return new URL(target, "http://localhost").pathname;
 }
 
+// ../core/src/ttlMemo.ts
+function ttlMemo(load, ttlMs, now = Date.now) {
+  let value;
+  let loadedAt = 0;
+  return () => {
+    const t = now();
+    if (!value || t - loadedAt >= ttlMs) {
+      const p = load();
+      value = p;
+      loadedAt = t;
+      p.catch(() => {
+        if (value === p) value = void 0;
+      });
+    }
+    return value;
+  };
+}
+
 // ../core/src/apiDir.ts
 import path6 from "node:path";
 var DEFAULT_API_DIR = "api";
@@ -5100,6 +5118,8 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const securityHeaderEntries = Object.entries(securityHeaders);
   const islandManifestPath = path7.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path7.join(serverOutDir, "csr-route-manifest.json");
+  const currentIslandClientUrl = ttlMemo(() => readIslandClientUrl(islandManifestPath), 1e3);
+  const currentCsrManifest = ttlMemo(() => readCsrManifest(csrManifestPath), 1e3);
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
   const head = options.head;
   const routeStyles = readRouteCssManifest(path7.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
@@ -5219,7 +5239,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         );
       }
       const entryServer2 = await importBuilt(serverOutDir, "entry-server");
-      const islandClientUrl2 = await readIslandClientUrl(islandManifestPath);
+      const islandClientUrl2 = await currentIslandClientUrl();
       const nonce = generateNonce();
       res.setHeader("Content-Security-Policy", resolveSecurityHeaders(security, nonce)["Content-Security-Policy"]);
       const result2 = await entryServer2.renderStreaming(routeModule, {
@@ -5264,7 +5284,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       return true;
     }
     if (renderMode === "csr") {
-      const csrManifest = await readCsrManifest(csrManifestPath);
+      const csrManifest = await currentCsrManifest();
       const html = renderCsrShell(routeModule, csrManifest.routes[buildKey], csrManifest.csrClientUrl, void 0, {
         appHead: head,
         styles
@@ -5292,7 +5312,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || revalidateSeconds !== void 0 && isStale(cached.renderedAt, revalidateSeconds)) {
           const entryServer2 = await importBuilt(serverOutDir, "entry-server");
-          const islandClientUrl2 = await readIslandClientUrl(islandManifestPath);
+          const islandClientUrl2 = await currentIslandClientUrl();
           const { html } = await entryServer2.renderStatic(routeModule, {
             islandClientUrl: islandClientUrl2,
             params: match.params,
@@ -5310,7 +5330,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       return true;
     }
     const entryServer = await importBuilt(serverOutDir, "entry-server");
-    const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+    const islandClientUrl = await currentIslandClientUrl();
     let formData;
     try {
       formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"]) : void 0;

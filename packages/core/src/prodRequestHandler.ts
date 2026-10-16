@@ -29,6 +29,7 @@ import type { RouteModule } from "./route.js";
 import type { ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { toBuildKey } from "./buildKey.js";
 import { requestPathname } from "./fastPathname.js";
+import { ttlMemo } from "./ttlMemo.js";
 import { resolveApiDir } from "./apiDir.js";
 import { describeRequest, isHttpsRequest } from "./trustProxy.js";
 import { corsResponse, type CorsConfig } from "./cors.js";
@@ -104,6 +105,9 @@ export function createProdRequestHandler(
   // absent (and islandClientUrl undefined) for an app with no islands.
   const islandManifestPath = path.join(serverOutDir, "island-manifest.json");
   const csrManifestPath = path.join(serverOutDir, "csr-route-manifest.json");
+  // Read from disk at most once a second instead of on every server-rendered request.
+  const currentIslandClientUrl = ttlMemo(() => readIslandClientUrl(islandManifestPath), 1000);
+  const currentCsrManifest = ttlMemo(() => readCsrManifest(csrManifestPath), 1000);
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
   const head = options.head;
   // CSS each built page imports (buildAppServer.ts), keyed by build key.
@@ -277,7 +281,7 @@ export function createProdRequestHandler(
         );
       }
       const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
-      const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+      const islandClientUrl = await currentIslandClientUrl();
       // React's own inline Suspense-boundary-patch script needs this
       // response's real CSP nonce, in production exactly as much as dev —
       // it's React's own streaming SSR mechanism, not a Vite/HMR artifact
@@ -336,7 +340,7 @@ export function createProdRequestHandler(
     }
 
     if (renderMode === "csr") {
-      const csrManifest = await readCsrManifest(csrManifestPath);
+      const csrManifest = await currentCsrManifest();
       const html = renderCsrShell(routeModule, csrManifest.routes[buildKey], csrManifest.csrClientUrl, undefined, {
         appHead: head,
         styles,
@@ -390,7 +394,7 @@ export function createProdRequestHandler(
         const revalidateSeconds = routeModule.revalidate?.seconds;
         if (!cached || (revalidateSeconds !== undefined && isStale(cached.renderedAt, revalidateSeconds))) {
           const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
-          const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+          const islandClientUrl = await currentIslandClientUrl();
           const { html } = await entryServer.renderStatic(routeModule, {
             islandClientUrl,
             params: match.params,
@@ -411,7 +415,7 @@ export function createProdRequestHandler(
 
     const entryServer = (await importBuilt(serverOutDir, "entry-server")) as EntryServerModule;
 
-    const islandClientUrl = await readIslandClientUrl(islandManifestPath);
+    const islandClientUrl = await currentIslandClientUrl();
     let formData: FormData | undefined;
     try {
       formData =
