@@ -13,7 +13,7 @@ const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "
 const files = execFileSync("git", ["ls-files", "*.md"], { cwd: root, encoding: "utf-8" }).split("\n").filter(Boolean);
 
 const slug = (h) =>
-  h.toLowerCase().replace(/[`*_~]/g, "").replace(/<[^>]+>/g, "").replace(/[^\p{L}\p{N}\s-]/gu, "").trim().replace(/\s+/g, "-");
+  h.toLowerCase().replace(/[`*_~]/g, "").replace(/<[^>]+>/g, "").replace(/[^\p{L}\p{N}\s-]/gu, "").trim().replace(/\s/g, "-"); // GitHub: one hyphen per space, no collapsing
 const anchors = (file) => {
   const out = new Set();
   let fenced = false;

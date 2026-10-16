@@ -97,3 +97,16 @@ versions must point at `dist/`. Publish one package at a time:
    drops it, then restores `package.json`.
 5. Install the published version into a fresh `npm create devora@latest` project and run `dev`,
    `build` and `start` before announcing it.
+
+## Documenting changes
+
+Every change that a user could notice comes with its documentation, in the same pull request:
+
+- [ ] A line in `CHANGELOG.md` under the package it changed. A behavior change goes in the
+      "Behavior changes" list first, with what existing apps must do.
+- [ ] The page that describes it, if behavior or a setting changed: `docs/guides/` for how-to
+      material, `docs/design/` for scope and architecture, and the docs site (`devorajs-docs`) for
+      anything public.
+- [ ] A test that fails without the change. A claim that could not be tested says so in
+      `docs/history/VERIFICATION.md`.
+- [ ] `node scripts/checkMarkdownLinks.mjs` reports no broken links.
