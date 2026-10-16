@@ -125,7 +125,7 @@ under each.
 React 18 and whichever Vite the install resolves).
 
 Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only
-API with Bearer login, a content site with `ssg` and islands, or live updates with a separate
+API with Bearer login, a content site with `ssg` and islands, or live updates (WebSockets) with a separate
 realtime server.
 
 ## Key features
@@ -268,12 +268,13 @@ please open an issue.
 - 📚 [Full docs site](https://devorajs-docs-docs.vercel.app) — built with the published packages,
   covers every feature with runnable examples: [Getting started](https://devorajs-docs-docs.vercel.app/getting-started),
   [Render modes](https://devorajs-docs-docs.vercel.app/render-modes),
-  [Live updates](https://devorajs-docs-docs.vercel.app/live-updates),
+  [Live updates (WebSockets)](https://devorajs-docs-docs.vercel.app/live-updates),
   [Examples](https://devorajs-docs-docs.vercel.app/examples),
   [Compare](https://devorajs-docs-docs.vercel.app/compare),
   [Performance](https://devorajs-docs-docs.vercel.app/performance) and the
   [Blog](https://devorajs-docs-docs.vercel.app/blog)
 - 🔴 [Live updates (WebSockets)](docs/guides/REALTIME.md) — the supported pattern, with a runnable example
+- ⏱️ [Background jobs](docs/guides/BACKGROUND-JOBS.md) — BullMQ with Redis, a SQLite queue, node-cron; tested on one Node server
 - 🧪 [Try it in 15 minutes](TESTING.md) — for outside testers
 - 🤝 [Contributing](CONTRIBUTING.md) · 🛡️ [Security policy](SECURITY.md)
 - 💬 [Discord](https://discord.gg/wYFYmFxdS8)

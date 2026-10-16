@@ -8,7 +8,8 @@ Start with the [README](../README.md). This page links every other document in t
 |---|---|
 | [PAGES.md](guides/PAGES.md) | Request access in loaders, action results, forms, uploads, error pages, the head API, dynamic and catch-all routes |
 | [DEPLOYING.md](guides/DEPLOYING.md) | Vercel, Netlify, Docker, container platforms, a VPS, CI, `devora deploy`, static-file serving |
-| [REALTIME.md](guides/REALTIME.md) | Live updates: polling versus a realtime server, the token flow, the CSP setting |
+| [REALTIME.md](guides/REALTIME.md) | Live updates (WebSockets): polling versus a realtime server, `ws` through a wrapper, why server-sent events do not work yet |
+| [BACKGROUND-JOBS.md](guides/BACKGROUND-JOBS.md) | Background jobs: BullMQ with Redis, a SQLite queue, node-cron, and what was verified |
 | [REPOS.md](guides/REPOS.md) | Splitting an app or the backend into its own repository |
 | [AUTH.md](../packages/backend/AUTH.md) | Sessions, cookies behind proxies, CSRF, session stores |
 | [DATABASE.md](../packages/backend/DATABASE.md), [DRIZZLE.md](../packages/backend/DRIZZLE.md), [PRISMA.md](../packages/backend/PRISMA.md) | Bringing your own database and ORM |

@@ -53,7 +53,7 @@ The aim is to close the gaps and publish measured results, including where Devor
 ## Not planned
 
 - A built-in ORM, auth provider or file storage (bring your own).
-- A real-time sync engine (use a realtime server, see [REALTIME](docs/guides/REALTIME.md)).
+- A real-time sync engine (use a realtime server, see [Live updates (WebSockets)](docs/guides/REALTIME.md)).
 - A custom RSC-style serialization protocol.
 
 Everything else is indexed in [docs/README.md](docs/README.md).
@@ -219,7 +219,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 | P7 | Cookie-only auth, no Bearer support | Fixed | 0.3.0 | One lookup for cookie and Authorization: Bearer; CHANGELOG 0.3.0 | pre #7 |
 | P8 | Action return values discarded; loaders had no query string | Fixed | 0.3.2 | actionData / fail() / 303, ctx.url (CHANGELOG 0.3.2, Request access and Actions return data) | pre #8 |
 | P9 | No <head> customization hook | Fixed | 0.3.2 | Head API: defineApp({ head }) and meta().head (CHANGELOG 0.3.2) | pre #9 |
-| P10 | No backend 'batteries' (logging, CORS, rate limiting, validation, uploads, jobs, realtime, email, test utilities) | Partly fixed | 0.3.2 / 0.3.4 | CORS (0.3.2), multipart uploads (0.3.2), realtime pattern (0.3.4, docs/guides/REALTIME.md) and the /backend-capabilities docs page. Pagination helpers, background jobs, email, test utilities: not built, no plan. | pre #10 |
+| P10 | No backend 'batteries' (logging, CORS, rate limiting, validation, uploads, jobs, realtime, email, test utilities) | Partly fixed | 0.3.2 / 0.3.4 | CORS (0.3.2), multipart uploads (0.3.2), realtime pattern (0.3.4, docs/guides/REALTIME.md), background jobs (three tested patterns, docs/guides/BACKGROUND-JOBS.md) and the /backend-capabilities docs page. Pagination helpers, background jobs, email, test utilities: not built, no plan. | pre #10 |
 | P11 | Default dev port collisions | Fixed | 0.3.0 | Ports 10000 + index, devPort, fall-forward with a log line; CHANGELOG 0.3.0; devNetwork.ts | pre #11 |
 | P12 | create-devora all-or-nothing, no frontend- or backend-only mode | Fixed | 0.3.1 | --scope=fullstack\|frontend\|backend; CHANGELOG 0.3.1 | pre #12 |
 | P13 | Dev LAN exposure needs an explicit, opt-in posture and a warning | Fixed | 0.3.0 | --host opt-in only; one-line warning when bound beyond loopback; CHANGELOG 0.3.0 | pre #13 |
@@ -234,7 +234,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 | B2 | Loaders had no query string, headers or client IP | Fixed | 0.3.2 | ctx.url, ctx.headers, ctx.ip, ctx.method, ctx.request (CHANGELOG 0.3.2) | r3 broken 2 |
 | B3 | Actions could only redirect | Fixed | 0.3.2 | actionData and fail() (CHANGELOG 0.3.2) | r3 broken 3 |
 | B4 | island() found only in route files; islands are separate React roots | Partly fixed | 0.3.2 | Islands found in every imported module and checked with the parser (CHANGELOG 0.3.2). Islands still have no shared React context; the documented workaround is a shared store or browser events. | r3 broken 4 |
-| B5 | API responses fully buffered: no SSE, no WebSockets, one Set-Cookie | Open | - | No text/event-stream or WebSocket code in packages/ (searched). WebSockets: documented pattern with a separate server (0.3.4, docs/guides/REALTIME.md). A handler still sets headers as a plain object, so one Set-Cookie. | r3 broken 5 |
+| B5 | API responses fully buffered: no SSE from an API route, one Set-Cookie (WebSockets: a separate realtime server and `ws` through a wrapper both work) | Open | - | No text/event-stream or WebSocket code in packages/ (searched). WebSockets: documented pattern with a separate server (0.3.4, docs/guides/REALTIME.md). A handler still sets headers as a plain object, so one Set-Cookie. | r3 broken 5 |
 | U1 | Cookie Secure flag hardcoded to production; plain-HTTP logins fail | Fixed | 0.3.2 | sessions.cookie.secure: true \| 'auto' \| false, trustProxy (CHANGELOG 0.3.2) | r3 unconfirmed 1 |
 | U2 | Errors thrown in page actions became generic 500s; redirect after POST was 302 | Fixed | 0.3.2 | HttpError keeps its status, error.tsx, 303 (CHANGELOG 0.3.2 Behavior changes) | r3 unconfirmed 2 |
 | U3 | Page actions could not receive file uploads | Fixed | 0.3.2 | Multipart uploads as File objects, maxBodyBytes (CHANGELOG 0.3.2) | r3 unconfirmed 3 |

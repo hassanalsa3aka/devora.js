@@ -1,9 +1,12 @@
-# Live updates in Devora.js
+# Live updates (WebSockets)
 
-Devora.js has no built-in WebSockets or server-sent events. API routes return one whole response
-(`{ status, headers, body }`, one `Set-Cookie`), so nothing can be streamed from them, and
-serverless platforms (Vercel, Netlify) cannot hold a connection open anyway. This page is the
-supported answer: poll, or run a small separate realtime server next to your app.
+Devora.js has no built-in WebSockets, and server-sent events from an API route do not work yet. API
+routes return one whole response (`{ status, headers, body }`, one `Set-Cookie`), so nothing can be
+streamed from them, and serverless platforms (Vercel, Netlify) cannot hold a connection open anyway.
+This page is the supported answer: poll, run a small separate realtime server next to your app, or
+attach `ws` to the app's own server with a wrapper script (below).
+
+This page covers WebSockets (Socket.IO and `ws`), polling, and why server-sent events are not supported yet.
 
 A runnable version of everything below is in [`examples/realtime/`](../../examples/realtime).
 
@@ -67,6 +70,72 @@ export default defineApp({
 List both the `https:` origin (Socket.IO's polling transport) and the `wss:` origin (the upgrade).
 `devora start` reads `app.config.ts` when it starts; the Vercel and Netlify adapters write the
 policy into the generated function at build time. Either way, restart or rebuild after changing it.
+
+## Or: `ws` on the app's own port
+
+`devora start` does not expose the HTTP server it creates and has no hook. The function it calls,
+`createNodeServer` from [`@devorajs/adapter-node`](../../adapters/adapter-node/README.md), is a public
+export that returns the `http.Server`, so a script can call it and handle the WebSocket `upgrade`
+itself, on the same port as the HTTP API. Tested on a local Node server with 0.3.4: a bad token
+answered 401, a good one connected and echoed a message, and the API and its security headers were
+unchanged. Not run on Vercel or Netlify, where it cannot work (a function cannot hold a connection).
+
+```js
+// Attach `ws` to the HTTP server `devora start` would create, by calling the same function
+// the CLI calls (createNodeServer from @devorajs/adapter-node), which returns the http.Server.
+// Run from the project root: node --env-file=.env lab-scripts/start-with-ws.mjs
+import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
+import { resolveAuthMode } from "@devorajs/core/config";
+import { createNodeServer } from "@devorajs/adapter-node";
+import { WebSocketServer } from "ws";
+
+process.env.NODE_ENV = "production";
+const root = process.cwd();
+const project = await loadProjectConfig(root);
+const app = project.apps.find((a) => a.name === "lab");
+const appRoot = resolveAppDir(root, app.dir);
+const cfg = await loadAppConfig(appRoot);
+const server = createNodeServer({
+  appRoot, appName: app.name, authMode: resolveAuthMode(project, app.name), domain: app.domain,
+  security: cfg.security, sitemapEnabled: false, apiDir: cfg.apiDir, trustProxy: cfg.trustProxy,
+  head: cfg.head, maxBodyBytes: cfg.maxBodyBytes, cors: cfg.cors, port: Number(process.env.PORT) || 4500,
+});
+
+// WebSocket upgrade on /ws, same port as the HTTP API. The upgrade request is a plain HTTP request:
+// the session is checked here by calling the app's own GET /api/me over loopback with the same header.
+const wss = new WebSocketServer({ noServer: true });
+server.on("upgrade", async (req, socket, head) => {
+  if (!req.url?.startsWith("/ws")) return socket.destroy();
+  const token = new URL(req.url, "http://x").searchParams.get("token");
+  const me = await fetch(`http://127.0.0.1:${server.address().port}/api/me`, { headers: { authorization: `Bearer ${token}` } });
+  if (me.status !== 200) { socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n"); return socket.destroy(); }
+  const { session } = await me.json();
+  wss.handleUpgrade(req, socket, head, (ws) => { ws.user = session.username; wss.emit("connection", ws, req); });
+});
+wss.on("connection", (ws) => {
+  ws.send(JSON.stringify({ hello: ws.user }));
+  ws.on("message", (m) => { for (const c of wss.clients) if (c.readyState === 1) c.send(JSON.stringify({ from: ws.user, text: String(m) })); });
+});
+```
+
+- Install `ws` and `@devorajs/adapter-node`, build the app, then run the script instead of
+  `devora start` (it sets `NODE_ENV=production` itself, as `start` does).
+- The script repeats what `start` does: it loads the project and app config and passes the same
+  options. If `start` gains options, the script needs them too.
+- The upgrade request does not go through the app's routes. This script checks the session by
+  calling the app's own `GET /api/me` over loopback with the token; do the same check, or the
+  connection is open to anyone.
+- A server hook (an `onServer(server)` option) would remove the wrapper. It is planned, not built.
+
+## Server-sent events do not work yet
+
+An API route can set `Content-Type: text/event-stream`, but the handler returns its whole body as a
+string and the server sends it in one piece when the handler finishes. Tested: three events produced
+half a second apart arrived together after 1.5 seconds and the connection closed, so a browser
+`EventSource` would reconnect over and over. Returning a stream, an async iterable or a Node
+`Readable` as the body answers 500. Use polling or a realtime server until a route can return a stream.
+
+For work that must happen outside a request, see [Background jobs](BACKGROUND-JOBS.md).
 
 ## Deploying it
 
