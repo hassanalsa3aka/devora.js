@@ -45,6 +45,7 @@ for exactly how):
 - SEO primitives: OG tags, opt-in `sitemap.xml` — #7
 - Dynamic routes (`routes/users/[id].tsx`), with `getStaticParams()` for `ssg`/`isr` — #1,
   docs/design/architecture-v2.md §3.6 (no catch-all `[...slug]` routes)
+  *(Later: catch-all routes `[...slug]` and `[[...slug]]` exist since 0.3.4; see the CHANGELOG.)*
 - v2 backend: modules, generic API routes (`apiDir`), middleware, backend-only apps,
   repo-splitting — docs/design/architecture-v2.md
 - 0.3.2: request access in loaders/actions, action results, error pages, the head API, uploads,
@@ -118,7 +119,7 @@ honestly 404s instead of mis-rendering, since only `"ssr"` is implemented.
   new on `RequestContext`); a static route at the same depth always wins over a dynamic one
   (scored by fewest dynamic segments, not file-scan order — verified directly: `users/new.tsx` and
   `users/[id].tsx` both present, `/users/new` matches the static one). No catch-all/rest segments
-  (`[...slug]`) — out of scope for this slice. `ssg`/`isr` on a dynamic route fails the build/dev
+  (`[...slug]`) — out of scope for this slice. *(Later: catch-all routes exist since 0.3.4; see the CHANGELOG.)* `ssg`/`isr` on a dynamic route fails the build/dev
   server immediately with a clear error (no static-params API yet to know which values to
   pre-render — same guard shape as the existing action-export check); `ssr`/`csr` both work.
   **A real bug found verifying this against an actual production build, not anticipated in

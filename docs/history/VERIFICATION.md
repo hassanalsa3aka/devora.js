@@ -4,6 +4,9 @@ What's covered by an automated test, what's been manually verified but has no re
 protection, and what hasn't been exercised at all. `docs/history/BUILD-LOG.md` is the detailed build log; this
 file is the short summary of where the safety net does and doesn't exist today.
 
+> Status of everything open (not verified, known unsupported, findings) is tracked in
+> [ROADMAP.md](../../ROADMAP.md); this file explains how each thing is tested.
+
 ## Automated tests (run in CI on every push/PR)
 
 `pnpm run test` runs 466 Vitest tests in 41 files (as of 0.3.4). The integration tests boot a real

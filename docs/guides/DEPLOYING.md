@@ -9,9 +9,9 @@ Four targets are supported: Vercel, Netlify, Docker, and self-hosting on a plain
 (`adapter-node` + nginx/Caddy). Container platforms that run a Docker image are covered below,
 untested.
 
-**What's verified for 0.3.2:** the Vercel and Netlify functions it generates were run outside this
+**What's verified for 0.3.4:** the Vercel and Netlify functions it generates were run outside this
 monorepo (real pages, login, CSRF, a CommonJS dependency), and the Docker image and `devora start`
-were run locally. A live Vercel or Netlify deployment of 0.3.2 is **not yet verified**. Earlier
+were run locally. 0.3.4 is **not yet verified on a live deployment by this project**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
 releases were deployed live to both platforms by the maintainer.
 
 ## Environment variables and `.env` files
@@ -317,7 +317,7 @@ An app that isn't linked is skipped with a clear instruction rather than failing
 
 The maintainer ran a real, authenticated `devora deploy` on both platforms with a release before
 0.3.2 — not just link detection. That was before Vercel discontinued `nodejs20.x`, which the
-adapter then hardcoded; with 0.3.2 this path is **not yet verified on a live deployment**. Two
+adapter then hardcoded; with 0.3.4 this path is **not yet verified on a live deployment by this project**. Two
 bugs were found and fixed getting a clean run, both of a kind that only surfaces on a real
 platform:
 - `devora deploy` didn't set `NODE_ENV=production` itself (only `devora build` did), so the
