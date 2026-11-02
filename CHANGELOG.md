@@ -12,7 +12,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Nothing yet.
+Not released yet: nothing below is on npm. No version has been chosen.
+
+### Security fixes
+
+- `@devorajs/adapter-node` (and so `devora start`) sets explicit server limits instead of Node's defaults: headers within 15 s, the whole request within 60 s (Node's default is 5 minutes), idle keep-alive connections closed after 5 s, request headers up to 16 KB, and Node checks the timeouts every second instead of every 30 s. A client that trickles its headers gets a 408 and is closed; headers that are too large get a 431. Override with `server: { headersTimeoutMs, requestTimeoutMs, keepAliveTimeoutMs, maxHeaderBytes }` in app.config.ts (or `serverLimits` when calling `createNodeServer`). A value that is not a positive whole number, or a headers timeout longer than the request timeout, stops the server with a clear error. New exports from adapter-node: `ServerLimits`, `DEFAULT_SERVER_LIMITS`, `resolveServerLimits`.
 
 ## 0.3.5 — 2026-10-16
 

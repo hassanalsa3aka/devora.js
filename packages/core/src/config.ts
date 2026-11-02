@@ -183,6 +183,21 @@ export interface AppRuntimeConfig {
   maxBodyBytes?: number;
   /** CORS for this app's API routes (`/api/**`) — off unless set. See cors.ts. */
   cors?: CorsConfig;
+  /**
+   * Limits on the HTTP server `devora start` runs (adapter-node). Each is
+   * optional; unset ones keep the defaults: headers within 15 s, the whole
+   * request within 60 s, idle keep-alive connections closed after 5 s,
+   * request headers up to 16 KB. A connection that sends its headers too
+   * slowly gets a 408 and is closed; headers that are too large get a 431.
+   * Behind a load balancer, keep `keepAliveTimeoutMs` above the balancer's
+   * idle timeout. Not used on Vercel or Netlify (the platform runs the server).
+   */
+  server?: {
+    headersTimeoutMs?: number;
+    requestTimeoutMs?: number;
+    keepAliveTimeoutMs?: number;
+    maxHeaderBytes?: number;
+  };
   /** Default render mode for routes in this app that don't set their own. */
   defaultRenderMode?: RenderMode;
   /** Security headers, overridable per app per doc §7. */

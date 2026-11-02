@@ -42,3 +42,19 @@ createNodeServer({
 Production sessions need `shared.sessions.store` in `devora.config.ts` and
 `DEVORA_SESSION_SECRET`; see the
 [Deploying](https://github.com/hassanalsa3aka/devora.js/blob/main/docs/guides/DEPLOYING.md) guide.
+
+## Timeouts and header size
+
+The server sets its limits explicitly instead of relying on Node's defaults: request headers
+within 15 s (a client that trickles them gets a 408 and is closed), the whole request within 60 s,
+idle keep-alive connections closed after 5 s, and request headers up to 16 KB (larger gets a 431).
+Override any of them with `serverLimits` here, or `server` in `app.config.ts` for `devora start`:
+
+```ts
+export default defineApp({
+  server: { requestTimeoutMs: 120_000, keepAliveTimeoutMs: 65_000 }, // behind a load balancer with a 60 s idle timeout
+});
+```
+
+`keepAliveTimeoutMs` should be longer than the idle timeout of a load balancer in front of the
+server, or the balancer can reuse a connection the server is closing.

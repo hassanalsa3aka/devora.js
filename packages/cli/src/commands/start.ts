@@ -80,6 +80,7 @@ export async function start(opts: { app?: string; port?: string; host?: string; 
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
       cors: appConfig.cors,
+      serverLimits: appConfig.server,
       port: ports ? ports.get(app.name)! : (explicitPort ?? DEFAULT_BASE_PORT),
       host,
     });

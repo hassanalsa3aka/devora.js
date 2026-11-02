@@ -8157,6 +8157,29 @@ async function build3(opts) {
 
 // ../../adapters/adapter-node/src/index.ts
 import http from "node:http";
+var DEFAULT_SERVER_LIMITS = {
+  headersTimeoutMs: 15e3,
+  requestTimeoutMs: 6e4,
+  keepAliveTimeoutMs: 5e3,
+  maxHeaderBytes: 16384
+};
+function resolveServerLimits(overrides = {}) {
+  const limits = { ...DEFAULT_SERVER_LIMITS };
+  for (const key of Object.keys(DEFAULT_SERVER_LIMITS)) {
+    const value = overrides[key];
+    if (value === void 0) continue;
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`[adapter-node] app.config.ts server.${key} must be a whole number above zero (got ${String(value)})`);
+    }
+    limits[key] = value;
+  }
+  if (limits.headersTimeoutMs > limits.requestTimeoutMs) {
+    throw new Error(
+      `[adapter-node] app.config.ts server.headersTimeoutMs (${limits.headersTimeoutMs}) can't be longer than requestTimeoutMs (${limits.requestTimeoutMs})`
+    );
+  }
+  return limits;
+}
 function createNodeServer(opts) {
   const handleRequest = createProdRequestHandler(
     opts.appRoot,
@@ -8168,18 +8191,29 @@ function createNodeServer(opts) {
     opts.defaultRenderMode,
     { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes, cors: opts.cors }
   );
-  const server = http.createServer((req, res) => {
-    handleRequest(req, res).then((handled) => {
-      if (!handled) {
-        res.statusCode = 404;
-        res.end("Not found");
-      }
-    }).catch((err) => {
-      console.error(`[adapter-node] "${opts.appName}"`, err);
-      if (!res.headersSent) res.statusCode = 500;
-      res.end("Internal Server Error");
-    });
-  });
+  const limits = resolveServerLimits(opts.serverLimits);
+  const server = http.createServer(
+    {
+      maxHeaderSize: limits.maxHeaderBytes,
+      // How often Node checks headersTimeout/requestTimeout (its default is every 30 s).
+      connectionsCheckingInterval: Math.min(1e3, limits.headersTimeoutMs)
+    },
+    (req, res) => {
+      handleRequest(req, res).then((handled) => {
+        if (!handled) {
+          res.statusCode = 404;
+          res.end("Not found");
+        }
+      }).catch((err) => {
+        console.error(`[adapter-node] "${opts.appName}"`, err);
+        if (!res.headersSent) res.statusCode = 500;
+        res.end("Internal Server Error");
+      });
+    }
+  );
+  server.headersTimeout = limits.headersTimeoutMs;
+  server.requestTimeout = limits.requestTimeoutMs;
+  server.keepAliveTimeout = limits.keepAliveTimeoutMs;
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
       console.error(`[adapter-node] "${opts.appName}": port ${opts.port} already in use`);
@@ -8254,6 +8288,7 @@ async function start(opts) {
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
       cors: appConfig.cors,
+      serverLimits: appConfig.server,
       port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT,
       host
     });
