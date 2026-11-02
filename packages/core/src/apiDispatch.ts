@@ -14,6 +14,7 @@ import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
 import { splitRouteParams, type RawRouteParams } from "./router.js";
 import { CSRF_HEADER_NAME, verifyCsrfByDefault } from "./csrf.js";
+import { enforceRateLimit, RateLimitError } from "./rateLimit.js";
 
 export interface ApiDispatchRequest {
   method: string;
@@ -72,6 +73,8 @@ export async function dispatchApiRoute(
   let touchesSessionCookie: () => boolean = () => false;
   let result: ApiResponse;
   try {
+    // Counted before the session lookup: a flood of logins never reaches the store.
+    enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
     // Inside the try: the session lookup itself hits the store, and a store
     // that's down must still produce a JSON error, not an HTML one.
     const context = request.sessionCookieOptions
@@ -95,6 +98,7 @@ export async function dispatchApiRoute(
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
+    if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
   return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }

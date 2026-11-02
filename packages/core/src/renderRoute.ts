@@ -4,6 +4,7 @@ import { createIslandCollector, IslandCollectorContext } from "./islandComponent
 import { ShellUsageContext } from "./branding.js";
 import { isFailResult, isRedirectResult, redirectRefusal, redirectStatus, type RedirectResult } from "./actionResult.js";
 import { verifyCsrfByDefault } from "./csrf.js";
+import { enforceRateLimit } from "./rateLimit.js";
 import { createBuildTimeContext } from "./buildTimeContext.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import type { ErrorPageModule, ErrorPageProps, RouteComponentProps, RouteModule } from "./route.js";
@@ -240,6 +241,8 @@ export function createRenderRoute(deps: RenderRouteDeps) {
     };
 
     try {
+      // Counted before the session lookup: a flood of logins never reaches the store.
+      if (request.method === "POST" && routeModule.action) enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
       const context = request.sessionCookieOptions
         ? await createRequestContext(
             { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },

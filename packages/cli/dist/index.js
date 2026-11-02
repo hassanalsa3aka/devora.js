@@ -4822,6 +4822,61 @@ var import_react3 = __toESM(require_react(), 1);
 var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 var ShellUsageContext = (0, import_react3.createContext)(null);
 
+// ../core/src/rateLimit.ts
+var RATE_LIMIT_MAX_KEYS = 1e4;
+var LIMITED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var RateLimitError = class extends HttpError {
+  constructor(retryAfterSeconds) {
+    super(429, "Too many requests, try again later");
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.name = "RateLimitError";
+  }
+  retryAfterSeconds;
+};
+var FixedWindowRateLimiter = class {
+  constructor(config, maxKeys = RATE_LIMIT_MAX_KEYS) {
+    this.config = config;
+    this.maxKeys = maxKeys;
+    if (!Number.isInteger(config.max) || config.max < 1 || !Number.isInteger(config.windowSeconds) || config.windowSeconds < 1) {
+      throw new Error(
+        `[devora] rateLimit needs whole numbers above zero: { max, windowSeconds } (got ${JSON.stringify(config)})`
+      );
+    }
+    this.windowMs = config.windowSeconds * 1e3;
+  }
+  config;
+  maxKeys;
+  windows = /* @__PURE__ */ new Map();
+  windowMs;
+  /** Counts one request for `key`; seconds to wait when it is over the limit, else undefined. */
+  hit(key, now = Date.now()) {
+    let window2 = this.windows.get(key);
+    if (!window2 || window2.resetAt <= now) {
+      if (window2) this.windows.delete(key);
+      else if (this.windows.size >= this.maxKeys) this.makeRoom(now);
+      window2 = { count: 0, resetAt: now + this.windowMs };
+      this.windows.set(key, window2);
+    }
+    window2.count++;
+    return window2.count > this.config.max ? Math.max(1, Math.ceil((window2.resetAt - now) / 1e3)) : void 0;
+  }
+  get size() {
+    return this.windows.size;
+  }
+  makeRoom(now) {
+    for (const [key, window2] of this.windows) if (window2.resetAt <= now) this.windows.delete(key);
+    while (this.windows.size >= this.maxKeys) this.windows.delete(this.windows.keys().next().value);
+  }
+};
+var limiters = /* @__PURE__ */ new WeakMap();
+function enforceRateLimit(config, method, ip) {
+  if (!config || !LIMITED_METHODS.has(method.toUpperCase())) return;
+  let limiter = limiters.get(config);
+  if (!limiter) limiters.set(config, limiter = new FixedWindowRateLimiter(config));
+  const retryAfter = limiter.hit(ip ?? "unknown");
+  if (retryAfter !== void 0) throw new RateLimitError(retryAfter);
+}
+
 // ../core/src/renderRoute.ts
 function resolveRenderMode(routeModule, appDefault) {
   return routeModule.renderMode ?? appDefault ?? "ssr";
@@ -4917,6 +4972,7 @@ async function dispatchApiRoute(routeModule, request) {
   let touchesSessionCookie = () => false;
   let result;
   try {
+    enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
     const context = request.sessionCookieOptions ? await createRequestContext(
       { cookieHeader: request.cookieHeader, authorizationHeader: request.headers.authorization },
       request.sessionCookieOptions,
@@ -4936,6 +4992,7 @@ async function dispatchApiRoute(routeModule, request) {
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
+    if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
   return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }

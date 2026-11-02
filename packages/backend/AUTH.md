@@ -165,6 +165,40 @@ longer get a `devora_csrf` cookie. Bearer-*authenticated* requests never got one
 `ctx.verifyCsrf()` still passes for Bearer-authenticated requests and rejects every other request
 with 403 — it never passes silently.
 
+## Rate limiting logins
+
+A route that creates sessions (a login form, a sign-up or token endpoint) can limit how often one
+client IP posts to it:
+
+```ts
+// apps/dashboard/routes/login.tsx, or an API route such as api/session.ts
+export const rateLimit = { max: 10, windowSeconds: 60 }; // 10 POSTs per IP per minute
+```
+
+The eleventh `POST`/`PUT`/`PATCH`/`DELETE` in the window gets a 429 (an API route also gets
+`Retry-After`) before the action or handler runs, and before the session store is touched. `GET`
+is never counted. Nothing is limited unless a route exports `rateLimit`.
+
+What it does not do, so plan for it:
+
+- **It counts per process.** Each `devora start` process, and each serverless instance on Vercel or
+  Netlify, keeps its own count in memory, and a restart or a cold start resets it. It slows down
+  one client hammering one instance; it does not stop a distributed attack.
+- **It keys on `ctx.ip`.** Behind a proxy, set `trustProxy` in app.config.ts (and make the app
+  reachable only through that proxy), or every client shares the proxy's address and one count.
+- **It does not lock accounts.** Slowing guesses against one account from many IPs needs a
+  per-account counter in your own auth code (for example failed attempts stored with the user).
+
+Put the real limit in front of the app as well:
+
+- **nginx**: `limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;` in `http { }`, then
+  `location = /login { limit_req zone=login burst=5 nodelay; proxy_pass http://127.0.0.1:4173; }`
+  (repeat for each login or token path).
+- **Caddy**: rate limiting is not in the standard build; it needs a plugin such as
+  `caddy-ratelimit`, built in with `xcaddy`.
+- **Vercel, Netlify, Cloudflare**: use the platform's firewall or WAF rate-limiting rules on the
+  login paths; they count across every instance.
+
 ## Lucia
 
 Lucia (v3+) is a set of small, framework-agnostic primitives for session/user management — it

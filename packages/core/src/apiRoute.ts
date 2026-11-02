@@ -22,6 +22,7 @@
 import type { RequestContext } from "./serverFn.js";
 import { apiErrorResponse } from "./httpError.js";
 import type { CatchAllParams, RouteParams } from "./router.js";
+import type { RateLimitConfig } from "./rateLimit.js";
 
 export interface ApiRequest {
   method: string;
@@ -79,6 +80,8 @@ export interface ApiRouteModule {
    * cookie, so it needs no opt-out).
    */
   csrf?: false;
+  /** Limit POST/PUT/PATCH/DELETE per client IP on this route, e.g. a login endpoint (rateLimit.ts). */
+  rateLimit?: RateLimitConfig;
 }
 
 /**
