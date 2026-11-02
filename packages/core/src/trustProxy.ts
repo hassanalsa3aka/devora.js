@@ -87,8 +87,7 @@ export function describeRequest(req: ProxiedRequestLike, trustProxy: TrustProxyS
   // time `url` is read (ctx.url, or ctx.request), not for every request. It is a measurable part
   // of a small request, and most handlers never look at it.
   const scheme = isHttpsRequest(req, trustProxy) ? "https" : "http";
-  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : undefined;
-  const host = forwardedHost ?? firstHeaderValue(req.headers.host) ?? "localhost";
+  const host = requestHost(req, trustProxy) ?? "localhost";
   const target = req.url ?? "/";
   let url: string | undefined;
   return {
@@ -106,6 +105,16 @@ export function describeRequest(req: ProxiedRequestLike, trustProxy: TrustProxyS
     headers: req.headers,
     ip: clientIp(req, trustProxy),
   };
+}
+
+/**
+ * The host this request is for, as `ctx.url` sees it: the first
+ * `X-Forwarded-Host` value when the app trusts its proxy, else `Host`.
+ * allowedHosts.ts checks this same value.
+ */
+export function requestHost(req: ProxiedRequestLike, trustProxy: TrustProxySetting | undefined): string | undefined {
+  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : undefined;
+  return forwardedHost ?? firstHeaderValue(req.headers.host);
 }
 
 function firstHeaderValue(value: string | string[] | undefined): string | undefined {

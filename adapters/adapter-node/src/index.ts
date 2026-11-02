@@ -69,6 +69,8 @@ export function createNodeServer(opts: {
   head?: HeadConfig;
   maxBodyBytes?: number;
   cors?: CorsConfig;
+  /** app.config.ts `allowedHosts` (unset: no host check). */
+  allowedHosts?: string[];
   /** app.config.ts `server` — timeouts and the header size limit (see ServerLimits). */
   serverLimits?: ServerLimits;
   port: number;
@@ -83,7 +85,14 @@ export function createNodeServer(opts: {
     opts.security,
     opts.sitemapEnabled,
     opts.defaultRenderMode,
-    { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes, cors: opts.cors }
+    {
+      apiDir: opts.apiDir,
+      trustProxy: opts.trustProxy,
+      head: opts.head,
+      maxBodyBytes: opts.maxBodyBytes,
+      cors: opts.cors,
+      allowedHosts: opts.allowedHosts,
+    }
   );
 
   const limits = resolveServerLimits(opts.serverLimits);

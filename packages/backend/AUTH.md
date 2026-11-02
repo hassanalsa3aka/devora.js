@@ -148,6 +148,30 @@ longer get a `devora_csrf` cookie. Bearer-*authenticated* requests never got one
 `ctx.verifyCsrf()` still passes for Bearer-authenticated requests and rejects every other request
 with 403 — it never passes silently.
 
+## Hosts and links in emails
+
+`ctx.url` (and anything else built from the request) takes its host from the `Host` header, or
+from `X-Forwarded-Host` when the app has `trustProxy` on. A client can send any value there. Two
+rules follow:
+
+- **Build password-reset, sign-in and invitation links from a configured origin, never from the
+  request.** Keep the origin in configuration (for example `APP_ORIGIN=https://app.example.com` in
+  the environment) and write `new URL("/reset?token=" + token, process.env.APP_ORIGIN)`. A link built
+  from `ctx.url` or the `Host` header can be made to point at an attacker's site, which then
+  receives the reset token when the user clicks it.
+- **List the hosts the app answers to** in app.config.ts. A request for any other host gets a 400
+  before a route runs:
+
+  ```ts
+  export default defineApp({
+    allowedHosts: ["app.example.com", ".example.com"], // a leading dot: the domain and its subdomains
+  });
+  ```
+
+  Ports are ignored. `devora dev` also accepts localhost. Unset, nothing is checked (the default). On
+  Vercel and Netlify the check runs in the function, so files the CDN serves directly are not
+  checked; list the preview domains you use (for example `.vercel.app`) or previews get a 400.
+
 ## Lucia
 
 Lucia (v3+) is a set of small, framework-agnostic primitives for session/user management — it

@@ -136,6 +136,7 @@ export async function buildAppForAdapter(
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
         cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts,
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
@@ -144,6 +145,7 @@ export async function buildAppForAdapter(
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
         cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts,
       });
     }
   }

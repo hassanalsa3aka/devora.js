@@ -31,7 +31,8 @@ import { toBuildKey } from "./buildKey.js";
 import { requestPathname } from "./fastPathname.js";
 import { ttlMemo } from "./ttlMemo.js";
 import { resolveApiDir } from "./apiDir.js";
-import { describeRequest, isHttpsRequest } from "./trustProxy.js";
+import { describeRequest, isHttpsRequest, requestHost } from "./trustProxy.js";
+import { createHostCheck, sendUnknownHost } from "./allowedHosts.js";
 import { corsResponse, type CorsConfig } from "./cors.js";
 import type { HeadConfig } from "./html.js";
 import type { ErrorPageModule } from "./route.js";
@@ -51,6 +52,8 @@ export interface ProdRequestHandlerOptions {
   maxBodyBytes?: number;
   /** app.config.ts `cors` (API routes only). */
   cors?: CorsConfig;
+  /** app.config.ts `allowedHosts` — see allowedHosts.ts. Unset: no host check. */
+  allowedHosts?: string[];
 }
 
 
@@ -96,6 +99,7 @@ export function createProdRequestHandler(
           importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
         );
   const trustProxy = options.trustProxy;
+  const hostAllowed = createHostCheck(options.allowedHosts);
   const sessionOptionsForRequest = async (req: IncomingMessage): Promise<SessionCookieOptions | undefined> =>
     resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : undefined;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
@@ -160,6 +164,10 @@ export function createProdRequestHandler(
     for (let i = 0; i < securityHeaderEntries.length; i++) res.setHeader(securityHeaderEntries[i]![0], securityHeaderEntries[i]![1]);
 
     if (!req.url) return false;
+    if (hostAllowed && !hostAllowed(requestHost(req, trustProxy))) {
+      sendUnknownHost(res);
+      return true;
+    }
     const pathname = requestPathname(req.url);
 
     // With `sitemap` off this falls through, so a hand-written

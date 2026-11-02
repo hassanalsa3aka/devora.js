@@ -13,6 +13,9 @@ import {
   resolveApiDir,
   describeRequest,
   corsResponse,
+  createHostCheck,
+  requestHost,
+  sendUnknownHost,
   type CorsConfig,
   type AuthMode,
   type AppRuntimeConfig,
@@ -68,6 +71,26 @@ export interface ApiMiddlewareOptions {
   trustProxy?: boolean | number;
   /** app.config.ts `cors`. */
   cors?: CorsConfig;
+}
+
+/**
+ * app.config.ts `allowedHosts` in dev: the same 400 as production, plus
+ * localhost and loopback addresses, so the production list works unchanged.
+ * A plugin registered before the API plugin, so it runs before every other
+ * middleware, API routes included.
+ */
+export function createHostCheckPlugin(allowedHosts: string[] | undefined, trustProxy: boolean | number | undefined): Plugin {
+  const hostAllowed = createHostCheck(allowedHosts, { allowLoopback: true });
+  return {
+    name: "devora-allowed-hosts",
+    configureServer(server) {
+      if (!hostAllowed) return;
+      server.middlewares.use((req, res, next) => {
+        if (hostAllowed(requestHost(req, trustProxy))) return next();
+        sendUnknownHost(res);
+      });
+    },
+  };
 }
 
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {

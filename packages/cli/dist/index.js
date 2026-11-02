@@ -5033,8 +5033,7 @@ function normalizeIp(value) {
 }
 function describeRequest(req, trustProxy) {
   const scheme = isHttpsRequest(req, trustProxy) ? "https" : "http";
-  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : void 0;
-  const host = forwardedHost ?? firstHeaderValue(req.headers.host) ?? "localhost";
+  const host = requestHost(req, trustProxy) ?? "localhost";
   const target = req.url ?? "/";
   let url;
   return {
@@ -5053,9 +5052,60 @@ function describeRequest(req, trustProxy) {
     ip: clientIp(req, trustProxy)
   };
 }
+function requestHost(req, trustProxy) {
+  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : void 0;
+  return forwardedHost ?? firstHeaderValue(req.headers.host);
+}
 function firstHeaderValue(value) {
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
   return first || void 0;
+}
+
+// ../core/src/allowedHosts.ts
+var LOOPBACK = ["localhost", "127.0.0.1", "::1"];
+function normalizeHost(value) {
+  if (!value) return void 0;
+  let host = value.trim().toLowerCase();
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    if (end === -1) return void 0;
+    host = host.slice(1, end);
+  } else {
+    const colon = host.indexOf(":");
+    if (colon !== -1 && host.indexOf(":", colon + 1) === -1) host = host.slice(0, colon);
+  }
+  host = host.replace(/\.$/, "");
+  if (!host || /[\s/\\@?#]/.test(host)) return void 0;
+  return host;
+}
+function createHostCheck(allowedHosts, options = {}) {
+  if (allowedHosts === void 0) return void 0;
+  if (!Array.isArray(allowedHosts) || allowedHosts.length === 0) {
+    throw new Error(`[devora] app.config.ts allowedHosts must be a non-empty list of hosts, e.g. ["app.example.com", ".example.com"]`);
+  }
+  const exact = /* @__PURE__ */ new Set();
+  const suffixes = [];
+  for (const entry of allowedHosts) {
+    const wildcard = typeof entry === "string" && entry.startsWith(".");
+    const host = typeof entry === "string" ? normalizeHost(wildcard ? entry.slice(1) : entry) : void 0;
+    if (!host || typeof entry === "string" && /^[a-z]+:\/\//i.test(entry)) {
+      throw new Error(`[devora] app.config.ts allowedHosts entry ${JSON.stringify(entry)} is not a host such as "app.example.com" or ".example.com"`);
+    }
+    if (wildcard) suffixes.push(host);
+    else exact.add(host);
+  }
+  if (options.allowLoopback) for (const host of LOOPBACK) exact.add(host);
+  return (value) => {
+    const host = normalizeHost(value);
+    if (host === void 0) return false;
+    if (exact.has(host)) return true;
+    return suffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  };
+}
+function sendUnknownHost(res) {
+  res.statusCode = 400;
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.end("Bad Request: unknown host");
 }
 
 // ../core/src/cors.ts
@@ -5122,6 +5172,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     () => importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
   );
   const trustProxy = options.trustProxy;
+  const hostAllowed = createHostCheck(options.allowedHosts);
   const sessionOptionsForRequest = async (req) => resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : void 0;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
@@ -5165,6 +5216,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   return async function handleRequest(req, res) {
     for (let i = 0; i < securityHeaderEntries.length; i++) res.setHeader(securityHeaderEntries[i][0], securityHeaderEntries[i][1]);
     if (!req.url) return false;
+    if (hostAllowed && !hostAllowed(requestHost(req, trustProxy))) {
+      sendUnknownHost(res);
+      return true;
+    }
     const pathname = requestPathname(req.url);
     if (pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
@@ -5774,6 +5829,19 @@ function isStaticFileRequest(vite, pathname) {
 }
 
 // src/server/apiMiddleware.ts
+function createHostCheckPlugin(allowedHosts, trustProxy) {
+  const hostAllowed = createHostCheck(allowedHosts, { allowLoopback: true });
+  return {
+    name: "devora-allowed-hosts",
+    configureServer(server) {
+      if (!hostAllowed) return;
+      server.middlewares.use((req, res, next) => {
+        if (hostAllowed(requestHost(req, trustProxy))) return next();
+        sendUnknownHost(res);
+      });
+    }
+  };
+}
 function createApiMiddlewarePlugin(options) {
   return {
     name: "devora-api-middleware",
@@ -6845,6 +6913,8 @@ async function createAppDevServer(opts) {
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
+      // First, so a request for an unknown host never reaches another middleware.
+      createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
       islandsPlugin(),
       moduleDisposePlugin(),
       reactRefreshPreamblePlugin(),
@@ -7732,7 +7802,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async function handler(req, res) {
@@ -7923,7 +7993,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async (request, context) => {
@@ -8076,7 +8146,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
-        cors: appConfig.cors
+        cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
@@ -8084,7 +8155,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
-        cors: appConfig.cors
+        cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts
       });
     }
   }
@@ -8189,7 +8261,14 @@ function createNodeServer(opts) {
     opts.security,
     opts.sitemapEnabled,
     opts.defaultRenderMode,
-    { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes, cors: opts.cors }
+    {
+      apiDir: opts.apiDir,
+      trustProxy: opts.trustProxy,
+      head: opts.head,
+      maxBodyBytes: opts.maxBodyBytes,
+      cors: opts.cors,
+      allowedHosts: opts.allowedHosts
+    }
   );
   const limits = resolveServerLimits(opts.serverLimits);
   const server = http.createServer(
@@ -8289,6 +8368,7 @@ async function start(opts) {
       maxBodyBytes: appConfig.maxBodyBytes,
       cors: appConfig.cors,
       serverLimits: appConfig.server,
+      allowedHosts: appConfig.allowedHosts,
       port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT,
       host
     });

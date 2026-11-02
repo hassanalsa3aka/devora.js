@@ -43,6 +43,8 @@ export interface VercelOutputOptions {
   maxBodyBytes?: number;
   /** app.config.ts `cors`. */
   cors?: CorsConfig;
+  /** app.config.ts `allowedHosts` (unset: no host check). Checked in the function, so files the CDN serves are not. */
+  allowedHosts?: string[];
 }
 
 const require = createRequire(import.meta.url);
@@ -210,7 +212,7 @@ export async function writeVercelOutput(
       `  ${JSON.stringify(security ?? {})},\n` +
       `  ${JSON.stringify(sitemapEnabled)},\n` +
       `  ${JSON.stringify(defaultRenderMode ?? null)},\n` +
-      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}\n` +
+      `  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors, allowedHosts: options.allowedHosts })}\n` +
       `);\n\n` +
       `export default async function handler(req, res) {\n` +
       `  try {\n` +

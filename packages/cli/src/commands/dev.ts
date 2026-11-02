@@ -18,7 +18,7 @@ import {
 } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
-import { createApiMiddlewarePlugin } from "../server/apiMiddleware.js";
+import { createApiMiddlewarePlugin, createHostCheckPlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
@@ -108,6 +108,8 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
+      // First, so a request for an unknown host never reaches another middleware.
+      createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
       islandsPlugin(),
       moduleDisposePlugin(),
       reactRefreshPreamblePlugin(),

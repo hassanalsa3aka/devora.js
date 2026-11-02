@@ -184,6 +184,14 @@ export interface AppRuntimeConfig {
   /** CORS for this app's API routes (`/api/**`) — off unless set. See cors.ts. */
   cors?: CorsConfig;
   /**
+   * Hosts this app answers to. When set, a request whose host (`Host`, or the
+   * first `X-Forwarded-Host` when `trustProxy` is on) is not listed gets a
+   * 400 before any route runs. Exact hosts ("app.example.com") or a leading
+   * dot for a domain and its subdomains (".example.com"); ports are ignored.
+   * The dev server also accepts localhost. Unset (the default): no check.
+   */
+  allowedHosts?: string[];
+  /**
    * Limits on the HTTP server `devora start` runs (adapter-node). Each is
    * optional; unset ones keep the defaults: headers within 15 s, the whole
    * request within 60 s, idle keep-alive connections closed after 5 s,
