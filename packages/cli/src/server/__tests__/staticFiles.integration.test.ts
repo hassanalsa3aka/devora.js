@@ -62,6 +62,11 @@ beforeAll(async () => {
   for (const [name, contents] of Object.entries(FILES)) write(path.join(clientOut, name), contents as string);
   // A file outside the client folder that traversal must never reach.
   write(path.join(fixture.appRoot, "dist", "secret.txt"), "top secret");
+  write(path.join(fixture.appRoot, "dist", "outside", "inner.txt"), "outside dir");
+  // Symlinks inside the client folder: out to the secret file, out to a folder, and one that stays inside.
+  fs.symlinkSync(path.join(fixture.appRoot, "dist", "secret.txt"), path.join(clientOut, "link-out.txt"));
+  fs.symlinkSync(path.join(fixture.appRoot, "dist", "outside"), path.join(clientOut, "assets", "dir-out"));
+  fs.symlinkSync(path.join(clientOut, "robots.txt"), path.join(clientOut, "link-in.txt"));
 
   const handle = createProdRequestHandler(fixture.appRoot, "fixture", "none", "fixture.example.com", undefined, false);
   server = http.createServer((req, res) => {
@@ -198,6 +203,30 @@ describe("protections", () => {
       const status = await raw(target);
       expect(status, target).toBe(404);
     }
+  });
+
+  it("a symlink whose real path is outside the client folder is a 404; one that stays inside is served", async () => {
+    for (const url of ["/link-out.txt", "/assets/dir-out/inner.txt", "/assets/dir-out%2Finner.txt"]) {
+      const res = await get(url);
+      expect(res.status, url).toBe(404);
+      expect(await res.text(), url).not.toMatch(/top secret|outside dir/);
+    }
+    const inside = await get("/link-in.txt");
+    expect(inside.status).toBe(200);
+    expect(await inside.text()).toBe("User-agent: *");
+  });
+
+  it("a symlink repointed outside after it was served stops being served within a second", async () => {
+    const clientOut = path.join(fixture.appRoot, "dist", "client");
+    const link = path.join(clientOut, "repointed.txt");
+    fs.symlinkSync(path.join(clientOut, "robots.txt"), link);
+    expect((await get("/repointed.txt")).status).toBe(200);
+    fs.unlinkSync(link);
+    fs.symlinkSync(path.join(fixture.appRoot, "dist", "secret.txt"), link);
+    await new Promise((r) => setTimeout(r, 1100));
+    const res = await get("/repointed.txt");
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("top secret");
   });
 
   it("a missing file or page is 404", async () => {

@@ -4508,7 +4508,7 @@ ${urls}
 import path3 from "node:path";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat as statAsync } from "node:fs/promises";
+import { readFile, realpath, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 var CONTENT_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -4657,6 +4657,15 @@ var HTML_CACHE = "public, max-age=0, must-revalidate";
 function createStaticFileServer(rootDir, budget = new ByteBudget()) {
   const root = path3.resolve(rootDir);
   const metas = /* @__PURE__ */ new Map();
+  let realRoot;
+  async function realPathInsideRoot(filePath) {
+    try {
+      realRoot ??= await realpath(root);
+      return (await realpath(filePath)).startsWith(realRoot + path3.sep);
+    } catch {
+      return false;
+    }
+  }
   function resolveInside(pathname) {
     let decoded;
     try {
@@ -4674,7 +4683,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
     if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
     metas.delete(filePath);
   }
-  async function lookup(filePath, type, cacheControl) {
+  async function lookup(filePath, type, cacheControl, confined = false) {
     let meta = metas.get(filePath);
     const now = Date.now();
     if (meta && now - meta.checkedAt > REVALIDATE_MS) {
@@ -4682,6 +4691,10 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
       try {
         stat2 = await statAsync(filePath);
       } catch {
+        forget(filePath);
+        return void 0;
+      }
+      if (confined && !await realPathInsideRoot(filePath)) {
         forget(filePath);
         return void 0;
       }
@@ -4700,6 +4713,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
       return void 0;
     }
     if (!stat.isFile()) return void 0;
+    if (confined && !await realPathInsideRoot(filePath)) return void 0;
     meta = {
       file: filePath,
       size: stat.size,
@@ -4718,8 +4732,8 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
     metas.set(filePath, meta);
     return meta;
   }
-  async function serveFile(req, res, filePath, type, cacheControl) {
-    const meta = await lookup(filePath, type, cacheControl);
+  async function serveFile(req, res, filePath, type, cacheControl, confined = false) {
+    const meta = await lookup(filePath, type, cacheControl, confined);
     if (!meta) return false;
     if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
     if (req.method !== "GET" && req.method !== "HEAD") {
@@ -4764,7 +4778,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
   const serve = async (req, res, pathname, immutable) => {
     const filePath = resolveInside(pathname);
     if (!filePath) return false;
-    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE);
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE, true);
   };
   return { serve, serveFile, budget };
 }
