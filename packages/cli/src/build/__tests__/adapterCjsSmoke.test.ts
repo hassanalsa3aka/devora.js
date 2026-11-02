@@ -19,6 +19,7 @@ import * as esbuild from "esbuild";
 import { writeVercelOutput } from "@devorajs/adapter-vercel";
 import { writeNetlifyConfig } from "@devorajs/adapter-netlify";
 import { createFixtureProject, write, type FixtureProject } from "../../server/__tests__/fixtureApp.js";
+import { SVG_CSP } from "@devorajs/core";
 
 const APP = { name: "cjs-smoke", dir: "app", domain: "cjs.example.com" };
 
@@ -179,6 +180,7 @@ describe("generated functions — sessions and headers (round 3 phase 2)", () =>
     expect(netlifyHeaders).toContain("X-Robots-Tag: noindex");
     // nosniff reaches them too, always, and a second build does not add the rules twice.
     expect(netlifyHeaders).toContain("X-Content-Type-Options: nosniff");
+    expect(netlifyHeaders).toContain(`/*.svg\n  Content-Security-Policy: ${SVG_CSP}\n`);
     await writeNetlifyConfig(APP, sessionFixture.appRoot, "shared", { noindex: true }, false, undefined, { apiDir: "api" });
     expect(fs.readFileSync(path.join(sessionFixture.appRoot, "dist", "client", "_headers"), "utf-8")).toBe(netlifyHeaders);
 
@@ -216,7 +218,11 @@ console.log(JSON.stringify({ status: res.status, cookies: res.headers.getSetCook
       headers: { "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex" },
       continue: true,
     });
-    expect(config.routes[1]).toEqual({ handle: "filesystem" });
+    // An SVG is served with core's sandboxing policy.
+    expect(config.routes[1]).toEqual({ src: "/(.*)\\.[sS][vV][gG]", headers: { "Content-Security-Policy": SVG_CSP }, continue: true });
+    expect(new RegExp(`^${config.routes[1].src}$`).test("/assets/logo-abc.SVG")).toBe(true);
+    expect(new RegExp(`^${config.routes[1].src}$`).test("/logo.svg.html")).toBe(false);
+    expect(config.routes[2]).toEqual({ handle: "filesystem" });
 
     await writeVercelOutput(APP, sessionFixture.appRoot, "shared", undefined, false, undefined, {
       runtime: "nodejs22.x",
@@ -226,6 +232,6 @@ console.log(JSON.stringify({ status: res.status, cookies: res.headers.getSetCook
     const plainConfig = JSON.parse(fs.readFileSync(path.join(outputDir, "config.json"), "utf-8"));
     // Without noindex, files served from static/ still get nosniff.
     expect(plainConfig.routes[0]).toEqual({ src: "/(.*)", headers: { "X-Content-Type-Options": "nosniff" }, continue: true });
-    expect(plainConfig.routes[1]).toEqual({ handle: "filesystem" });
+    expect(plainConfig.routes[2]).toEqual({ handle: "filesystem" });
   }, 60_000);
 });

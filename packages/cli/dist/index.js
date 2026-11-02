@@ -4434,6 +4434,11 @@ var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-
 var DEFAULT_FRAME_OPTIONS = "DENY";
 var DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
 var NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" };
+var SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+function isSvgPath(pathname) {
+  const q = pathname.indexOf("?");
+  return /\.svg$/i.test(q === -1 ? pathname : pathname.slice(0, q));
+}
 function generateNonce() {
   return randomBytes3(16).toString("base64");
 }
@@ -4716,6 +4721,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
   async function serveFile(req, res, filePath, type, cacheControl) {
     const meta = await lookup(filePath, type, cacheControl);
     if (!meta) return false;
+    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;
       res.setHeader("Allow", "GET, HEAD");
@@ -5852,10 +5858,11 @@ function sendApiResponse2(res, result) {
 // src/server/securityHeadersMiddleware.ts
 function createSecurityHeadersMiddleware(security) {
   const headers = resolveSecurityHeaders(security);
-  return function securityHeadersMiddleware(_req, res, next) {
+  return function securityHeadersMiddleware(req, res, next) {
     for (const [name, value] of Object.entries(headers)) {
       res.setHeader(name, value);
     }
+    if (req.url && isSvgPath(req.url)) res.setHeader("Content-Security-Policy", SVG_CSP);
     next();
   };
 }
@@ -7679,6 +7686,7 @@ function deployToVercel(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
+var SVG_CSP2 = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
 var VERCEL_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
 var require2 = createRequire2(import.meta.url);
 async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
@@ -7769,6 +7777,8 @@ export default async function handler(req, res) {
     version: 3,
     routes: [
       { src: "/(.*)", headers: staticHeaders, continue: true },
+      // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+      { src: "/(.*)\\.[sS][vV][gG]", headers: { "Content-Security-Policy": SVG_CSP2 }, continue: true },
       { handle: "filesystem" },
       { src: "/(.*)", dest: "/index" }
     ]
@@ -7882,6 +7892,7 @@ function deployToNetlify(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
+var SVG_CSP3 = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
 var NETLIFY_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
 var require3 = createRequire3(import.meta.url);
 async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
@@ -7986,6 +7997,9 @@ export default async (request, context) => {
 ${rule}` : rule;
     };
     addRule("X-Content-Type-Options: nosniff", "/*\n  X-Content-Type-Options: nosniff\n");
+    addRule(`Content-Security-Policy: ${SVG_CSP3}`, `/*.svg
+  Content-Security-Policy: ${SVG_CSP3}
+`);
     if (security?.noindex === true) addRule("X-Robots-Tag: noindex", "/*\n  X-Robots-Tag: noindex\n");
     await writeFile5(headersPath, contents);
   }

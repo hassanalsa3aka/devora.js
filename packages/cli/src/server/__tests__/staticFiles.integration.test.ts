@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import type { AddressInfo } from "node:net";
-import { createProdRequestHandler, writeCachedRoute } from "@devorajs/core";
+import { createProdRequestHandler, SVG_CSP, writeCachedRoute } from "@devorajs/core";
 import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.js";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -32,6 +32,7 @@ const FILES: Record<string, string | Buffer> = {
   "sitemap.xml": '<?xml version="1.0"?><urlset></urlset>',
   "site.webmanifest": '{"name":"fixture"}',
   "logo.svg": "<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+  "assets/Icon-abc123.SVG": "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
   "data.json": '{"a":1}',
   "robots.txt": "User-agent: *",
   "font.woff2": Buffer.from([0x77, 0x4f, 0x46, 0x32, 0, 1, 2, 3]),
@@ -223,6 +224,21 @@ describe("protections", () => {
     const missing = await get("/missing.png");
     expect(missing.status).toBe(404);
     expect(missing.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("an SVG gets the sandboxing policy instead of the page policy; other files keep the page policy", async () => {
+    for (const url of ["/logo.svg", "/logo.svg?v=3", "/assets/Icon-abc123.SVG"]) {
+      const res = await get(url);
+      expect(res.status, url).toBe(200);
+      expect(res.headers.get("content-type"), url).toBe("image/svg+xml");
+      expect(res.headers.get("content-security-policy"), url).toBe(SVG_CSP);
+      expect(res.headers.get("x-content-type-options"), url).toBe("nosniff");
+    }
+    const etag = (await get("/logo.svg")).headers.get("etag")!;
+    expect((await get("/logo.svg", { headers: { "if-none-match": etag } })).headers.get("content-security-policy")).toBe(SVG_CSP);
+    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js"]) {
+      expect((await get(url)).headers.get("content-security-policy"), url).toContain("default-src 'self'");
+    }
   });
 
   it("a trailing slash reaches the same page", async () => {

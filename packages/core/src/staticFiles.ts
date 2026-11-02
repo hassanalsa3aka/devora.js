@@ -18,6 +18,7 @@ import { createReadStream } from "node:fs";
 import { readFile, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { SVG_CSP } from "./securityHeaders.js";
 
 export const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -302,6 +303,8 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
   ): Promise<boolean> {
     const meta = await lookup(filePath, type, cacheControl);
     if (!meta) return false;
+    // An SVG is a document that can run script; it gets a sandbox, not the page policy.
+    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
 
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;

@@ -18,6 +18,7 @@ Not released yet: nothing below is on npm. No version has been chosen.
 
 - `@devorajs/cli` requires vite `^6.4.4` (it accepted `^5.4.0 || ^6.0.0`), so a new install cannot resolve a vite release older than 6.4.4. New scaffolds and the repo apps declare the same range. `devora build` and `devora dev` were checked on vite 6.4.5 for all four repo apps; the test suite runs unchanged.
 - Every response sends `X-Content-Type-Options: nosniff`: pages, API routes, API 404s, CORS preflights, redirects, error pages and static files (including 304 and 405 answers) from `devora start` and the dev server. The Vercel and Netlify adapters add it to files the CDN serves without calling the function (a header route in `config.json`; a rule in `_headers`, appended once). There is no setting to turn it off.
+- `.svg` files are served with their own `Content-Security-Policy` (`default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox`) instead of the page policy, so an SVG opened directly cannot run script on the app origin. Applies to `devora start`, the dev server, and files the Vercel (`config.json` header route) and Netlify (`_headers`, `/*.svg`) CDNs serve. The new exports are `SVG_CSP` and `isSvgPath`. The Pages guide now says user-uploaded SVGs must never be served from the app origin; this header does not cover files an app sends back itself.
 
 ## 0.3.5 — 2026-10-16
 

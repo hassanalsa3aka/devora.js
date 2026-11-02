@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveSecurityHeaders, generateNonce, addNonceToCsp } from "../securityHeaders.js";
+import { resolveSecurityHeaders, generateNonce, addNonceToCsp, isSvgPath, SVG_CSP } from "../securityHeaders.js";
 
 describe("resolveSecurityHeaders", () => {
   it("applies real defaults for an app with no security block at all — a default, not opt-in", () => {
@@ -92,5 +92,18 @@ describe("addNonceToCsp", () => {
   it("adds the nonce to both when a policy declares script-src AND script-src-elem separately", () => {
     const result = addNonceToCsp("script-src 'self'; script-src-elem 'self'", "n4");
     expect(result).toBe("script-src 'self' 'nonce-n4'; script-src-elem 'self' 'nonce-n4'");
+  });
+});
+
+describe("SVG files", () => {
+  it("isSvgPath matches .svg in any case and ignores the query string", () => {
+    for (const p of ["/logo.svg", "/assets/icon-abc123.SVG", "/a/b.Svg?v=2"]) expect(isSvgPath(p), p).toBe(true);
+    for (const p of ["/logo.svg.html", "/svg", "/logo.png?x=.svg", "/logo.svgz"]) expect(isSvgPath(p), p).toBe(false);
+  });
+
+  it("the SVG policy sandboxes the document and allows no script", () => {
+    expect(SVG_CSP).toContain("sandbox");
+    expect(SVG_CSP).toContain("default-src 'none'");
+    expect(SVG_CSP).not.toMatch(/script-src/);
   });
 });

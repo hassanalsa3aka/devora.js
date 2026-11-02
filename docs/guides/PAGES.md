@@ -77,6 +77,15 @@ A loader can also `return redirect(...)` or `throw redirect(...)` (e.g. "not log
 for forms and API routes is `maxBodyBytes` in app.config.ts (default 10 MB). A larger body gets a
 413, and the browser actually receives it.
 
+**Never serve user-uploaded SVGs (or HTML) from the app's origin.** An SVG opened directly is a
+document that can run script with your app's cookies. Devora.js serves the `.svg` files you ship
+(in `public/` and the build) with a sandboxing `Content-Security-Policy`
+(`default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox`), on `devora start`,
+the dev server and, through the adapters, on Vercel and Netlify. That header is a backstop for your
+own files. It does not cover files your app stores and sends back itself (from an API route, a
+storage bucket or a CDN). Serve uploads from a separate domain (for example a storage bucket's own
+domain, not a subdomain that shares cookies), or with `Content-Disposition: attachment`.
+
 ## Errors and the error page
 
 A thrown `HttpError` keeps its status on page routes too: `ctx.requireAuth()` gives 401,

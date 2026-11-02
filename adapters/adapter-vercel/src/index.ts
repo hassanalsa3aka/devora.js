@@ -6,6 +6,9 @@ import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, Ren
 import { bundleForDeploy } from "./bundleForDeploy.js";
 import { resolveVercelRuntime, readEnginesNode } from "./runtime.js";
 
+// Kept equal to @devorajs/core's SVG_CSP (securityHeaders.ts); adapterCjsSmoke.test.ts compares them.
+const SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
 export { isVercelLinked, deployToVercel } from "./deploy.js";
 export {
   resolveVercelRuntime,
@@ -263,6 +266,8 @@ export async function writeVercelOutput(
     version: 3,
     routes: [
       { src: "/(.*)", headers: staticHeaders, continue: true },
+      // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+      { src: "/(.*)\\.[sS][vV][gG]", headers: { "Content-Security-Policy": SVG_CSP }, continue: true },
       { handle: "filesystem" },
       { src: "/(.*)", dest: "/index" },
     ],

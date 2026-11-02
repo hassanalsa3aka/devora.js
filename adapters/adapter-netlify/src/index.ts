@@ -5,6 +5,9 @@ import { createRequire } from "node:module";
 import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
+// Kept equal to @devorajs/core's SVG_CSP (securityHeaders.ts); adapterCjsSmoke.test.ts compares them.
+const SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
 export { CJS_REQUIRE_BANNER } from "./bundleForDeploy.js";
 
@@ -264,6 +267,8 @@ export async function writeNetlifyConfig(
       if (!contents.includes(line)) contents = contents ? `${contents.replace(/\n*$/, "\n")}\n${rule}` : rule;
     };
     addRule("X-Content-Type-Options: nosniff", "/*\n  X-Content-Type-Options: nosniff\n");
+    // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+    addRule(`Content-Security-Policy: ${SVG_CSP}`, `/*.svg\n  Content-Security-Policy: ${SVG_CSP}\n`);
     if (security?.noindex === true) addRule("X-Robots-Tag: noindex", "/*\n  X-Robots-Tag: noindex\n");
     await writeFile(headersPath, contents);
   }

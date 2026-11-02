@@ -30,6 +30,24 @@ const DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
 export const NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" } as const;
 
 /**
+ * The Content-Security-Policy an `.svg` file is served with, in place of the
+ * app's page policy. An SVG opened directly (not through `<img>`) is a
+ * document that can run its own `<script>` with the app origin's cookies and
+ * storage; `sandbox` gives it a unique opaque origin and no script, and
+ * `default-src 'none'` stops it loading anything but its own inline styles
+ * and images. A logo or icon renders exactly as before. It is a backstop, not
+ * a reason to serve user-uploaded SVGs from the app origin: serve those from
+ * a separate domain.
+ */
+export const SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
+/** True for a path ending in `.svg` (any case); the query string is ignored. */
+export function isSvgPath(pathname: string): boolean {
+  const q = pathname.indexOf("?");
+  return /\.svg$/i.test(q === -1 ? pathname : pathname.slice(0, q));
+}
+
+/**
  * `renderMode: "streaming"` needs one real CSP accommodation: React's own
  * `renderToPipeableStream` injects a small **inline** `<script>` itself
  * (unrelated to this framework/Vite) to patch a Suspense boundary's real
