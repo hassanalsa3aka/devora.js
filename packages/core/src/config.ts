@@ -181,6 +181,13 @@ export interface AppRuntimeConfig {
    * 10485760 (10 MB).
    */
   maxBodyBytes?: number;
+  /**
+   * Most non-file fields a page form (URL-encoded or multipart) may send.
+   * More gets a 413 before the form is parsed. Default 1000.
+   */
+  maxFormFields?: number;
+  /** Most files a multipart page form may send; more gets a 413. Default 20. */
+  maxFormFiles?: number;
   /** CORS for this app's API routes (`/api/**`) — off unless set. See cors.ts. */
   cors?: CorsConfig;
   /**

@@ -16,6 +16,7 @@ import {
   HttpError,
   PayloadTooLargeError,
   MalformedBodyError,
+  FormLimitError,
   MAX_BODY_BYTES,
   type AuthMode,
   type ErrorPageModule,
@@ -70,7 +71,7 @@ export function createSsrMiddleware(
   appDefaultRenderMode: RenderMode | undefined,
   security: AppRuntimeConfig["security"] | undefined,
   sessions: { projectRoot: string; config: SessionsConfig | undefined; manifest?: SessionManifest },
-  page: { head?: HeadConfig; maxBodyBytes?: number; trustProxy?: boolean | number } = {}
+  page: { head?: HeadConfig; maxBodyBytes?: number; maxFormFields?: number; maxFormFiles?: number; trustProxy?: boolean | number } = {}
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -281,9 +282,13 @@ export function createSsrMiddleware(
       try {
         formData =
           req.method === "POST"
-            ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"])
+            ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], {
+                maxFields: page.maxFormFields,
+                maxFiles: page.maxFormFiles,
+              })
             : undefined;
       } catch (err) {
+        if (err instanceof FormLimitError) return await sendErrorPage(res, 413, new HttpError(413, err.message));
         if (err instanceof PayloadTooLargeError) return await sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
         if (err instanceof MalformedBodyError) return await sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
         throw err;

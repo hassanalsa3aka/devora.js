@@ -75,7 +75,10 @@ A loader can also `return redirect(...)` or `throw redirect(...)` (e.g. "not log
 **Uploads.** `<form method="post" encType="multipart/form-data">` works: file fields arrive in
 `formData` as `File` objects (`file.name`, `file.size`, `await file.arrayBuffer()`). The body limit
 for forms and API routes is `maxBodyBytes` in app.config.ts (default 10 MB). A larger body gets a
-413, and the browser actually receives it.
+413, and the browser actually receives it. A page form may also send at most 1000 non-file fields
+and 20 files (`maxFormFields` and `maxFormFiles` in app.config.ts); more gets a 413 before the form
+is parsed. API routes receive the raw body; if you parse multipart there yourself, set your own
+limits (core's `parseFormBody(body, contentType, { maxFields, maxFiles })` applies the same ones).
 
 ## Errors and the error page
 

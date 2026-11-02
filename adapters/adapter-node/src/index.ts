@@ -68,6 +68,9 @@ export function createNodeServer(opts: {
   /** app.config.ts `head` and `maxBodyBytes`. */
   head?: HeadConfig;
   maxBodyBytes?: number;
+  /** app.config.ts `maxFormFields` / `maxFormFiles`. */
+  maxFormFields?: number;
+  maxFormFiles?: number;
   cors?: CorsConfig;
   /** app.config.ts `allowedHosts` (unset: no host check). */
   allowedHosts?: string[];
@@ -90,6 +93,8 @@ export function createNodeServer(opts: {
       trustProxy: opts.trustProxy,
       head: opts.head,
       maxBodyBytes: opts.maxBodyBytes,
+      maxFormFields: opts.maxFormFields,
+      maxFormFiles: opts.maxFormFiles,
       cors: opts.cors,
       allowedHosts: opts.allowedHosts,
     }

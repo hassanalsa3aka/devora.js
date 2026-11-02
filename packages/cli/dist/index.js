@@ -4934,16 +4934,57 @@ var MalformedBodyError = class extends Error {
     this.name = "MalformedBodyError";
   }
 };
-async function parseFormBody(body, contentType) {
+var MAX_FORM_FIELDS = 1e3;
+var MAX_FORM_FILES = 20;
+var FormLimitError = class extends Error {
+  status = 413;
+  constructor(what, limit) {
+    super(`Too many form ${what} (the limit is ${limit})`);
+    this.name = "FormLimitError";
+  }
+};
+function checkMultipartParts(body, contentType, maxFields, maxFiles) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  const value = boundary?.[1] ?? boundary?.[2]?.trim();
+  if (!value) return;
+  const delimiter = Buffer.from(`--${value}`);
+  const headerEnd = Buffer.from("\r\n\r\n");
+  let fields = 0;
+  let files = 0;
+  let at = body.indexOf(delimiter);
+  while (at !== -1) {
+    const partStart = at + delimiter.length;
+    if (body[partStart] === 45 && body[partStart + 1] === 45) break;
+    const headersEnd = body.indexOf(headerEnd, partStart);
+    if (headersEnd === -1) break;
+    const headers = body.subarray(partStart, headersEnd).toString("latin1");
+    if (/^content-disposition:[^\r\n]*;\s*filename\*?=/im.test(headers)) {
+      if (++files > maxFiles) throw new FormLimitError("files", maxFiles);
+    } else if (++fields > maxFields) {
+      throw new FormLimitError("fields", maxFields);
+    }
+    at = body.indexOf(delimiter, headersEnd);
+  }
+}
+async function parseFormBody(body, contentType, limits = {}) {
+  const maxFields = limits.maxFields ?? MAX_FORM_FIELDS;
+  const maxFiles = limits.maxFiles ?? MAX_FORM_FILES;
   if (contentType && /^multipart\/form-data\b/i.test(contentType)) {
+    checkMultipartParts(body, contentType, maxFields, maxFiles);
     try {
       return await new Response(body, { headers: { "content-type": contentType } }).formData();
     } catch {
       throw new MalformedBodyError("malformed multipart/form-data body");
     }
   }
+  const text = body.toString("utf-8");
+  let pairs = text === "" ? 0 : 1;
+  for (let i = text.indexOf("&"); i !== -1; i = text.indexOf("&", i + 1)) {
+    if (++pairs > maxFields) throw new FormLimitError("fields", maxFields);
+  }
+  if (pairs > maxFields) throw new FormLimitError("fields", maxFields);
   const formData = new FormData();
-  new URLSearchParams(body.toString("utf-8")).forEach((value, key) => formData.append(key, value));
+  new URLSearchParams(text).forEach((value, key) => formData.append(key, value));
   return formData;
 }
 
@@ -5182,6 +5223,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const currentIslandClientUrl = ttlMemo(() => readIslandClientUrl(islandManifestPath), 1e3);
   const currentCsrManifest = ttlMemo(() => readCsrManifest(csrManifestPath), 1e3);
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const formLimits = { maxFields: options.maxFormFields, maxFiles: options.maxFormFiles };
   const head = options.head;
   const routeStyles = readRouteCssManifest(path7.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
   const buildKeys = /* @__PURE__ */ new Map();
@@ -5398,8 +5440,9 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     const islandClientUrl = await currentIslandClientUrl();
     let formData;
     try {
-      formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"]) : void 0;
+      formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], formLimits) : void 0;
     } catch (err) {
+      if (err instanceof FormLimitError) return sendErrorPage(res, 413, new HttpError(413, err.message));
       if (err instanceof PayloadTooLargeError) return sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
       if (err instanceof MalformedBodyError) return sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
       throw err;
@@ -5744,8 +5787,12 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
       }
       let formData;
       try {
-        formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"]) : void 0;
+        formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], {
+          maxFields: page.maxFormFields,
+          maxFiles: page.maxFormFiles
+        }) : void 0;
       } catch (err) {
+        if (err instanceof FormLimitError) return await sendErrorPage(res, 413, new HttpError(413, err.message));
         if (err instanceof PayloadTooLargeError) return await sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
         if (err instanceof MalformedBodyError) return await sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
         throw err;
@@ -6955,7 +7002,13 @@ async function createAppDevServer(opts) {
         appConfig.defaultRenderMode,
         appConfig.security,
         { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
-        { head: appConfig.head, maxBodyBytes: appConfig.maxBodyBytes, trustProxy: appConfig.trustProxy }
+        {
+          head: appConfig.head,
+          maxBodyBytes: appConfig.maxBodyBytes,
+          maxFormFields: appConfig.maxFormFields,
+          maxFormFiles: appConfig.maxFormFiles,
+          trustProxy: appConfig.trustProxy
+        }
       )
     );
   }
@@ -7802,7 +7855,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors, allowedHosts: options.allowedHosts })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, maxFormFields: options.maxFormFields, maxFormFiles: options.maxFormFiles, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async function handler(req, res) {
@@ -7993,7 +8046,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors, allowedHosts: options.allowedHosts })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, maxFormFields: options.maxFormFields, maxFormFiles: options.maxFormFiles, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async (request, context) => {
@@ -8146,6 +8199,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
         cors: appConfig.cors,
         allowedHosts: appConfig.allowedHosts
       });
@@ -8155,6 +8210,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
         cors: appConfig.cors,
         allowedHosts: appConfig.allowedHosts
       });
@@ -8266,6 +8323,8 @@ function createNodeServer(opts) {
       trustProxy: opts.trustProxy,
       head: opts.head,
       maxBodyBytes: opts.maxBodyBytes,
+      maxFormFields: opts.maxFormFields,
+      maxFormFiles: opts.maxFormFiles,
       cors: opts.cors,
       allowedHosts: opts.allowedHosts
     }
@@ -8366,6 +8425,8 @@ async function start(opts) {
       trustProxy: appConfig.trustProxy,
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
+      maxFormFields: appConfig.maxFormFields,
+      maxFormFiles: appConfig.maxFormFiles,
       cors: appConfig.cors,
       serverLimits: appConfig.server,
       allowedHosts: appConfig.allowedHosts,

@@ -159,7 +159,13 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         appConfig.defaultRenderMode,
         appConfig.security,
         { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
-        { head: appConfig.head, maxBodyBytes: appConfig.maxBodyBytes, trustProxy: appConfig.trustProxy }
+        {
+          head: appConfig.head,
+          maxBodyBytes: appConfig.maxBodyBytes,
+          maxFormFields: appConfig.maxFormFields,
+          maxFormFiles: appConfig.maxFormFiles,
+          trustProxy: appConfig.trustProxy,
+        }
       )
     );
   }

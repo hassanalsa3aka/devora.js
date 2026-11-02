@@ -79,6 +79,8 @@ export async function start(opts: { app?: string; port?: string; host?: string; 
       trustProxy: appConfig.trustProxy,
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
+      maxFormFields: appConfig.maxFormFields,
+      maxFormFiles: appConfig.maxFormFiles,
       cors: appConfig.cors,
       serverLimits: appConfig.server,
       allowedHosts: appConfig.allowedHosts,

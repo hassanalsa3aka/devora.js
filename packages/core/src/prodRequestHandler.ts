@@ -21,7 +21,7 @@ import { HttpError } from "./httpError.js";
 import { renderCsrShell } from "./csrRoute.js";
 import { readCachedRoute, writeCachedRoute, isStale, cachedRoutePaths } from "./isrCache.js";
 import { dispatchApiRoute } from "./apiDispatch.js";
-import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, MAX_BODY_BYTES } from "./readBody.js";
+import { readBodyWithLimit, parseFormBody, PayloadTooLargeError, MalformedBodyError, FormLimitError, MAX_BODY_BYTES } from "./readBody.js";
 import { apiErrorResponse, apiNotFoundResponse, backendStatusFor, jsonMessageResponse } from "./httpError.js";
 import { isApiPath } from "./apiRoute.js";
 import type { AuthMode, AppRuntimeConfig, RenderMode } from "./config.js";
@@ -50,6 +50,9 @@ export interface ProdRequestHandlerOptions {
   head?: HeadConfig;
   /** app.config.ts `maxBodyBytes` (default 10 MB). */
   maxBodyBytes?: number;
+  /** app.config.ts `maxFormFields` / `maxFormFiles` (defaults 1000 and 20). */
+  maxFormFields?: number;
+  maxFormFiles?: number;
   /** app.config.ts `cors` (API routes only). */
   cors?: CorsConfig;
   /** app.config.ts `allowedHosts` — see allowedHosts.ts. Unset: no host check. */
@@ -113,6 +116,7 @@ export function createProdRequestHandler(
   const currentIslandClientUrl = ttlMemo(() => readIslandClientUrl(islandManifestPath), 1000);
   const currentCsrManifest = ttlMemo(() => readCsrManifest(csrManifestPath), 1000);
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const formLimits = { maxFields: options.maxFormFields, maxFiles: options.maxFormFiles };
   const head = options.head;
   // CSS each built page imports (buildAppServer.ts), keyed by build key.
   const routeStyles = readRouteCssManifest(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
@@ -428,9 +432,10 @@ export function createProdRequestHandler(
     try {
       formData =
         req.method === "POST"
-          ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"])
+          ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], formLimits)
           : undefined;
     } catch (err) {
+      if (err instanceof FormLimitError) return sendErrorPage(res, 413, new HttpError(413, err.message));
       if (err instanceof PayloadTooLargeError) return sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
       if (err instanceof MalformedBodyError) return sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
       throw err;
