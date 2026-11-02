@@ -3,7 +3,7 @@ import { createRequestContext, createNoAuthContext } from "./session.js";
 import { IslandStreamingContext, type StreamingIslandTracker } from "./islandComponent.js";
 import { renderDocumentHead, renderDocumentTail, type HeadConfig } from "./html.js";
 import { ShellUsageContext } from "./branding.js";
-import { isRedirectResult, redirectStatus } from "./actionResult.js";
+import { isRedirectResult, redirectRefusal, redirectStatus } from "./actionResult.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import { publicErrorMessage } from "./renderRoute.js";
 import type { ErrorPageModule, RouteModule } from "./route.js";
@@ -152,12 +152,16 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     try {
       data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
       if (isRedirectResult(data)) {
+        // Checked again here, not only in redirect(): a loader can return a plain `{ redirect }` object.
+        const refusal = redirectRefusal(data);
+        if (refusal) throw refusal;
         await settle();
         return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
       }
       meta = routeModule.meta?.(data);
       page = deps.createElement(routeModule.default as never, { data, csrfToken: undefined });
-    } catch (error) {
+    } catch (thrown) {
+      const error = isRedirectResult(thrown) ? (redirectRefusal(thrown) ?? thrown) : thrown;
       if (isRedirectResult(error)) {
         await settle().catch(() => {});
         return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), pipeTo: () => {} };

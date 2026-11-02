@@ -2,7 +2,7 @@ import { escapeHtml, renderHtmlDocument, renderShellMarkup, type HeadConfig } fr
 import { createRequestContext, createNoAuthContext } from "./session.js";
 import { createIslandCollector, IslandCollectorContext } from "./islandComponent.js";
 import { ShellUsageContext } from "./branding.js";
-import { isFailResult, isRedirectResult, redirectStatus, type RedirectResult } from "./actionResult.js";
+import { isFailResult, isRedirectResult, redirectRefusal, redirectStatus, type RedirectResult } from "./actionResult.js";
 import { createBuildTimeContext } from "./buildTimeContext.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import type { ErrorPageModule, ErrorPageProps, RouteComponentProps, RouteModule } from "./route.js";
@@ -205,12 +205,33 @@ export function createRenderRoute(deps: RenderRouteDeps) {
 
     let getSetCookie: () => string[] | undefined = () => undefined;
     let settle: () => Promise<void> = async () => {};
-    const redirectTo = (result: RedirectResult): RenderRouteResult => ({
-      status: redirectStatus(result, request.method),
-      html: "",
-      setCookie: getSetCookie(),
-      redirectTo: result.redirect,
-    });
+    const errorResult = (error: unknown): RenderRouteResult => {
+      const status = errorStatus(error);
+      return {
+        status,
+        html: renderErrorDocument(deps, {
+          status,
+          error,
+          head: request.head,
+          errorPage: request.errorPage,
+          errorPageStyles: request.errorPageStyles,
+          devPreambleUrl: request.devPreambleUrl,
+        }),
+        setCookie: getSetCookie(),
+        error,
+      };
+    };
+    // Checked again here, not only in redirect(): a loader can return a plain `{ redirect }` object.
+    const redirectTo = (result: RedirectResult): RenderRouteResult => {
+      const refusal = redirectRefusal(result);
+      if (refusal) return errorResult(refusal);
+      return {
+        status: redirectStatus(result, request.method),
+        html: "",
+        setCookie: getSetCookie(),
+        redirectTo: result.redirect,
+      };
+    };
 
     try {
       const context = request.sessionCookieOptions
@@ -266,20 +287,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       // verifyCsrf, an app's own 400/404) instead of every failure being a
       // bare 500. Cookies already decided (e.g. a cleared dead session) still go out.
       await settle().catch(() => {});
-      const status = errorStatus(error);
-      return {
-        status,
-        html: renderErrorDocument(deps, {
-          status,
-          error,
-          head: request.head,
-          errorPage: request.errorPage,
-          errorPageStyles: request.errorPageStyles,
-          devPreambleUrl: request.devPreambleUrl,
-        }),
-        setCookie: getSetCookie(),
-        error,
-      };
+      return errorResult(error);
     }
   }
 
