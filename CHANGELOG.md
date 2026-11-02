@@ -12,7 +12,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Nothing yet.
+Not released yet: nothing below is on npm. No version has been chosen.
+
+### Security fixes
+
+- `@devorajs/cli` requires vite `^6.4.4` (it accepted `^5.4.0 || ^6.0.0`), so a new install cannot resolve a vite release older than 6.4.4. New scaffolds and the repo apps declare the same range. `devora build` and `devora dev` were checked on vite 6.4.5 for all four repo apps; the test suite runs unchanged.
 
 ## 0.3.5 — 2026-10-16
 

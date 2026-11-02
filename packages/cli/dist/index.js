@@ -6116,7 +6116,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
           // A backend-only app renders no pages, so it needs no React at
           // all; it still needs vite, which runs its dev server and build.
           ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
-          vite: "^5.4.0 || ^6.0.0",
+          vite: "^6.4.4",
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
