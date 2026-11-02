@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { createRequestContext, createNoAuthContext } from "./session.js";
+import { createRequestContext, createNoAuthContext, warnIfSessionReadWithoutAuth } from "./session.js";
 import { IslandStreamingContext, type StreamingIslandTracker } from "./islandComponent.js";
 import { renderDocumentHead, renderDocumentTail, type HeadConfig } from "./html.js";
 import { ShellUsageContext } from "./branding.js";
@@ -128,7 +128,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, getSetCookie, settle, touchesSessionCookie } = request.sessionCookieOptions
+    const context = request.sessionCookieOptions
       ? await createRequestContext(
           { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
           request.sessionCookieOptions,
@@ -136,6 +136,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
           request.meta
         )
       : createNoAuthContext(request.params, request.meta);
+    const { ctx, getSetCookie, settle, touchesSessionCookie } = context;
 
     // Awaited before any HTML is written — real headers (including
     // Set-Cookie) must be decided before a streaming response starts, and
@@ -152,7 +153,12 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     let page: unknown;
     let styles = request.styles;
     try {
-      data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+      try {
+        data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+      } finally {
+        // Dev-only hint (session.ts): read ctx.session without ever calling ctx.requireAuth().
+        warnIfSessionReadWithoutAuth(context, request.meta?.url);
+      }
       if (isRedirectResult(data)) {
         // Checked again here, not only in redirect(): a loader can return a plain `{ redirect }` object.
         const refusal = redirectRefusal(data);

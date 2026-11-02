@@ -7,7 +7,7 @@
  * a handler, collecting Set-Cookie) for a request that never went through
  * page-route matching. See docs/design/architecture-v2.md §3.2.3.
  */
-import { createRequestContext, createNoAuthContext } from "./session.js";
+import { createRequestContext, createNoAuthContext, warnIfSessionReadWithoutAuth, type RequestContextResult } from "./session.js";
 import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
@@ -71,6 +71,7 @@ export async function dispatchApiRoute(
   // error path, so e.g. a freshly-issued CSRF cookie isn't silently lost.
   let getSetCookie: () => string[] | undefined = () => undefined;
   let touchesSessionCookie: () => boolean = () => false;
+  let authUsage: RequestContextResult | undefined;
   let result: ApiResponse;
   try {
     // Counted before the session lookup: a flood of logins never reaches the store.
@@ -87,6 +88,7 @@ export async function dispatchApiRoute(
       : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
     touchesSessionCookie = context.touchesSessionCookie;
+    authUsage = context;
     verifyCsrfByDefault({
       method: request.method,
       cookieAuthenticated: context.cookieAuthenticated,
@@ -100,5 +102,7 @@ export async function dispatchApiRoute(
     result = apiErrorResponse(err);
     if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
+  // Dev-only hint (session.ts): read ctx.session without ever calling ctx.requireAuth().
+  if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.url);
   return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }

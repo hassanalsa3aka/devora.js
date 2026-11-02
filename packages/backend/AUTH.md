@@ -65,7 +65,9 @@ return { status: 201, body: JSON.stringify({ token }) }; // client sends `Author
 ```
 
 `ctx.requireAuth()`/`ctx.session` accept either transport through the same lookup, with no extra
-code in the route. A request that sends a Bearer header is never authenticated by a cookie.
+code in the route. In development, a route that reads `ctx.session` but never calls
+`ctx.requireAuth()` prints one warning per path: fine for a page that also serves signed-out
+visitors (check `ctx.session` for `undefined`), a bug for one that is meant to be signed-in only. A request that sends a Bearer header is never authenticated by a cookie.
 `ctx.verifyCsrf()` is enforced for cookie (and unauthenticated) requests and skipped for
 Bearer-authenticated ones — a cross-site page can make a browser send cookies, not an
 `Authorization` header.

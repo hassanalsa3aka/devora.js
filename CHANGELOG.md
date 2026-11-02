@@ -28,6 +28,10 @@ Not released yet: nothing below is on npm. No version has been chosen.
 - `devora start` (and the Vercel/Netlify functions, which use the same handler) serves a built or public file only when its real path, with symlinks followed, is inside the client output folder. A symlink in `public/` that points outside it, to a file or a folder, is now a 404; a symlink that stays inside still works. A cached file is re-checked at most once a second, so a symlink repointed outside stops being served. The dev server (Vite) is not changed.
 - A route can limit how often one client IP posts to it: `export const rateLimit = { max: 10, windowSeconds: 60 }` on a page route (counted before `action`) or an API route (before `handler`, with `Retry-After`) answers the request over the limit with a 429, before the session store is touched. Only `POST`/`PUT`/`PATCH`/`DELETE` are counted. It is in memory and per process (each serverless instance counts on its own) and keys on `ctx.ip`, so behind a proxy it needs `trustProxy`. The Auth guide (packages/backend/AUTH.md, "Rate limiting logins") explains the limits and how to rate-limit login paths in nginx, Caddy and platform firewalls. New exports: `FixedWindowRateLimiter`, `enforceRateLimit`, `RateLimitError`, `RateLimitConfig`.
 
+### Other changes
+
+- In development (`NODE_ENV` is not `production`), a page loader or action, a streaming loader or an API route that reads `ctx.session` but never calls `ctx.requireAuth()` prints one warning per path, saying to call `ctx.requireAuth()` if the route is for signed-in users only. Nothing changes in production. New export: `warnIfSessionReadWithoutAuth`; `authUsage()` on the request context result.
+
 ## 0.3.5 — 2026-10-16
 
 Packages: `@devorajs/core` 0.3.5, `@devorajs/cli` 0.3.5, `create-devora` 0.3.3. The adapters are unchanged

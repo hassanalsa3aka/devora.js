@@ -4097,6 +4097,23 @@ async function resolveSession(request, opts, now = Date.now()) {
   }
   return { presentedTransport, state, sessionId, record, renewed: false };
 }
+var warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
+var MAX_WARNED_PATHS = 1e3;
+function warnIfSessionReadWithoutAuth(context, urlOrPath) {
+  if (process.env.NODE_ENV === "production") return;
+  const { sessionRead, requireAuthCalled } = context.authUsage();
+  if (!sessionRead || requireAuthCalled) return;
+  let pathname = urlOrPath ?? "(unknown path)";
+  try {
+    pathname = new URL(pathname, "http://localhost").pathname;
+  } catch {
+  }
+  if (warnedSessionWithoutAuth.has(pathname) || warnedSessionWithoutAuth.size >= MAX_WARNED_PATHS) return;
+  warnedSessionWithoutAuth.add(pathname);
+  console.warn(
+    `[devora] ${pathname} read ctx.session but never called ctx.requireAuth(). If this route is for signed-in users only, call ctx.requireAuth() first (a 401 when there is no session); if it also serves signed-out visitors, check ctx.session for undefined before using it. (Shown once per path, in dev only.)`
+  );
+}
 var PRIVATE_NO_STORE = "private, no-store";
 async function createRequestContext(request, opts, params = {}, meta) {
   const fields = requestContextFields(meta);
@@ -4142,6 +4159,8 @@ async function createRequestContext(request, opts, params = {}, meta) {
     transport = void 0;
     return track(() => opts.store.delete(key));
   };
+  let sessionRead = false;
+  let requireAuthCalled = false;
   const split2 = splitRouteParams(params);
   const ctx = {
     params: split2.params,
@@ -4158,12 +4177,14 @@ async function createRequestContext(request, opts, params = {}, meta) {
       return fields.request;
     },
     get session() {
+      sessionRead = true;
       return currentRecord?.data;
     },
     get sessionTransport() {
       return transport;
     },
     requireAuth: () => {
+      requireAuthCalled = true;
       if (currentRecord === void 0) {
         throw new HttpError(401, "Authentication required");
       }
@@ -4209,6 +4230,7 @@ async function createRequestContext(request, opts, params = {}, meta) {
     csrfToken,
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
     cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
+    authUsage: () => ({ sessionRead, requireAuthCalled }),
     touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
@@ -4256,7 +4278,7 @@ function createNoAuthContext(params = {}, meta) {
     }
   };
   return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
-  }, touchesSessionCookie: () => false, cookieAuthenticated: false };
+  }, touchesSessionCookie: () => false, cookieAuthenticated: false, authUsage: () => ({ sessionRead: false, requireAuthCalled: false }) };
 }
 
 // ../core/src/sessionConfig.ts
@@ -4970,6 +4992,7 @@ async function dispatchApiRoute(routeModule, request) {
   };
   let getSetCookie = () => void 0;
   let touchesSessionCookie = () => false;
+  let authUsage;
   let result;
   try {
     enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
@@ -4981,6 +5004,7 @@ async function dispatchApiRoute(routeModule, request) {
     ) : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
     touchesSessionCookie = context.touchesSessionCookie;
+    authUsage = context;
     verifyCsrfByDefault({
       method: request.method,
       cookieAuthenticated: context.cookieAuthenticated,
@@ -4994,6 +5018,7 @@ async function dispatchApiRoute(routeModule, request) {
     result = apiErrorResponse(err);
     if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
+  if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.url);
   return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
 
