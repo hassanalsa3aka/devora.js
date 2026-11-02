@@ -68,7 +68,17 @@ return { status: 201, body: JSON.stringify({ token }) }; // client sends `Author
 code in the route. A request that sends a Bearer header is never authenticated by a cookie.
 `ctx.verifyCsrf()` is enforced for cookie (and unauthenticated) requests and skipped for
 Bearer-authenticated ones — a cross-site page can make a browser send cookies, not an
-`Authorization` header. On the client side, keep the token in secure storage (e.g.
+`Authorization` header.
+
+**CSRF is checked by default for cookie-authenticated writes.** A `POST`, `PUT`, `PATCH` or
+`DELETE` that arrives with a live session in the session cookie is checked before the page's
+`action` or the API route's `handler` runs: the token must be in the `_csrf` form field
+(`<CsrfField token={csrfToken} />`) or the `x-devora-csrf` header (`CSRF_HEADER_NAME`), or the
+request gets a 403. Bearer-authenticated requests, requests with no session cookie (including the
+login itself) and `GET`/`HEAD`/`OPTIONS` are not checked by default; call `ctx.verifyCsrf()`
+yourself where you want them checked (for example a login form). A route opts out with
+`export const csrf = false;` and is then on its own. An app with `csrf: false` (no CSRF cookie) has
+no token to check, so a cookie-authenticated write there gets a 403 unless the route opts out. On the client side, keep the token in secure storage (e.g.
 `expo-secure-store`, i.e. Keychain/Keystore), not AsyncStorage.
 
 **Logout / password change:** `await ctx.revokeSession()` revokes the current session;

@@ -42,6 +42,11 @@ declare module "@devorajs/core" {
 
 ## Forms: what an action can return
 
+When the request is authenticated by the session cookie, the framework checks the `_csrf` field
+before `action` runs (a 403 without it), so the form must render `<CsrfField>`. Calling
+`ctx.verifyCsrf(formData)` yourself, as below, also covers anonymous posts such as a login form.
+`export const csrf = false;` turns the automatic check off for one route.
+
 ```tsx
 import { CsrfField, fail, redirect, type RequestContext, type RouteComponentProps } from "@devorajs/core";
 

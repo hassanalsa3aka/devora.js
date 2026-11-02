@@ -3860,6 +3860,7 @@ var import_react = __toESM(require_react(), 1);
 import { randomBytes, timingSafeEqual } from "node:crypto";
 var CSRF_COOKIE_NAME = "devora_csrf";
 var CSRF_FORM_FIELD = "_csrf";
+var CSRF_HEADER_NAME = "x-devora-csrf";
 function generateCsrfToken() {
   return randomBytes(32).toString("base64url");
 }
@@ -3869,6 +3870,13 @@ function verifyCsrfToken(cookieValue, formValue) {
   const formBuf = Buffer.from(formValue);
   if (cookieBuf.length !== formBuf.length) return false;
   return timingSafeEqual(cookieBuf, formBuf);
+}
+var CSRF_CHECKED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+function verifyCsrfByDefault(options) {
+  if (!options.cookieAuthenticated || options.optedOut || !CSRF_CHECKED_METHODS.has(options.method.toUpperCase())) return;
+  const fromForm = options.formData?.get(CSRF_FORM_FIELD);
+  const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
+  options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
 }
 
 // ../core/src/httpError.ts
@@ -4200,6 +4208,7 @@ async function createRequestContext(request, opts, params = {}, meta) {
     ctx,
     csrfToken,
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
+    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
     touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
@@ -4247,7 +4256,7 @@ function createNoAuthContext(params = {}, meta) {
     }
   };
   return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
-  }, touchesSessionCookie: () => false };
+  }, touchesSessionCookie: () => false, cookieAuthenticated: false };
 }
 
 // ../core/src/sessionConfig.ts
@@ -4916,6 +4925,13 @@ async function dispatchApiRoute(routeModule, request) {
     ) : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
     touchesSessionCookie = context.touchesSessionCookie;
+    verifyCsrfByDefault({
+      method: request.method,
+      cookieAuthenticated: context.cookieAuthenticated,
+      optedOut: routeModule.csrf === false,
+      verifyCsrf: context.ctx.verifyCsrf,
+      headerToken: request.headers[CSRF_HEADER_NAME]
+    });
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {

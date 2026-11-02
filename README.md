@@ -140,8 +140,9 @@ realtime server.
 - **Islands** — `island(() => import("./Widget"))` hydrates just that component; the rest of the
   page stays static HTML.
 - **Sessions & CSRF built in** — one opaque, server-side, revocable session primitive for both
-  browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF enforced
-  only where cookies are involved. Three auth modes per app: `shared`, `isolated`, or `none` (no
+  browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF checked by
+  default on cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE` (Bearer requests are exempt; a route
+  opts out with `export const csrf = false`). Three auth modes per app: `shared`, `isolated`, or `none` (no
   sessions at all, for apps that don't need login, like a marketing site). Shared login across
   subdomains needs `shared.sessions.cookie.domain`; cookie `secure` (`true`/`"auto"`/`false`),
   `sameSite`, `trustProxy` behind a proxy, session lifetimes, `noindex` and `csrf: false` for

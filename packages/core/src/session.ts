@@ -366,6 +366,8 @@ export interface RequestContextResult {
    * it is sent with `Cache-Control: private, no-store` (PRIVATE_NO_STORE).
    */
   touchesSessionCookie: () => boolean;
+  /** The request arrived with a live session in the session cookie (not Bearer). */
+  cookieAuthenticated: boolean;
 }
 
 /**
@@ -529,6 +531,7 @@ export async function createRequestContext(
     ctx,
     csrfToken,
     getSetCookie: () => (pendingSetCookies.length > 0 ? pendingSetCookies : undefined),
+    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== undefined,
     touchesSessionCookie: () =>
       resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
@@ -595,5 +598,5 @@ export function createNoAuthContext(params: RawRouteParams = {}, meta?: RequestM
       throw sessionsDisabledError("verifyCsrf");
     },
   };
-  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {}, touchesSessionCookie: () => false };
+  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {}, touchesSessionCookie: () => false, cookieAuthenticated: false };
 }

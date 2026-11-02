@@ -13,6 +13,7 @@ import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
 import { splitRouteParams, type RawRouteParams } from "./router.js";
+import { CSRF_HEADER_NAME, verifyCsrfByDefault } from "./csrf.js";
 
 export interface ApiDispatchRequest {
   method: string;
@@ -83,6 +84,13 @@ export async function dispatchApiRoute(
       : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
     touchesSessionCookie = context.touchesSessionCookie;
+    verifyCsrfByDefault({
+      method: request.method,
+      cookieAuthenticated: context.cookieAuthenticated,
+      optedOut: routeModule.csrf === false,
+      verifyCsrf: context.ctx.verifyCsrf,
+      headerToken: request.headers[CSRF_HEADER_NAME],
+    });
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {

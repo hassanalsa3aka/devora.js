@@ -115,6 +115,7 @@ const sessionCookieOf = (res: Response) =>
     .find((c) => c.startsWith("devora_session="))
     ?.split(";")[0];
 
+/** The session cookie, plus the CSRF cookie and token the default check wants on a cookie-authenticated POST. */
 async function loginCookie(base: string): Promise<string> {
   const res = await fetch(`${base}/api/login`, {
     method: "POST",
@@ -123,7 +124,8 @@ async function loginCookie(base: string): Promise<string> {
   });
   expect(res.status).toBe(200);
   expect(res.headers.get("cache-control")).toBe("private, no-store");
-  return sessionCookieOf(res)!;
+  const csrf = res.headers.getSetCookie().find((c) => c.startsWith("devora_csrf="))!.split(";")[0]!;
+  return `${sessionCookieOf(res)!}; ${csrf}`;
 }
 
 describe.each(["prod", "dev"])("Cache-Control on session responses (%s)", (which) => {
@@ -162,7 +164,8 @@ describe.each(["prod", "dev"])("Cache-Control on session responses (%s)", (which
     const dead = await fetch(`${base}/account`, { headers: { cookie: "devora_session=not-a-real-session" }, redirect: "manual" });
     expect(dead.status).toBe(302);
     expect(dead.headers.get("cache-control")).toBe("private, no-store");
-    const logout = await fetch(`${base}/api/logout`, { method: "POST", headers: { cookie } });
+    const csrfToken = cookie.split("devora_csrf=")[1]!;
+    const logout = await fetch(`${base}/api/logout`, { method: "POST", headers: { cookie, "x-devora-csrf": csrfToken } });
     expect(logout.status).toBe(204);
     expect(logout.headers.get("cache-control")).toBe("private, no-store");
     // The home page never touched a session: no Cache-Control is added.

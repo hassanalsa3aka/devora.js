@@ -152,9 +152,10 @@ describe("unified session auth — real dev server", () => {
     const sessionId = setCookieValue(login, "devora_session")!;
     const csrf = setCookieValue(login, "devora_csrf")!;
 
+    // The default CSRF check covers a cookie-authenticated POST: the token goes in the header.
     const logout = await fetch(`${base}/api/logout`, {
       method: "POST",
-      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}` },
+      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}`, "x-devora-csrf": csrf },
     });
     expect(logout.status).toBe(204);
     expect(logout.headers.getSetCookie().some((c) => c.startsWith("devora_session=;"))).toBe(true);

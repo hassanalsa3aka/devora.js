@@ -3,6 +3,7 @@ import { createRequestContext, createNoAuthContext } from "./session.js";
 import { createIslandCollector, IslandCollectorContext } from "./islandComponent.js";
 import { ShellUsageContext } from "./branding.js";
 import { isFailResult, isRedirectResult, redirectRefusal, redirectStatus, type RedirectResult } from "./actionResult.js";
+import { verifyCsrfByDefault } from "./csrf.js";
 import { createBuildTimeContext } from "./buildTimeContext.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import type { ErrorPageModule, ErrorPageProps, RouteComponentProps, RouteModule } from "./route.js";
@@ -255,6 +256,13 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       let status = 200;
       let actionData: unknown;
       if (request.method === "POST" && request.formData && routeModule.action) {
+        verifyCsrfByDefault({
+          method: request.method,
+          cookieAuthenticated: context.cookieAuthenticated,
+          optedOut: routeModule.csrf === false,
+          verifyCsrf: ctx.verifyCsrf,
+          formData: request.formData,
+        });
         const actionResult = await routeModule.action(request.formData, ctx);
         if (isRedirectResult(actionResult)) {
           await settle();

@@ -51,3 +51,26 @@ export function verifyCsrfToken(cookieValue: string | undefined, formValue: Form
 export function CsrfField({ token }: { token?: string }): ReactElement {
   return createElement("input", { type: "hidden", name: CSRF_FORM_FIELD, value: token ?? "" });
 }
+
+/** Methods that change state; GET, HEAD and OPTIONS are never checked. */
+export const CSRF_CHECKED_METHODS: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * The default check (see the module comment): for a request authenticated by
+ * the session cookie, with a state-changing method, on a route that did not
+ * export `csrf = false`, require the token — from the form field, or the
+ * `x-devora-csrf` header. Throws the same 403 `ctx.verifyCsrf()` does.
+ */
+export function verifyCsrfByDefault(options: {
+  method: string;
+  cookieAuthenticated: boolean;
+  optedOut: boolean;
+  verifyCsrf: (submitted: FormData | string) => void;
+  formData?: FormData;
+  headerToken?: string | string[];
+}): void {
+  if (!options.cookieAuthenticated || options.optedOut || !CSRF_CHECKED_METHODS.has(options.method.toUpperCase())) return;
+  const fromForm = options.formData?.get(CSRF_FORM_FIELD);
+  const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
+  options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : (fromHeader ?? ""));
+}
