@@ -157,7 +157,7 @@ realtime server.
   keep their status and render the app's `error.tsx`; multipart uploads (bodies capped by
   `maxBodyBytes`, 10 MB by default); a `<head>` API; route CSS linked automatically. See
   `docs/guides/PAGES.md`.
-- **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
+- **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app, and `X-Content-Type-Options: nosniff` on every response, including static files.
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
   `ctx.params.id`. `routes/docs/[...slug].tsx` matches `/docs/a`, `/docs/a/b/c` and so on, with

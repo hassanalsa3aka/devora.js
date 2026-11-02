@@ -148,7 +148,7 @@ Automated tests versus manual checks are listed in [VERIFICATION.md](docs/histor
 
 - SSR, SSG, CSR, ISR and streaming rendering (`renderMode`): #1, #12, [architecture-v2 §4](docs/design/architecture-v2.md)
 - Sessions, CSRF, and per-app auth modes (`shared`/`isolated`/`none`): #2, #10
-- Security headers (CSP/HSTS/X-Frame-Options) on by default: #5
+- Security headers (CSP/HSTS/X-Frame-Options, and `X-Content-Type-Options: nosniff` on every response, finding H2, not released yet) on by default: #5
 - Islands / partial hydration, in dev and production: #3
 - SEO primitives: OG tags, opt-in `sitemap.xml`: #7
 - Dynamic routes (`routes/users/[id].tsx`), with `getStaticParams()` for `ssg`/`isr`: #1, [architecture-v2 §3.6](docs/design/architecture-v2.md). *Catch-all routes (`[...slug]`, `[[...slug]]`) shipped in 0.3.4; the old line said there were none.*
@@ -220,7 +220,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 
 ## Findings
 
-89 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 56, Partly fixed 5, Open 23, Unconfirmed 4, N/A 1.
+90 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 57, Partly fixed 5, Open 23, Unconfirmed 4, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
@@ -313,3 +313,4 @@ Only the maintainer can deploy live; none of this was run from the development e
 | T1 | A fresh scaffold prints `npm warn Unknown project config "link-workspace-packages"` on every npm command | Open | - | Source: `packages/scaffold/src/scaffoldProjectFiles.ts:137` writes a project `.npmrc` containing `link-workspace-packages=true`, a pnpm setting (pnpm needs it so the plain `"*"` workspace dependencies link locally instead of being fetched from the registry). npm 11 does not know it and warns, saying it will stop working in the next major version. Verified: in a scaffold, `npm config get registry` warns with the `.npmrc` in place and is silent with it moved away. The repo root and every example carry the same file. Not fixed. | smoke test of 0.3.5 |
 | T2 | On newer npm, install prints an `allow-scripts` warning for esbuild's postinstall | Open | - | Reproduced with npm 11.17.0 in an empty project: `npm install esbuild@0.25.12` prints "1 package has install scripts not yet covered by allowScripts: esbuild@0.25.12 (postinstall: node install.js)". esbuild comes in through Vite. Install, `devora dev` and `devora build` still work. The warning comes from npm, not from Devora.js code; getting-started says so in one line. Not fixed. | smoke test of 0.3.5 |
 | H1 | `@devorajs/cli` accepted vite 5.4 and every 6.x, including releases before 6.4.4 | Fixed | not released | packages/cli/package.json `"vite": "^6.4.4"` (also packages/scaffold/src/scaffoldAppFiles.ts and apps/*/package.json); all apps built and served by the dev server on vite 6.4.5; CHANGELOG, top section | security hardening 2026-11-02, item 1 |
+| H2 | No `X-Content-Type-Options: nosniff` on any response, so a browser could sniff a served file as another type | Fixed | not released | packages/core/src/securityHeaders.ts (`NOSNIFF_HEADER`), adapters/adapter-vercel and adapter-netlify static header rules; tests in securityHeaders.test.ts, staticFiles.integration.test.ts (files, 304, 405, 404), cookiePolicy.integration.test.ts (API, API 404, preflight), devServer.integration.test.ts, adapterCjsSmoke.test.ts | security hardening 2026-11-02, item 2 |

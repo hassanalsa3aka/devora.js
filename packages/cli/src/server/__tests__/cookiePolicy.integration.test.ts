@@ -181,6 +181,20 @@ describe("security.noindex", () => {
   });
 });
 
+describe("X-Content-Type-Options", () => {
+  it("nosniff on every response: an API route, an API 404 and a CORS preflight", async () => {
+    const base = await serve({ store: "memory" }, { cors: { origins: ["https://app.example.com"] } });
+    expect((await login(base)).headers.get("x-content-type-options")).toBe("nosniff");
+    expect((await fetch(`${base}/api/missing`)).headers.get("x-content-type-options")).toBe("nosniff");
+    const preflight = await fetch(`${base}/api/login`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://app.example.com", "Access-Control-Request-Method": "POST" },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+});
+
 describe("CORS and the backend-only status (round 3 phase 4)", () => {
   it("API preflight is answered before any route runs; allowed origins are echoed, others aren't", async () => {
     const base = await serve({ store: "memory" }, { cors: { origins: ["https://app.example.com"], credentials: true } });

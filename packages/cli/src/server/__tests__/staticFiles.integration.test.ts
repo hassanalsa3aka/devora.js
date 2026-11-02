@@ -205,13 +205,24 @@ describe("protections", () => {
     expect((await get("/not-built")).status).toBe(404);
   });
 
-  it("security headers are on pre-rendered HTML and on files", async () => {
-    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js"]) {
+  it("security headers are on pre-rendered HTML, on files, on a 304, a 405 and a 404", async () => {
+    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js", "/logo.svg", "/font.woff2", "/mystery.unknownext"]) {
       const res = await get(url);
+      expect(res.headers.get("x-content-type-options"), url).toBe("nosniff");
       expect(res.headers.get("content-security-policy"), url).toBeTruthy();
       expect(res.headers.get("x-frame-options"), url).toBe("DENY");
       expect(res.headers.get("strict-transport-security"), url).toBeTruthy();
     }
+    const etag = (await get("/robots.txt")).headers.get("etag")!;
+    const notModified = await get("/robots.txt", { headers: { "if-none-match": etag } });
+    expect(notModified.status).toBe(304);
+    expect(notModified.headers.get("x-content-type-options")).toBe("nosniff");
+    const wrongMethod = await get("/robots.txt", { method: "POST" });
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("x-content-type-options")).toBe("nosniff");
+    const missing = await get("/missing.png");
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("a trailing slash reaches the same page", async () => {

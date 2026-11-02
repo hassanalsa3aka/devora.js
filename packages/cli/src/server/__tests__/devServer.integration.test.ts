@@ -87,6 +87,9 @@ describe("api/** JSON contract — real dev server", () => {
     const res = await fetch(`${base}/api/does-not-exist`);
     expect(res.headers.get("content-security-policy")).toBeTruthy();
     expect(res.headers.get("x-frame-options")).toBeTruthy();
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const page = await fetch(`${base}/page-boom`);
+    expect(page.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("page routes are untouched: a throwing page loader still gets the HTML error response", async () => {

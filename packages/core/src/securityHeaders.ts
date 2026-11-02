@@ -22,6 +22,14 @@ const DEFAULT_FRAME_OPTIONS: "DENY" | "SAMEORIGIN" = "DENY";
 const DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
 
 /**
+ * Sent on every response, with no setting to turn it off: a browser must
+ * never guess a type other than the Content-Type the server sent (a text
+ * file sniffed as HTML or script). The adapters add it to files the CDN
+ * serves without calling the function (adapter-vercel, adapter-netlify).
+ */
+export const NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" } as const;
+
+/**
  * `renderMode: "streaming"` needs one real CSP accommodation: React's own
  * `renderToPipeableStream` injects a small **inline** `<script>` itself
  * (unrelated to this framework/Vite) to patch a Suspense boundary's real
@@ -95,6 +103,7 @@ export function resolveSecurityHeaders(
   const headers: Record<string, string> = {
     "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
     "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS,
+    [NOSNIFF_HEADER.name]: NOSNIFF_HEADER.value,
   };
 
   // HSTS is a no-op over plain HTTP (browsers only honor it on responses

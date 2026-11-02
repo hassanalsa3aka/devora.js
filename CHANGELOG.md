@@ -17,6 +17,7 @@ Not released yet: nothing below is on npm. No version has been chosen.
 ### Security fixes
 
 - `@devorajs/cli` requires vite `^6.4.4` (it accepted `^5.4.0 || ^6.0.0`), so a new install cannot resolve a vite release older than 6.4.4. New scaffolds and the repo apps declare the same range. `devora build` and `devora dev` were checked on vite 6.4.5 for all four repo apps; the test suite runs unchanged.
+- Every response sends `X-Content-Type-Options: nosniff`: pages, API routes, API 404s, CORS preflights, redirects, error pages and static files (including 304 and 405 answers) from `devora start` and the dev server. The Vercel and Netlify adapters add it to files the CDN serves without calling the function (a header route in `config.json`; a rule in `_headers`, appended once). There is no setting to turn it off.
 
 ## 0.3.5 — 2026-10-16
 

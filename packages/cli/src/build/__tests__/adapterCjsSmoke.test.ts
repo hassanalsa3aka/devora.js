@@ -175,9 +175,12 @@ describe("generated functions — sessions and headers (round 3 phase 2)", () =>
     const funcDir = path.join(sessionFixture.appRoot, "netlify", "functions", "ssr");
     expect(fs.readFileSync(path.join(funcDir, "ssr.mjs"), "utf-8")).toMatch(/trustProxy"?:\s*true/);
     // noindex reaches statically served files through Netlify's _headers.
-    expect(fs.readFileSync(path.join(sessionFixture.appRoot, "dist", "client", "_headers"), "utf-8")).toContain(
-      "X-Robots-Tag: noindex"
-    );
+    const netlifyHeaders = fs.readFileSync(path.join(sessionFixture.appRoot, "dist", "client", "_headers"), "utf-8");
+    expect(netlifyHeaders).toContain("X-Robots-Tag: noindex");
+    // nosniff reaches them too, always, and a second build does not add the rules twice.
+    expect(netlifyHeaders).toContain("X-Content-Type-Options: nosniff");
+    await writeNetlifyConfig(APP, sessionFixture.appRoot, "shared", { noindex: true }, false, undefined, { apiDir: "api" });
+    expect(fs.readFileSync(path.join(sessionFixture.appRoot, "dist", "client", "_headers"), "utf-8")).toBe(netlifyHeaders);
 
     const isolated = copyOutsideRepo(funcDir);
     const out = execFileSync(
@@ -202,13 +205,17 @@ console.log(JSON.stringify({ status: res.status, cookies: res.headers.getSetCook
     expect(result.robots).toBe("noindex");
   }, 60_000);
 
-  it("Vercel: trustProxy defaults to true in the function, an explicit false is kept; noindex adds a header route", async () => {
+  it("Vercel: trustProxy defaults to true in the function, an explicit false is kept; nosniff (always) and noindex go in a header route", async () => {
     await writeVercelOutput(APP, sessionFixture.appRoot, "shared", { noindex: true }, false, undefined, { runtime: "nodejs22.x" });
     const outputDir = path.join(sessionFixture.appRoot, ".vercel", "output");
     const wrapper = fs.readFileSync(path.join(outputDir, "functions", "index.func", "index.mjs"), "utf-8");
     expect(wrapper).toMatch(/trustProxy"?:\s*true/);
     const config = JSON.parse(fs.readFileSync(path.join(outputDir, "config.json"), "utf-8"));
-    expect(config.routes[0]).toEqual({ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true });
+    expect(config.routes[0]).toEqual({
+      src: "/(.*)",
+      headers: { "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex" },
+      continue: true,
+    });
     expect(config.routes[1]).toEqual({ handle: "filesystem" });
 
     await writeVercelOutput(APP, sessionFixture.appRoot, "shared", undefined, false, undefined, {
@@ -217,6 +224,8 @@ console.log(JSON.stringify({ status: res.status, cookies: res.headers.getSetCook
     });
     expect(fs.readFileSync(path.join(outputDir, "functions", "index.func", "index.mjs"), "utf-8")).toMatch(/trustProxy"?:\s*false/);
     const plainConfig = JSON.parse(fs.readFileSync(path.join(outputDir, "config.json"), "utf-8"));
-    expect(plainConfig.routes[0]).toEqual({ handle: "filesystem" });
+    // Without noindex, files served from static/ still get nosniff.
+    expect(plainConfig.routes[0]).toEqual({ src: "/(.*)", headers: { "X-Content-Type-Options": "nosniff" }, continue: true });
+    expect(plainConfig.routes[1]).toEqual({ handle: "filesystem" });
   }, 60_000);
 });

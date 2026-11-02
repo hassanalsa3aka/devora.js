@@ -7,6 +7,12 @@ describe("resolveSecurityHeaders", () => {
     expect(headers["Content-Security-Policy"]).toContain("default-src 'self'");
     expect(headers["X-Frame-Options"]).toBe("DENY");
     expect(headers["Strict-Transport-Security"]).toBeDefined();
+    expect(headers["X-Content-Type-Options"]).toBe("nosniff");
+  });
+
+  it("X-Content-Type-Options: nosniff survives every override", () => {
+    const headers = resolveSecurityHeaders({ csp: "default-src 'none'", frameOptions: "SAMEORIGIN", hsts: false, noindex: true });
+    expect(headers["X-Content-Type-Options"]).toBe("nosniff");
   });
 
   it("a per-app CSP override replaces only the CSP header, not the others", () => {

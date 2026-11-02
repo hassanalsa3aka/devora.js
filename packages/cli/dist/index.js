@@ -4433,6 +4433,7 @@ import { randomBytes as randomBytes3 } from "node:crypto";
 var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
 var DEFAULT_FRAME_OPTIONS = "DENY";
 var DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
+var NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" };
 function generateNonce() {
   return randomBytes3(16).toString("base64");
 }
@@ -4461,7 +4462,8 @@ function resolveSecurityHeaders(security, streamingNonce) {
   const baseCsp = security?.csp ?? DEFAULT_CSP;
   const headers = {
     "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
-    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS
+    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS,
+    [NOSNIFF_HEADER.name]: NOSNIFF_HEADER.value
   };
   if (security?.hsts !== false) {
     headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
@@ -7761,10 +7763,12 @@ export default async function handler(req, res) {
     path24.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
+  const staticHeaders = { "X-Content-Type-Options": "nosniff" };
+  if (security?.noindex === true) staticHeaders["X-Robots-Tag"] = "noindex";
   const config = {
     version: 3,
     routes: [
-      ...security?.noindex === true ? [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true }] : [],
+      { src: "/(.*)", headers: staticHeaders, continue: true },
       { handle: "filesystem" },
       { src: "/(.*)", dest: "/index" }
     ]
@@ -7972,16 +7976,18 @@ export default async (request, context) => {
   if (existsSync17(path27.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
-  if (security?.noindex === true) {
+  {
     const clientOutDir = path27.join(appRoot, "dist", "client");
     await mkdir5(clientOutDir, { recursive: true });
     const headersPath = path27.join(clientOutDir, "_headers");
-    const existing = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
-    const rule = "/*\n  X-Robots-Tag: noindex\n";
-    if (!existing.includes("X-Robots-Tag: noindex")) {
-      await writeFile5(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
-${rule}` : rule);
-    }
+    let contents = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
+    const addRule = (line, rule) => {
+      if (!contents.includes(line)) contents = contents ? `${contents.replace(/\n*$/, "\n")}
+${rule}` : rule;
+    };
+    addRule("X-Content-Type-Options: nosniff", "/*\n  X-Content-Type-Options: nosniff\n");
+    if (security?.noindex === true) addRule("X-Robots-Tag: noindex", "/*\n  X-Robots-Tag: noindex\n");
+    await writeFile5(headersPath, contents);
   }
   console.log(
     `[adapter-netlify] wrote ${funcDir} for "${app.name}". Netlify picks it up via this app's netlify.toml \u2014 guide: ${NETLIFY_DOCS_URL}`
