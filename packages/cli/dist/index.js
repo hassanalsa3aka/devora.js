@@ -4089,6 +4089,7 @@ async function resolveSession(request, opts, now = Date.now()) {
   }
   return { presentedTransport, state, sessionId, record, renewed: false };
 }
+var PRIVATE_NO_STORE = "private, no-store";
 async function createRequestContext(request, opts, params = {}, meta) {
   const fields = requestContextFields(meta);
   const cookies = parseCookieHeader(request.cookieHeader);
@@ -4199,6 +4200,7 @@ async function createRequestContext(request, opts, params = {}, meta) {
     ctx,
     csrfToken,
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
+    touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
     }
@@ -4245,7 +4247,7 @@ function createNoAuthContext(params = {}, meta) {
     }
   };
   return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
-  } };
+  }, touchesSessionCookie: () => false };
 }
 
 // ../core/src/sessionConfig.ts
@@ -4903,6 +4905,7 @@ async function dispatchApiRoute(routeModule, request) {
     body: request.body
   };
   let getSetCookie = () => void 0;
+  let touchesSessionCookie = () => false;
   let result;
   try {
     const context = request.sessionCookieOptions ? await createRequestContext(
@@ -4912,12 +4915,13 @@ async function dispatchApiRoute(routeModule, request) {
       request.meta
     ) : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
+    touchesSessionCookie = context.touchesSessionCookie;
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
   }
-  return { ...result, setCookie: getSetCookie() };
+  return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
 
 // ../core/src/readBody.ts
@@ -5238,7 +5242,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
           res.setHeader("Set-Cookie", apiResult.setCookie);
           warnIfSecureCookieOverHttp(req, apiResult.setCookie);
         }
-        sendApiResponse(res, apiResult);
+        sendApiResponse(res, apiResult, apiResult.noStore);
       } catch (err) {
         sendApiResponse(res, apiErrorResponse(err));
       }
@@ -5289,6 +5293,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       });
       if (!result2) return false;
       if (result2.error !== void 0 && result2.status >= 500) console.error(`[devora] "${appName}" page error:`, result2.error);
+      if (result2.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result2.redirectTo) {
         if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
         res.statusCode = result2.status;
@@ -5388,6 +5393,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     });
     if (!result) return false;
     if (result.error !== void 0 && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
+    if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
     if (result.setCookie) {
       res.setHeader("Set-Cookie", result.setCookie);
       warnIfSecureCookieOverHttp(req, result.setCookie);
@@ -5417,10 +5423,11 @@ function createPlainHttpCookieWarning(appName) {
     );
   };
 }
-function sendApiResponse(res, result) {
+function sendApiResponse(res, result, noStore = false) {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }
@@ -5670,6 +5677,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         });
         if (!result2) return next();
         logPageError(result2.status, result2.error);
+        if (result2.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
         if (result2.redirectTo) {
           if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
           res.statusCode = result2.status;
@@ -5739,6 +5747,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         return next();
       }
       logPageError(result.status, result.error);
+      if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result.setCookie) {
         res.setHeader("Set-Cookie", result.setCookie);
       }
@@ -5854,17 +5863,18 @@ function createApiMiddleware(vite, options) {
         meta: describeRequest(req, options.trustProxy)
       });
       if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
-      sendApiResponse2(res, result);
+      sendApiResponse2(res, result, result.noStore);
     } catch (err) {
       vite.ssrFixStacktrace(err);
       sendApiResponse2(res, apiErrorResponse(err));
     }
   };
 }
-function sendApiResponse2(res, result) {
+function sendApiResponse2(res, result, noStore = false) {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }

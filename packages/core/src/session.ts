@@ -360,7 +360,20 @@ export interface RequestContextResult {
    * session ID that was never actually stored.
    */
   settle: () => Promise<void>;
+  /**
+   * True when this request presented the session cookie (the framework read
+   * it) or the response sets or clears it. Such a response is personal, so
+   * it is sent with `Cache-Control: private, no-store` (PRIVATE_NO_STORE).
+   */
+  touchesSessionCookie: () => boolean;
 }
+
+/**
+ * The Cache-Control a response that reads or sets the session cookie gets,
+ * replacing any the handler set: a shared cache (a CDN, a proxy) must never
+ * hand one user's page, or their Set-Cookie, to another.
+ */
+export const PRIVATE_NO_STORE = "private, no-store";
 
 export async function createRequestContext(
   request: SessionRequestInfo,
@@ -516,6 +529,8 @@ export async function createRequestContext(
     ctx,
     csrfToken,
     getSetCookie: () => (pendingSetCookies.length > 0 ? pendingSetCookies : undefined),
+    touchesSessionCookie: () =>
+      resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       // Loop: a write may be started while an earlier one is being awaited.
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
@@ -580,5 +595,5 @@ export function createNoAuthContext(params: RawRouteParams = {}, meta?: RequestM
       throw sessionsDisabledError("verifyCsrf");
     },
   };
-  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {} };
+  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {}, touchesSessionCookie: () => false };
 }

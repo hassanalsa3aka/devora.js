@@ -96,6 +96,8 @@ export interface StreamingRenderResult {
   setCookie?: string[];
   /** Set when the loader returned/threw `redirect()` — send it instead of piping. */
   redirectTo?: string;
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
   /** What the loader threw, when this result streams the error page instead (for logging). */
   error?: unknown;
   /**
@@ -126,7 +128,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, getSetCookie, settle } = request.sessionCookieOptions
+    const { ctx, getSetCookie, settle, touchesSessionCookie } = request.sessionCookieOptions
       ? await createRequestContext(
           { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
           request.sessionCookieOptions,
@@ -156,7 +158,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
         const refusal = redirectRefusal(data);
         if (refusal) throw refusal;
         await settle();
-        return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+        return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), noStore: touchesSessionCookie(), pipeTo: () => {} };
       }
       meta = routeModule.meta?.(data);
       page = deps.createElement(routeModule.default as never, { data, csrfToken: undefined });
@@ -164,7 +166,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       const error = isRedirectResult(thrown) ? (redirectRefusal(thrown) ?? thrown) : thrown;
       if (isRedirectResult(error)) {
         await settle().catch(() => {});
-        return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+        return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), noStore: touchesSessionCookie(), pipeTo: () => {} };
       }
       loaderError = error;
       status = getHttpErrorStatus(error) ?? 500;
@@ -191,6 +193,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       status,
       error: loaderError,
       setCookie: getSetCookie(),
+      noStore: touchesSessionCookie(),
       pipeTo(destination, onError) {
         let shellSent = false;
         let destinationErrored = false;

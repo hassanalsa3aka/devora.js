@@ -66,6 +66,8 @@ export interface RenderRouteResult {
   /** Set only for a redirect (see actionResult.ts) — `html` is empty and the
    * caller sends `status` + Location instead of a body. */
   redirectTo?: string;
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
   /** What was thrown, when this is an error page — for the caller to log
    * (5xx). Never sent to the client. */
   error?: unknown;
@@ -205,6 +207,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
 
     let getSetCookie: () => string[] | undefined = () => undefined;
     let settle: () => Promise<void> = async () => {};
+    let touchesSessionCookie: () => boolean = () => false;
     const errorResult = (error: unknown): RenderRouteResult => {
       const status = errorStatus(error);
       return {
@@ -218,6 +221,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
           devPreambleUrl: request.devPreambleUrl,
         }),
         setCookie: getSetCookie(),
+        noStore: touchesSessionCookie(),
         error,
       };
     };
@@ -229,6 +233,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
         status: redirectStatus(result, request.method),
         html: "",
         setCookie: getSetCookie(),
+        noStore: touchesSessionCookie(),
         redirectTo: result.redirect,
       };
     };
@@ -245,6 +250,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       const { ctx, csrfToken } = context;
       getSetCookie = context.getSetCookie;
       settle = context.settle;
+      touchesSessionCookie = context.touchesSessionCookie;
 
       let status = 200;
       let actionData: unknown;
@@ -276,7 +282,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
       });
       await settle();
 
-      return { status, html, setCookie: getSetCookie() };
+      return { status, html, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
     } catch (error) {
       // `throw redirect("/login")` from a loader or action.
       if (isRedirectResult(error)) {

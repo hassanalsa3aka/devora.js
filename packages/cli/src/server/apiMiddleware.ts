@@ -13,6 +13,7 @@ import {
   resolveApiDir,
   describeRequest,
   corsResponse,
+  PRIVATE_NO_STORE,
   type CorsConfig,
   type AuthMode,
   type AppRuntimeConfig,
@@ -140,7 +141,7 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
       });
 
       if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
-      sendApiResponse(res, result);
+      sendApiResponse(res, result, result.noStore);
     } catch (err) {
       // Not `next(err)` — that's Vite's HTML error overlay, the exact
       // response an API client can't parse (devora-pre-v3-hotfixes.md #2).
@@ -153,10 +154,12 @@ function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions)
   };
 }
 
-function sendApiResponse(res: ServerResponse, result: ApiResponse): void {
+/** `noStore` replaces any Cache-Control the handler set (core's PRIVATE_NO_STORE). */
+function sendApiResponse(res: ServerResponse, result: ApiResponse, noStore = false): void {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }

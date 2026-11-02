@@ -124,6 +124,13 @@ request. Fix it by serving the app over HTTPS (Caddy, or nginx + certbot — see
 set `secure: "auto"` (plus `trustProxy: true` when an HTTPS proxy sits in front of `devora start`),
 or `secure: false` for a deployment that is deliberately plain HTTP.
 
+**Caching.** A response that reads the session cookie (the request sent it) or sets or clears it is
+sent with `Cache-Control: private, no-store`, replacing any `Cache-Control` the handler set, so a
+CDN or proxy never stores one user's page or `Set-Cookie` and hands it to someone else. This applies
+to pages, streaming pages, redirects, error pages and API routes, on `devora start`, `devora dev`
+and the Vercel/Netlify functions. A request that authenticates with a Bearer token, or sends no
+session cookie, is left as the handler made it.
+
 **`trustProxy`.** Behind nginx/Caddy/a load balancer, `devora start` only sees the proxy's
 plain-HTTP connection; `X-Forwarded-Proto` says what the browser used. Turn on `trustProxy` only
 when the app can be reached *only* through that proxy (bind it to `127.0.0.1` with `HOST`),

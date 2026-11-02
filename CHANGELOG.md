@@ -17,6 +17,7 @@ Not released yet: nothing below is on npm. No version has been chosen.
 ### Behavior changes
 
 - **`redirect()` refuses a target that leaves the app's origin, unless you list that origin.** `redirect("https://evil.com")`, `"//evil.com"`, `"/\\evil.com"`, `"javascript:..."` and their percent-encoded forms now throw a 400 `HttpError` (the error page renders; no `Location` is sent). The check runs again when the response is built, so a loader returning a plain `{ redirect }` object is covered. **What to check:** search for `redirect(` with a full URL; for an external site you trust, pass `redirect(url, { allowedOrigins: ["https://checkout.example.com"] })`. A path (`"/account"`) works as before.
+- **A response that reads or sets the session cookie is sent with `Cache-Control: private, no-store`**, replacing any `Cache-Control` the handler set. "Reads" means the request sent the session cookie (the framework looks it up, and may renew or clear it); "sets" covers a login, a renewal, a cleared dead cookie and a logout. Applies to SSR and streaming pages, redirects, error pages and API routes on `devora start`, `devora dev` and the Vercel/Netlify functions. Bearer requests and requests with no session cookie are unchanged. **What to check:** an API route that sets `Cache-Control: public` (or `s-maxage`) on responses to logged-in browsers loses that header for them; a CDN in front of the app stops caching those responses. New export: `PRIVATE_NO_STORE`; `touchesSessionCookie()` on the request context result.
 
 ### Security fixes
 

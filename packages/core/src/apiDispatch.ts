@@ -31,6 +31,8 @@ export interface ApiDispatchRequest {
 
 export interface ApiDispatchResult extends ApiResponse {
   setCookie?: string[];
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
 }
 
 export async function dispatchApiRoute(
@@ -66,6 +68,7 @@ export async function dispatchApiRoute(
   // (devora-pre-v3-hotfixes.md #2). Set-Cookie is still collected on the
   // error path, so e.g. a freshly-issued CSRF cookie isn't silently lost.
   let getSetCookie: () => string[] | undefined = () => undefined;
+  let touchesSessionCookie: () => boolean = () => false;
   let result: ApiResponse;
   try {
     // Inside the try: the session lookup itself hits the store, and a store
@@ -79,10 +82,11 @@ export async function dispatchApiRoute(
         )
       : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
+    touchesSessionCookie = context.touchesSessionCookie;
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
   }
-  return { ...result, setCookie: getSetCookie() };
+  return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
