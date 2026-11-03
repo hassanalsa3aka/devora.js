@@ -4,7 +4,7 @@
  * files are streamed), a rebuild shows up, and public xml files behave as
  * documented.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,6 +14,9 @@ import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.j
 
 const ORIGINAL_ENV = { ...process.env };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Several tests here wait out the 1 s revalidation window on purpose (up to 3.7 s of sleeping in one test), so the
+// 5 s default left almost no margin and timed out on a busy machine (the full suite, a CI runner).
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 const ENTRY_SERVER = `
 import { createElement } from "react";

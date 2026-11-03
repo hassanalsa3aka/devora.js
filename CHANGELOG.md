@@ -12,7 +12,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Nothing yet.
+Not released yet: nothing below is on npm. No version has been chosen.
+
+### Other changes
+
+- Test-only: the static-file cache integration tests wait out a 1 s revalidation window on purpose (up to 3.7 s in one test) and had the 5 s default timeout, so they timed out on a busy machine; they now allow 30 s. No product code changed.
 
 ## 0.3.5 — 2026-10-16
 
