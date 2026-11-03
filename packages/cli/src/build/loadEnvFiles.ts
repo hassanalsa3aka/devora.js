@@ -17,6 +17,15 @@ import { info } from "../terminal/output.js";
  * project root is read: `devora dev` runs every app in one process, so
  * per-app files would overwrite each other. Values are never printed.
  */
+// Variables this module put into process.env, so `devora dev` can drop them before re-reading the files.
+const loadedKeys = new Set<string>();
+
+/** Removes what loadProjectEnv set (never a variable that was already in the environment). */
+export function unloadProjectEnv(): void {
+  for (const key of loadedKeys) delete process.env[key];
+  loadedKeys.clear();
+}
+
 export function loadProjectEnv(root: string, mode: "development" | "production"): string[] {
   const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync(path.join(root, f)));
   if (files.length === 0) return [];
@@ -24,7 +33,10 @@ export function loadProjectEnv(root: string, mode: "development" | "production")
   // prefix "" = every variable, not just VITE_* (it also returns process.env's, which is why `before` is checked).
   const loaded = loadEnv(mode, root, "");
   for (const [key, value] of Object.entries(loaded)) {
-    if (!before.has(key)) process.env[key] = value;
+    if (!before.has(key)) {
+      process.env[key] = value;
+      loadedKeys.add(key);
+    }
   }
   info(`[devora] loaded ${files.join(", ")}`);
   return files;
