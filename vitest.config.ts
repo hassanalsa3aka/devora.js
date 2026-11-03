@@ -13,6 +13,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    // Integration tests boot a real Vite dev server or write large files. On a busy or slow machine (a CI runner running
+    // 60 test files in parallel) 5 s, the default, was not enough: a dev-server test timed out in the full run and passed
+    // alone in 0.3 s. A test that really hangs still fails, after 30 s.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     include: ["packages/**/*.test.ts", "packages/**/*.test.tsx", "adapters/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
   },
