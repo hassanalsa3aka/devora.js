@@ -16,7 +16,7 @@ export async function loadProjectConfig(root: string = process.cwd()): Promise<P
     );
   }
 
-  const jiti = createJiti(import.meta.url, { interopDefault: true });
+  const jiti = createJiti(import.meta.url, { interopDefault: true, moduleCache: false });
   const mod = (await jiti.import(configPath)) as { default: ProjectConfig };
   const config = mod.default;
 

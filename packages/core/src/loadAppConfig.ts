@@ -12,7 +12,7 @@ export async function loadAppConfig(appRoot: string): Promise<AppRuntimeConfig> 
   const configPath = path.join(appRoot, "app.config.ts");
   if (!existsSync(configPath)) return {};
 
-  const jiti = createJiti(import.meta.url, { interopDefault: true });
+  const jiti = createJiti(import.meta.url, { interopDefault: true, moduleCache: false });
   const mod = (await jiti.import(configPath)) as { default: AppRuntimeConfig };
   return mod.default ?? {};
 }
