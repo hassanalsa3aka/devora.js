@@ -11,6 +11,7 @@ Start with the [README](../README.md). This page links every other document in t
 | [REALTIME.md](guides/REALTIME.md) | Live updates (WebSockets): polling versus a realtime server, `ws` through a wrapper, why server-sent events do not work yet |
 | [BACKGROUND-JOBS.md](guides/BACKGROUND-JOBS.md) | Background jobs: BullMQ with Redis, a SQLite queue, node-cron, and what was verified |
 | [REPOS.md](guides/REPOS.md) | Splitting an app or the backend into its own repository |
+| [SECURITY-MODEL.md](guides/SECURITY-MODEL.md) | What the framework does by default, what you must do, what it does not do (next release) |
 | [AUTH.md](../packages/backend/AUTH.md) | Sessions, cookies behind proxies, CSRF, session stores |
 | [DATABASE.md](../packages/backend/DATABASE.md), [DRIZZLE.md](../packages/backend/DRIZZLE.md), [PRISMA.md](../packages/backend/PRISMA.md) | Bringing your own database and ORM |
 

@@ -6,6 +6,8 @@ Status words in the tables: **Fixed** (a release, and a file, test or CHANGELOG 
 
 ## Now
 
+- **Review the security hardening** (findings H1 to H18, listed in the top section of [CHANGELOG.md](CHANGELOG.md)): it is merged but not released, no version is chosen, and four changes need a code change in some apps (`redirect()` to another origin, CSRF on cookie writes, `Cache-Control` on session responses, vite 6.4.4). It has not been run on a live Vercel or Netlify deployment. Read the [security model](docs/guides/SECURITY-MODEL.md) first.
+- Switch on GitHub's private vulnerability reporting for the repository (SECURITY.md names it as the preferred channel).
 - Outside testers: [TESTING.md](TESTING.md) is a 15-minute guide; what they hit goes into the findings table below.
 - Deploy the docs site with the 0.3.5 numbers (measured on the published 0.3.5 packages) and the release post.
 - Verify 0.3.5 on a live Vercel and Netlify deployment (finding N1).
