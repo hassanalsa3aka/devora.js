@@ -35,8 +35,9 @@ timeline, the 14 build items, live deployment history and the findings table. Re
 this file for status. In one paragraph: the framework is real and verified end to end in dev and
 production (SSR, SSG, CSR, ISR, streaming, islands, sessions, CSRF, security headers, SEO, catch-all
 routes, three adapters, the CLI under npm/Yarn/pnpm); the release is 0.3.5; Vercel and Netlify were
-deployed live with releases before 0.3.2, and 0.3.5 is not yet verified on a live deployment by
-this project. A security hardening pass (ROADMAP.md findings H1 to H18, top section of CHANGELOG.md) is
+deployed live with releases before 0.3.2, and 0.3.5 is verified live only by the documentation site
+(a pre-rendered single app on Vercel); multi-app, sessions, API functions and Netlify are not yet
+verified live on it. A security hardening pass (ROADMAP.md findings H1 to H18, top section of CHANGELOG.md) is
 merged but not released: CSRF is checked by default for cookie-authenticated writes, `redirect()` stays
 on-origin, session responses are `private, no-store`, plus nosniff, an SVG sandbox CSP, `allowedHosts`,
 server timeouts, form limits, an opt-in per-route `rateLimit`, a dev restart on config/env/route changes.

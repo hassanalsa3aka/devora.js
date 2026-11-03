@@ -11,7 +11,7 @@ untested.
 
 **What's verified for 0.3.5:** the Vercel and Netlify functions it generates were run outside this
 monorepo (real pages, login, CSRF, a CommonJS dependency), and the Docker image and `devora start`
-were run locally. 0.3.5 is **not yet verified on a live deployment by this project**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
+were run locally. 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel since 2026-10-16); **multi-app, sessions, API routes and Netlify are not yet verified live on it**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
 releases were deployed live to both platforms by the maintainer.
 
 ## Environment variables and `.env` files

@@ -221,8 +221,8 @@ What is open, partial or not verified lives in one place: [ROADMAP.md](ROADMAP.m
 and findings table). The short version: API handlers set headers as a plain object (several
 `Set-Cookie` headers and SSE are not supported), `ssg`/`isr` on a dynamic route need
 `getStaticParams()`, `isr` regeneration on a serverless filesystem is unverified, you bring your own
-database client, rate limiting is opt-in per route and per process, and 0.3.5 is not yet verified on a live
-deployment by this project (nor are the next release's Vercel/Netlify header rules).
+database client, rate limiting is opt-in per route and per process, and 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel; multi-app, sessions, API
+routes and Netlify are not) (nor are the next release's Vercel/Netlify header rules).
 
 ## Testing
 
