@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error plain .mjs script
-import { checkPackList } from "../checkPackContents.mjs";
+import { checkPackList, parseNpmJson } from "../checkPackContents.mjs";
 
 const base = { name: "pkg", files: ["dist"], tscBuild: false };
 
@@ -53,5 +53,19 @@ describe("checkPackList", () => {
       distFiles: ["a.js", "a.d.ts", "old.js"],
     });
     expect(problems).toEqual(["pkg: dist/old.js has no source file (left over from a deleted module?)", "pkg: src/b has no dist/b.js (stale or missing build)"]);
+  });
+});
+
+describe("parseNpmJson", () => {
+  const json = JSON.stringify([{ files: [{ path: "dist/index.js" }] }], null, 2);
+  it("parses plain output", () => {
+    expect(parseNpmJson(json)[0].files[0].path).toBe("dist/index.js");
+  });
+  it("skips lifecycle-script output printed before the JSON (npm 10 runs prepare)", () => {
+    const raw = `[build] note: react was bundled into dist/index.js (expected)\n[build] more [brackets] here\n${json}\n`;
+    expect(parseNpmJson(raw)[0].files[0].path).toBe("dist/index.js");
+  });
+  it("says what it got when there is no JSON", () => {
+    expect(() => parseNpmJson("npm ERR! nope")).toThrow(/printed no JSON array/);
   });
 });

@@ -80,11 +80,26 @@ function listTree(dir) {
     .map((f) => path.relative(dir, f).split(path.sep).join("/"));
 }
 
+/**
+ * `npm pack --json` output as an array. npm 10 runs the package's `prepare` script even with --ignore-scripts, and the
+ * CLI's prints a note to stdout before the JSON, so a plain JSON.parse failed in CI (Node 20) and not on npm 11. The
+ * JSON is the last top-level array in the output: it starts at the last line that is just "[".
+ */
+export function parseNpmJson(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.lastIndexOf("\n[\n");
+    if (start === -1) throw new Error(`npm pack printed no JSON array:\n${raw.slice(0, 300)}`);
+    return JSON.parse(raw.slice(start + 1));
+  }
+}
+
 export function checkPackage(root, pkgDir) {
   const dir = path.join(root, pkgDir);
   const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
   const raw = execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  const packed = JSON.parse(raw)[0].files.map((f) => f.path);
+  const packed = parseNpmJson(raw)[0].files.map((f) => f.path);
   const tscBuild = manifest.scripts?.build === "tsc";
   return checkPackList({
     name: manifest.name,
