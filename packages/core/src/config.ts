@@ -181,8 +181,38 @@ export interface AppRuntimeConfig {
    * 10485760 (10 MB).
    */
   maxBodyBytes?: number;
+  /**
+   * Most non-file fields a page form (URL-encoded or multipart) may send.
+   * More gets a 413 before the form is parsed. Default 1000.
+   */
+  maxFormFields?: number;
+  /** Most files a multipart page form may send; more gets a 413. Default 20. */
+  maxFormFiles?: number;
   /** CORS for this app's API routes (`/api/**`) — off unless set. See cors.ts. */
   cors?: CorsConfig;
+  /**
+   * Hosts this app answers to. When set, a request whose host (`Host`, or the
+   * first `X-Forwarded-Host` when `trustProxy` is on) is not listed gets a
+   * 400 before any route runs. Exact hosts ("app.example.com") or a leading
+   * dot for a domain and its subdomains (".example.com"); ports are ignored.
+   * The dev server also accepts localhost. Unset (the default): no check.
+   */
+  allowedHosts?: string[];
+  /**
+   * Limits on the HTTP server `devora start` runs (adapter-node). Each is
+   * optional; unset ones keep the defaults: headers within 15 s, the whole
+   * request within 60 s, idle keep-alive connections closed after 5 s,
+   * request headers up to 16 KB. A connection that sends its headers too
+   * slowly gets a 408 and is closed; headers that are too large get a 431.
+   * Behind a load balancer, keep `keepAliveTimeoutMs` above the balancer's
+   * idle timeout. Not used on Vercel or Netlify (the platform runs the server).
+   */
+  server?: {
+    headersTimeoutMs?: number;
+    requestTimeoutMs?: number;
+    keepAliveTimeoutMs?: number;
+    maxHeaderBytes?: number;
+  };
   /** Default render mode for routes in this app that don't set their own. */
   defaultRenderMode?: RenderMode;
   /** Security headers, overridable per app per doc §7. */

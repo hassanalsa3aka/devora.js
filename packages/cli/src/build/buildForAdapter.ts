@@ -135,7 +135,10 @@ export async function buildAppForAdapter(
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
         cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts,
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
@@ -143,7 +146,10 @@ export async function buildAppForAdapter(
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
         cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts,
       });
     }
   }
