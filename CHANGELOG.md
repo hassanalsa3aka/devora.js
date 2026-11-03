@@ -12,15 +12,36 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Not released yet: nothing below is on npm. No version has been chosen.
+Nothing yet.
 
-### Behavior changes
+## 0.4.0 — DATE-TO-FILL
 
-- **`@devorajs/cli` requires vite `^6.4.4`** (it accepted `^5.4.0 || ^6.0.0`), so a new install cannot resolve a vite release older than 6.4.4, which have known vulnerabilities. New scaffolds and the repo apps declare the same range. **What to check:** an existing app with `vite` 5 in its `package.json` (or a lockfile pinning 5.x or 6.0 to 6.4.3) must move to vite 6.4.4 or later; `devora build` and `devora dev` were checked on vite 6.4.5 for all four repo apps.
-- **`redirect()` refuses a target that leaves the app's origin, unless you list that origin.** `redirect("https://evil.com")`, `"//evil.com"`, `"/\\evil.com"`, `"javascript:..."` and their percent-encoded forms now throw a 400 `HttpError` (the error page renders; no `Location` is sent). The check runs again when the response is built, so a loader returning a plain `{ redirect }` object is covered. **What to check:** search for `redirect(` with a full URL; for an external site you trust, pass `redirect(url, { allowedOrigins: ["https://checkout.example.com"] })`. A path (`"/account"`) works as before.
-- **A response that reads or sets the session cookie is sent with `Cache-Control: private, no-store`**, replacing any `Cache-Control` the handler set. "Reads" means the request sent the session cookie (the framework looks it up, and may renew or clear it); "sets" covers a login, a renewal, a cleared dead cookie and a logout. Applies to SSR and streaming pages, redirects, error pages and API routes on `devora start`, `devora dev` and the Vercel/Netlify functions. Bearer requests and requests with no session cookie are unchanged. **What to check:** an API route that sets `Cache-Control: public` (or `s-maxage`) on responses to logged-in browsers loses that header for them; a CDN in front of the app stops caching those responses. New export: `PRIVATE_NO_STORE`; `touchesSessionCookie()` on the request context result.
-- **CSRF is checked by default for cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE`.** When a request arrives with a live session in the session cookie, the token is checked before a page's `action` or an API route's `handler` runs: the `_csrf` form field or the `x-devora-csrf` header must match the CSRF cookie, or the response is a 403 (`Missing or invalid CSRF token`). Bearer-authenticated requests, requests with no session cookie (or a dead one) and `GET`/`HEAD`/`OPTIONS` are not checked by default. A route opts out with `export const csrf = false;`. **What to check:** a browser `fetch()` that writes to an API route with the session cookie must send `x-devora-csrf` (the page's `csrfToken`); every page form with an action must render `<CsrfField>`; webhooks and other cross-site writers that send the session cookie need `csrf = false`. An app with `csrf: false` has no CSRF cookie, so its cookie-authenticated writes now get a 403 unless the route opts out. New exports: `verifyCsrfByDefault`, `CSRF_CHECKED_METHODS`; `cookieAuthenticated` on the request context result.
-- **`devora start` and the form parser have limits that a slow or large upload can reach.** The whole request must arrive within 60 seconds (Node's default was 5 minutes) and the headers within 15 seconds; a page form may carry 1000 non-file fields and 20 files. **What to check:** an app that accepts big uploads over slow links raises `server.requestTimeoutMs` in `app.config.ts`; one that really posts more than 20 files raises `maxFormFiles`.
+Packages: `@devorajs/core` 0.4.0, `@devorajs/cli` 0.4.0, `@devorajs/adapter-node` 0.3.0, `@devorajs/adapter-vercel` 0.3.0,
+`@devorajs/adapter-netlify` 0.3.0, `create-devora` 0.4.0. The adapters depend on `@devorajs/core` `^0.4.0` (they took
+`^0.3.2`, which does not accept 0.4.0) and pass it the new settings, so upgrade core, cli and the adapters together.
+`create-devora` 0.4.0 writes `^0.4.0` for core and cli and `vite` `^6.4.4` into new projects.
+
+This release is a security hardening pass. There has been no third-party audit; the review was internal. Three
+changes can make an existing app's requests fail, and one dependency requirement can stop an install; each lists
+the exact step. Everything else is additive or only tightens a default.
+
+### Breaking changes
+
+Do these four checks before deploying 0.4.0. Each has a migration step.
+
+1. **`redirect()` refuses a target that leaves the app's origin, unless you list that origin.** `redirect("https://evil.com")`, `"//evil.com"`, `"/\\evil.com"`, `"javascript:..."` and their percent-encoded forms now throw a 400 `HttpError` (the error page renders; no `Location` is sent). The check runs again when the response is built, so a loader returning a plain `{ redirect }` object is covered.
+   - **Migration:** search your routes for `redirect(` with a full URL. For a site you trust, pass the origin: `redirect("https://checkout.example.com/pay", { allowedOrigins: ["https://checkout.example.com"] })`. A path (`redirect("/account")`) works as before. If you build the target from user input (`redirect(formData.get("next"))`), nothing else is needed: it is now safe, and an attacker's value gets a 400.
+2. **A response that reads or sets the session cookie is sent with `Cache-Control: private, no-store`**, replacing any `Cache-Control` the handler set. "Reads" means the request sent the session cookie (the framework looks it up, and may renew or clear it); "sets" covers a login, a renewal, a cleared dead cookie and a logout. Applies to SSR and streaming pages, redirects, error pages and API routes on `devora start`, `devora dev` and the Vercel/Netlify functions. Bearer requests and requests with no session cookie are unchanged. New export: `PRIVATE_NO_STORE`; `touchesSessionCookie()` on the request context result.
+   - **Migration:** if an API route sets `Cache-Control: public` or `s-maxage` on responses to logged-in browsers, that header is dropped for them and a CDN in front of the app stops caching those responses. Cache the public version on a route that does not read the session, or accept it. Nothing to change otherwise.
+3. **CSRF is checked by default for cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE`.** When a request arrives with a live session in the session cookie, the token is checked before a page's `action` or an API route's `handler` runs: the `_csrf` form field or the `x-devora-csrf` header must match the CSRF cookie, or the response is a 403 (`Missing or invalid CSRF token`). Bearer-authenticated requests, requests with no session cookie (or a dead one) and `GET`/`HEAD`/`OPTIONS` are not checked by default. New exports: `verifyCsrfByDefault`, `CSRF_CHECKED_METHODS`; `cookieAuthenticated` on the request context result.
+   - **Migration:** (a) every page form with an `action` renders `<CsrfField token={csrfToken} />`; (b) a browser `fetch()` that writes to an API route sends the page's `csrfToken` in the `x-devora-csrf` header: `fetch("/api/orders", { method: "POST", headers: { "x-devora-csrf": csrfToken } })`; (c) a webhook or other cross-site writer that sends the session cookie exports `export const csrf = false;` from its route; (d) an app with `csrf: false` in `app.config.ts` has no CSRF cookie, so its cookie-authenticated writes now get a 403 unless the route exports `csrf = false`. Keep calling `ctx.verifyCsrf()` yourself on anonymous writes such as a login form: the default does not cover them.
+4. **`@devorajs/cli` requires vite `^6.4.4`** (it accepted `^5.4.0 || ^6.0.0`), so a new install cannot resolve a vite release older than 6.4.4, which have known vulnerabilities. New scaffolds and the repo apps declare the same range. `devora build` and `devora dev` were checked on vite 6.4.5.
+   - **Migration:** in each app's `package.json` set `"vite": "^6.4.4"` and reinstall (an app on vite 5, or on a lockfile pinning 6.0 to 6.4.3, must move).
+
+### Another change to check
+
+- **`devora start` and the form parser have limits that a slow or large upload can reach.** The whole request must arrive within 60 seconds (Node's default was 5 minutes) and the headers within 15 seconds; a page form may carry 1000 non-file fields and 20 files.
+  - **Migration:** an app that accepts big uploads over slow links raises `server: { requestTimeoutMs: 300000 }` in `app.config.ts`; one that really posts more than 20 files raises `maxFormFiles`.
 
 ### Security fixes
 
@@ -40,6 +61,12 @@ Not released yet: nothing below is on npm. No version has been chosen.
 - A `renderMode: "streaming"` page whose Suspense boundary (an island whose import fails) errored before React reported the shell as ready no longer loses that error: it is reported to the `onError` callback (and so logged) as a boundary error once the shell is sent, and dropped only when the shell itself fails, which is reported once as a shell error. Found as a flaky test under load (about 1 run in 30 on a busy machine).
 - Test-only: the static-file cache integration tests wait out a 1 s revalidation window on purpose (up to 3.7 s in one test) and had the 5 s default timeout, so they timed out on a busy machine; they now allow 30 s. No product code changed.
 - Security process: `SECURITY.md` names GitHub private vulnerability reporting as the preferred channel (Discord as the alternative); CI has a dependency-audit job that fails on a high or critical vulnerability in anything that ships (`pnpm audit --prod`; the test runner is reported but does not fail the job), uses read-only workflow permissions, and every GitHub Action is pinned to a commit SHA; `.github/dependabot.yml` opens weekly update pull requests for the workspace, the examples, the Actions and the Dockerfile; `node scripts/checkPackContents.mjs` (also a CI step) lists what `npm pack` would publish for each package and fails on unexpected files. No code that runs in an app changed.
+
+### Documentation, examples and benchmarks (not part of any package)
+
+- New guide `docs/guides/SECURITY-MODEL.md`: what the framework does by default, what you must do, what it does not do. The Auth, Pages and Deploying guides, the README and `SECURITY.md` describe 0.4.0, and claims that overstated were narrowed (headers on files a CDN serves directly; CSRF being a per-route call in 0.3.5).
+- The examples and the benchmark apps depend on `@devorajs/core` and `@devorajs/cli` `^0.4.0` (the benchmark apps pin `0.4.0`). Their `package-lock.json` files still resolve 0.3.5 until 0.4.0 is on npm: run `npm install` in each after publishing. The checked-in benchmark results were measured on 0.3.5; 0.4.0 has not been measured.
+- Findings H1 to H20 in `ROADMAP.md` record each change in this release with the test or file that proves it.
 
 ## 0.3.5 — 2026-10-16
 

@@ -14,8 +14,8 @@
     "apps/*"
   ],
   "dependencies": {
-    "@devorajs/cli": "^0.3.4",
-    "@devorajs/core": "^0.3.4",
+    "@devorajs/cli": "^0.4.0",
+    "@devorajs/core": "^0.4.0",
     "bullmq": "^6.3.15",
     "ioredis": "^6.0.0",
     "node-cron": "^4.6.0"

@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/adapter-node",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Serves a devora.js app's production build from a plain Node HTTP server (what `devora start` runs) — for VPS, Docker and other self-hosted setups.",
   "license": "MIT",
   "repository": {
@@ -44,7 +44,7 @@
     }
   },
   "dependencies": {
-    "@devorajs/core": "^0.3.2"
+    "@devorajs/core": "^0.4.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

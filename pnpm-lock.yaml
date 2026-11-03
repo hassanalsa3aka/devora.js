@@ -32,7 +32,7 @@ importers:
   adapters/adapter-netlify:
     dependencies:
       '@devorajs/core':
-        specifier: ^0.3.2
+        specifier: ^0.4.0
         version: link:../../packages/core
       esbuild:
         specifier: ^0.28.2
@@ -48,7 +48,7 @@ importers:
   adapters/adapter-node:
     dependencies:
       '@devorajs/core':
-        specifier: ^0.3.2
+        specifier: ^0.4.0
         version: link:../../packages/core
     devDependencies:
       '@types/node':
@@ -61,7 +61,7 @@ importers:
   adapters/adapter-vercel:
     dependencies:
       '@devorajs/core':
-        specifier: ^0.3.2
+        specifier: ^0.4.0
         version: link:../../packages/core
       esbuild:
         specifier: ^0.28.2

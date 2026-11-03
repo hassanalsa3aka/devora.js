@@ -8,6 +8,6 @@
     "./notes": "./notes.ts"
   },
   "dependencies": {
-    "@devorajs/core": "^0.3.2"
+    "@devorajs/core": "^0.4.0"
   }
 }

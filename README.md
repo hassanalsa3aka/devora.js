@@ -46,7 +46,7 @@ Honest version, so you can decide whether it fits:
 - **Maintained by one person.** Tested by the maintainer; there are no outside production users
   yet.
 - **No third-party security audit.** None has been done. Security is a default in the design (CSP, HSTS,
-  CSRF checks on cookie-authenticated writes from the next release, revocable sessions), not a
+  CSRF checks on cookie-authenticated writes from 0.4.0, revocable sessions), not a
   certification. See [SECURITY.md](SECURITY.md) and the [security model](docs/guides/SECURITY-MODEL.md).
 - **What was and wasn't verified** is written down in [VERIFICATION.md](docs/history/VERIFICATION.md): real
   servers and real requests in CI, platform deploys checked by hand.
@@ -189,7 +189,7 @@ realtime server.
   you already use).
 
 What changed in each release, and what an existing app has to do about it: the newest section of
-[`CHANGELOG.md`](CHANGELOG.md) (0.3.5), which opens with the behavior changes.
+[`CHANGELOG.md`](CHANGELOG.md) (0.4.0), which opens with the breaking changes and how to migrate.
 
 ## Security hardening (v2)
 
@@ -222,7 +222,7 @@ and findings table). The short version: API handlers set headers as a plain obje
 `Set-Cookie` headers and SSE are not supported), `ssg`/`isr` on a dynamic route need
 `getStaticParams()`, `isr` regeneration on a serverless filesystem is unverified, you bring your own
 database client, rate limiting is opt-in per route and per process, and 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel; multi-app, sessions, API
-routes and Netlify are not) (nor are the next release's Vercel/Netlify header rules).
+routes and Netlify are not) (nor are 0.4.0's Vercel/Netlify header rules).
 
 ## Testing
 
@@ -257,7 +257,7 @@ please open an issue.
 - 🗺️ [Roadmap](ROADMAP.md) — what's done, in progress, and planned, with the detailed build log
 - 🚀 [Deploying](docs/guides/DEPLOYING.md) — Vercel, Netlify, Docker, container platforms, self-hosted VPS, CI
 - 📄 [Pages, forms and errors](docs/guides/PAGES.md) — request access, action results, uploads, the head API
-- 🛡️ [Security model](docs/guides/SECURITY-MODEL.md) — defaults, what you must do, what it does not do (next release)
+- 🛡️ [Security model](docs/guides/SECURITY-MODEL.md) — defaults, what you must do, what it does not do (0.4.0)
 - 🔐 [Auth and sessions](packages/backend/AUTH.md) — session stores, cookies behind proxies, CSRF
 - ✅ [Testing & verification](docs/history/VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)

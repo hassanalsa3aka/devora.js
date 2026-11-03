@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@devorajs/core": "0.3.4",
+    "@devorajs/core": "0.4.0",
     "@devorajs/backend": "*",
     "vite": "^5.4.0 || ^6.0.0",
-    "@devorajs/cli": "0.3.4"
+    "@devorajs/cli": "0.4.0"
   }
 }
