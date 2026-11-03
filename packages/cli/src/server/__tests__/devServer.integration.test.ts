@@ -6,12 +6,13 @@
  * revocation, transport-aware CSRF, idle renewal, expiry).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ViteDevServer } from "vite";
 import { createAppDevServer } from "../../commands/dev.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, setCookieValue, type FixtureProject } from "./fixtureApp.js";
-import type { SessionsConfig } from "@devorajs/core";
+import { createFixtureProject, setCookieValue, write, type FixtureProject } from "./fixtureApp.js";
+import { SVG_CSP, type SessionsConfig } from "@devorajs/core";
 
 async function boot(fixture: FixtureProject, sessions: SessionsConfig): Promise<{ server: ViteDevServer; base: string }> {
   const server = await createAppDevServer({
@@ -39,6 +40,7 @@ let base: string;
 
 beforeAll(async () => {
   fixture = createFixtureProject();
+  write(path.join(fixture.appRoot, "public", "logo.svg"), "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>");
   ({ server, base } = await boot(fixture, { store: "memory" }));
 }, 30_000);
 
@@ -87,6 +89,17 @@ describe("api/** JSON contract — real dev server", () => {
     const res = await fetch(`${base}/api/does-not-exist`);
     expect(res.headers.get("content-security-policy")).toBeTruthy();
     expect(res.headers.get("x-frame-options")).toBeTruthy();
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const page = await fetch(`${base}/page-boom`);
+    expect(page.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("a public .svg gets the sandboxing policy and nosniff (Vite serves public files before the page middleware)", async () => {
+    const res = await fetch(`${base}/logo.svg`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/image\/svg\+xml/);
+    expect(res.headers.get("content-security-policy")).toBe(SVG_CSP);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("page routes are untouched: a throwing page loader still gets the HTML error response", async () => {
@@ -149,9 +162,10 @@ describe("unified session auth — real dev server", () => {
     const sessionId = setCookieValue(login, "devora_session")!;
     const csrf = setCookieValue(login, "devora_csrf")!;
 
+    // The default CSRF check covers a cookie-authenticated POST: the token goes in the header.
     const logout = await fetch(`${base}/api/logout`, {
       method: "POST",
-      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}` },
+      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}`, "x-devora-csrf": csrf },
     });
     expect(logout.status).toBe(204);
     expect(logout.headers.getSetCookie().some((c) => c.startsWith("devora_session=;"))).toBe(true);

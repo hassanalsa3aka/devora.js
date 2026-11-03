@@ -1,9 +1,9 @@
 import { PassThrough } from "node:stream";
-import { createRequestContext, createNoAuthContext } from "./session.js";
+import { createRequestContext, createNoAuthContext, warnIfSessionReadWithoutAuth } from "./session.js";
 import { IslandStreamingContext, type StreamingIslandTracker } from "./islandComponent.js";
 import { renderDocumentHead, renderDocumentTail, type HeadConfig } from "./html.js";
 import { ShellUsageContext } from "./branding.js";
-import { isRedirectResult, redirectStatus } from "./actionResult.js";
+import { isRedirectResult, redirectRefusal, redirectStatus } from "./actionResult.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import { publicErrorMessage } from "./renderRoute.js";
 import type { ErrorPageModule, RouteModule } from "./route.js";
@@ -96,6 +96,8 @@ export interface StreamingRenderResult {
   setCookie?: string[];
   /** Set when the loader returned/threw `redirect()` — send it instead of piping. */
   redirectTo?: string;
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
   /** What the loader threw, when this result streams the error page instead (for logging). */
   error?: unknown;
   /**
@@ -126,7 +128,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       throw new Error("[devora] route has no default export component");
     }
 
-    const { ctx, getSetCookie, settle } = request.sessionCookieOptions
+    const context = request.sessionCookieOptions
       ? await createRequestContext(
           { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
           request.sessionCookieOptions,
@@ -134,6 +136,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
           request.meta
         )
       : createNoAuthContext(request.params, request.meta);
+    const { ctx, getSetCookie, settle, touchesSessionCookie } = context;
 
     // Awaited before any HTML is written — real headers (including
     // Set-Cookie) must be decided before a streaming response starts, and
@@ -150,17 +153,26 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
     let page: unknown;
     let styles = request.styles;
     try {
-      data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+      try {
+        data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+      } finally {
+        // Dev-only hint (session.ts): read ctx.session without ever calling ctx.requireAuth().
+        warnIfSessionReadWithoutAuth(context, request.meta?.url);
+      }
       if (isRedirectResult(data)) {
+        // Checked again here, not only in redirect(): a loader can return a plain `{ redirect }` object.
+        const refusal = redirectRefusal(data);
+        if (refusal) throw refusal;
         await settle();
-        return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+        return { status: redirectStatus(data, "GET"), redirectTo: data.redirect, setCookie: getSetCookie(), noStore: touchesSessionCookie(), pipeTo: () => {} };
       }
       meta = routeModule.meta?.(data);
       page = deps.createElement(routeModule.default as never, { data, csrfToken: undefined });
-    } catch (error) {
+    } catch (thrown) {
+      const error = isRedirectResult(thrown) ? (redirectRefusal(thrown) ?? thrown) : thrown;
       if (isRedirectResult(error)) {
         await settle().catch(() => {});
-        return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), pipeTo: () => {} };
+        return { status: redirectStatus(error, "GET"), redirectTo: error.redirect, setCookie: getSetCookie(), noStore: touchesSessionCookie(), pipeTo: () => {} };
       }
       loaderError = error;
       status = getHttpErrorStatus(error) ?? 500;
@@ -187,6 +199,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       status,
       error: loaderError,
       setCookie: getSetCookie(),
+      noStore: touchesSessionCookie(),
       pipeTo(destination, onError) {
         let shellSent = false;
         let destinationErrored = false;

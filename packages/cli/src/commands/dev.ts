@@ -19,7 +19,7 @@ import {
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
 import { createApiMiddlewarePlugin } from "../server/apiMiddleware.js";
-import { createSecurityHeadersMiddleware } from "../server/securityHeadersMiddleware.js";
+import { createSecurityHeadersMiddleware, createSvgHeadersPlugin } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
 import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
@@ -108,6 +108,8 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
+      // First, so it runs before Vite's own static-file handling (which serves public/ .svg files).
+      createSvgHeadersPlugin(),
       islandsPlugin(),
       moduleDisposePlugin(),
       reactRefreshPreamblePlugin(),

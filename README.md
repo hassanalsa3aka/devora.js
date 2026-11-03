@@ -140,8 +140,9 @@ realtime server.
 - **Islands** — `island(() => import("./Widget"))` hydrates just that component; the rest of the
   page stays static HTML.
 - **Sessions & CSRF built in** — one opaque, server-side, revocable session primitive for both
-  browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF enforced
-  only where cookies are involved. Three auth modes per app: `shared`, `isolated`, or `none` (no
+  browsers (HttpOnly cookie) and API/mobile clients (`Authorization: Bearer`), with CSRF checked by
+  default on cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE` (Bearer requests are exempt; a route
+  opts out with `export const csrf = false`). Three auth modes per app: `shared`, `isolated`, or `none` (no
   sessions at all, for apps that don't need login, like a marketing site). Shared login across
   subdomains needs `shared.sessions.cookie.domain`; cookie `secure` (`true`/`"auto"`/`false`),
   `sameSite`, `trustProxy` behind a proxy, session lifetimes, `noindex` and `csrf: false` for
@@ -157,7 +158,7 @@ realtime server.
   keep their status and render the app's `error.tsx`; multipart uploads (bodies capped by
   `maxBodyBytes`, 10 MB by default); a `<head>` API; route CSS linked automatically. See
   `docs/guides/PAGES.md`.
-- **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app.
+- **Security headers on by default** — CSP, HSTS, X-Frame-Options, overridable per app, and `X-Content-Type-Options: nosniff` on every response, including static files. `.svg` files are served with a sandboxing CSP; user-uploaded SVGs must still never be served from the app origin ([Pages guide](docs/guides/PAGES.md)).
 - **SEO** — OG tags and an auto-generated `sitemap.xml`, opt-in per app.
 - **Dynamic routes** — `routes/users/[id].tsx` matches `/users/123`, with the value available as
   `ctx.params.id`. `routes/docs/[...slug].tsx` matches `/docs/a`, `/docs/a/b/c` and so on, with

@@ -6,6 +6,9 @@ import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, Ren
 import { bundleForDeploy } from "./bundleForDeploy.js";
 import { resolveVercelRuntime, readEnginesNode } from "./runtime.js";
 
+// Kept equal to @devorajs/core's SVG_CSP (securityHeaders.ts); adapterCjsSmoke.test.ts compares them.
+const SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
 export { isVercelLinked, deployToVercel } from "./deploy.js";
 export {
   resolveVercelRuntime,
@@ -253,13 +256,18 @@ export async function writeVercelOutput(
   // request including asset requests hit the function, which doesn't even
   // have those files (they're in static/, not funcDir) — a real bug caught
   // while wiring production island hydration, not a hypothetical one.
-  // security.noindex: files served straight from static/ (ssg pages, assets)
-  // never pass through the function, so they'd miss the X-Robots-Tag it
-  // sets — a header route with `continue: true` adds it to every response.
+  // Files served straight from static/ (ssg pages, assets) never pass
+  // through the function, so they'd miss the headers it sets — a header
+  // route with `continue: true` adds nosniff (always) and, with
+  // security.noindex, X-Robots-Tag to every response.
+  const staticHeaders: Record<string, string> = { "X-Content-Type-Options": "nosniff" };
+  if (security?.noindex === true) staticHeaders["X-Robots-Tag"] = "noindex";
   const config = {
     version: 3,
     routes: [
-      ...(security?.noindex === true ? [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true }] : []),
+      { src: "/(.*)", headers: staticHeaders, continue: true },
+      // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+      { src: "/(.*)\\.[sS][vV][gG]", headers: { "Content-Security-Policy": SVG_CSP }, continue: true },
       { handle: "filesystem" },
       { src: "/(.*)", dest: "/index" },
     ],

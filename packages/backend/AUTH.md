@@ -65,10 +65,22 @@ return { status: 201, body: JSON.stringify({ token }) }; // client sends `Author
 ```
 
 `ctx.requireAuth()`/`ctx.session` accept either transport through the same lookup, with no extra
-code in the route. A request that sends a Bearer header is never authenticated by a cookie.
+code in the route. In development, a route that reads `ctx.session` but never calls
+`ctx.requireAuth()` prints one warning per path: fine for a page that also serves signed-out
+visitors (check `ctx.session` for `undefined`), a bug for one that is meant to be signed-in only. A request that sends a Bearer header is never authenticated by a cookie.
 `ctx.verifyCsrf()` is enforced for cookie (and unauthenticated) requests and skipped for
 Bearer-authenticated ones — a cross-site page can make a browser send cookies, not an
-`Authorization` header. On the client side, keep the token in secure storage (e.g.
+`Authorization` header.
+
+**CSRF is checked by default for cookie-authenticated writes.** A `POST`, `PUT`, `PATCH` or
+`DELETE` that arrives with a live session in the session cookie is checked before the page's
+`action` or the API route's `handler` runs: the token must be in the `_csrf` form field
+(`<CsrfField token={csrfToken} />`) or the `x-devora-csrf` header (`CSRF_HEADER_NAME`), or the
+request gets a 403. Bearer-authenticated requests, requests with no session cookie (including the
+login itself) and `GET`/`HEAD`/`OPTIONS` are not checked by default; call `ctx.verifyCsrf()`
+yourself where you want them checked (for example a login form). A route opts out with
+`export const csrf = false;` and is then on its own. An app with `csrf: false` (no CSRF cookie) has
+no token to check, so a cookie-authenticated write there gets a 403 unless the route opts out. On the client side, keep the token in secure storage (e.g.
 `expo-secure-store`, i.e. Keychain/Keystore), not AsyncStorage.
 
 **Logout / password change:** `await ctx.revokeSession()` revokes the current session;
@@ -124,6 +136,13 @@ request. Fix it by serving the app over HTTPS (Caddy, or nginx + certbot — see
 set `secure: "auto"` (plus `trustProxy: true` when an HTTPS proxy sits in front of `devora start`),
 or `secure: false` for a deployment that is deliberately plain HTTP.
 
+**Caching.** A response that reads the session cookie (the request sent it) or sets or clears it is
+sent with `Cache-Control: private, no-store`, replacing any `Cache-Control` the handler set, so a
+CDN or proxy never stores one user's page or `Set-Cookie` and hands it to someone else. This applies
+to pages, streaming pages, redirects, error pages and API routes, on `devora start`, `devora dev`
+and the Vercel/Netlify functions. A request that authenticates with a Bearer token, or sends no
+session cookie, is left as the handler made it.
+
 **`trustProxy`.** Behind nginx/Caddy/a load balancer, `devora start` only sees the proxy's
 plain-HTTP connection; `X-Forwarded-Proto` says what the browser used. Turn on `trustProxy` only
 when the app can be reached *only* through that proxy (bind it to `127.0.0.1` with `HOST`),
@@ -147,6 +166,40 @@ lifetimes are set once in `shared.sessions`.
 longer get a `devora_csrf` cookie. Bearer-*authenticated* requests never got one. With CSRF off,
 `ctx.verifyCsrf()` still passes for Bearer-authenticated requests and rejects every other request
 with 403 — it never passes silently.
+
+## Rate limiting logins
+
+A route that creates sessions (a login form, a sign-up or token endpoint) can limit how often one
+client IP posts to it:
+
+```ts
+// apps/dashboard/routes/login.tsx, or an API route such as api/session.ts
+export const rateLimit = { max: 10, windowSeconds: 60 }; // 10 POSTs per IP per minute
+```
+
+The eleventh `POST`/`PUT`/`PATCH`/`DELETE` in the window gets a 429 (an API route also gets
+`Retry-After`) before the action or handler runs, and before the session store is touched. `GET`
+is never counted. Nothing is limited unless a route exports `rateLimit`.
+
+What it does not do, so plan for it:
+
+- **It counts per process.** Each `devora start` process, and each serverless instance on Vercel or
+  Netlify, keeps its own count in memory, and a restart or a cold start resets it. It slows down
+  one client hammering one instance; it does not stop a distributed attack.
+- **It keys on `ctx.ip`.** Behind a proxy, set `trustProxy` in app.config.ts (and make the app
+  reachable only through that proxy), or every client shares the proxy's address and one count.
+- **It does not lock accounts.** Slowing guesses against one account from many IPs needs a
+  per-account counter in your own auth code (for example failed attempts stored with the user).
+
+Put the real limit in front of the app as well:
+
+- **nginx**: `limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;` in `http { }`, then
+  `location = /login { limit_req zone=login burst=5 nodelay; proxy_pass http://127.0.0.1:4173; }`
+  (repeat for each login or token path).
+- **Caddy**: rate limiting is not in the standard build; it needs a plugin such as
+  `caddy-ratelimit`, built in with `xcaddy`.
+- **Vercel, Netlify, Cloudflare**: use the platform's firewall or WAF rate-limiting rules on the
+  login paths; they count across every instance.
 
 ## Lucia
 

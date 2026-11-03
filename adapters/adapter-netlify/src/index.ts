@@ -5,6 +5,9 @@ import { createRequire } from "node:module";
 import type { AppConfig, AuthMode, AppRuntimeConfig, CorsConfig, HeadConfig, RenderMode } from "@devorajs/core";
 import { bundleForDeploy } from "./bundleForDeploy.js";
 
+// Kept equal to @devorajs/core's SVG_CSP (securityHeaders.ts); adapterCjsSmoke.test.ts compares them.
+const SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
 export { isNetlifyLinked, deployToNetlify } from "./deploy.js";
 export { CJS_REQUIRE_BANNER } from "./bundleForDeploy.js";
 
@@ -250,19 +253,24 @@ export async function writeNetlifyConfig(
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
 
-  // security.noindex: static files (ssg pages, assets) are served from the
-  // publish directory without invoking the function, so they'd miss the
-  // X-Robots-Tag it sets. Netlify's `_headers` file covers them — appended
-  // to, never overwritten, in case the app ships its own.
-  if (security?.noindex === true) {
+  // Static files (ssg pages, assets) are served from the publish directory
+  // without invoking the function, so they'd miss the headers it sets:
+  // nosniff (always) and, with security.noindex, X-Robots-Tag. Netlify's
+  // `_headers` file covers them — appended to, never overwritten, in case
+  // the app ships its own.
+  {
     const clientOutDir = path.join(appRoot, "dist", "client");
     await mkdir(clientOutDir, { recursive: true });
     const headersPath = path.join(clientOutDir, "_headers");
-    const existing = existsSync(headersPath) ? await readFile(headersPath, "utf-8") : "";
-    const rule = "/*\n  X-Robots-Tag: noindex\n";
-    if (!existing.includes("X-Robots-Tag: noindex")) {
-      await writeFile(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}\n${rule}` : rule);
-    }
+    let contents = existsSync(headersPath) ? await readFile(headersPath, "utf-8") : "";
+    const addRule = (line: string, rule: string) => {
+      if (!contents.includes(line)) contents = contents ? `${contents.replace(/\n*$/, "\n")}\n${rule}` : rule;
+    };
+    addRule("X-Content-Type-Options: nosniff", "/*\n  X-Content-Type-Options: nosniff\n");
+    // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+    addRule(`Content-Security-Policy: ${SVG_CSP}`, `/*.svg\n  Content-Security-Policy: ${SVG_CSP}\n`);
+    if (security?.noindex === true) addRule("X-Robots-Tag: noindex", "/*\n  X-Robots-Tag: noindex\n");
+    await writeFile(headersPath, contents);
   }
 
   // `netlify.toml` is NOT written here — real bug found via an actual live

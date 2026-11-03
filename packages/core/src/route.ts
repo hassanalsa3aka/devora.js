@@ -5,6 +5,7 @@
 import type { RequestContext } from "./serverFn.js";
 import type { RenderMode, RevalidateConfig } from "./config.js";
 import type { DocumentMeta } from "./html.js";
+import type { RateLimitConfig } from "./rateLimit.js";
 
 export interface RouteModule<Data = unknown> {
   renderMode?: RenderMode;
@@ -28,6 +29,15 @@ export interface RouteModule<Data = unknown> {
    * with the value as the `actionData` prop. A thrown `HttpError` keeps its
    * status. Uploads arrive as `File`s in `formData` (multipart/form-data). */
   action?: (formData: FormData, ctx: RequestContext) => Promise<unknown> | unknown;
+  /**
+   * `false` turns off the CSRF check the framework runs before `action` for a
+   * request authenticated by the session cookie (csrf.ts,
+   * `verifyCsrfByDefault`). The route then calls `ctx.verifyCsrf()` itself,
+   * or knowingly accepts cross-site form posts.
+   */
+  csrf?: false;
+  /** Limit POSTs per client IP on this route, e.g. a login form (rateLimit.ts). */
+  rateLimit?: RateLimitConfig;
   /** Title/description/og plus route-level `head` tags (html.ts). */
   meta?: (data?: Data) => DocumentMeta | undefined;
   /** The route's UI. Typed loosely here since core has no dependency on

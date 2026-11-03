@@ -6,7 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { buildRouteTable, matchInTable, isDynamicRouteFile, resolveStaticRoutePath, type RouteTable } from "./router.js";
 import { createStaticFileServer, HTML_CACHE } from "./staticFiles.js";
 import { collectSitemapPaths, generateSitemapXml } from "./sitemap.js";
-import type { SessionCookieOptions } from "./session.js";
+import { PRIVATE_NO_STORE, type SessionCookieOptions } from "./session.js";
 import { createSessionOptionsResolver, readSessionManifest, SESSION_STORE_BUILD_KEY } from "./sessionConfig.js";
 import { resolveSecurityHeaders, generateNonce } from "./securityHeaders.js";
 import {
@@ -226,7 +226,7 @@ export function createProdRequestHandler(
           res.setHeader("Set-Cookie", apiResult.setCookie);
           warnIfSecureCookieOverHttp(req, apiResult.setCookie);
         }
-        sendApiResponse(res, apiResult);
+        sendApiResponse(res, apiResult, apiResult.noStore);
       } catch (err) {
         sendApiResponse(res, apiErrorResponse(err));
       }
@@ -305,6 +305,7 @@ export function createProdRequestHandler(
       });
       if (!result) return false; // shouldn't happen — renderMode was resolved to "streaming" above.
       if (result.error !== undefined && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
+      if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result.redirectTo) {
         if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
         res.statusCode = result.status;
@@ -445,6 +446,7 @@ export function createProdRequestHandler(
 
     if (!result) return false; // shouldn't happen — renderMode was resolved to "ssr" above.
     if (result.error !== undefined && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
+    if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
 
     if (result.setCookie) {
       res.setHeader("Set-Cookie", result.setCookie);
@@ -488,10 +490,12 @@ function createPlainHttpCookieWarning(appName: string): (req: IncomingMessage, s
   };
 }
 
-function sendApiResponse(res: ServerResponse, result: ApiResponse): void {
+/** `noStore` replaces any Cache-Control the handler set (session.ts's PRIVATE_NO_STORE). */
+function sendApiResponse(res: ServerResponse, result: ApiResponse, noStore = false): void {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }

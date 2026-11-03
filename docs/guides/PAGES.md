@@ -42,6 +42,11 @@ declare module "@devorajs/core" {
 
 ## Forms: what an action can return
 
+When the request is authenticated by the session cookie, the framework checks the `_csrf` field
+before `action` runs (a 403 without it), so the form must render `<CsrfField>`. Calling
+`ctx.verifyCsrf(formData)` yourself, as below, also covers anonymous posts such as a login form.
+`export const csrf = false;` turns the automatic check off for one route.
+
 ```tsx
 import { CsrfField, fail, redirect, type RequestContext, type RouteComponentProps } from "@devorajs/core";
 
@@ -72,10 +77,27 @@ export default function Verify({ csrfToken, actionData }: RouteComponentProps<un
 A loader can also `return redirect(...)` or `throw redirect(...)` (e.g. "not logged in →
 /login").
 
+A redirect stays on the app's origin: `redirect()` refuses (with a 400) a target that leaves it,
+such as `https://evil.com`, `//evil.com`, `/\evil.com` or a percent-encoded form of these, so
+`redirect(formData.get("next"))` cannot be turned into an open redirect. To send the browser to
+another site you trust, list its origin:
+`redirect("https://checkout.example.com/pay", { allowedOrigins: ["https://checkout.example.com"] })`.
+The same check runs when the response is sent, so a loader that returns a plain `{ redirect }`
+object is covered too.
+
 **Uploads.** `<form method="post" encType="multipart/form-data">` works: file fields arrive in
 `formData` as `File` objects (`file.name`, `file.size`, `await file.arrayBuffer()`). The body limit
 for forms and API routes is `maxBodyBytes` in app.config.ts (default 10 MB). A larger body gets a
 413, and the browser actually receives it.
+
+**Never serve user-uploaded SVGs (or HTML) from the app's origin.** An SVG opened directly is a
+document that can run script with your app's cookies. Devora.js serves the `.svg` files you ship
+(in `public/` and the build) with a sandboxing `Content-Security-Policy`
+(`default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox`), on `devora start`,
+the dev server and, through the adapters, on Vercel and Netlify. That header is a backstop for your
+own files. It does not cover files your app stores and sends back itself (from an API route, a
+storage bucket or a CDN). Serve uploads from a separate domain (for example a storage bucket's own
+domain, not a subdomain that shares cookies), or with `Content-Disposition: attachment`.
 
 ## Errors and the error page
 

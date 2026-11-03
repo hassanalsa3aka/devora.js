@@ -17,6 +17,7 @@ import {
   PayloadTooLargeError,
   MalformedBodyError,
   MAX_BODY_BYTES,
+  PRIVATE_NO_STORE,
   type AuthMode,
   type ErrorPageModule,
   type HeadConfig,
@@ -211,6 +212,7 @@ export function createSsrMiddleware(
         });
         if (!result) return next(); // shouldn't happen — renderMode was resolved to "streaming" above.
         logPageError(result.status, result.error);
+        if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
         if (result.redirectTo) {
           if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
           res.statusCode = result.status;
@@ -312,6 +314,7 @@ export function createSsrMiddleware(
       }
       logPageError(result.status, result.error);
 
+      if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result.setCookie) {
         res.setHeader("Set-Cookie", result.setCookie);
       }

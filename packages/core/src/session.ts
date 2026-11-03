@@ -360,7 +360,54 @@ export interface RequestContextResult {
    * session ID that was never actually stored.
    */
   settle: () => Promise<void>;
+  /**
+   * True when this request presented the session cookie (the framework read
+   * it) or the response sets or clears it. Such a response is personal, so
+   * it is sent with `Cache-Control: private, no-store` (PRIVATE_NO_STORE).
+   */
+  touchesSessionCookie: () => boolean;
+  /** The request arrived with a live session in the session cookie (not Bearer). */
+  cookieAuthenticated: boolean;
+  /** Whether the route read `ctx.session` and whether it called `ctx.requireAuth()` (for the dev warning). */
+  authUsage: () => { sessionRead: boolean; requireAuthCalled: boolean };
 }
+
+// Route paths already warned about in this process (the dev warning below).
+const warnedSessionWithoutAuth = new Set<string>();
+const MAX_WARNED_PATHS = 1_000;
+
+/**
+ * Dev only: a route that read `ctx.session` but never called
+ * `ctx.requireAuth()` gets one warning per path. Not an error: a page that
+ * shows a "Sign in" link when `ctx.session` is empty is fine, and so is a
+ * route that checks `if (!ctx.session) throw redirect("/login")`. The
+ * warning is for the route that meant to be signed-in only and forgot.
+ */
+export function warnIfSessionReadWithoutAuth(context: Pick<RequestContextResult, "authUsage">, urlOrPath: string | undefined): void {
+  if (process.env.NODE_ENV === "production") return;
+  const { sessionRead, requireAuthCalled } = context.authUsage();
+  if (!sessionRead || requireAuthCalled) return;
+  let pathname = urlOrPath ?? "(unknown path)";
+  try {
+    pathname = new URL(pathname, "http://localhost").pathname;
+  } catch {
+    // keep what we were given
+  }
+  if (warnedSessionWithoutAuth.has(pathname) || warnedSessionWithoutAuth.size >= MAX_WARNED_PATHS) return;
+  warnedSessionWithoutAuth.add(pathname);
+  console.warn(
+    `[devora] ${pathname} read ctx.session but never called ctx.requireAuth(). If this route is for signed-in ` +
+      `users only, call ctx.requireAuth() first (a 401 when there is no session); if it also serves signed-out ` +
+      `visitors, check ctx.session for undefined before using it. (Shown once per path, in dev only.)`
+  );
+}
+
+/**
+ * The Cache-Control a response that reads or sets the session cookie gets,
+ * replacing any the handler set: a shared cache (a CDN, a proxy) must never
+ * hand one user's page, or their Set-Cookie, to another.
+ */
+export const PRIVATE_NO_STORE = "private, no-store";
 
 export async function createRequestContext(
   request: SessionRequestInfo,
@@ -434,6 +481,8 @@ export async function createRequestContext(
     return track(() => opts.store.delete(key));
   };
 
+  let sessionRead = false;
+  let requireAuthCalled = false;
   const split = splitRouteParams(params);
   const ctx: RequestContext = {
     params: split.params,
@@ -450,12 +499,14 @@ export async function createRequestContext(
       return fields.request;
     },
     get session() {
+      sessionRead = true;
       return currentRecord?.data as SessionData | undefined;
     },
     get sessionTransport() {
       return transport;
     },
     requireAuth: () => {
+      requireAuthCalled = true;
       if (currentRecord === undefined) {
         throw new HttpError(401, "Authentication required");
       }
@@ -516,6 +567,10 @@ export async function createRequestContext(
     ctx,
     csrfToken,
     getSetCookie: () => (pendingSetCookies.length > 0 ? pendingSetCookies : undefined),
+    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== undefined,
+    authUsage: () => ({ sessionRead, requireAuthCalled }),
+    touchesSessionCookie: () =>
+      resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       // Loop: a write may be started while an earlier one is being awaited.
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
@@ -580,5 +635,5 @@ export function createNoAuthContext(params: RawRouteParams = {}, meta?: RequestM
       throw sessionsDisabledError("verifyCsrf");
     },
   };
-  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {} };
+  return { ctx, csrfToken: "", getSetCookie: () => undefined, settle: async () => {}, touchesSessionCookie: () => false, cookieAuthenticated: false, authUsage: () => ({ sessionRead: false, requireAuthCalled: false }) };
 }
