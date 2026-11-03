@@ -88,7 +88,10 @@ object is covered too.
 **Uploads.** `<form method="post" encType="multipart/form-data">` works: file fields arrive in
 `formData` as `File` objects (`file.name`, `file.size`, `await file.arrayBuffer()`). The body limit
 for forms and API routes is `maxBodyBytes` in app.config.ts (default 10 MB). A larger body gets a
-413, and the browser actually receives it.
+413, and the browser actually receives it. A page form may also send at most 1000 non-file fields
+and 20 files (`maxFormFields` and `maxFormFiles` in app.config.ts); more gets a 413 before the form
+is parsed. API routes receive the raw body; if you parse multipart there yourself, set your own
+limits (core's `parseFormBody(body, contentType, { maxFields, maxFiles })` applies the same ones).
 
 **Never serve user-uploaded SVGs (or HTML) from the app's origin.** An SVG opened directly is a
 document that can run script with your app's cookies. Devora.js serves the `.svg` files you ship

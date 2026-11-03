@@ -18,7 +18,7 @@ import {
 } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
-import { createApiMiddlewarePlugin } from "../server/apiMiddleware.js";
+import { createApiMiddlewarePlugin, createHostCheckPlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware, createSvgHeadersPlugin } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
@@ -108,7 +108,9 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
-      // First, so it runs before Vite's own static-file handling (which serves public/ .svg files).
+      // First, so a request for an unknown host never reaches another middleware.
+      createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      // Also before Vite's own static-file handling (which serves public/ .svg files).
       createSvgHeadersPlugin(),
       islandsPlugin(),
       moduleDisposePlugin(),
@@ -159,7 +161,13 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
         appConfig.defaultRenderMode,
         appConfig.security,
         { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
-        { head: appConfig.head, maxBodyBytes: appConfig.maxBodyBytes, trustProxy: appConfig.trustProxy }
+        {
+          head: appConfig.head,
+          maxBodyBytes: appConfig.maxBodyBytes,
+          maxFormFields: appConfig.maxFormFields,
+          maxFormFiles: appConfig.maxFormFiles,
+          trustProxy: appConfig.trustProxy,
+        }
       )
     );
   }

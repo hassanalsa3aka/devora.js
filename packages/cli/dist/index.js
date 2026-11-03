@@ -5058,16 +5058,57 @@ var MalformedBodyError = class extends Error {
     this.name = "MalformedBodyError";
   }
 };
-async function parseFormBody(body, contentType) {
+var MAX_FORM_FIELDS = 1e3;
+var MAX_FORM_FILES = 20;
+var FormLimitError = class extends Error {
+  status = 413;
+  constructor(what, limit) {
+    super(`Too many form ${what} (the limit is ${limit})`);
+    this.name = "FormLimitError";
+  }
+};
+function checkMultipartParts(body, contentType, maxFields, maxFiles) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  const value = boundary?.[1] ?? boundary?.[2]?.trim();
+  if (!value) return;
+  const delimiter = Buffer.from(`--${value}`);
+  const headerEnd = Buffer.from("\r\n\r\n");
+  let fields = 0;
+  let files = 0;
+  let at = body.indexOf(delimiter);
+  while (at !== -1) {
+    const partStart = at + delimiter.length;
+    if (body[partStart] === 45 && body[partStart + 1] === 45) break;
+    const headersEnd = body.indexOf(headerEnd, partStart);
+    if (headersEnd === -1) break;
+    const headers = body.subarray(partStart, headersEnd).toString("latin1");
+    if (/^content-disposition:[^\r\n]*;\s*filename\*?=/im.test(headers)) {
+      if (++files > maxFiles) throw new FormLimitError("files", maxFiles);
+    } else if (++fields > maxFields) {
+      throw new FormLimitError("fields", maxFields);
+    }
+    at = body.indexOf(delimiter, headersEnd);
+  }
+}
+async function parseFormBody(body, contentType, limits = {}) {
+  const maxFields = limits.maxFields ?? MAX_FORM_FIELDS;
+  const maxFiles = limits.maxFiles ?? MAX_FORM_FILES;
   if (contentType && /^multipart\/form-data\b/i.test(contentType)) {
+    checkMultipartParts(body, contentType, maxFields, maxFiles);
     try {
       return await new Response(body, { headers: { "content-type": contentType } }).formData();
     } catch {
       throw new MalformedBodyError("malformed multipart/form-data body");
     }
   }
+  const text = body.toString("utf-8");
+  let pairs = text === "" ? 0 : 1;
+  for (let i = text.indexOf("&"); i !== -1; i = text.indexOf("&", i + 1)) {
+    if (++pairs > maxFields) throw new FormLimitError("fields", maxFields);
+  }
+  if (pairs > maxFields) throw new FormLimitError("fields", maxFields);
   const formData = new FormData();
-  new URLSearchParams(body.toString("utf-8")).forEach((value, key) => formData.append(key, value));
+  new URLSearchParams(text).forEach((value, key) => formData.append(key, value));
   return formData;
 }
 
@@ -5157,8 +5198,7 @@ function normalizeIp(value) {
 }
 function describeRequest(req, trustProxy) {
   const scheme = isHttpsRequest(req, trustProxy) ? "https" : "http";
-  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : void 0;
-  const host = forwardedHost ?? firstHeaderValue(req.headers.host) ?? "localhost";
+  const host = requestHost(req, trustProxy) ?? "localhost";
   const target = req.url ?? "/";
   let url;
   return {
@@ -5177,9 +5217,60 @@ function describeRequest(req, trustProxy) {
     ip: clientIp(req, trustProxy)
   };
 }
+function requestHost(req, trustProxy) {
+  const forwardedHost = trustedProxyHops(trustProxy) > 0 ? firstHeaderValue(req.headers["x-forwarded-host"]) : void 0;
+  return forwardedHost ?? firstHeaderValue(req.headers.host);
+}
 function firstHeaderValue(value) {
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
   return first || void 0;
+}
+
+// ../core/src/allowedHosts.ts
+var LOOPBACK = ["localhost", "127.0.0.1", "::1"];
+function normalizeHost(value) {
+  if (!value) return void 0;
+  let host = value.trim().toLowerCase();
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    if (end === -1) return void 0;
+    host = host.slice(1, end);
+  } else {
+    const colon = host.indexOf(":");
+    if (colon !== -1 && host.indexOf(":", colon + 1) === -1) host = host.slice(0, colon);
+  }
+  host = host.replace(/\.$/, "");
+  if (!host || /[\s/\\@?#]/.test(host)) return void 0;
+  return host;
+}
+function createHostCheck(allowedHosts, options = {}) {
+  if (allowedHosts === void 0) return void 0;
+  if (!Array.isArray(allowedHosts) || allowedHosts.length === 0) {
+    throw new Error(`[devora] app.config.ts allowedHosts must be a non-empty list of hosts, e.g. ["app.example.com", ".example.com"]`);
+  }
+  const exact = /* @__PURE__ */ new Set();
+  const suffixes = [];
+  for (const entry of allowedHosts) {
+    const wildcard = typeof entry === "string" && entry.startsWith(".");
+    const host = typeof entry === "string" ? normalizeHost(wildcard ? entry.slice(1) : entry) : void 0;
+    if (!host || typeof entry === "string" && /^[a-z]+:\/\//i.test(entry)) {
+      throw new Error(`[devora] app.config.ts allowedHosts entry ${JSON.stringify(entry)} is not a host such as "app.example.com" or ".example.com"`);
+    }
+    if (wildcard) suffixes.push(host);
+    else exact.add(host);
+  }
+  if (options.allowLoopback) for (const host of LOOPBACK) exact.add(host);
+  return (value) => {
+    const host = normalizeHost(value);
+    if (host === void 0) return false;
+    if (exact.has(host)) return true;
+    return suffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  };
+}
+function sendUnknownHost(res) {
+  res.statusCode = 400;
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.end("Bad Request: unknown host");
 }
 
 // ../core/src/cors.ts
@@ -5246,6 +5337,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     () => importBuilt(serverOutDir, SESSION_STORE_BUILD_KEY)
   );
   const trustProxy = options.trustProxy;
+  const hostAllowed = createHostCheck(options.allowedHosts);
   const sessionOptionsForRequest = async (req) => resolveSessionOptions ? resolveSessionOptions({ isHttps: isHttpsRequest(req, trustProxy) }) : void 0;
   const warnIfSecureCookieOverHttp = createPlainHttpCookieWarning(appName);
   const securityHeaders = resolveSecurityHeaders(security);
@@ -5255,6 +5347,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   const currentIslandClientUrl = ttlMemo(() => readIslandClientUrl(islandManifestPath), 1e3);
   const currentCsrManifest = ttlMemo(() => readCsrManifest(csrManifestPath), 1e3);
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const formLimits = { maxFields: options.maxFormFields, maxFiles: options.maxFormFiles };
   const head = options.head;
   const routeStyles = readRouteCssManifest(path7.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE));
   const buildKeys = /* @__PURE__ */ new Map();
@@ -5289,6 +5382,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
   return async function handleRequest(req, res) {
     for (let i = 0; i < securityHeaderEntries.length; i++) res.setHeader(securityHeaderEntries[i][0], securityHeaderEntries[i][1]);
     if (!req.url) return false;
+    if (hostAllowed && !hostAllowed(requestHost(req, trustProxy))) {
+      sendUnknownHost(res);
+      return true;
+    }
     const pathname = requestPathname(req.url);
     if (pathname === "/sitemap.xml" && sitemapEnabled) {
       sitemapXml ??= collectSitemapPaths(routesDir, async (file) => {
@@ -5468,8 +5565,9 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     const islandClientUrl = await currentIslandClientUrl();
     let formData;
     try {
-      formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"]) : void 0;
+      formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], formLimits) : void 0;
     } catch (err) {
+      if (err instanceof FormLimitError) return sendErrorPage(res, 413, new HttpError(413, err.message));
       if (err instanceof PayloadTooLargeError) return sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
       if (err instanceof MalformedBodyError) return sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
       throw err;
@@ -5817,8 +5915,12 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
       }
       let formData;
       try {
-        formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"]) : void 0;
+        formData = req.method === "POST" ? await parseFormBody(await readBodyWithLimit(req, maxBodyBytes), req.headers["content-type"], {
+          maxFields: page.maxFormFields,
+          maxFiles: page.maxFormFiles
+        }) : void 0;
       } catch (err) {
+        if (err instanceof FormLimitError) return await sendErrorPage(res, 413, new HttpError(413, err.message));
         if (err instanceof PayloadTooLargeError) return await sendErrorPage(res, 413, new HttpError(413, "Request body too large"));
         if (err instanceof MalformedBodyError) return await sendErrorPage(res, 400, new HttpError(400, "Malformed form body"));
         throw err;
@@ -5903,6 +6005,19 @@ function isStaticFileRequest(vite, pathname) {
 }
 
 // src/server/apiMiddleware.ts
+function createHostCheckPlugin(allowedHosts, trustProxy) {
+  const hostAllowed = createHostCheck(allowedHosts, { allowLoopback: true });
+  return {
+    name: "devora-allowed-hosts",
+    configureServer(server) {
+      if (!hostAllowed) return;
+      server.middlewares.use((req, res, next) => {
+        if (hostAllowed(requestHost(req, trustProxy))) return next();
+        sendUnknownHost(res);
+      });
+    }
+  };
+}
 function createApiMiddlewarePlugin(options) {
   return {
     name: "devora-api-middleware",
@@ -6990,7 +7105,9 @@ async function createAppDevServer(opts) {
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
-      // First, so it runs before Vite's own static-file handling (which serves public/ .svg files).
+      // First, so a request for an unknown host never reaches another middleware.
+      createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      // Also before Vite's own static-file handling (which serves public/ .svg files).
       createSvgHeadersPlugin(),
       islandsPlugin(),
       moduleDisposePlugin(),
@@ -7032,7 +7149,13 @@ async function createAppDevServer(opts) {
         appConfig.defaultRenderMode,
         appConfig.security,
         { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
-        { head: appConfig.head, maxBodyBytes: appConfig.maxBodyBytes, trustProxy: appConfig.trustProxy }
+        {
+          head: appConfig.head,
+          maxBodyBytes: appConfig.maxBodyBytes,
+          maxFormFields: appConfig.maxFormFields,
+          maxFormFiles: appConfig.maxFormFiles,
+          trustProxy: appConfig.trustProxy
+        }
       )
     );
   }
@@ -7880,7 +8003,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, maxFormFields: options.maxFormFields, maxFormFiles: options.maxFormFiles, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async function handler(req, res) {
@@ -8076,7 +8199,7 @@ const handleRequest = createProdRequestHandler(
   ${JSON.stringify(security ?? {})},
   ${JSON.stringify(sitemapEnabled)},
   ${JSON.stringify(defaultRenderMode ?? null)},
-  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, cors: options.cors })}
+  ${JSON.stringify({ apiDir, trustProxy, head: options.head, maxBodyBytes: options.maxBodyBytes, maxFormFields: options.maxFormFields, maxFormFiles: options.maxFormFiles, cors: options.cors, allowedHosts: options.allowedHosts })}
 );
 
 export default async (request, context) => {
@@ -8234,7 +8357,10 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
-        cors: appConfig.cors
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
+        cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts
       });
     } else {
       await writeNetlifyConfig(app, appRoot, authMode, appConfig.security, sitemapEnabled, appConfig.defaultRenderMode, {
@@ -8242,7 +8368,10 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
         trustProxy: appConfig.trustProxy,
         head: appConfig.head,
         maxBodyBytes: appConfig.maxBodyBytes,
-        cors: appConfig.cors
+        maxFormFields: appConfig.maxFormFields,
+        maxFormFiles: appConfig.maxFormFiles,
+        cors: appConfig.cors,
+        allowedHosts: appConfig.allowedHosts
       });
     }
   }
@@ -8315,6 +8444,29 @@ async function build3(opts) {
 
 // ../../adapters/adapter-node/src/index.ts
 import http from "node:http";
+var DEFAULT_SERVER_LIMITS = {
+  headersTimeoutMs: 15e3,
+  requestTimeoutMs: 6e4,
+  keepAliveTimeoutMs: 5e3,
+  maxHeaderBytes: 16384
+};
+function resolveServerLimits(overrides = {}) {
+  const limits = { ...DEFAULT_SERVER_LIMITS };
+  for (const key of Object.keys(DEFAULT_SERVER_LIMITS)) {
+    const value = overrides[key];
+    if (value === void 0) continue;
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`[adapter-node] app.config.ts server.${key} must be a whole number above zero (got ${String(value)})`);
+    }
+    limits[key] = value;
+  }
+  if (limits.headersTimeoutMs > limits.requestTimeoutMs) {
+    throw new Error(
+      `[adapter-node] app.config.ts server.headersTimeoutMs (${limits.headersTimeoutMs}) can't be longer than requestTimeoutMs (${limits.requestTimeoutMs})`
+    );
+  }
+  return limits;
+}
 function createNodeServer(opts) {
   const handleRequest = createProdRequestHandler(
     opts.appRoot,
@@ -8324,20 +8476,40 @@ function createNodeServer(opts) {
     opts.security,
     opts.sitemapEnabled,
     opts.defaultRenderMode,
-    { apiDir: opts.apiDir, trustProxy: opts.trustProxy, head: opts.head, maxBodyBytes: opts.maxBodyBytes, cors: opts.cors }
+    {
+      apiDir: opts.apiDir,
+      trustProxy: opts.trustProxy,
+      head: opts.head,
+      maxBodyBytes: opts.maxBodyBytes,
+      maxFormFields: opts.maxFormFields,
+      maxFormFiles: opts.maxFormFiles,
+      cors: opts.cors,
+      allowedHosts: opts.allowedHosts
+    }
   );
-  const server = http.createServer((req, res) => {
-    handleRequest(req, res).then((handled) => {
-      if (!handled) {
-        res.statusCode = 404;
-        res.end("Not found");
-      }
-    }).catch((err) => {
-      console.error(`[adapter-node] "${opts.appName}"`, err);
-      if (!res.headersSent) res.statusCode = 500;
-      res.end("Internal Server Error");
-    });
-  });
+  const limits = resolveServerLimits(opts.serverLimits);
+  const server = http.createServer(
+    {
+      maxHeaderSize: limits.maxHeaderBytes,
+      // How often Node checks headersTimeout/requestTimeout (its default is every 30 s).
+      connectionsCheckingInterval: Math.min(1e3, limits.headersTimeoutMs)
+    },
+    (req, res) => {
+      handleRequest(req, res).then((handled) => {
+        if (!handled) {
+          res.statusCode = 404;
+          res.end("Not found");
+        }
+      }).catch((err) => {
+        console.error(`[adapter-node] "${opts.appName}"`, err);
+        if (!res.headersSent) res.statusCode = 500;
+        res.end("Internal Server Error");
+      });
+    }
+  );
+  server.headersTimeout = limits.headersTimeoutMs;
+  server.requestTimeout = limits.requestTimeoutMs;
+  server.keepAliveTimeout = limits.keepAliveTimeoutMs;
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
       console.error(`[adapter-node] "${opts.appName}": port ${opts.port} already in use`);
@@ -8411,7 +8583,11 @@ async function start(opts) {
       trustProxy: appConfig.trustProxy,
       head: appConfig.head,
       maxBodyBytes: appConfig.maxBodyBytes,
+      maxFormFields: appConfig.maxFormFields,
+      maxFormFiles: appConfig.maxFormFiles,
       cors: appConfig.cors,
+      serverLimits: appConfig.server,
+      allowedHosts: appConfig.allowedHosts,
       port: ports ? ports.get(app.name) : explicitPort ?? DEFAULT_BASE_PORT,
       host
     });

@@ -72,25 +72,86 @@ export class MalformedBodyError extends Error {
   }
 }
 
+/** Default limits on a form body's parts (app.config.ts `maxFormFields`/`maxFormFiles` change them). */
+export const MAX_FORM_FIELDS = 1000;
+export const MAX_FORM_FILES = 20;
+
+export interface FormLimits {
+  /** Fields that are not files. Default 1000. */
+  maxFields?: number;
+  /** File parts (multipart parts with a filename). Default 20. */
+  maxFiles?: number;
+}
+
+/** A form body with more fields or files than allowed: answered with a 413. */
+export class FormLimitError extends Error {
+  readonly status = 413;
+  constructor(what: "fields" | "files", limit: number) {
+    super(`Too many form ${what} (the limit is ${limit})`);
+    this.name = "FormLimitError";
+  }
+}
+
+/**
+ * Counts a multipart body's file and non-file parts from its part headers
+ * alone, before anything is parsed, so a body of thousands of tiny parts is
+ * refused without building thousands of objects. Stops counting as soon as a
+ * limit is passed.
+ */
+function checkMultipartParts(body: Buffer, contentType: string, maxFields: number, maxFiles: number): void {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  const value = boundary?.[1] ?? boundary?.[2]?.trim();
+  if (!value) return; // the parser reports the malformed body
+  const delimiter = Buffer.from(`--${value}`);
+  const headerEnd = Buffer.from("\r\n\r\n");
+  let fields = 0;
+  let files = 0;
+  let at = body.indexOf(delimiter);
+  while (at !== -1) {
+    const partStart = at + delimiter.length;
+    // "--" after the delimiter closes the body.
+    if (body[partStart] === 0x2d && body[partStart + 1] === 0x2d) break;
+    const headersEnd = body.indexOf(headerEnd, partStart);
+    if (headersEnd === -1) break;
+    const headers = body.subarray(partStart, headersEnd).toString("latin1");
+    if (/^content-disposition:[^\r\n]*;\s*filename\*?=/im.test(headers)) {
+      if (++files > maxFiles) throw new FormLimitError("files", maxFiles);
+    } else if (++fields > maxFields) {
+      throw new FormLimitError("fields", maxFields);
+    }
+    at = body.indexOf(delimiter, headersEnd);
+  }
+}
+
 /**
  * A page action's body as `FormData`: `multipart/form-data` (file uploads —
  * fields arrive as `File` objects) or URL-encoded. Multipart is parsed by
  * the platform's own `Response.formData()` (Node's fetch implementation), so
  * no dependency; the size cap was already applied while reading `body`.
  * Before this, every action body went through URLSearchParams, so a file
- * field arrived as null.
+ * field arrived as null. The number of fields and files is limited too
+ * (`limits`, default 1000 fields and 20 files): over it, a FormLimitError.
  */
-export async function parseFormBody(body: Buffer, contentType: string | undefined): Promise<FormData> {
+export async function parseFormBody(body: Buffer, contentType: string | undefined, limits: FormLimits = {}): Promise<FormData> {
+  const maxFields = limits.maxFields ?? MAX_FORM_FIELDS;
+  const maxFiles = limits.maxFiles ?? MAX_FORM_FILES;
   if (contentType && /^multipart\/form-data\b/i.test(contentType)) {
+    checkMultipartParts(body, contentType, maxFields, maxFiles);
     try {
       return await new Response(body as unknown as BodyInit, { headers: { "content-type": contentType } }).formData();
     } catch {
       throw new MalformedBodyError("malformed multipart/form-data body");
     }
   }
+  const text = body.toString("utf-8");
+  let pairs = text === "" ? 0 : 1;
+  for (let i = text.indexOf("&"); i !== -1; i = text.indexOf("&", i + 1)) {
+    if (++pairs > maxFields) throw new FormLimitError("fields", maxFields);
+  }
+  if (pairs > maxFields) throw new FormLimitError("fields", maxFields);
   const formData = new FormData();
   // .forEach(), not for-of — @types/node's URLSearchParams and the DOM
   // lib's disagree on its iterator typing when both are in scope.
-  new URLSearchParams(body.toString("utf-8")).forEach((value, key) => formData.append(key, value));
+  new URLSearchParams(text).forEach((value, key) => formData.append(key, value));
   return formData;
 }
