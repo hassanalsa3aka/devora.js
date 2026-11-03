@@ -25,13 +25,16 @@
   },
   "pnpm": {
     "overrides": {
-      "esbuild": "^0.28.2"
+      "esbuild": "^0.28.2",
+      "source-map-js": "^1.2.2"
     }
   },
   "overrides": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "source-map-js": "^1.2.2"
   },
   "resolutions": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "source-map-js": "^1.2.2"
   }
 }
