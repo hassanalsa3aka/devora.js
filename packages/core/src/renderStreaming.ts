@@ -190,6 +190,10 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
       pipeTo(destination, onError) {
         let shellSent = false;
         let destinationErrored = false;
+        // A boundary can fail before React has told us the shell is ready (an island whose import rejects
+        // at once, on a busy machine). Those errors used to be dropped; they are reported as "boundary"
+        // errors once the shell is sent, or discarded if the shell itself fails (reported once, as "shell").
+        const earlyBoundaryErrors: unknown[] = [];
         let passThrough: PassThrough | undefined;
 
         // See DEFAULT_STREAM_TIMEOUT_MS's doc comment. `.unref()` so this
@@ -231,6 +235,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
           nonce: request.nonce,
           onShellReady() {
             shellSent = true;
+            for (const error of earlyBoundaryErrors.splice(0)) onError?.(error, "boundary");
             // The shell has rendered, so PageShell/AppHeader usage is known (theme: "auto").
             destination.write(renderDocumentHead(meta, { appHead: request.head, styles, usedShell: shellUsage.used }));
 
@@ -273,6 +278,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
             });
           },
           onShellError(error) {
+            earlyBoundaryErrors.length = 0;
             clearTimeout(timeoutHandle);
             onError?.(error, "shell");
           },
@@ -282,6 +288,7 @@ export function createRenderStreaming(deps: RenderStreamingDeps) {
             // already been sent, so a shell failure is reported exactly
             // once, as "shell", not twice.
             if (shellSent) onError?.(error, "boundary");
+            else earlyBoundaryErrors.push(error);
           },
         });
       },

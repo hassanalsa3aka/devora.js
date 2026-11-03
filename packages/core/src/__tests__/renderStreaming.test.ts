@@ -495,3 +495,38 @@ describe("renderStreaming — loader errors and redirects (round 3 phase 3)", ()
     expect(redirecting).toMatchObject({ status: 302, redirectTo: "/login" });
   });
 });
+
+describe("a boundary error that arrives before the shell is ready", () => {
+  // React reports a failed Suspense boundary through onError; when that happens before onShellReady the
+  // framework used to drop it (the test above flaked on a busy machine because of this). Forced here
+  // with a stand-in for renderToPipeableStream that calls onError first.
+  const fakeDeps = (order: "boundary-then-ready" | "boundary-then-shell-error") => ({
+    createElement,
+    renderToPipeableStream: ((_element: unknown, options: { onError(e: unknown): void; onShellReady(): void; onShellError(e: unknown): void }) => {
+      const failure = new Error("boundary failed early");
+      options.onError(failure);
+      if (order === "boundary-then-ready") queueMicrotask(() => options.onShellReady());
+      else queueMicrotask(() => (options.onError(failure), options.onShellError(failure)));
+      return { pipe: (dest: PassThrough) => void dest.end("<p>x</p>"), abort: () => {} };
+    }) as unknown as typeof renderToPipeableStream,
+  });
+  const route: RouteModule = { renderMode: "streaming", default: () => null };
+
+  it("is reported once as a boundary error after the shell is sent", async () => {
+    const result = await createRenderStreaming(fakeDeps("boundary-then-ready"))(route, {});
+    const reports: Array<{ message: string; phase: string }> = [];
+    const { destination, done } = collectChunks();
+    result!.pipeTo(destination, (error, phase) => reports.push({ message: (error as Error).message, phase }));
+    await done;
+    expect(reports).toEqual([{ message: "boundary failed early", phase: "boundary" }]);
+  });
+
+  it("is not reported twice when the shell itself fails: once, as a shell error", async () => {
+    const result = await createRenderStreaming(fakeDeps("boundary-then-shell-error"))(route, {});
+    const reports: Array<{ phase: string }> = [];
+    const { destination } = collectChunks();
+    result!.pipeTo(destination, (_error, phase) => reports.push({ phase }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reports).toEqual([{ phase: "shell" }]);
+  });
+});

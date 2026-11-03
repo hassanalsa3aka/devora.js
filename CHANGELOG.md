@@ -12,7 +12,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Nothing yet.
+Not released yet: nothing below is on npm. No version has been chosen.
+
+### Other changes
+
+- A `renderMode: "streaming"` page whose Suspense boundary (an island whose import fails) errored before React reported the shell as ready no longer loses that error: it is reported to the `onError` callback (and so logged) as a boundary error once the shell is sent, and dropped only when the shell itself fails, which is reported once as a shell error. Found as a flaky test under load (about 1 run in 30 on a busy machine).
 
 ## 0.3.5 — 2026-10-16
 
