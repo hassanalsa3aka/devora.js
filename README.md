@@ -45,8 +45,9 @@ Honest version, so you can decide whether it fits:
   the [changelog](CHANGELOG.md)).
 - **Maintained by one person.** Tested by the maintainer; there are no outside production users
   yet.
-- **No third-party security audit yet.** Security is a default in the design (CSP, HSTS, CSRF,
-  revocable sessions), not a certification. See [SECURITY.md](SECURITY.md).
+- **No third-party security audit.** None has been done. Security is a default in the design (CSP, HSTS,
+  CSRF checks on cookie-authenticated writes from the next release, revocable sessions), not a
+  certification. See [SECURITY.md](SECURITY.md) and the [security model](docs/guides/SECURITY-MODEL.md).
 - **What was and wasn't verified** is written down in [VERIFICATION.md](docs/history/VERIFICATION.md): real
   servers and real requests in CI, platform deploys checked by hand.
 
@@ -220,7 +221,8 @@ What is open, partial or not verified lives in one place: [ROADMAP.md](ROADMAP.m
 and findings table). The short version: API handlers set headers as a plain object (several
 `Set-Cookie` headers and SSE are not supported), `ssg`/`isr` on a dynamic route need
 `getStaticParams()`, `isr` regeneration on a serverless filesystem is unverified, you bring your own
-database client, and 0.3.5 is not yet verified on a live deployment by this project.
+database client, rate limiting is opt-in per route and per process, and 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel; multi-app, sessions, API
+routes and Netlify are not) (nor are the next release's Vercel/Netlify header rules).
 
 ## Testing
 
@@ -255,6 +257,7 @@ please open an issue.
 - 🗺️ [Roadmap](ROADMAP.md) — what's done, in progress, and planned, with the detailed build log
 - 🚀 [Deploying](docs/guides/DEPLOYING.md) — Vercel, Netlify, Docker, container platforms, self-hosted VPS, CI
 - 📄 [Pages, forms and errors](docs/guides/PAGES.md) — request access, action results, uploads, the head API
+- 🛡️ [Security model](docs/guides/SECURITY-MODEL.md) — defaults, what you must do, what it does not do (next release)
 - 🔐 [Auth and sessions](packages/backend/AUTH.md) — session stores, cookies behind proxies, CSRF
 - ✅ [Testing & verification](docs/history/VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)

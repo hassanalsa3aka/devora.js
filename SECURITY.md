@@ -1,8 +1,11 @@
 # Security policy
 
-Security is one of Devora.js's defaults (CSP and other headers on every response, CSRF checks,
-server-side revocable sessions, no `eval` in framework code), so a hole in any of them is a bug
-we want to hear about first, privately.
+Security is one of Devora.js's defaults (CSP and other headers on the responses the app serves,
+CSRF checks, server-side revocable sessions, no `eval` in framework code), so a hole in any of them
+is a bug we want to hear about first, privately. Two limits on that sentence: files a CDN serves
+straight from disk on Vercel and Netlify never reach the app, so they get only some of the headers;
+and CSRF is checked for you on cookie-authenticated writes from the next release (in 0.3.5 a route
+has to call `ctx.verifyCsrf()`). See the [security model](docs/guides/SECURITY-MODEL.md).
 
 ## Supported versions
 

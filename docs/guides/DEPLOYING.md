@@ -11,7 +11,7 @@ untested.
 
 **What's verified for 0.3.5:** the Vercel and Netlify functions it generates were run outside this
 monorepo (real pages, login, CSRF, a CommonJS dependency), and the Docker image and `devora start`
-were run locally. 0.3.5 is **not yet verified on a live deployment by this project**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
+were run locally. 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel since 2026-10-16); **multi-app, sessions, API routes and Netlify are not yet verified live on it**. Open items are tracked in [ROADMAP.md](../../ROADMAP.md). Earlier
 releases were deployed live to both platforms by the maintainer.
 
 ## Environment variables and `.env` files
@@ -286,6 +286,13 @@ server `devora start` runs.
   `trustProxy: true` in each app's `app.config.ts` (the generated configs send
   `X-Forwarded-Proto`), or to `false` for a deployment that is deliberately plain HTTP. Details and
   every default: `packages/backend/AUTH.md`, "Cookies, CSRF and proxies in production".
+
+- *Next release:* `devora start` sets its own limits (headers within 15 s, the whole request within 60
+  s, idle keep-alive connections closed after 5 s, request headers up to 16 KB). Behind a load balancer,
+  set `server.keepAliveTimeoutMs` in `app.config.ts` above its idle timeout; for large uploads raise
+  `server.requestTimeoutMs`. List your hosts in `allowedHosts`, and rate-limit login paths in nginx or
+  your platform ([AUTH.md](../../packages/backend/AUTH.md#rate-limiting-logins)). All of it in the
+  [security model](SECURITY-MODEL.md).
 
 nginx's generated config is plain HTTP only (`listen 80`) — there's no way to issue a real TLS
 certificate without a real, DNS-resolving domain. The next step on a real VPS is

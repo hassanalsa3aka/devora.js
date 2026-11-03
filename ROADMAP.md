@@ -6,9 +6,11 @@ Status words in the tables: **Fixed** (a release, and a file, test or CHANGELOG 
 
 ## Now
 
+- **Review the security hardening** (findings H1 to H18, listed in the top section of [CHANGELOG.md](CHANGELOG.md)): it is merged but not released, no version is chosen, and four changes need a code change in some apps (`redirect()` to another origin, CSRF on cookie writes, `Cache-Control` on session responses, vite 6.4.4). It has not been run on a live Vercel or Netlify deployment. Read the [security model](docs/guides/SECURITY-MODEL.md) first.
+- Switch on GitHub's private vulnerability reporting for the repository (SECURITY.md names it as the preferred channel).
 - Outside testers: [TESTING.md](TESTING.md) is a 15-minute guide; what they hit goes into the findings table below.
 - Deploy the docs site with the 0.3.5 numbers (measured on the published 0.3.5 packages) and the release post.
-- Verify 0.3.5 on a live Vercel and Netlify deployment (finding N1).
+- Verify 0.3.5 on a live multi-app Vercel and Netlify deployment with sessions and API routes (finding N1; the documentation site already runs on Vercel with 0.3.5).
 
 ## Next
 
@@ -16,7 +18,7 @@ Open findings, in a **proposed** order by impact. The order is a proposal for th
 
 | Order | Finding | Why it ranks here |
 |-------|---------|-------------------|
-| 1 | N1: 0.3.5 not verified on a live deployment | Every deploy claim depends on it |
+| 1 | N1: 0.3.5 verified live only for the documentation site (Vercel, pre-rendered); not for multi-app, sessions, API routes or Netlify | Every deploy claim depends on it |
 | 2 | B5: several `Set-Cookie` headers and SSE from API routes | A real capability gap testers hit |
 | 3 | O4: the scaffold writes `@devorajs/backend` into new projects | Name could collide with a future real package; harder to change later |
 | 4 | U13, U14: an official session-store pattern or package; a built-in health route | Every production app needs both |
@@ -131,8 +133,8 @@ Unpacked, that requires five things to all be true at once:
    `clientOnly()` itself now verified with a real negative control, not just islands as an analog.
 4. Each app deploys independently to at least one real target — done: `adapter-node`, Vercel, and
    Netlify were all deployed live by the maintainer with releases before 0.3.2, via both git
-   integration and `devora deploy`. 0.3.5 is not yet verified on a live deployment by this project (its generated
-   functions were run outside the monorepo). See [#4](docs/history/BUILD-LOG.md#4-adapters-real-build-output-not-just-config---done-including-real-live-vercel-and-netlify-deployments) and [#13](docs/history/BUILD-LOG.md#13-multi-app-aware-vercelnetlify---done-including-a-real-authenticated-deploy-on-both-platforms).
+   integration and `devora deploy`. 0.3.5 is verified live only for the documentation site, a single pre-rendered app on Vercel (its generated
+   functions, sessions and the multi-app demos were run outside the monorepo only). See [#4](docs/history/BUILD-LOG.md#4-adapters-real-build-output-not-just-config---done-including-real-live-vercel-and-netlify-deployments) and [#13](docs/history/BUILD-LOG.md#13-multi-app-aware-vercelnetlify---done-including-a-real-authenticated-deploy-on-both-platforms).
 5. SEO primitives work — done (#7): OG tags + per-app opt-in sitemap.xml, both verified.
 
 All five are now unconditionally true. What's left is narrower: `isr`'s regeneration reliability
@@ -216,11 +218,11 @@ Only the maintainer can deploy live; none of this was run from the development e
 - **Docker**: real `docker build`/`run`/`compose up`, login/CSRF/tampered-cookie regression inside the container, all three apps concurrently ([#14](docs/history/BUILD-LOG.md#14-three-more-environments-tried-for-real--docker-a-bare-vps-nginxcaddy-ci---done)). Not verified: container platforms (Cloud Run, App Runner/Fargate, Azure Container Apps).
 - **VPS**: `devora generate:proxy` verified against a real local nginx and `caddy validate`; one shared port scheme. The `deploy/devora.service` systemd template is untested on a host.
 - **CI**: `.github/workflows/ci.yml` builds every app under npm, Yarn and pnpm, both adapter targets, and typechecks fresh scaffolds.
-- **0.3.5 live**: not yet verified on a live deployment by this project. The Vercel runtime hardcoded `nodejs20.x` before 0.3.2, so a new deploy of the older releases fails; 0.3.5's generated functions were run outside the monorepo only.
+- **0.3.5 live**: the documentation site (one app, every page pre-rendered, no session store or API route) runs on Vercel with the published 0.3.5 packages since 2026-10-16 (Production deployment, state success, built from the npm packages). The generated functions, sessions, the multi-app demos and Netlify are not verified live on 0.3.5. The Vercel runtime hardcoded `nodejs20.x` before 0.3.2, so a new deploy of the older releases fails; 0.3.5's generated functions were run outside the monorepo only.
 
 ## Findings
 
-106 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 71, Partly fixed 6, Open 24, Unconfirmed 4, N/A 1.
+106 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 71, Partly fixed 7, Open 23, Unconfirmed 4, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
@@ -292,7 +294,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 | O3 | deployment page session-store step | Fixed | - | Section id='session-store' exists in the docs site deployment route | r3 also open |
 | O4 | Scaffold names the project backend @devorajs/backend (collides with a future real @devorajs/* package) | Open | - | packages/scaffold/src/scaffoldAppFiles.ts:153 writes '@devorajs/backend' into new projects. | r3 also open |
 | O5 | signSession / verifySession still exported (deprecated) | Open | - | packages/core/src/session.ts:177 and :184, marked @deprecated, not removed. | r3 also open |
-| N1 | A live Vercel or Netlify deployment of the current release is not verified | Open | - | Generated functions were run outside the monorepo; live deployments exist only for releases before 0.3.2 (docs/guides/DEPLOYING.md, VERIFICATION.md). Still 0.3.4 unverified live. | VERIFICATION not verified |
+| N1 | A live Vercel or Netlify deployment of the current release is not verified | Partly fixed | - | The documentation site (one app, every page pre-rendered, no session store or API route) runs on Vercel with the published 0.3.5 packages since 2026-10-16. Generated functions were run outside the monorepo; live multi-app, session and API deployments exist only for releases before 0.3.2 (docs/guides/DEPLOYING.md, VERIFICATION.md), and Netlify has none on 0.3.5. | VERIFICATION not verified |
 | N2 | Container platforms (Cloud Run, App Runner/Fargate, Azure Container Apps, Oracle) | Open | - | Docker image run locally only. | VERIFICATION not verified |
 | N3 | isr regeneration on Vercel/Netlify | Open | - | Fully verified under adapter-node; not exercised on a serverless filesystem. | VERIFICATION not verified |
 | N4 | deploy/devora.service (systemd) against a real host | Open | - | Template only. | VERIFICATION not verified |
