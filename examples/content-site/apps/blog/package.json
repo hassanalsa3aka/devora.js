@@ -7,7 +7,7 @@
     "@devorajs/core": "^0.3.2",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "vite": "^5.4.0 || ^6.0.0",
     "@devorajs/cli": "^0.3.2"
   }
