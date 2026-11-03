@@ -12,7 +12,11 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
-Nothing yet.
+Not released yet: nothing below is on npm. No version has been chosen.
+
+### Other changes
+
+- Security process: `SECURITY.md` names GitHub private vulnerability reporting as the preferred channel (Discord as the alternative); CI has a dependency-audit job that fails on high or critical severity, uses read-only workflow permissions, and every GitHub Action is pinned to a commit SHA; `.github/dependabot.yml` opens weekly update pull requests for the workspace, the examples, the Actions and the Dockerfile; `node scripts/checkPackContents.mjs` (also a CI step) lists what `npm pack` would publish for each package and fails on unexpected files. No code that runs in an app changed.
 
 ## 0.3.5 — 2026-10-16
 

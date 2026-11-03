@@ -18,9 +18,14 @@ Devora.js is pre-1.0. Fixes go into the latest release only.
 
 Please **don't open a public issue** for a security problem.
 
-Send a direct message to the maintainer on [Discord](https://discord.gg/wYFYmFxdS8) saying you
-have a security report, and share the details only in that private conversation, never in a
-public channel.
+**Preferred:** use GitHub's private vulnerability reporting. Open the
+[Security tab of the repository](https://github.com/hassanalsa3aka/devora.js/security) and choose
+**Report a vulnerability**. The report is visible only to the maintainer, and GitHub keeps the
+conversation and a draft advisory with it.
+
+**Alternative:** if you can't use GitHub, send a direct message to the maintainer on
+[Discord](https://discord.gg/wYFYmFxdS8) saying you have a security report, and share the details
+only in that private conversation, never in a public channel.
 
 Include the affected package and version, what an attacker can do, and the smallest project or
 request that shows it. Devora.js is maintained by one person, so expect a first reply within a

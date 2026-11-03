@@ -90,6 +90,9 @@ versions must point at `dist/`. Publish one package at a time:
    empty or an `exports`/`main`/`types`/`bin` target does not exist; `pnpm pack` in the package
    folder must list `dist/` files. (`publish-package.mjs` and `preparePublish.mjs` run the same
    check, plus one against `npm pack --dry-run`, before they publish.)
+   `node scripts/checkPackContents.mjs` checks every published package's tarball list in one go (CI runs
+   it too): it fails on a secret, test, source file or config that should not ship, a file outside
+   `files`, or a `dist/` that does not match `src/`. Run it after building, before publishing.
 4. Publish with `pnpm publish --access public --no-git-checks` from the package folder: pnpm
    applies `publishConfig` (`exports`/`main`/`types` → `dist/`); plain `npm publish` ignores it.
    The CLI's `prepare` script must not reach consumers: `node scripts/preparePublish.mjs
