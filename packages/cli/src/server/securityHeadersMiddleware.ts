@@ -1,4 +1,4 @@
-import type { Connect } from "vite";
+import type { Connect, Plugin } from "vite";
 import { isSvgPath, resolveSecurityHeaders, SVG_CSP, type AppRuntimeConfig } from "@devorajs/core";
 
 /**
@@ -15,6 +15,27 @@ import { isSvgPath, resolveSecurityHeaders, SVG_CSP, type AppRuntimeConfig } fro
  * response goes through Devora.js code, not Vite's own handler, and this
  * gap disappears on its own.
  */
+/**
+ * `.svg` files in dev. Vite serves public files from its own middleware, which runs before
+ * anything registered with `server.middlewares.use()` afterwards, so the page headers above never
+ * reach them. This plugin registers earlier (like the API middleware plugin) and gives an SVG the
+ * same sandboxing policy and `nosniff` that `devora start` sends (staticFiles.ts).
+ */
+export function createSvgHeadersPlugin(): Plugin {
+  return {
+    name: "devora-svg-headers",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && isSvgPath(req.url)) {
+          res.setHeader("Content-Security-Policy", SVG_CSP);
+          res.setHeader("X-Content-Type-Options", "nosniff");
+        }
+        next();
+      });
+    },
+  };
+}
+
 export function createSecurityHeadersMiddleware(
   security: AppRuntimeConfig["security"]
 ): Connect.NextHandleFunction {

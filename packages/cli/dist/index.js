@@ -5978,6 +5978,20 @@ function sendApiResponse2(res, result, noStore = false) {
 }
 
 // src/server/securityHeadersMiddleware.ts
+function createSvgHeadersPlugin() {
+  return {
+    name: "devora-svg-headers",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && isSvgPath(req.url)) {
+          res.setHeader("Content-Security-Policy", SVG_CSP);
+          res.setHeader("X-Content-Type-Options", "nosniff");
+        }
+        next();
+      });
+    }
+  };
+}
 function createSecurityHeadersMiddleware(security) {
   const headers = resolveSecurityHeaders(security);
   return function securityHeadersMiddleware(req, res, next) {
@@ -6976,6 +6990,8 @@ async function createAppDevServer(opts) {
     // not a post-hoc server.middlewares.use() call, for exactly that
     // reason.
     plugins: [
+      // First, so it runs before Vite's own static-file handling (which serves public/ .svg files).
+      createSvgHeadersPlugin(),
       islandsPlugin(),
       moduleDisposePlugin(),
       reactRefreshPreamblePlugin(),
