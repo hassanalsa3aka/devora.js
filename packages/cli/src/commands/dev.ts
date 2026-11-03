@@ -25,7 +25,8 @@ import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
 import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 import { isDevoraError } from "../build/devoraError.js";
-import { loadProjectEnv } from "../build/loadEnvFiles.js";
+import { loadProjectEnv, unloadProjectEnv } from "../build/loadEnvFiles.js";
+import { watchDevChanges, type DevWatcher, type DevWatchTargets } from "../server/devRestart.js";
 import { formatBootSummary, type BootSummaryApp } from "../terminal/bootSummary.js";
 import { formatDuration, isQuiet, plural, printHeader, stdoutPaint, viteLogLevel } from "../terminal/output.js";
 import {
@@ -183,16 +184,27 @@ interface BootedApp {
   server: ViteDevServer;
 }
 
-export async function dev(opts: { app?: string; host?: boolean; routes?: boolean }) {
-  const root = process.cwd();
+export interface DevSession {
+  booted: BootedApp[];
+  /** What to watch for this session's config (see devRestart.ts). */
+  targets: DevWatchTargets;
+  close(): Promise<void>;
+}
+
+/**
+ * Reads `.env` and the config files and boots every app's dev server. Throws
+ * instead of exiting, so a restart that fails (a syntax error in
+ * app.config.ts) can report it and keep watching; servers already booted
+ * when a later one fails are closed first.
+ */
+export async function startDevSession(root: string, opts: { app?: string; host?: boolean }): Promise<DevSession> {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 
   if (opts.app && apps.length === 0) {
-    console.error(`[devora] no app named "${opts.app}" in devora.config.ts`);
-    process.exit(1);
+    throw new Error(`[devora] no app named "${opts.app}" in devora.config.ts`);
   }
 
   // Each app gets its own Vite dev server on its own port: `devPort` if
@@ -202,28 +214,33 @@ export async function dev(opts: { app?: string; host?: boolean; routes?: boolean
   // Vite handles its own default port.
   const claimed = new Set<number>();
   const booted: BootedApp[] = [];
-  for (const app of apps) {
-    const authMode = resolveAuthMode(project, app.name);
-    const appRoot = resolveAppDir(root, app.dir);
-    const appConfig = await loadAppConfig(appRoot);
-    if (authMode === "none") {
-      assertNoAuthUsage(app.name, [
-        ...listRouteFiles(path.join(appRoot, "routes")),
-        ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir)),
-      ]);
-    }
+  const targets: DevWatchTargets = { projectRoot: root, appRoots: [], routeDirs: [], prismaDirs: [] };
+  const close = async () => {
+    await Promise.all(booted.splice(0).map((b) => b.server.close().catch(() => {})));
+  };
+  try {
+    for (const app of apps) {
+      const authMode = resolveAuthMode(project, app.name);
+      const appRoot = resolveAppDir(root, app.dir);
+      const appConfig = await loadAppConfig(appRoot);
+      targets.appRoots.push(appRoot);
+      targets.routeDirs.push(path.join(appRoot, "routes"), resolveApiDir(appRoot, appConfig.apiDir));
+      if (authMode === "none") {
+        assertNoAuthUsage(app.name, [
+          ...listRouteFiles(path.join(appRoot, "routes")),
+          ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir)),
+        ]);
+      }
 
-    const preferred = app.devPort ?? DEV_BASE_PORT + project.apps.indexOf(app);
-    const port = await findFreePort(preferred, claimed, opts.host ? undefined : "localhost");
-    if (port !== preferred) {
-      const reason = claimed.has(preferred) ? "was assigned to an earlier app" : "is in use";
-      console.log(`[devora] port ${preferred} ${reason} — "${app.name}" moved to ${port}`);
-    }
-    claimed.add(port);
+      const preferred = app.devPort ?? DEV_BASE_PORT + project.apps.indexOf(app);
+      const port = await findFreePort(preferred, claimed, opts.host ? undefined : "localhost");
+      if (port !== preferred) {
+        const reason = claimed.has(preferred) ? "was assigned to an earlier app" : "is in use";
+        console.log(`[devora] port ${preferred} ${reason} — "${app.name}" moved to ${port}`);
+      }
+      claimed.add(port);
 
-    let server: ViteDevServer;
-    try {
-      server = await createAppDevServer({
+      const server = await createAppDevServer({
         projectRoot: root,
         app,
         appRoot,
@@ -233,17 +250,93 @@ export async function dev(opts: { app?: string; host?: boolean; routes?: boolean
         port,
         host: opts.host,
       });
-    } catch (err) {
-      // A config validation error (e.g. a cookie setting browsers would
-      // reject) reads better as one line than as a stack trace.
-      if (!isDevoraError(err)) throw err;
-      console.error((err as Error).message);
-      process.exit(1);
+      booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
     }
-    booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
+  } catch (err) {
+    await close();
+    throw err;
   }
+  targets.prismaDirs.push(...[path.join(root, "prisma"), path.join(root, "packages", "backend", "prisma")]);
+  return { booted, targets, close };
+}
 
-  printBootSummary(booted, opts.routes === true || process.env.DEVORA_ROUTES === "all");
+/** An error meant for the user as-is: printed as one line, not a stack trace. */
+function printStartupError(err: unknown): void {
+  console.error(isDevoraError(err) ? (err as Error).message : err);
+}
+
+export async function dev(opts: { app?: string; host?: boolean; routes?: boolean }) {
+  const root = process.cwd();
+  const expandRoutes = opts.routes === true || process.env.DEVORA_ROUTES === "all";
+
+  let session: DevSession;
+  try {
+    session = await startDevSession(root, opts);
+  } catch (err) {
+    // A config validation error (e.g. a cookie setting browsers would
+    // reject) reads better as one line than as a stack trace.
+    if (!isDevoraError(err)) throw err;
+    printStartupError(err);
+    process.exit(1);
+  }
+  printBootSummary(session.booted, expandRoutes);
+  watchAndRestart(root, opts, session, expandRoutes);
+}
+
+/**
+ * Restarts the dev servers when a file `devRestart.ts` names changes, prints
+ * a message when a restart cannot help (Prisma), and keeps watching after a
+ * failed restart so fixing the file and saving tries again.
+ */
+function watchAndRestart(root: string, opts: { app?: string; host?: boolean }, first: DevSession, expandRoutes: boolean): void {
+  let session: DevSession | undefined = first;
+  let targets = first.targets;
+  let restarting = false;
+  let again = false;
+  let watcher: DevWatcher;
+
+  const onChange = async (changes: { restart: string[]; notices: string[] }) => {
+    for (const message of changes.notices) console.log(`[devora] ${message}`);
+    if (changes.restart.length === 0) return;
+    if (restarting) {
+      again = true;
+      return;
+    }
+    restarting = true;
+    try {
+      do {
+        again = false;
+        console.log(`[devora] ${changes.restart.join(", ")}: restarting…`);
+        const startedAt = performance.now();
+        // The old watcher stays on while the servers restart: a change made during the restart
+        // (an editor writes a file in two steps) sets `again` and restarts once more.
+        await session?.close();
+        session = undefined;
+        unloadProjectEnv();
+        try {
+          session = await startDevSession(root, opts);
+          targets = session.targets;
+          printBootSummary(session.booted, expandRoutes, startedAt);
+        } catch (err) {
+          printStartupError(err);
+          console.error("[devora] restart failed; fix the file and save it, and devora will try again.");
+        }
+        const next = watchDevChanges(targets, onChange);
+        watcher.close();
+        watcher = next;
+      } while (again);
+    } finally {
+      restarting = false;
+    }
+  };
+  watcher = watchDevChanges(targets, onChange);
+
+  const shutdown = () => {
+    watcher.close();
+    void session?.close().finally(() => process.exit(0));
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 }
 
 /**
@@ -256,7 +349,7 @@ export async function dev(opts: { app?: string; host?: boolean; routes?: boolean
  * not by whether --host was passed — an app whose own vite.config.ts sets
  * `server.host` gets the same warning.
  */
-function printBootSummary(booted: BootedApp[], expandRoutes: boolean): void {
+function printBootSummary(booted: BootedApp[], expandRoutes: boolean, since = 0): void {
   const lanAddresses = getLanAddresses();
   const exposedUrls: string[] = [];
   const apps: BootSummaryApp[] = [];
@@ -292,7 +385,7 @@ function printBootSummary(booted: BootedApp[], expandRoutes: boolean): void {
   }
 
   // performance.now() counts from process start, like Vite's "ready in".
-  printHeader(`dev · ${plural(apps.length, "app")} · ready in ${formatDuration(performance.now())}`);
+  printHeader(`dev · ${plural(apps.length, "app")} · ready in ${formatDuration(performance.now() - since)}`);
   console.log(formatBootSummary(apps, { paint: stdoutPaint(), expandRoutes, quiet: isQuiet(), exposedUrl: exposedUrls[0] }));
 }
 
