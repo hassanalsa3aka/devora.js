@@ -17,7 +17,25 @@ on:
   pull_request:
     branches: [main]
 
+# The token every job gets can only read the repository.
+permissions:
+  contents: read
+
 jobs:
+  # Dependency audit: fails on a known vulnerability of high or critical severity in anything the lockfile
+  # installs (dev tools included). pnpm 9.15 is used here because the audit endpoint older pnpm releases call
+  # has been retired. When it fails, upgrade the package; if the advisory does not apply, say why in a
+  # `pnpm.auditConfig.ignoreGhsas` entry in package.json rather than turning this job off.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 9.15.9
+      - name: Audit dependencies (fails on high or critical)
+        run: pnpm audit --audit-level high
+
   build:
     strategy:
       fail-fast: false
@@ -25,7 +43,7 @@ jobs:
         package-manager: [pnpm, npm, yarn]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # pnpm is installed directly (not via corepack) for the pnpm leg of
       # the matrix. Root package.json deliberately has no "packageManager"
@@ -37,12 +55,12 @@ jobs:
       # sidesteps corepack entirely for this leg, so it can't regress the
       # yarn fix. Version pinned to 9.9.0 to match this repo's actual
       # development version (see pnpm-lock.yaml).
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         if: matrix.package-manager == 'pnpm'
         with:
           version: 9.9.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           # No cache: key — this repo has no single lockfile all three
@@ -97,6 +115,15 @@ jobs:
         if: matrix.package-manager == 'pnpm'
         run: pnpm run check:docs
 
+      # What `npm pack` would publish, for every published package: fails on a file that should not be in a
+      # tarball (secrets, tests, source, configs, leftovers), a file outside the package's `files`, or a
+      # dist/ that does not match src/. Needs the packages built first.
+      - name: Check the contents of every package tarball
+        if: matrix.package-manager == 'pnpm'
+        run: |
+          pnpm --filter @devorajs/core --filter @devorajs/adapter-node --filter @devorajs/adapter-vercel --filter @devorajs/adapter-netlify --filter create-devora run build
+          node scripts/checkPackContents.mjs
+
       # Fresh create-devora projects (full-stack and backend-only), installed
       # from the packed tarballs and typechecked with their own `typecheck`
       # script — tests the published .d.ts files the way a user gets them.
@@ -147,8 +174,8 @@ jobs:
       run:
         working-directory: examples/${{ matrix.example }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - run: npm ci
