@@ -126,11 +126,16 @@ describe("Secure", () => {
     const base = await serve({ store: "memory", cookie: { secure: false } });
     const res = await login(base);
     const session = cookieNamed(res, "devora_session")!;
+    const csrf = cookieNamed(res, "devora_csrf")!.split(";")[0]!;
     expect(session).not.toMatch(/Secure/);
-    // Same request again with the cookie: an authenticated request gets no new session cookie.
+    // Same request again with the cookie: it is cookie-authenticated, so the default CSRF check
+    // applies — without the token a 403, with it a 200.
+    const cookie = `${session.split(";")[0]!}; ${csrf}`;
+    const noToken = await fetch(`${base}/api/login`, { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: "{}" });
+    expect(noToken.status).toBe(403);
     const again = await fetch(`${base}/api/login`, {
       method: "POST",
-      headers: { Cookie: session.split(";")[0]!, "Content-Type": "application/json" },
+      headers: { Cookie: cookie, "Content-Type": "application/json", "x-devora-csrf": csrf.split("=")[1]! },
       body: "{}",
     });
     expect(again.status).toBe(200);
@@ -178,6 +183,20 @@ describe("security.noindex", () => {
     expect((await fetch(`${base}/api/missing`)).headers.get("x-robots-tag")).toBe("noindex");
     const plain = await serve({ store: "memory" });
     expect((await login(plain)).headers.get("x-robots-tag")).toBeNull();
+  });
+});
+
+describe("X-Content-Type-Options", () => {
+  it("nosniff on every response: an API route, an API 404 and a CORS preflight", async () => {
+    const base = await serve({ store: "memory" }, { cors: { origins: ["https://app.example.com"] } });
+    expect((await login(base)).headers.get("x-content-type-options")).toBe("nosniff");
+    expect((await fetch(`${base}/api/missing`)).headers.get("x-content-type-options")).toBe("nosniff");
+    const preflight = await fetch(`${base}/api/login`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://app.example.com", "Access-Control-Request-Method": "POST" },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });
 

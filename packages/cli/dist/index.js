@@ -3860,6 +3860,7 @@ var import_react = __toESM(require_react(), 1);
 import { randomBytes, timingSafeEqual } from "node:crypto";
 var CSRF_COOKIE_NAME = "devora_csrf";
 var CSRF_FORM_FIELD = "_csrf";
+var CSRF_HEADER_NAME = "x-devora-csrf";
 function generateCsrfToken() {
   return randomBytes(32).toString("base64url");
 }
@@ -3869,6 +3870,13 @@ function verifyCsrfToken(cookieValue, formValue) {
   const formBuf = Buffer.from(formValue);
   if (cookieBuf.length !== formBuf.length) return false;
   return timingSafeEqual(cookieBuf, formBuf);
+}
+var CSRF_CHECKED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+function verifyCsrfByDefault(options) {
+  if (!options.cookieAuthenticated || options.optedOut || !CSRF_CHECKED_METHODS.has(options.method.toUpperCase())) return;
+  const fromForm = options.formData?.get(CSRF_FORM_FIELD);
+  const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
+  options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
 }
 
 // ../core/src/httpError.ts
@@ -4089,6 +4097,24 @@ async function resolveSession(request, opts, now = Date.now()) {
   }
   return { presentedTransport, state, sessionId, record, renewed: false };
 }
+var warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
+var MAX_WARNED_PATHS = 1e3;
+function warnIfSessionReadWithoutAuth(context, urlOrPath) {
+  if (process.env.NODE_ENV === "production") return;
+  const { sessionRead, requireAuthCalled } = context.authUsage();
+  if (!sessionRead || requireAuthCalled) return;
+  let pathname = urlOrPath ?? "(unknown path)";
+  try {
+    pathname = new URL(pathname, "http://localhost").pathname;
+  } catch {
+  }
+  if (warnedSessionWithoutAuth.has(pathname) || warnedSessionWithoutAuth.size >= MAX_WARNED_PATHS) return;
+  warnedSessionWithoutAuth.add(pathname);
+  console.warn(
+    `[devora] ${pathname} read ctx.session but never called ctx.requireAuth(). If this route is for signed-in users only, call ctx.requireAuth() first (a 401 when there is no session); if it also serves signed-out visitors, check ctx.session for undefined before using it. (Shown once per path, in dev only.)`
+  );
+}
+var PRIVATE_NO_STORE = "private, no-store";
 async function createRequestContext(request, opts, params = {}, meta) {
   const fields = requestContextFields(meta);
   const cookies = parseCookieHeader(request.cookieHeader);
@@ -4133,6 +4159,8 @@ async function createRequestContext(request, opts, params = {}, meta) {
     transport = void 0;
     return track(() => opts.store.delete(key));
   };
+  let sessionRead = false;
+  let requireAuthCalled = false;
   const split2 = splitRouteParams(params);
   const ctx = {
     params: split2.params,
@@ -4149,12 +4177,14 @@ async function createRequestContext(request, opts, params = {}, meta) {
       return fields.request;
     },
     get session() {
+      sessionRead = true;
       return currentRecord?.data;
     },
     get sessionTransport() {
       return transport;
     },
     requireAuth: () => {
+      requireAuthCalled = true;
       if (currentRecord === void 0) {
         throw new HttpError(401, "Authentication required");
       }
@@ -4199,6 +4229,9 @@ async function createRequestContext(request, opts, params = {}, meta) {
     ctx,
     csrfToken,
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
+    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
+    authUsage: () => ({ sessionRead, requireAuthCalled }),
+    touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
     settle: async () => {
       for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
     }
@@ -4245,7 +4278,7 @@ function createNoAuthContext(params = {}, meta) {
     }
   };
   return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
-  } };
+  }, touchesSessionCookie: () => false, cookieAuthenticated: false, authUsage: () => ({ sessionRead: false, requireAuthCalled: false }) };
 }
 
 // ../core/src/sessionConfig.ts
@@ -4433,6 +4466,12 @@ import { randomBytes as randomBytes3 } from "node:crypto";
 var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
 var DEFAULT_FRAME_OPTIONS = "DENY";
 var DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
+var NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" };
+var SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+function isSvgPath(pathname) {
+  const q = pathname.indexOf("?");
+  return /\.svg$/i.test(q === -1 ? pathname : pathname.slice(0, q));
+}
 function generateNonce() {
   return randomBytes3(16).toString("base64");
 }
@@ -4461,7 +4500,8 @@ function resolveSecurityHeaders(security, streamingNonce) {
   const baseCsp = security?.csp ?? DEFAULT_CSP;
   const headers = {
     "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
-    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS
+    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS,
+    [NOSNIFF_HEADER.name]: NOSNIFF_HEADER.value
   };
   if (security?.hsts !== false) {
     headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
@@ -4501,7 +4541,7 @@ ${urls}
 import path3 from "node:path";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat as statAsync } from "node:fs/promises";
+import { readFile, realpath, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 var CONTENT_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -4650,6 +4690,15 @@ var HTML_CACHE = "public, max-age=0, must-revalidate";
 function createStaticFileServer(rootDir, budget = new ByteBudget()) {
   const root = path3.resolve(rootDir);
   const metas = /* @__PURE__ */ new Map();
+  let realRoot;
+  async function realPathInsideRoot(filePath) {
+    try {
+      realRoot ??= await realpath(root);
+      return (await realpath(filePath)).startsWith(realRoot + path3.sep);
+    } catch {
+      return false;
+    }
+  }
   function resolveInside(pathname) {
     let decoded;
     try {
@@ -4667,7 +4716,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
     if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
     metas.delete(filePath);
   }
-  async function lookup(filePath, type, cacheControl) {
+  async function lookup(filePath, type, cacheControl, confined = false) {
     let meta = metas.get(filePath);
     const now = Date.now();
     if (meta && now - meta.checkedAt > REVALIDATE_MS) {
@@ -4675,6 +4724,10 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
       try {
         stat2 = await statAsync(filePath);
       } catch {
+        forget(filePath);
+        return void 0;
+      }
+      if (confined && !await realPathInsideRoot(filePath)) {
         forget(filePath);
         return void 0;
       }
@@ -4693,6 +4746,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
       return void 0;
     }
     if (!stat.isFile()) return void 0;
+    if (confined && !await realPathInsideRoot(filePath)) return void 0;
     meta = {
       file: filePath,
       size: stat.size,
@@ -4711,9 +4765,10 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
     metas.set(filePath, meta);
     return meta;
   }
-  async function serveFile(req, res, filePath, type, cacheControl) {
-    const meta = await lookup(filePath, type, cacheControl);
+  async function serveFile(req, res, filePath, type, cacheControl, confined = false) {
+    const meta = await lookup(filePath, type, cacheControl, confined);
     if (!meta) return false;
+    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;
       res.setHeader("Allow", "GET, HEAD");
@@ -4756,7 +4811,7 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
   const serve = async (req, res, pathname, immutable) => {
     const filePath = resolveInside(pathname);
     if (!filePath) return false;
-    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE);
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE, true);
   };
   return { serve, serveFile, budget };
 }
@@ -4788,6 +4843,61 @@ import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:f
 var import_react3 = __toESM(require_react(), 1);
 var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 var ShellUsageContext = (0, import_react3.createContext)(null);
+
+// ../core/src/rateLimit.ts
+var RATE_LIMIT_MAX_KEYS = 1e4;
+var LIMITED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var RateLimitError = class extends HttpError {
+  constructor(retryAfterSeconds) {
+    super(429, "Too many requests, try again later");
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.name = "RateLimitError";
+  }
+  retryAfterSeconds;
+};
+var FixedWindowRateLimiter = class {
+  constructor(config, maxKeys = RATE_LIMIT_MAX_KEYS) {
+    this.config = config;
+    this.maxKeys = maxKeys;
+    if (!Number.isInteger(config.max) || config.max < 1 || !Number.isInteger(config.windowSeconds) || config.windowSeconds < 1) {
+      throw new Error(
+        `[devora] rateLimit needs whole numbers above zero: { max, windowSeconds } (got ${JSON.stringify(config)})`
+      );
+    }
+    this.windowMs = config.windowSeconds * 1e3;
+  }
+  config;
+  maxKeys;
+  windows = /* @__PURE__ */ new Map();
+  windowMs;
+  /** Counts one request for `key`; seconds to wait when it is over the limit, else undefined. */
+  hit(key, now = Date.now()) {
+    let window2 = this.windows.get(key);
+    if (!window2 || window2.resetAt <= now) {
+      if (window2) this.windows.delete(key);
+      else if (this.windows.size >= this.maxKeys) this.makeRoom(now);
+      window2 = { count: 0, resetAt: now + this.windowMs };
+      this.windows.set(key, window2);
+    }
+    window2.count++;
+    return window2.count > this.config.max ? Math.max(1, Math.ceil((window2.resetAt - now) / 1e3)) : void 0;
+  }
+  get size() {
+    return this.windows.size;
+  }
+  makeRoom(now) {
+    for (const [key, window2] of this.windows) if (window2.resetAt <= now) this.windows.delete(key);
+    while (this.windows.size >= this.maxKeys) this.windows.delete(this.windows.keys().next().value);
+  }
+};
+var limiters = /* @__PURE__ */ new WeakMap();
+function enforceRateLimit(config, method, ip) {
+  if (!config || !LIMITED_METHODS.has(method.toUpperCase())) return;
+  let limiter = limiters.get(config);
+  if (!limiter) limiters.set(config, limiter = new FixedWindowRateLimiter(config));
+  const retryAfter = limiter.hit(ip ?? "unknown");
+  if (retryAfter !== void 0) throw new RateLimitError(retryAfter);
+}
 
 // ../core/src/renderRoute.ts
 function resolveRenderMode(routeModule, appDefault) {
@@ -4881,8 +4991,11 @@ async function dispatchApiRoute(routeModule, request) {
     body: request.body
   };
   let getSetCookie = () => void 0;
+  let touchesSessionCookie = () => false;
+  let authUsage;
   let result;
   try {
+    enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
     const context = request.sessionCookieOptions ? await createRequestContext(
       { cookieHeader: request.cookieHeader, authorizationHeader: request.headers.authorization },
       request.sessionCookieOptions,
@@ -4890,12 +5003,23 @@ async function dispatchApiRoute(routeModule, request) {
       request.meta
     ) : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
+    touchesSessionCookie = context.touchesSessionCookie;
+    authUsage = context;
+    verifyCsrfByDefault({
+      method: request.method,
+      cookieAuthenticated: context.cookieAuthenticated,
+      optedOut: routeModule.csrf === false,
+      verifyCsrf: context.ctx.verifyCsrf,
+      headerToken: request.headers[CSRF_HEADER_NAME]
+    });
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
+    if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
-  return { ...result, setCookie: getSetCookie() };
+  if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.url);
+  return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
 
 // ../core/src/readBody.ts
@@ -5216,7 +5340,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
           res.setHeader("Set-Cookie", apiResult.setCookie);
           warnIfSecureCookieOverHttp(req, apiResult.setCookie);
         }
-        sendApiResponse(res, apiResult);
+        sendApiResponse(res, apiResult, apiResult.noStore);
       } catch (err) {
         sendApiResponse(res, apiErrorResponse(err));
       }
@@ -5267,6 +5391,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
       });
       if (!result2) return false;
       if (result2.error !== void 0 && result2.status >= 500) console.error(`[devora] "${appName}" page error:`, result2.error);
+      if (result2.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result2.redirectTo) {
         if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
         res.statusCode = result2.status;
@@ -5366,6 +5491,7 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
     });
     if (!result) return false;
     if (result.error !== void 0 && result.status >= 500) console.error(`[devora] "${appName}" page error:`, result.error);
+    if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
     if (result.setCookie) {
       res.setHeader("Set-Cookie", result.setCookie);
       warnIfSecureCookieOverHttp(req, result.setCookie);
@@ -5395,10 +5521,11 @@ function createPlainHttpCookieWarning(appName) {
     );
   };
 }
-function sendApiResponse(res, result) {
+function sendApiResponse(res, result, noStore = false) {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }
@@ -5648,6 +5775,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         });
         if (!result2) return next();
         logPageError(result2.status, result2.error);
+        if (result2.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
         if (result2.redirectTo) {
           if (result2.setCookie) res.setHeader("Set-Cookie", result2.setCookie);
           res.statusCode = result2.status;
@@ -5717,6 +5845,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         return next();
       }
       logPageError(result.status, result.error);
+      if (result.noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
       if (result.setCookie) {
         res.setHeader("Set-Cookie", result.setCookie);
       }
@@ -5832,17 +5961,18 @@ function createApiMiddleware(vite, options) {
         meta: describeRequest(req, options.trustProxy)
       });
       if (result.setCookie) res.setHeader("Set-Cookie", result.setCookie);
-      sendApiResponse2(res, result);
+      sendApiResponse2(res, result, result.noStore);
     } catch (err) {
       vite.ssrFixStacktrace(err);
       sendApiResponse2(res, apiErrorResponse(err));
     }
   };
 }
-function sendApiResponse2(res, result) {
+function sendApiResponse2(res, result, noStore = false) {
   if (result.headers) {
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
   }
+  if (noStore) res.setHeader("Cache-Control", PRIVATE_NO_STORE);
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }
@@ -5850,10 +5980,11 @@ function sendApiResponse2(res, result) {
 // src/server/securityHeadersMiddleware.ts
 function createSecurityHeadersMiddleware(security) {
   const headers = resolveSecurityHeaders(security);
-  return function securityHeadersMiddleware(_req, res, next) {
+  return function securityHeadersMiddleware(req, res, next) {
     for (const [name, value] of Object.entries(headers)) {
       res.setHeader(name, value);
     }
+    if (req.url && isSvgPath(req.url)) res.setHeader("Content-Security-Policy", SVG_CSP);
     next();
   };
 }
@@ -6116,7 +6247,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
           // A backend-only app renders no pages, so it needs no React at
           // all; it still needs vite, which runs its dev server and build.
           ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
-          vite: "^5.4.0 || ^6.0.0",
+          vite: "^6.4.4",
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
@@ -7677,6 +7808,7 @@ function deployToVercel(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
+var SVG_CSP2 = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
 var VERCEL_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
 var require2 = createRequire2(import.meta.url);
 async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
@@ -7761,10 +7893,14 @@ export default async function handler(req, res) {
     path24.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
+  const staticHeaders = { "X-Content-Type-Options": "nosniff" };
+  if (security?.noindex === true) staticHeaders["X-Robots-Tag"] = "noindex";
   const config = {
     version: 3,
     routes: [
-      ...security?.noindex === true ? [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex" }, continue: true }] : [],
+      { src: "/(.*)", headers: staticHeaders, continue: true },
+      // An SVG is a document that can run script: sandboxed, like `devora start` serves it.
+      { src: "/(.*)\\.[sS][vV][gG]", headers: { "Content-Security-Policy": SVG_CSP2 }, continue: true },
       { handle: "filesystem" },
       { src: "/(.*)", dest: "/index" }
     ]
@@ -7878,6 +8014,7 @@ function deployToNetlify(appRoot, opts = {}) {
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
+var SVG_CSP3 = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
 var NETLIFY_DOCS_URL = "https://devorajs-docs-docs.vercel.app/deployment";
 var require3 = createRequire3(import.meta.url);
 async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, seen = /* @__PURE__ */ new Set()) {
@@ -7972,16 +8109,21 @@ export default async (request, context) => {
   if (existsSync17(path27.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
-  if (security?.noindex === true) {
+  {
     const clientOutDir = path27.join(appRoot, "dist", "client");
     await mkdir5(clientOutDir, { recursive: true });
     const headersPath = path27.join(clientOutDir, "_headers");
-    const existing = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
-    const rule = "/*\n  X-Robots-Tag: noindex\n";
-    if (!existing.includes("X-Robots-Tag: noindex")) {
-      await writeFile5(headersPath, existing ? `${existing.replace(/\n*$/, "\n")}
-${rule}` : rule);
-    }
+    let contents = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
+    const addRule = (line, rule) => {
+      if (!contents.includes(line)) contents = contents ? `${contents.replace(/\n*$/, "\n")}
+${rule}` : rule;
+    };
+    addRule("X-Content-Type-Options: nosniff", "/*\n  X-Content-Type-Options: nosniff\n");
+    addRule(`Content-Security-Policy: ${SVG_CSP3}`, `/*.svg
+  Content-Security-Policy: ${SVG_CSP3}
+`);
+    if (security?.noindex === true) addRule("X-Robots-Tag: noindex", "/*\n  X-Robots-Tag: noindex\n");
+    await writeFile5(headersPath, contents);
   }
   console.log(
     `[adapter-netlify] wrote ${funcDir} for "${app.name}". Netlify picks it up via this app's netlify.toml \u2014 guide: ${NETLIFY_DOCS_URL}`

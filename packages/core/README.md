@@ -27,7 +27,7 @@ installing it into an unrelated project won't do much on its own.
   Cross-app isolation is cryptographic — the cookie name is part of the HMAC that turns a session
   ID into its store key, so an `"isolated"` app stays isolated even if it shares a secret and a
   store with the shared apps.
-- **Security headers** — CSP, HSTS, X-Frame-Options on by default, overridable per app;
+- **Security headers** — CSP, HSTS, X-Frame-Options on by default, overridable per app; `X-Content-Type-Options: nosniff` always;
   `security.noindex` adds `X-Robots-Tag: noindex`.
 - **Backend modules** — `defineModule()` organizes shared backend logic into scoped, composable
   units with no DI container, ever.

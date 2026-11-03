@@ -23,6 +23,7 @@ export * from "./prodRequestHandler.js";
 export * from "./islandCallPattern.js";
 export * from "./renderRoute.js";
 export * from "./actionResult.js";
+export * from "./rateLimit.js";
 export * from "./csrf.js";
 export * from "./buildTimeContext.js";
 export * from "./isrCache.js";

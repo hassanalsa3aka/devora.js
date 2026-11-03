@@ -10,14 +10,17 @@
  * kept) when the client accepts one.
  *
  * Nothing here widens what can be read: a path is only looked up after it
- * resolves inside the root folder, and only real files are cached.
+ * resolves inside the root folder, a URL path is only served when its real
+ * path (symlinks followed) is inside the root's real path too, and only real
+ * files are cached.
  */
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat as statAsync } from "node:fs/promises";
+import { readFile, realpath, stat as statAsync } from "node:fs/promises";
 import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { SVG_CSP } from "./securityHeaders.js";
 
 export const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -226,6 +229,18 @@ interface FileMeta {
 export function createStaticFileServer(rootDir: string, budget: ByteBudget = new ByteBudget()) {
   const root = path.resolve(rootDir);
   const metas = new Map<string, FileMeta>();
+  // The root's own real path (it may itself be a symlink); remembered once found.
+  let realRoot: string | undefined;
+
+  /** False when symlinks take the file outside the root (or it is gone). */
+  async function realPathInsideRoot(filePath: string): Promise<boolean> {
+    try {
+      realRoot ??= await realpath(root);
+      return (await realpath(filePath)).startsWith(realRoot + path.sep);
+    } catch {
+      return false;
+    }
+  }
 
   function resolveInside(pathname: string): string | undefined {
     let decoded: string;
@@ -246,7 +261,7 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
     metas.delete(filePath);
   }
 
-  async function lookup(filePath: string, type: string, cacheControl: string): Promise<FileMeta | undefined> {
+  async function lookup(filePath: string, type: string, cacheControl: string, confined = false): Promise<FileMeta | undefined> {
     let meta = metas.get(filePath);
     const now = Date.now();
     if (meta && now - meta.checkedAt > REVALIDATE_MS) {
@@ -254,6 +269,11 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
       try {
         stat = await statAsync(filePath);
       } catch {
+        forget(filePath);
+        return undefined;
+      }
+      // A symlink can be repointed after the first request; re-checked with the stat.
+      if (confined && !(await realPathInsideRoot(filePath))) {
         forget(filePath);
         return undefined;
       }
@@ -273,6 +293,7 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
       return undefined;
     }
     if (!stat.isFile()) return undefined;
+    if (confined && !(await realPathInsideRoot(filePath))) return undefined;
     meta = {
       file: filePath,
       size: stat.size,
@@ -298,10 +319,14 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
     res: ServerResponse,
     filePath: string,
     type: string,
-    cacheControl: string
+    cacheControl: string,
+    /** Refuse a file whose real path is outside the root (set for URL paths, see `serve`). */
+    confined = false
   ): Promise<boolean> {
-    const meta = await lookup(filePath, type, cacheControl);
+    const meta = await lookup(filePath, type, cacheControl, confined);
     if (!meta) return false;
+    // An SVG is a document that can run script; it gets a sandbox, not the page policy.
+    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
 
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.statusCode = 405;
@@ -348,7 +373,7 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
   const serve = async (req: IncomingMessage, res: ServerResponse, pathname: string, immutable: boolean) => {
     const filePath = resolveInside(pathname);
     if (!filePath) return false;
-    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE);
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE, true);
   };
 
   return { serve, serveFile, budget };

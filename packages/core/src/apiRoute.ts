@@ -22,6 +22,7 @@
 import type { RequestContext } from "./serverFn.js";
 import { apiErrorResponse } from "./httpError.js";
 import type { CatchAllParams, RouteParams } from "./router.js";
+import type { RateLimitConfig } from "./rateLimit.js";
 
 export interface ApiRequest {
   method: string;
@@ -71,6 +72,16 @@ export interface ApiRouteModule {
    * existing routes).
    */
   methods?: string[];
+  /**
+   * `false` turns off the CSRF check the framework runs before `handler` for
+   * a POST/PUT/PATCH/DELETE authenticated by the session cookie (csrf.ts,
+   * `verifyCsrfByDefault`). The route then calls `ctx.verifyCsrf()` itself,
+   * or knowingly accepts cross-site requests (a webhook has no session
+   * cookie, so it needs no opt-out).
+   */
+  csrf?: false;
+  /** Limit POST/PUT/PATCH/DELETE per client IP on this route, e.g. a login endpoint (rateLimit.ts). */
+  rateLimit?: RateLimitConfig;
 }
 
 /**

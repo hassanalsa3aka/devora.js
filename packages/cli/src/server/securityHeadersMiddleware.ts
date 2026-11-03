@@ -1,5 +1,5 @@
 import type { Connect } from "vite";
-import { resolveSecurityHeaders, type AppRuntimeConfig } from "@devorajs/core";
+import { isSvgPath, resolveSecurityHeaders, SVG_CSP, type AppRuntimeConfig } from "@devorajs/core";
 
 /**
  * Applies CSP/HSTS/X-Frame-Options to every response this middleware sees
@@ -19,10 +19,12 @@ export function createSecurityHeadersMiddleware(
   security: AppRuntimeConfig["security"]
 ): Connect.NextHandleFunction {
   const headers = resolveSecurityHeaders(security);
-  return function securityHeadersMiddleware(_req, res, next) {
+  return function securityHeadersMiddleware(req, res, next) {
     for (const [name, value] of Object.entries(headers)) {
       res.setHeader(name, value);
     }
+    // Same as production (staticFiles.ts): an SVG gets a sandboxing policy.
+    if (req.url && isSvgPath(req.url)) res.setHeader("Content-Security-Policy", SVG_CSP);
     next();
   };
 }

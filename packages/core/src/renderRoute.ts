@@ -1,8 +1,10 @@
 import { escapeHtml, renderHtmlDocument, renderShellMarkup, type HeadConfig } from "./html.js";
-import { createRequestContext, createNoAuthContext } from "./session.js";
+import { createRequestContext, createNoAuthContext, warnIfSessionReadWithoutAuth, type RequestContextResult } from "./session.js";
 import { createIslandCollector, IslandCollectorContext } from "./islandComponent.js";
 import { ShellUsageContext } from "./branding.js";
-import { isFailResult, isRedirectResult, redirectStatus, type RedirectResult } from "./actionResult.js";
+import { isFailResult, isRedirectResult, redirectRefusal, redirectStatus, type RedirectResult } from "./actionResult.js";
+import { verifyCsrfByDefault } from "./csrf.js";
+import { enforceRateLimit } from "./rateLimit.js";
 import { createBuildTimeContext } from "./buildTimeContext.js";
 import { getHttpErrorStatus } from "./httpError.js";
 import type { ErrorPageModule, ErrorPageProps, RouteComponentProps, RouteModule } from "./route.js";
@@ -66,6 +68,8 @@ export interface RenderRouteResult {
   /** Set only for a redirect (see actionResult.ts) — `html` is empty and the
    * caller sends `status` + Location instead of a body. */
   redirectTo?: string;
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
   /** What was thrown, when this is an error page — for the caller to log
    * (5xx). Never sent to the client. */
   error?: unknown;
@@ -205,67 +209,8 @@ export function createRenderRoute(deps: RenderRouteDeps) {
 
     let getSetCookie: () => string[] | undefined = () => undefined;
     let settle: () => Promise<void> = async () => {};
-    const redirectTo = (result: RedirectResult): RenderRouteResult => ({
-      status: redirectStatus(result, request.method),
-      html: "",
-      setCookie: getSetCookie(),
-      redirectTo: result.redirect,
-    });
-
-    try {
-      const context = request.sessionCookieOptions
-        ? await createRequestContext(
-            { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
-            request.sessionCookieOptions,
-            request.params,
-            request.meta
-          )
-        : createNoAuthContext(request.params, request.meta);
-      const { ctx, csrfToken } = context;
-      getSetCookie = context.getSetCookie;
-      settle = context.settle;
-
-      let status = 200;
-      let actionData: unknown;
-      if (request.method === "POST" && request.formData && routeModule.action) {
-        const actionResult = await routeModule.action(request.formData, ctx);
-        if (isRedirectResult(actionResult)) {
-          await settle();
-          // Skip loader and rendering entirely — nothing downstream of a
-          // redirect (e.g. login setting a session cookie) needs the page's
-          // own HTML in this response.
-          return redirectTo(actionResult);
-        }
-        if (isFailResult(actionResult)) {
-          status = actionResult.status;
-          actionData = actionResult.data;
-        } else {
-          actionData = actionResult;
-        }
-      }
-
-      const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
-      if (isRedirectResult(data)) {
-        await settle();
-        return redirectTo(data);
-      }
-      const html = await renderPage(deps, routeModule, { data, csrfToken, actionData }, request.islandClientUrl, request.devPreambleUrl, {
-        appHead: request.head,
-        styles: request.styles,
-      });
-      await settle();
-
-      return { status, html, setCookie: getSetCookie() };
-    } catch (error) {
-      // `throw redirect("/login")` from a loader or action.
-      if (isRedirectResult(error)) {
-        await settle().catch(() => {});
-        return redirectTo(error);
-      }
-      // A thrown HttpError keeps its status (401 from requireAuth, 403 from
-      // verifyCsrf, an app's own 400/404) instead of every failure being a
-      // bare 500. Cookies already decided (e.g. a cleared dead session) still go out.
-      await settle().catch(() => {});
+    let touchesSessionCookie: () => boolean = () => false;
+    const errorResult = (error: unknown): RenderRouteResult => {
       const status = errorStatus(error);
       return {
         status,
@@ -278,8 +223,95 @@ export function createRenderRoute(deps: RenderRouteDeps) {
           devPreambleUrl: request.devPreambleUrl,
         }),
         setCookie: getSetCookie(),
+        noStore: touchesSessionCookie(),
         error,
       };
+    };
+    // Checked again here, not only in redirect(): a loader can return a plain `{ redirect }` object.
+    const redirectTo = (result: RedirectResult): RenderRouteResult => {
+      const refusal = redirectRefusal(result);
+      if (refusal) return errorResult(refusal);
+      return {
+        status: redirectStatus(result, request.method),
+        html: "",
+        setCookie: getSetCookie(),
+        noStore: touchesSessionCookie(),
+        redirectTo: result.redirect,
+      };
+    };
+
+    // Dev-only hint (session.ts): read ctx.session without ever calling ctx.requireAuth().
+    let authUsage: RequestContextResult | undefined;
+    try {
+      try {
+        // Counted before the session lookup: a flood of logins never reaches the store.
+        if (request.method === "POST" && routeModule.action) enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
+        const context = request.sessionCookieOptions
+          ? await createRequestContext(
+              { cookieHeader: request.cookieHeader, authorizationHeader: request.authorizationHeader },
+              request.sessionCookieOptions,
+              request.params,
+              request.meta
+            )
+          : createNoAuthContext(request.params, request.meta);
+        const { ctx, csrfToken } = context;
+        getSetCookie = context.getSetCookie;
+        settle = context.settle;
+        touchesSessionCookie = context.touchesSessionCookie;
+        authUsage = context;
+
+        let status = 200;
+        let actionData: unknown;
+        if (request.method === "POST" && request.formData && routeModule.action) {
+          verifyCsrfByDefault({
+            method: request.method,
+            cookieAuthenticated: context.cookieAuthenticated,
+            optedOut: routeModule.csrf === false,
+            verifyCsrf: ctx.verifyCsrf,
+            formData: request.formData,
+          });
+          const actionResult = await routeModule.action(request.formData, ctx);
+          if (isRedirectResult(actionResult)) {
+            await settle();
+            // Skip loader and rendering entirely — nothing downstream of a
+            // redirect (e.g. login setting a session cookie) needs the page's
+            // own HTML in this response.
+            return redirectTo(actionResult);
+          }
+          if (isFailResult(actionResult)) {
+            status = actionResult.status;
+            actionData = actionResult.data;
+          } else {
+            actionData = actionResult;
+          }
+        }
+
+        const data = routeModule.loader ? await routeModule.loader(ctx) : undefined;
+        if (isRedirectResult(data)) {
+          await settle();
+          return redirectTo(data);
+        }
+        const html = await renderPage(deps, routeModule, { data, csrfToken, actionData }, request.islandClientUrl, request.devPreambleUrl, {
+          appHead: request.head,
+          styles: request.styles,
+        });
+        await settle();
+
+        return { status, html, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
+      } catch (error) {
+        // `throw redirect("/login")` from a loader or action.
+        if (isRedirectResult(error)) {
+          await settle().catch(() => {});
+          return redirectTo(error);
+        }
+        // A thrown HttpError keeps its status (401 from requireAuth, 403 from
+        // verifyCsrf, an app's own 400/404) instead of every failure being a
+        // bare 500. Cookies already decided (e.g. a cleared dead session) still go out.
+        await settle().catch(() => {});
+        return errorResult(error);
+      }
+    } finally {
+      if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.meta?.url);
     }
   }
 

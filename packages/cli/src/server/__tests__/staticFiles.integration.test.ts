@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import type { AddressInfo } from "node:net";
-import { createProdRequestHandler, writeCachedRoute } from "@devorajs/core";
+import { createProdRequestHandler, SVG_CSP, writeCachedRoute } from "@devorajs/core";
 import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.js";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -32,6 +32,7 @@ const FILES: Record<string, string | Buffer> = {
   "sitemap.xml": '<?xml version="1.0"?><urlset></urlset>',
   "site.webmanifest": '{"name":"fixture"}',
   "logo.svg": "<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+  "assets/Icon-abc123.SVG": "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
   "data.json": '{"a":1}',
   "robots.txt": "User-agent: *",
   "font.woff2": Buffer.from([0x77, 0x4f, 0x46, 0x32, 0, 1, 2, 3]),
@@ -61,6 +62,11 @@ beforeAll(async () => {
   for (const [name, contents] of Object.entries(FILES)) write(path.join(clientOut, name), contents as string);
   // A file outside the client folder that traversal must never reach.
   write(path.join(fixture.appRoot, "dist", "secret.txt"), "top secret");
+  write(path.join(fixture.appRoot, "dist", "outside", "inner.txt"), "outside dir");
+  // Symlinks inside the client folder: out to the secret file, out to a folder, and one that stays inside.
+  fs.symlinkSync(path.join(fixture.appRoot, "dist", "secret.txt"), path.join(clientOut, "link-out.txt"));
+  fs.symlinkSync(path.join(fixture.appRoot, "dist", "outside"), path.join(clientOut, "assets", "dir-out"));
+  fs.symlinkSync(path.join(clientOut, "robots.txt"), path.join(clientOut, "link-in.txt"));
 
   const handle = createProdRequestHandler(fixture.appRoot, "fixture", "none", "fixture.example.com", undefined, false);
   server = http.createServer((req, res) => {
@@ -199,18 +205,68 @@ describe("protections", () => {
     }
   });
 
+  it("a symlink whose real path is outside the client folder is a 404; one that stays inside is served", async () => {
+    for (const url of ["/link-out.txt", "/assets/dir-out/inner.txt", "/assets/dir-out%2Finner.txt"]) {
+      const res = await get(url);
+      expect(res.status, url).toBe(404);
+      expect(await res.text(), url).not.toMatch(/top secret|outside dir/);
+    }
+    const inside = await get("/link-in.txt");
+    expect(inside.status).toBe(200);
+    expect(await inside.text()).toBe("User-agent: *");
+  });
+
+  it("a symlink repointed outside after it was served stops being served within a second", async () => {
+    const clientOut = path.join(fixture.appRoot, "dist", "client");
+    const link = path.join(clientOut, "repointed.txt");
+    fs.symlinkSync(path.join(clientOut, "robots.txt"), link);
+    expect((await get("/repointed.txt")).status).toBe(200);
+    fs.unlinkSync(link);
+    fs.symlinkSync(path.join(fixture.appRoot, "dist", "secret.txt"), link);
+    await new Promise((r) => setTimeout(r, 1100));
+    const res = await get("/repointed.txt");
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("top secret");
+  });
+
   it("a missing file or page is 404", async () => {
     expect((await get("/assets/missing-123.js")).status).toBe(404);
     expect((await get("/missing.png")).status).toBe(404);
     expect((await get("/not-built")).status).toBe(404);
   });
 
-  it("security headers are on pre-rendered HTML and on files", async () => {
-    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js"]) {
+  it("security headers are on pre-rendered HTML, on files, on a 304, a 405 and a 404", async () => {
+    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js", "/logo.svg", "/font.woff2", "/mystery.unknownext"]) {
       const res = await get(url);
+      expect(res.headers.get("x-content-type-options"), url).toBe("nosniff");
       expect(res.headers.get("content-security-policy"), url).toBeTruthy();
       expect(res.headers.get("x-frame-options"), url).toBe("DENY");
       expect(res.headers.get("strict-transport-security"), url).toBeTruthy();
+    }
+    const etag = (await get("/robots.txt")).headers.get("etag")!;
+    const notModified = await get("/robots.txt", { headers: { "if-none-match": etag } });
+    expect(notModified.status).toBe(304);
+    expect(notModified.headers.get("x-content-type-options")).toBe("nosniff");
+    const wrongMethod = await get("/robots.txt", { method: "POST" });
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("x-content-type-options")).toBe("nosniff");
+    const missing = await get("/missing.png");
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("an SVG gets the sandboxing policy instead of the page policy; other files keep the page policy", async () => {
+    for (const url of ["/logo.svg", "/logo.svg?v=3", "/assets/Icon-abc123.SVG"]) {
+      const res = await get(url);
+      expect(res.status, url).toBe(200);
+      expect(res.headers.get("content-type"), url).toBe("image/svg+xml");
+      expect(res.headers.get("content-security-policy"), url).toBe(SVG_CSP);
+      expect(res.headers.get("x-content-type-options"), url).toBe("nosniff");
+    }
+    const etag = (await get("/logo.svg")).headers.get("etag")!;
+    expect((await get("/logo.svg", { headers: { "if-none-match": etag } })).headers.get("content-security-policy")).toBe(SVG_CSP);
+    for (const url of ["/pre", "/robots.txt", "/assets/app-abc123.js"]) {
+      expect((await get(url)).headers.get("content-security-policy"), url).toContain("default-src 'self'");
     }
   });
 

@@ -87,6 +87,9 @@ describe("api/** JSON contract — real dev server", () => {
     const res = await fetch(`${base}/api/does-not-exist`);
     expect(res.headers.get("content-security-policy")).toBeTruthy();
     expect(res.headers.get("x-frame-options")).toBeTruthy();
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const page = await fetch(`${base}/page-boom`);
+    expect(page.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("page routes are untouched: a throwing page loader still gets the HTML error response", async () => {
@@ -149,9 +152,10 @@ describe("unified session auth — real dev server", () => {
     const sessionId = setCookieValue(login, "devora_session")!;
     const csrf = setCookieValue(login, "devora_csrf")!;
 
+    // The default CSRF check covers a cookie-authenticated POST: the token goes in the header.
     const logout = await fetch(`${base}/api/logout`, {
       method: "POST",
-      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}` },
+      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}`, "x-devora-csrf": csrf },
     });
     expect(logout.status).toBe(204);
     expect(logout.headers.getSetCookie().some((c) => c.startsWith("devora_session=;"))).toBe(true);

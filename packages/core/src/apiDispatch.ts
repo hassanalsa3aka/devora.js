@@ -7,12 +7,14 @@
  * a handler, collecting Set-Cookie) for a request that never went through
  * page-route matching. See docs/design/architecture-v2.md §3.2.3.
  */
-import { createRequestContext, createNoAuthContext } from "./session.js";
+import { createRequestContext, createNoAuthContext, warnIfSessionReadWithoutAuth, type RequestContextResult } from "./session.js";
 import type { SessionCookieOptions } from "./session.js";
 import type { RequestMeta } from "./serverFn.js";
 import type { ApiRequest, ApiResponse, ApiRouteModule } from "./apiRoute.js";
 import { apiErrorResponse, jsonMessageResponse } from "./httpError.js";
 import { splitRouteParams, type RawRouteParams } from "./router.js";
+import { CSRF_HEADER_NAME, verifyCsrfByDefault } from "./csrf.js";
+import { enforceRateLimit, RateLimitError } from "./rateLimit.js";
 
 export interface ApiDispatchRequest {
   method: string;
@@ -31,6 +33,8 @@ export interface ApiDispatchRequest {
 
 export interface ApiDispatchResult extends ApiResponse {
   setCookie?: string[];
+  /** The request read or the response sets the session cookie: send `Cache-Control: private, no-store`. */
+  noStore?: boolean;
 }
 
 export async function dispatchApiRoute(
@@ -66,8 +70,12 @@ export async function dispatchApiRoute(
   // (devora-pre-v3-hotfixes.md #2). Set-Cookie is still collected on the
   // error path, so e.g. a freshly-issued CSRF cookie isn't silently lost.
   let getSetCookie: () => string[] | undefined = () => undefined;
+  let touchesSessionCookie: () => boolean = () => false;
+  let authUsage: RequestContextResult | undefined;
   let result: ApiResponse;
   try {
+    // Counted before the session lookup: a flood of logins never reaches the store.
+    enforceRateLimit(routeModule.rateLimit, request.method, request.meta?.ip);
     // Inside the try: the session lookup itself hits the store, and a store
     // that's down must still produce a JSON error, not an HTML one.
     const context = request.sessionCookieOptions
@@ -79,10 +87,22 @@ export async function dispatchApiRoute(
         )
       : createNoAuthContext(request.params, request.meta);
     getSetCookie = context.getSetCookie;
+    touchesSessionCookie = context.touchesSessionCookie;
+    authUsage = context;
+    verifyCsrfByDefault({
+      method: request.method,
+      cookieAuthenticated: context.cookieAuthenticated,
+      optedOut: routeModule.csrf === false,
+      verifyCsrf: context.ctx.verifyCsrf,
+      headerToken: request.headers[CSRF_HEADER_NAME],
+    });
     result = await routeModule.handler(apiReq, context.ctx);
     await context.settle();
   } catch (err) {
     result = apiErrorResponse(err);
+    if (err instanceof RateLimitError) result = { ...result, headers: { ...result.headers, "Retry-After": String(err.retryAfterSeconds) } };
   }
-  return { ...result, setCookie: getSetCookie() };
+  // Dev-only hint (session.ts): read ctx.session without ever calling ctx.requireAuth().
+  if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.url);
+  return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
