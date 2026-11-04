@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "cd ../.. && node packages/cli/dist/index.js build --app=admin --adapter=vercel"
+  "buildCommand": "cd ../.. && node packages/cli/dist/index.js build --app=admin --adapter=vercel",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in dependabot/*) exit 0;; *) exit 1;; esac"
 }
