@@ -1,5 +1,10 @@
 # Dependabot opens pull requests for updates; it never merges anything. Security updates for a vulnerable
 # dependency come from GitHub's own alerts and ignore the schedule and the limits below.
+#
+# No semver-major updates for vite or @types/react-dom in any npm project here. The framework supports vite 6
+# (the CLI asks for ^6.4.4 and has not been run on vite 7 or 8), and new projects start on React 18, so
+# @types/react-dom 19 would not match the React they install. Minor and patch updates still come through.
+# Move these entries when the framework moves to a new vite or React major.
 version: 2
 updates:
   # The pnpm workspace (pnpm-lock.yaml). Dependabot's "npm" ecosystem covers pnpm lockfiles.
@@ -8,6 +13,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
     groups:
       dev-tools:
         dependency-type: "development"
@@ -18,26 +28,51 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/api-bearer"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/content-site"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/realtime"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/background-jobs"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   # The GitHub Actions in .github/workflows, which are pinned to commit SHAs: Dependabot updates the SHA
   # and the version comment together.
   - package-ecosystem: "github-actions"
