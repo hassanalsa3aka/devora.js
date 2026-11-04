@@ -122,11 +122,55 @@ Or start a brand-new standalone project, outside this repo:
 npm create devora@latest
 ```
 
-npm and Yarn work too, not just pnpm — see `docs/history/VERIFICATION.md` for what's actually been tested
-under each.
+npm, Yarn and pnpm all work. The commands for each:
 
-**Requirements:** Node 20 or newer, React 18.3 or 19, Vite 5.4 or 6 (new projects start on
-React 18 and whichever Vite the install resolves).
+| Task | npm | Yarn | pnpm |
+|---|---|---|---|
+| Create a project | `npm create devora@latest` | `yarn create devora` (Yarn 4: `yarn dlx create-devora`) | `pnpm create devora` (or `pnpm dlx create-devora`) |
+| Install | `npm install` | `yarn install` | `pnpm install` |
+| Dev servers | `npm run dev` | `yarn dev` | `pnpm run dev` |
+| Build | `npm run build` | `yarn build` | `pnpm run build` |
+| Serve the build | `npm run start` | `yarn start` | `pnpm run start` |
+| Add a package to one app | `npm install dayjs -w apps/app` | `yarn workspace @project/app-app add dayjs` | `pnpm --filter @project/app-app add dayjs` |
+| Add a package to the project root | `npm install dayjs` | `yarn add -W dayjs` (Yarn 4: `yarn add dayjs`) | `pnpm add -w dayjs` |
+| Run a package script | `npm run typecheck` | `yarn typecheck` | `pnpm run typecheck` |
+| Run the project's CLI once | `npx devora list` | `yarn devora list` | `pnpm exec devora list` |
+
+`@project/app-app` stands for the `name` in that app's `package.json`.
+
+What differs, as seen when these commands were run:
+
+- **npm 11** prints `Unknown project config "link-workspace-packages"` on every command (the project's `.npmrc`
+  carries a pnpm setting) and an `allowScripts` warning for esbuild. npm 10 prints neither. Everything works.
+- **Yarn 1** warns about an unmet peer dependency (`react`); a plain `yarn add` at the root asks for `-W`.
+- **Yarn 4** installs with Plug'n'Play by default and the CLI does not run under it (`@devorajs/cli tried to access
+  esbuild`). Put `nodeLinker: node-modules` in a `.yarnrc.yml` at the project root before installing; then everything
+  works. It also prints peer-dependency warnings (`YN0002`).
+- **pnpm 9 and 10**: a plain `pnpm add` at the root asks for `-w`. pnpm 10 prints `Ignored build scripts: esbuild`;
+  the project still installs, builds and runs.
+- **pnpm 11 and later** (12.10 was tried) cannot install a fresh project: it ignores `link-workspace-packages` in
+  `.npmrc` and looks for the project's own `@devorajs/backend` on npm (`ERR_PNPM_FETCH_404`), then fails on esbuild's
+  ignored build script (`ERR_PNPM_IGNORED_BUILDS`). Use pnpm 9 or 10, or set `pnpm-workspace.yaml` to the block below
+  and install again. Tracked in [ROADMAP.md](ROADMAP.md) (findings T3 and T4).
+
+```yaml
+# pnpm-workspace.yaml, for pnpm 11 and later
+packages:
+  - "packages/*"
+  - "apps/*"
+linkWorkspacePackages: true
+allowBuilds:
+  esbuild: true
+```
+
+**What is covered.** CI installs this repository's workspace under npm 10, Yarn 1 and pnpm 9.9 on every push; the
+tests and every app build run under pnpm only. The commands above were run by hand on Node 20 against a new project:
+npm 10.8 and 11.17, Yarn 1.22 and 4.18 (through corepack), pnpm 9.15, 10.34 and 12.10. Bun and Deno were not
+tested, so they are not listed as supported.
+
+
+**Requirements:** Node 20 or newer, React 18.3 or 19, Vite 6.4.4 or later (new projects start on
+React 18 and whichever Vite 6 the install resolves).
 
 Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only
 API with Bearer login, a content site with `ssg` and islands, or live updates (WebSockets) with a separate
@@ -226,7 +270,7 @@ routes and Netlify are not) (nor are 0.4.0's Vercel/Netlify header rules).
 
 ## Testing
 
-`pnpm run test` runs 498 Vitest tests in 50 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 610 Vitest tests in 64 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the

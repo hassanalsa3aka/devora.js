@@ -34,7 +34,6 @@ Kept as **Unconfirmed**, not ranked: Y1 (native addons on serverless), Y6 (trans
 
 Also open: move the `esbuild` override out of `package.json`'s `"pnpm"` field (pnpm 11 ignores it).
 
-Also open: `create-devora/README.md` (published on npm) still says Vite-based; change at the next create-devora release.
 
 ## Later
 
@@ -227,7 +226,7 @@ Only the maintainer can deploy live; none of this was run from the development e
 
 ## Findings
 
-106 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 71, Partly fixed 7, Open 23, Unconfirmed 4, N/A 1.
+108 findings from [the pre-v3 hotfix list](docs/history/devora-pre-v3-hotfixes.md) (P1 to P14), [hotfix round 3](docs/history/devora-hotfix-round3.md) (C = confirmed fixed, B = still broken at 0.3.1, U = unconfirmed, V = Vercel, K = Khepra, Y = YallaDo-only, L, O), [VERIFICATION.md](docs/history/VERIFICATION.md) (N, X), the performance program (S), the lab tests of WebSockets and jobs (R), the 0.3.5 smoke test (T) and the security hardening pass of 2026-11-02 (H, numbered by its work items). Fixed 71, Partly fixed 7, Open 25, Unconfirmed 4, N/A 1.
 
 | ID | Finding | Status | Version | Evidence | Described in |
 |----|---------|--------|---------|----------|--------------|
@@ -337,3 +336,5 @@ Only the maintainer can deploy live; none of this was run from the development e
 | H18 | The vitest 2.1.9 test runner has critical advisories (its UI server, `tinypool`) and pulls vite 5.4.21 (high, `launch-editor`). Dev-only: it is not installed by users and `pnpm audit --prod --audit-level high` is clean | Open | - | `pnpm audit` (all dependencies). Moving to vitest 3.2.7 plus a `tinypool` 2.1.2 override clears the audit but 55 integration tests time out (the production handler's dynamic `import()` of built files under the newer vite-node); not done. CI reports it without failing. | security hardening 2026-11-02, item 12 |
 | H19 | A streaming-render boundary error raised before the shell was ready was dropped (never reported or logged); the test for failed island imports failed about 1 run in 30 on a busy machine, on main as well | Fixed | 0.4.0 | packages/core/src/renderStreaming.ts (`earlyBoundaryErrors`); renderStreaming.test.ts (two deterministic tests); 0 failures in 90 runs under heavy CPU load, against 2 in 60 on main | found while verifying the hardening branches |
 | H20 | The static-file cache integration tests (about 3.7 s of deliberate sleeping) had a 5 s timeout and failed on a busy machine | Fixed | 0.4.0 | packages/cli/src/server/__tests__/staticCache.integration.test.ts (`vi.setConfig({ testTimeout: 30_000 })`); found by running the suite three times per branch | found while verifying the hardening branches |
+| T3 | A fresh project does not install with pnpm 11 or later (tried 12.10) | Open | - | pnpm 11 and later ignore `link-workspace-packages` in `.npmrc`, so the project's own `@devorajs/backend` is fetched from npm (`ERR_PNPM_FETCH_404`), then the install fails on esbuild's ignored build script (`ERR_PNPM_IGNORED_BUILDS`). Works on pnpm 9 and 10, and on 12.10 once `pnpm-workspace.yaml` has `linkWorkspacePackages: true` and `allowBuilds: esbuild: true`. Seen with the published create-devora and the 0.4.0 build (`~/Developer/_lab/pm` runs). Documented in the README and Getting started; not fixed in the scaffold. | package manager tests |
+| T4 | A fresh project does not run under Yarn 4's default Plug'n'Play linker | Open | - | Install succeeds with `YN0002` peer warnings, then `devora dev` and `build` stop with "@devorajs/cli tried to access esbuild, but it isn't declared in its dependencies". With `nodeLinker: node-modules` in `.yarnrc.yml`, install, dev, build, start, typecheck and add all work. Seen with the published 0.3.5 packages and the 0.4.0 build. Documented; not fixed in the scaffold. | package manager tests |
