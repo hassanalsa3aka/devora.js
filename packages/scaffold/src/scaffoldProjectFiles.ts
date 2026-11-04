@@ -35,7 +35,29 @@ export interface ScaffoldProjectOptions {
   /** Default "fullstack". "frontend" skips `packages/backend` entirely — see
    * resolveScopeChoice.ts. */
   scope?: ProjectScope;
+  /**
+   * The package manager the project is being created for (`--pm`, or the one that ran create-devora). Only Yarn
+   * needs something extra: a `.yarnrc.yml` that selects the node_modules linker, because Yarn 4's default Plug'n'Play
+   * linker does not run the CLI (it requires esbuild without declaring it). npm, Yarn 1 and pnpm get no extra file.
+   */
+  packageManager?: "npm" | "yarn" | "pnpm";
 }
+
+/**
+ * pnpm-workspace.yaml for a new project. `packages` is all pnpm 9 reads from it. The other two keys are what pnpm 10.x
+ * and later read from here instead of from `.npmrc`: without `linkWorkspacePackages`, pnpm 11 and later fetch the
+ * project's own `@devorajs/backend` from npm (404); without `allowBuilds`, they fail the install on esbuild's ignored
+ * build script. pnpm 9 and npm/Yarn ignore the keys (checked on pnpm 9.15, 10.34, 12.10 and npm, Yarn 1 and 4).
+ */
+export const PNPM_WORKSPACE_YAML =
+  `packages:\n  - "packages/*"\n  - "apps/*"\n` +
+  `# Link the project's own packages (the "*" dependencies) instead of fetching them from npm.\n` +
+  `linkWorkspacePackages: true\n` +
+  `# Let esbuild's install script run (pnpm 11 and later fail the install on an unapproved build script).\n` +
+  `allowBuilds:\n  esbuild: true\n`;
+
+/** .yarnrc.yml for a project created for Yarn: the node_modules linker (see ScaffoldProjectOptions.packageManager). */
+export const YARNRC_YML = `nodeLinker: node-modules\n`;
 
 /**
  * Generates the ROOT of a brand-new devora.js project — everything that has
@@ -129,8 +151,12 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
 
   await writeFile(
     path.join(projectRoot, "pnpm-workspace.yaml"),
-    `packages:\n  - "packages/*"\n  - "apps/*"\n`
+    PNPM_WORKSPACE_YAML
   );
+
+  if (opts.packageManager === "yarn") {
+    await writeFile(path.join(projectRoot, ".yarnrc.yml"), YARNRC_YML);
+  }
 
   await writeFile(
     path.join(projectRoot, ".npmrc"),

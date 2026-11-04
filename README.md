@@ -141,32 +141,19 @@ npm, Yarn and pnpm all work. The commands for each:
 What differs, as seen when these commands were run:
 
 - **npm 11** prints `Unknown project config "link-workspace-packages"` on every command (the project's `.npmrc`
-  carries a pnpm setting) and an `allowScripts` warning for esbuild. npm 10 prints neither. Everything works.
+  carries a pnpm 9/10 setting) and an `allowScripts` warning for esbuild. npm 10 prints neither. Everything works.
 - **Yarn 1** warns about an unmet peer dependency (`react`); a plain `yarn add` at the root asks for `-W`.
-- **Yarn 4** installs with Plug'n'Play by default and the CLI does not run under it (`@devorajs/cli tried to access
-  esbuild`). Put `nodeLinker: node-modules` in a `.yarnrc.yml` at the project root before installing; then everything
-  works. It also prints peer-dependency warnings (`YN0002`).
-- **pnpm 9 and 10**: a plain `pnpm add` at the root asks for `-w`. pnpm 10 prints `Ignored build scripts: esbuild`;
-  the project still installs, builds and runs.
-- **pnpm 11 and later** (12.10 was tried) cannot install a fresh project: it ignores `link-workspace-packages` in
-  `.npmrc` and looks for the project's own `@devorajs/backend` on npm (`ERR_PNPM_FETCH_404`), then fails on esbuild's
-  ignored build script (`ERR_PNPM_IGNORED_BUILDS`). Use pnpm 9 or 10, or set `pnpm-workspace.yaml` to the block below
-  and install again. Tracked in [ROADMAP.md](ROADMAP.md) (findings T3 and T4).
+- **Yarn 4** prints peer-dependency warnings (`YN0002`) about `react`. A new project works with Yarn 4's default
+  settings, because `create-devora` writes a `.yarnrc.yml` with `nodeLinker: node-modules` when you pick Yarn
+  (Plug'n'Play, Yarn 4's default, does not run the CLI). A project made by `create-devora` 0.3.x needs that one-line
+  file added before installing.
+- **pnpm 9 and 10**: a plain `pnpm add` at the root asks for `-w`.
+- **pnpm 11 and later** (12.10 was tried) work with a new project, because `pnpm-workspace.yaml` now carries
+  `linkWorkspacePackages: true` and `allowBuilds: esbuild: true`. A project made by `create-devora` 0.3.x fails to
+  install on pnpm 11 and later (`ERR_PNPM_FETCH_404` for `@devorajs/backend`, then `ERR_PNPM_IGNORED_BUILDS`): use pnpm
+  9 or 10, or add those two keys to its `pnpm-workspace.yaml`.
 
-```yaml
-# pnpm-workspace.yaml, for pnpm 11 and later
-packages:
-  - "packages/*"
-  - "apps/*"
-linkWorkspacePackages: true
-allowBuilds:
-  esbuild: true
-```
-
-**What is covered.** CI installs this repository's workspace under npm 10, Yarn 1 and pnpm 9.9 on every push; the
-tests and every app build run under pnpm only. The commands above were run by hand on Node 20 against a new project:
-npm 10.8 and 11.17, Yarn 1.22 and 4.18 (through corepack), pnpm 9.15, 10.34 and 12.10. Bun and Deno were not
-tested, so they are not listed as supported.
+**What is covered.** CI installs this repository's workspace under npm 10, Yarn 1 and pnpm 9.9 on every push; the tests and every app build run under pnpm only. A new project from the 0.4.0 `create-devora` was installed, run in dev, built, served, given a package and a script and the one-off command, by hand, on Node 20 and Node 22 with npm 10 and 11, Yarn 1.22 and 4.18 (through corepack, default settings) and pnpm 9.15, 10.34 and 12.10: all passed. Bun and Deno were not tested, so they are not listed as supported.
 
 
 **Requirements:** Node 20 or newer, React 18.3 or 19, Vite 6.4.4 or later (new projects start on
