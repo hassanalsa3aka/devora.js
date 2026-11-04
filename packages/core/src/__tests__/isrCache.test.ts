@@ -69,7 +69,10 @@ describe("isrCache", () => {
       // writer A's bytes followed by some of writer B's — is detectable by
       // checking every byte matches ONE writer's character, not "either
       // writer's content, fully, with nothing in between."
-      const size = 8 * 1024 * 1024; // 8MB per writer — matches the size that reliably reproduced torn writes during this audit
+      // 2MB per writer. A plain writeFile() tore the file at 2MB about as often as at 8MB (measured: 2 and 1 of 30
+      // pairs, so detection is probabilistic either way), and 2MB writes a quarter of the data: the 8MB version wrote
+      // 480MB and timed out on a slow disk.
+      const size = 2 * 1024 * 1024;
       const pairs = 30;
       let tornCount = 0;
 
@@ -86,7 +89,7 @@ describe("isrCache", () => {
       }
 
       expect(tornCount).toBe(0);
-    });
+    }, 60_000);
   });
 
   describe("real bug: path-traversal containment (a tainted getStaticParams() value)", () => {
