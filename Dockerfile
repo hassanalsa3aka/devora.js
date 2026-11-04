@@ -21,7 +21,7 @@
 # libc is a common source of exactly that class of native-addon breakage,
 # not worth the smaller image for an unproven benefit here.
 
-FROM node:20-slim AS build
+FROM node:26-slim AS build
 WORKDIR /repo
 # Pinned here, in the image only — NOT via root package.json's
 # "packageManager" field, which was deliberately removed project-wide for
@@ -44,7 +44,7 @@ RUN test -n "$APP_NAME" || (echo "Pass --build-arg APP_NAME=<marketing|dashboard
 # fighting it either.
 RUN node packages/cli/dist/index.js build --app=${APP_NAME}
 
-FROM node:20-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /repo
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
