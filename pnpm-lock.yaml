@@ -189,6 +189,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       jiti:
         specifier: ^2.3.0
         version: 2.7.0
@@ -211,9 +214,6 @@ importers:
       '@devorajs/scaffold':
         specifier: '*'
         version: link:../scaffold
-      esbuild:
-        specifier: ^0.28.2
-        version: 0.28.2
 
   packages/core:
     dependencies:
