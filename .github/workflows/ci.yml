@@ -166,6 +166,30 @@ jobs:
           node packages/cli/dist/index.js build --app=admin --adapter=netlify
           node packages/cli/dist/index.js build --app=api-only --adapter=netlify
 
+  # The package manager table in the docs, backed by a run: a new project from the local create-devora (core and cli packed
+  # from this checkout) is installed, typechecked, built and started under Yarn 4 with its default settings and under pnpm
+  # 10 and 12. npm, Yarn 1 and pnpm 9 installs are covered by the build job above. See scripts/ci-scaffold-pm.mjs.
+  package-managers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        pm: [yarn4, pnpm10, pnpm12]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 9.9.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile
+      - name: Build create-devora, core and the CLI
+        run: pnpm --filter @devorajs/core --filter @devorajs/cli --filter create-devora run build
+      - name: Scaffold, install, build and start under ${{ matrix.pm }}
+        run: node scripts/ci-scaffold-pm.mjs ${{ matrix.pm }}
+
   # The runnable projects in examples/. Each installs the published packages
   # from npm with its own lockfile, so this catches an example that no
   # longer works with what users actually get.
