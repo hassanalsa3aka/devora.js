@@ -27,7 +27,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const notesIndex = args.indexOf("--notes");
 const notesFile = notesIndex === -1 ? undefined : args[notesIndex + 1];
-const date = args.find((a, i) => !a.startsWith("--") && i !== notesIndex + 1);
+const notesValueIndex = notesIndex === -1 ? -1 : notesIndex + 1;
+const date = args.find((a, i) => !a.startsWith("--") && i !== notesValueIndex);
 const DRY = args.includes("--dry-run");
 
 if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
@@ -87,7 +88,7 @@ edit("ROADMAP.md", [
 editLine(
   "ROADMAP.md",
   "- **Publish 0.4.0**",
-  "- **Verify 0.4.0 on a live Vercel and Netlify deployment** with sessions and API routes (finding N1): the generated output was checked locally only. Previews built from the packed tarballs are in `~/Developer/_lab/preview-vercel` and `preview-netlify`, with a `check.sh` for each."
+  "- **Verify 0.4.0 on a live Vercel and Netlify deployment** with sessions and API routes (finding N1): the generated output was checked locally only."
 );
 edit("CLAUDE.md", [{ from: `the release is ${VERSION} once published (0.3.5 is the one on npm until then);`, to: `the release is ${VERSION};` }]);
 
