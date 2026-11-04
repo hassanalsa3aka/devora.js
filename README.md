@@ -270,7 +270,7 @@ routes and Netlify are not) (nor are 0.4.0's Vercel/Netlify header rules).
 
 ## Testing
 
-`pnpm run test` runs 610 Vitest tests in 64 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 613 Vitest tests in 64 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
