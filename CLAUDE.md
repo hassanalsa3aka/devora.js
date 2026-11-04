@@ -21,7 +21,7 @@ explicit design reaction to Next.js's implicit caching and undocumented build fo
 - **React**, not Solid/Qwik — keeps the door open to native mobile later (a planned goal, not started).
 - **No built-in ORM/auth/file storage in v1** — bring your own. Don't add one.
 - **No RSC-style server/client serialization protocol in v1** — too large, too security-sensitive.
-- **CSRF is checked by default for cookie-authenticated POST/PUT/PATCH/DELETE** (next release); a route
+- **CSRF is checked by default for cookie-authenticated POST/PUT/PATCH/DELETE** (0.4.0); a route
   opts out with `export const csrf = false`. Bearer requests are exempt. Do not remove this default.
 - **Security is a default, not opt-in**: no `eval`/dynamic `Function()` anywhere in framework
   internals, ever — including in tooling you might be tempted to add (e.g. a plugin loader).
@@ -34,11 +34,11 @@ explicit design reaction to Next.js's implicit caching and undocumented build fo
 timeline, the 14 build items, live deployment history and the findings table. Read it instead of
 this file for status. In one paragraph: the framework is real and verified end to end in dev and
 production (SSR, SSG, CSR, ISR, streaming, islands, sessions, CSRF, security headers, SEO, catch-all
-routes, three adapters, the CLI under npm/Yarn/pnpm); the release is 0.3.5; Vercel and Netlify were
+routes, three adapters, the CLI under npm/Yarn/pnpm); the release is 0.4.0 once published (0.3.5 is the one on npm until then); Vercel and Netlify were
 deployed live with releases before 0.3.2, and 0.3.5 is verified live only by the documentation site
 (a pre-rendered single app on Vercel); multi-app, sessions, API functions and Netlify are not yet
 verified live on it. A security hardening pass (ROADMAP.md findings H1 to H18, top section of CHANGELOG.md) is
-merged but not released: CSRF is checked by default for cookie-authenticated writes, `redirect()` stays
+new in 0.4.0: CSRF is checked by default for cookie-authenticated writes, `redirect()` stays
 on-origin, session responses are `private, no-store`, plus nosniff, an SVG sandbox CSP, `allowedHosts`,
 server timeouts, form limits, an opt-in per-route `rateLimit`, a dev restart on config/env/route changes.
 There has been no third-party audit; do not write that there has.

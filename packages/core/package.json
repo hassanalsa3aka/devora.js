@@ -1,6 +1,6 @@
 {
   "name": "@devorajs/core",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "Devora.js framework internals \u2014 SSR/streaming request handling, sessions/CSRF, security headers, islands, backend modules, generic API routes, middleware, config loading. Not a standalone library; used by @devorajs/cli-scaffolded apps.",
   "license": "MIT",
   "repository": {
@@ -55,7 +55,13 @@
     "jiti": "^2.3.0"
   },
   "peerDependencies": {
-    "react": "^18.3.0 || ^19.0.0"
+    "react": "^18.3.0 || ^19.0.0",
+    "react-dom": "^18.3.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "typescript": "^5.6.0",

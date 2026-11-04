@@ -287,7 +287,7 @@ server `devora start` runs.
   `X-Forwarded-Proto`), or to `false` for a deployment that is deliberately plain HTTP. Details and
   every default: `packages/backend/AUTH.md`, "Cookies, CSRF and proxies in production".
 
-- *Next release:* `devora start` sets its own limits (headers within 15 s, the whole request within 60
+- *0.4.0:* `devora start` sets its own limits (headers within 15 s, the whole request within 60
   s, idle keep-alive connections closed after 5 s, request headers up to 16 KB). Behind a load balancer,
   set `server.keepAliveTimeoutMs` in `app.config.ts` above its idle timeout; for large uploads raise
   `server.requestTimeoutMs`. List your hosts in `allowedHosts`, and rate-limit login paths in nginx or

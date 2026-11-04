@@ -151,12 +151,15 @@ async function main() {
     `\n[create-devora] scaffolding "${projectName}" (${scope}, ${apps.length} app${apps.length === 1 ? "" : "s"})...`
   );
 
+  const pm = (flags.pm as "npm" | "yarn" | "pnpm" | undefined) ?? detectPackageManager();
+
   await scaffoldProjectFiles(projectRoot, {
     projectName,
     apps,
     coreVersion: CORE_VERSION,
     cliVersion: CLI_VERSION,
     scope,
+    packageManager: pm,
   });
 
   for (const app of apps) {
@@ -177,7 +180,6 @@ async function main() {
     console.log(`[create-devora] one shared backend (packages/backend) — need app-specific backend logic? ${MULTI_BACKEND_DOCS_URL}`);
   }
 
-  const pm = (flags.pm as "npm" | "yarn" | "pnpm" | undefined) ?? detectPackageManager();
 
   const devCmd = formatCommand(runScriptCommand(pm, "dev"));
   if (flags["skip-install"]) {

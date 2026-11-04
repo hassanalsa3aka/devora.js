@@ -46,7 +46,7 @@ Honest version, so you can decide whether it fits:
 - **Maintained by one person.** Tested by the maintainer; there are no outside production users
   yet.
 - **No third-party security audit.** None has been done. Security is a default in the design (CSP, HSTS,
-  CSRF checks on cookie-authenticated writes from the next release, revocable sessions), not a
+  CSRF checks on cookie-authenticated writes from 0.4.0, revocable sessions), not a
   certification. See [SECURITY.md](SECURITY.md) and the [security model](docs/guides/SECURITY-MODEL.md).
 - **What was and wasn't verified** is written down in [VERIFICATION.md](docs/history/VERIFICATION.md): real
   servers and real requests in CI, platform deploys checked by hand.
@@ -122,11 +122,42 @@ Or start a brand-new standalone project, outside this repo:
 npm create devora@latest
 ```
 
-npm and Yarn work too, not just pnpm — see `docs/history/VERIFICATION.md` for what's actually been tested
-under each.
+npm, Yarn and pnpm all work. The commands for each:
 
-**Requirements:** Node 20 or newer, React 18.3 or 19, Vite 5.4 or 6 (new projects start on
-React 18 and whichever Vite the install resolves).
+| Task | npm | Yarn | pnpm |
+|---|---|---|---|
+| Create a project | `npm create devora@latest` | `yarn create devora` (Yarn 4: `yarn dlx create-devora`) | `pnpm create devora` (or `pnpm dlx create-devora`) |
+| Install | `npm install` | `yarn install` | `pnpm install` |
+| Dev servers | `npm run dev` | `yarn dev` | `pnpm run dev` |
+| Build | `npm run build` | `yarn build` | `pnpm run build` |
+| Serve the build | `npm run start` | `yarn start` | `pnpm run start` |
+| Add a package to one app | `npm install dayjs -w apps/app` | `yarn workspace @project/app-app add dayjs` | `pnpm --filter @project/app-app add dayjs` |
+| Add a package to the project root | `npm install dayjs` | `yarn add -W dayjs` (Yarn 4: `yarn add dayjs`) | `pnpm add -w dayjs` |
+| Run a package script | `npm run typecheck` | `yarn typecheck` | `pnpm run typecheck` |
+| Run the project's CLI once | `npx devora list` | `yarn devora list` | `pnpm exec devora list` |
+
+`@project/app-app` stands for the `name` in that app's `package.json`.
+
+What differs, as seen when these commands were run:
+
+- **npm 11** prints `Unknown project config "link-workspace-packages"` on every command (the project's `.npmrc`
+  carries a pnpm 9/10 setting) and an `allowScripts` warning for esbuild. npm 10 prints neither. Everything works.
+- **Yarn 1** warns about an unmet peer dependency (`react`); a plain `yarn add` at the root asks for `-W`.
+- **Yarn 4** prints peer-dependency warnings (`YN0002`) about `react`. A new project works with Yarn 4's default
+  settings, because `create-devora` writes a `.yarnrc.yml` with `nodeLinker: node-modules` when you pick Yarn
+  (Plug'n'Play, Yarn 4's default, does not run the CLI). A project made by `create-devora` 0.3.x needs that one-line
+  file added before installing.
+- **pnpm 9 and 10**: a plain `pnpm add` at the root asks for `-w`.
+- **pnpm 11 and later** (12.10 was tried) work with a new project, because `pnpm-workspace.yaml` now carries
+  `linkWorkspacePackages: true` and `allowBuilds: esbuild: true`. A project made by `create-devora` 0.3.x fails to
+  install on pnpm 11 and later (`ERR_PNPM_FETCH_404` for `@devorajs/backend`, then `ERR_PNPM_IGNORED_BUILDS`): use pnpm
+  9 or 10, or add those two keys to its `pnpm-workspace.yaml`.
+
+**What is covered.** CI installs this repository's workspace under npm 10, Yarn 1 and pnpm 9.9 on every push; the tests and every app build run under pnpm only. A new project from the 0.4.0 `create-devora` was installed, run in dev, built, served, given a package and a script and the one-off command, by hand, on Node 20 and Node 22 with npm 10 and 11, Yarn 1.22 and 4.18 (through corepack, default settings) and pnpm 9.15, 10.34 and 12.10: all passed. Bun and Deno were not tested, so they are not listed as supported.
+
+
+**Requirements:** Node 20 or newer, React 18.3 or 19, Vite 6.4.4 or later (new projects start on
+React 18 and whichever Vite 6 the install resolves).
 
 Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only
 API with Bearer login, a content site with `ssg` and islands, or live updates (WebSockets) with a separate
@@ -189,7 +220,7 @@ realtime server.
   you already use).
 
 What changed in each release, and what an existing app has to do about it: the newest section of
-[`CHANGELOG.md`](CHANGELOG.md) (0.3.5), which opens with the behavior changes.
+[`CHANGELOG.md`](CHANGELOG.md) (0.4.0), which opens with the breaking changes and how to migrate.
 
 ## Security hardening (v2)
 
@@ -222,11 +253,11 @@ and findings table). The short version: API handlers set headers as a plain obje
 `Set-Cookie` headers and SSE are not supported), `ssg`/`isr` on a dynamic route need
 `getStaticParams()`, `isr` regeneration on a serverless filesystem is unverified, you bring your own
 database client, rate limiting is opt-in per route and per process, and 0.3.5 is verified live only for the documentation site (a pre-rendered single app on Vercel; multi-app, sessions, API
-routes and Netlify are not) (nor are the next release's Vercel/Netlify header rules).
+routes and Netlify are not) (nor are 0.4.0's Vercel/Netlify header rules).
 
 ## Testing
 
-`pnpm run test` runs 498 Vitest tests in 50 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 613 Vitest tests in 64 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
@@ -257,7 +288,7 @@ please open an issue.
 - 🗺️ [Roadmap](ROADMAP.md) — what's done, in progress, and planned, with the detailed build log
 - 🚀 [Deploying](docs/guides/DEPLOYING.md) — Vercel, Netlify, Docker, container platforms, self-hosted VPS, CI
 - 📄 [Pages, forms and errors](docs/guides/PAGES.md) — request access, action results, uploads, the head API
-- 🛡️ [Security model](docs/guides/SECURITY-MODEL.md) — defaults, what you must do, what it does not do (next release)
+- 🛡️ [Security model](docs/guides/SECURITY-MODEL.md) — defaults, what you must do, what it does not do (0.4.0)
 - 🔐 [Auth and sessions](packages/backend/AUTH.md) — session stores, cookies behind proxies, CSRF
 - ✅ [Testing & verification](docs/history/VERIFICATION.md)
 - 📝 [Changelog](CHANGELOG.md)
