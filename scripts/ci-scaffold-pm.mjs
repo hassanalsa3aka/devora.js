@@ -11,6 +11,8 @@
  * The package managers under test run in a clean environment: no CI variables, so none of them demands a lockfile that a
  * brand new project cannot have yet.
  *
+ * The project listens on $PM_TEST_PORT and the next port (default 11090; refused outside 11000-11099).
+ *
  * It prints one line per step. Exit status 0 only if every step passed.
  */
 import { execFileSync, spawn } from "node:child_process";
@@ -23,7 +25,15 @@ import { fileURLToPath } from "node:url";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const id = process.argv[2];
 const keep = process.argv.includes("--keep");
-const PORT = Number(process.env.PM_TEST_PORT ?? 4300);
+// The started project listens on PORT and PORT + 1. Both must stay in 11000-11099, the range kept free for these runs
+// (it does not collide with the dev server's 10000+ ports or with anything else the suite starts).
+const PORT_MIN = 11000;
+const PORT_MAX = 11099;
+const PORT = Number(process.env.PM_TEST_PORT ?? 11090);
+if (!Number.isInteger(PORT) || PORT < PORT_MIN || PORT + 1 > PORT_MAX) {
+  console.error(`PM_TEST_PORT must be a whole number from ${PORT_MIN} to ${PORT_MAX - 1} (the run uses it and the next port); got ${process.env.PM_TEST_PORT}`);
+  process.exit(2);
+}
 const SPECS = {
   npm: { flag: "npm", install: "npm install", run: (s) => `npm run ${s}` },
   yarn1: { flag: "yarn", shim: 'exec npx -y yarn@1.22.22 "$@"', install: "yarn install", run: (s) => `yarn ${s}` },
