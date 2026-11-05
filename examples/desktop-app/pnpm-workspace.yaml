@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+# Link the project's own packages (the "*" dependencies) instead of fetching them from npm.
+linkWorkspacePackages: true
+# Let esbuild's install script run (pnpm 11 and later fail the install on an unapproved build script).
+allowBuilds:
+  esbuild: true

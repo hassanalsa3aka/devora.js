@@ -43,7 +43,12 @@ Also open: move the `esbuild` override out of `package.json`'s `"pnpm"` field (p
 
 ## Vision (not started, no dates)
 
-- A desktop app and a native mobile app. If they happen, business logic, the backend client, validation and design tokens would be shared and the UI would be platform-specific. React was chosen partly to keep that door open.
+- A desktop app and a native mobile app. If they happen, business logic, the backend client, validation and design tokens would be shared and the UI would be platform-specific. React was chosen partly to keep that door open. Mobile, and the Metro-class bundler and device tooling it would need, come after desktop; nothing for them is in the code.
+
+## Experimental (off by default)
+
+- **Desktop target** (`devora desktop dev|build|serve --experimental`, Tauri 2): `packages/desktop` (sidecar on 127.0.0.1, random port, per-launch token on every request, navigation and external-link policy, IPC allowlist default none, generated Tauri config with no unsigned updater), example `examples/desktop-app`. Design: `work-notes/desktop/DESIGN.md`. Tested without a display; the window, signing and the Node sidecar packaging are manual and not done (`work-notes/desktop/MANUAL-CHECK.md`).
+- **A dev server of Devora's own** (`packages/dev-server`): only its security core (127.0.0.1 only, refuses production, host check against DNS rebinding, HMR WebSocket with Origin check and per-launch token, files from listed roots only with realpath and dotfile checks, esbuild transforms). It does not render pages, has no Fast Refresh and is not reachable from the CLI. Design, evidence and the bar for making it the default: `work-notes/dev-server/`.
 
 ## Ideas (open, not promised)
 

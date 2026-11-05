@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { dev } from "./commands/dev.js";
 import { build } from "./commands/build.js";
+import { desktopBuild, desktopDev, desktopServe } from "./commands/desktop.js";
 import { start } from "./commands/start.js";
 import { deploy } from "./commands/deploy.js";
 import { newApp, scaffoldApp } from "./commands/new.js";
@@ -59,6 +60,23 @@ program
   .option("--host <host>", "interface to bind (default: $HOST, else all interfaces)")
   .option("--quiet", QUIET_HELP)
   .action(async (opts) => start(opts));
+
+const desktop = program
+  .command("desktop")
+  .description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
+for (const [name, description, action] of [
+  ["dev", "build the app and serve it behind the desktop rules on 127.0.0.1 with a per-launch token", desktopDev],
+  ["build", "build the app and write its Tauri 2 project (apps/<app>/desktop/src-tauri)", desktopBuild],
+  ["serve", "the sidecar the desktop shell starts (token in DEVORA_DESKTOP_TOKEN, port in PORT)", desktopServe],
+] as const) {
+  desktop
+    .command(name)
+    .description(description)
+    .option("--app <name>", "the app to package")
+    .option("--experimental", "required: the desktop target is experimental")
+    .option("--quiet", QUIET_HELP)
+    .action(async (opts) => action(opts));
+}
 
 program
   .command("deploy")

@@ -39,6 +39,7 @@
     "@devorajs/adapter-node": "*",
     "@devorajs/adapter-vercel": "*",
     "@devorajs/adapter-netlify": "*",
-    "@devorajs/scaffold": "*"
+    "@devorajs/scaffold": "*",
+    "@devorajs/desktop": "*"
   }
 }

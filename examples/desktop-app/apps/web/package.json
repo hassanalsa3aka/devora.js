@@ -1,0 +1,15 @@
+{
+  "name": "@project/app-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@devorajs/core": "^0.4.0",
+    "@devorajs/backend": "*",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^6.4.4",
+    "@devorajs/cli": "^0.4.0"
+  }
+}
