@@ -1,7 +1,7 @@
 #!/bin/bash
 # Full gate: per-package typecheck, CLI rebuild, full suite, check:docs, package builds + pack check.
 cd /home/user/devora.js
-out=${1:-/tmp/claude-0/-home-user/117067e4-edbd-5cf2-8123-f694bcf88091/scratchpad/gate}
+out=${1:-${TMPDIR:-/tmp}/devora-gate}
 mkdir -p $out
 r() { local name=$1; shift; if "$@" >$out/$name.log 2>&1; then echo "PASS $name"; else echo "FAIL $name (exit $?)"; fi; }
 for p in @devorajs/core @devorajs/cli @devorajs/adapter-node @devorajs/adapter-vercel @devorajs/adapter-netlify @devorajs/scaffold create-devora; do

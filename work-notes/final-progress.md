@@ -24,10 +24,10 @@ Priority order used (from the brief): phases 0, 1, 4, 5, 6 first, then 3B, 2, 3.
 - Decision: commits carry no attribution trailers (maintainer's rule overrides the harness reminder).
 - Decision: only `release/0.4.0-final` and `release/0.4.0-final-<phase>` are pushed; the harness's default
   session branch is not used.
-- **Was blocked — push (resolved by the maintainer at about 00:20; phases 0 and 1 pushed then):** `git push -u origin release/0.4.0-final` answers 403 in both repos ("Claude doesn't have GitHub
-  access to hassanalsa3aka/<repo> for your organization"). Fetch works; writes do not. Fixing it needs the
-  maintainer's GitHub/claude.ai settings (reconnect GitHub or install the GitHub App with write access), which the
-  brief lists as a hard stop. No other route (API file uploads) was tried, so nothing was written to GitHub.
+- **Was blocked — push (resolved by the maintainer at about 00:20; phases 0 and 1 pushed then):**
+  `git push -u origin release/0.4.0-final` answered 403 in both repos (the GitHub App had no write access for the
+  account). Fixing it needed the maintainer's GitHub settings, a hard stop in the brief. No other route (API file
+  uploads) was tried, so nothing was written to GitHub until access was fixed.
   Work continues as local commits on `release/0.4.0-final` in the container; at the end of each phase a git bundle
   of both branches is written to the session scratchpad so the work can be recovered while the container lives.
 
