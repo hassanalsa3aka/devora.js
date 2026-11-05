@@ -94,6 +94,47 @@ export function createHostCheckPlugin(allowedHosts: string[] | undefined, trustP
   };
 }
 
+/**
+ * Vite's `/__open-in-editor` (used by its error overlay) opens any file path it is given in the developer's
+ * editor, and answers a plain GET. Any web page the developer visits could fire that request at localhost (an
+ * image tag needs no CORS). Red team 2026-11-05, finding H28: a request the browser marks as cross-site or
+ * same-site (`Sec-Fetch-Site`), or one whose `Origin` is another origin, gets a 403. The overlay's own
+ * same-origin request still works, and so does a request with neither header (curl, an editor plugin).
+ */
+export function createOpenInEditorGuardPlugin(): Plugin {
+  return {
+    name: "devora-open-in-editor-guard",
+    configureServer(server) {
+      server.middlewares.use("/__open-in-editor", (req, res, next) => {
+        if (isCrossSiteDevRequest(req.headers)) {
+          res.statusCode = 403;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("Forbidden: cross-site request to the dev server's open-in-editor endpoint");
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
+/** True when the browser says the request came from another site or origin. */
+export function isCrossSiteDevRequest(headers: Record<string, string | string[] | undefined>): boolean {
+  const site = headers["sec-fetch-site"];
+  if (typeof site === "string" && site !== "same-origin" && site !== "none") return true;
+  const origin = headers.origin;
+  if (typeof origin === "string" && origin !== "null") {
+    let originHost: string | undefined;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      return true;
+    }
+    return originHost !== headers.host;
+  }
+  return origin === "null";
+}
+
 export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin {
   return {
     name: "devora-api-middleware",
