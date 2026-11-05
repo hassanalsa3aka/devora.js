@@ -1,0 +1,12 @@
+
+== Astro
+build cold 2060 ms, warm 1382 ms
+start 334 ms, idle 156 MB
+items: 3633 req/s, p50 12 ms, p99 30 ms, 3966 B body + 144 B headers (identity)
+me: 4044 req/s, p50 11 ms, p99 28 ms, 16 B body + 144 B headers (identity)
+postValid: 2826 req/s, p50 16 ms, p99 37 ms, 38 B body + 144 B headers (identity)
+postInvalid: 2872 req/s, p50 16 ms, p99 36 ms, 48 B body + 144 B headers (identity)
+slow: 4785 req/s, p50 9 ms, p99 22 ms, 43 B body + 144 B headers (identity)
+memory after load 279 MB
+
+wrote results/backend-raw-2026-11-05-container-astro.json

@@ -1,0 +1,13 @@
+
+== SvelteKit
+build cold 3211 ms, warm 3239 ms
+start 226 ms, idle 132 MB
+wire static: load tool 1868 B (identity), browser 628 B (br)
+wire items: load tool 7824 B (identity), browser 7824 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 6513 req/s, p50 6 ms, p99 17 ms
+items: 1314 req/s, p50 35 ms, p99 64 ms
+form: 5583 req/s, p50 7 ms, p99 21 ms
+items JS 34209 B gzip, hydration 84 ms
+
+wrote results/raw-2026-11-05-container-sveltekit-pages.json

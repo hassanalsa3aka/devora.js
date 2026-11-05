@@ -1,0 +1,12 @@
+
+== Hono
+build cold 153 ms, warm 151 ms
+start 220 ms, idle 132 MB
+items: 19204 req/s, p50 2 ms, p99 5 ms, 3966 B body + 138 B headers (identity)
+me: 40138 req/s, p50 1 ms, p99 3 ms, 16 B body + 136 B headers (identity)
+postValid: 25297 req/s, p50 2 ms, p99 5 ms, 38 B body + 136 B headers (identity)
+postInvalid: 26103 req/s, p50 1 ms, p99 5 ms, 48 B body + 136 B headers (identity)
+slow: 14974 req/s, p50 3 ms, p99 5 ms, 43 B body + 136 B headers (identity)
+memory after load 156 MB
+
+wrote results/backend-raw-2026-11-05-container-hono.json

@@ -130,3 +130,21 @@ Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
   every platform.
 - b) `packages/desktop` + `devora desktop dev|build|serve --experimental` + examples/desktop-app + MANUAL-CHECK.md.
 - c) Docs and ROADMAP say mobile and Metro-class tooling come later; nothing about them in code.
+
+## Phase 3B — done (core scope); Phase 6 — final pass (done)
+
+- 3B: all 19 runs OK (10 backend + 5 pages frameworks; Devora.js 0.3.5 and branch). Profiles → two commits
+  (483d7d4 S6, d749abc S5). RESULTS.md, raw JSON and logs committed; docs draft in devorajs-docs
+  work-notes/perf-draft/ (unpublished). Not measured: Nuxt, streaming, ISR hit, CRUD, cold start, install,
+  dev start/HMR, Node 20/24, Bun, PM build times (listed in RESULTS.md, nothing estimated). WebSocket: "needs your
+  own server". Time: ~2 h (over 45 min: the harness runs took 80 minutes of wall time).
+- 2 and 3: tests 17/17 (desktop 9, dev-server 8); desktop end-to-end in the container (403 / 400 / 303 / 200).
+- Final gate on the final branch: 9 typechecks PASS (7 packages + desktop + dev-server), 71 files / 664 tests PASS,
+  check:docs PASS, package builds PASS, pack check PASS. Scaffold matrix: npm, Yarn 1, pnpm 9, 10, 12 PASS (Yarn 4:
+  environment, see phase 6 first pass). Docs build PASS, SEO 33 pages PASS, screenshots of security, roadmap and
+  cli-reference at 375/1280 (no overflow).
+- Perf re-check, final vs 3B build, interleaved 3 runs: D −1.0%, F1 +1.8%, B −2.8% (inside the spread), C +9.5%.
+  Nothing regressed.
+
+Resume notes: everything is committed and pushed. Nothing is left running. Next steps are the maintainer's
+(work-notes/FINAL-REPORT.md, "Needs your decision" and "What you must do by hand").

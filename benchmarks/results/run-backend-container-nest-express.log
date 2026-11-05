@@ -1,0 +1,12 @@
+
+== NestJS (Express platform)
+build cold 1255 ms, warm 1308 ms
+start 547 ms, idle 168 MB
+items: 5612 req/s, p50 7 ms, p99 21 ms, 3966 B body + 219 B headers (identity)
+me: 7185 req/s, p50 5 ms, p99 16 ms, 16 B body + 216 B headers (identity)
+postValid: 6018 req/s, p50 7 ms, p99 20 ms, 38 B body + 216 B headers (identity)
+postInvalid: 4967 req/s, p50 8 ms, p99 23 ms, 48 B body + 216 B headers (identity)
+slow: 7797 req/s, p50 5 ms, p99 14 ms, 43 B body + 216 B headers (identity)
+memory after load 255 MB
+
+wrote results/backend-raw-2026-11-05-container-nest-express.json

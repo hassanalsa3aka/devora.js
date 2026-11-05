@@ -1,0 +1,12 @@
+
+== Next.js
+build cold 5038 ms, warm 1982 ms
+start 550 ms, idle 156 MB
+items: 1246 req/s, p50 38 ms, p99 70 ms, 3966 B body + 231 B headers (identity)
+me: 1290 req/s, p50 37 ms, p99 66 ms, 16 B body + 231 B headers (identity)
+postValid: 1082 req/s, p50 44 ms, p99 81 ms, 38 B body + 231 B headers (identity)
+postInvalid: 1085 req/s, p50 43 ms, p99 88 ms, 48 B body + 231 B headers (identity)
+slow: 1905 req/s, p50 22 ms, p99 60 ms, 43 B body + 231 B headers (identity)
+memory after load 326 MB
+
+wrote results/backend-raw-2026-11-05-container-next.json

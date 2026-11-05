@@ -1,0 +1,12 @@
+
+== React Router
+build cold 1361 ms, warm 1573 ms
+start 356 ms, idle 149 MB
+items: 1642 req/s, p50 28 ms, p99 51 ms, 3966 B body + 182 B headers (identity)
+me: 1786 req/s, p50 26 ms, p99 53 ms, 16 B body + 182 B headers (identity)
+postValid: 1736 req/s, p50 27 ms, p99 50 ms, 38 B body + 182 B headers (identity)
+postInvalid: 1733 req/s, p50 27 ms, p99 56 ms, 48 B body + 182 B headers (identity)
+slow: 2357 req/s, p50 19 ms, p99 42 ms, 43 B body + 182 B headers (identity)
+memory after load 252 MB
+
+wrote results/backend-raw-2026-11-05-container-react-router.json

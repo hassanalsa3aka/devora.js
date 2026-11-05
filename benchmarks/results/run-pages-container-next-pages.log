@@ -1,0 +1,13 @@
+
+== Next.js
+build cold 5239 ms, warm 1982 ms
+start 538 ms, idle 156 MB
+wire static: load tool 5559 B (identity), browser 1811 B (gzip)
+wire items: load tool 17105 B (identity), browser 3562 B (gzip)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 1578 req/s, p50 29 ms, p99 60 ms
+items: 318 req/s, p50 149 ms, p99 286 ms
+form: 758 req/s, p50 64 ms, p99 114 ms
+items JS 135218 B gzip, hydration 123 ms
+
+wrote results/raw-2026-11-05-container-next-pages.json

@@ -79,11 +79,18 @@ git push origin main
 - What to check: /upgrading shows "Upgrading to 0.4.0" with the two new rows (duplicated cookies, app names);
   /security shows "New in 0.4.0"; the sitemap and RSS list the new posts.
 
+## 3b. Decisions before publishing (not run)
+
+- [not run] Decide whether `devora desktop ... --experimental` ships in 0.4.0 (it is in the CLI on this branch,
+  opt-in; the window was never built). If not, revert commit 9578409's CLI wiring before step 2 (keep the package).
+- [not run] Benchmark apps: `benchmarks/apps/devora*` pin 0.4.0, which npm does not have until step 2; their
+  `npm ci` fails until then (the release-day script's step 5 refreshes their lockfiles after publishing).
+
 ## 4. After publishing
 
 - [not run] Verify 0.4.0 on a live multi-app Vercel and Netlify deployment with sessions and API routes (finding N1).
-- [not run] Re-measure performance on local hardware before publishing any number (see `work-notes/perf/` if phase
-  3B produced a draft).
+- [not run] Re-measure performance on local hardware before publishing any number: the container results and the
+  draft table are in `work-notes/perf/RESULTS.md` and devorajs-docs `work-notes/perf-draft/PERFORMANCE-DRAFT.md`.
 
 ## Rollback
 
