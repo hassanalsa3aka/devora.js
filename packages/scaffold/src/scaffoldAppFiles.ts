@@ -1,3 +1,4 @@
+import { assertScaffoldNames } from "./names.js";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import type { AuthChoice } from "./resolveAuthChoice.js";
@@ -119,6 +120,7 @@ const API_DIR_CONFIG_LINES =
  * it assumes is safe to write into.
  */
 export async function scaffoldAppFiles(appDir: string, appName: string, opts: ScaffoldAppOptions): Promise<void> {
+  assertScaffoldNames(appName);
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;

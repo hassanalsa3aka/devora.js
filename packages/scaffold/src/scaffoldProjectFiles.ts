@@ -1,3 +1,4 @@
+import { assertScaffoldNames } from "./names.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, cp } from "node:fs/promises";
@@ -71,6 +72,7 @@ export const YARNRC_YML = `nodeLinker: node-modules\n`;
  */
 export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldProjectOptions): Promise<void> {
   const { projectName, apps, coreVersion, cliVersion } = opts;
+  for (const app of apps) assertScaffoldNames(app.name, app.domain);
   const scope = opts.scope ?? "fullstack";
   const hasBackend = scope !== "frontend";
 

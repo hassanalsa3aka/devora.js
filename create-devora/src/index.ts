@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import {
+  appNameProblem,
   resolveAuthChoice,
   resolveScopeChoice,
   scaffoldAppFiles,
@@ -130,6 +131,13 @@ async function main() {
   if (appNames.length === 0) {
     console.error("[create-devora] at least one app name is required.");
     process.exit(1);
+  }
+  for (const name of appNames) {
+    const problem = appNameProblem(name);
+    if (problem) {
+      console.error(`[create-devora] ${problem}`);
+      process.exit(1);
+    }
   }
 
   // --auth=name1:mode1,name2:mode2 skips the per-app prompt for named apps;
