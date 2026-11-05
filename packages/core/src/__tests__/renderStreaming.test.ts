@@ -530,3 +530,52 @@ describe("a boundary error that arrives before the shell is ready", () => {
     expect(reports).toEqual([{ phase: "shell" }]);
   });
 });
+
+describe("a failed island import is reported by the request that saw it, whatever the timer order", () => {
+  // React 18's server renderer re-renders a suspended component from setImmediate; the island cache used to drop
+  // a failed import from setTimeout(0). Their order is not fixed: when the timer ran first (a busy machine), the
+  // re-render found no cache entry, imported again, and the first failure was never reported. Forced here: the
+  // import rejects inside a setImmediate callback and the event loop is kept busy past 1 ms before the next turn,
+  // so the timers phase runs before the check phase where React's retry waits.
+  it("reports the boundary error once and does not import again in the same request", async () => {
+    let attempts = 0;
+    const busy = (ms: number) => {
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        /* hold the event loop */
+      }
+    };
+    const descriptor = island(() => {
+      attempts++;
+      if (attempts > 1) return Promise.resolve({ default: () => createElement("span", null, `attempt-${attempts}`) });
+      return new Promise((_resolve, reject) => {
+        setImmediate(() => {
+          reject(new Error("transient failure"));
+          // Runs after the cache's own handlers and React's ping (a few microtasks later).
+          let chain = Promise.resolve();
+          for (let i = 0; i < 10; i++) chain = chain.then(() => undefined);
+          void chain.then(() => busy(5));
+        });
+      });
+    }, "/assets/flaky-order.js");
+    const routeModule: RouteModule = {
+      renderMode: "streaming",
+      default: () => createElement(Island, { component: descriptor, props: {} }),
+    };
+    const result = await createRenderStreaming(deps)(routeModule, {});
+    const reports: Array<{ message: string; phase: string }> = [];
+    const { destination, chunks, done } = collectChunks();
+    result!.pipeTo(destination, (error, phase) => reports.push({ message: (error as Error).message, phase }));
+    await done;
+    expect(reports).toEqual([{ message: "transient failure", phase: "boundary" }]);
+    expect(attempts).toBe(1);
+    expect(chunks().join("")).not.toContain("attempt-2");
+
+    // The next request still retries the import fresh.
+    const second = await createRenderStreaming(deps)(routeModule, {});
+    const next = collectChunks();
+    second!.pipeTo(next.destination);
+    await next.done;
+    expect(next.chunks().join("")).toContain("attempt-2");
+  });
+});

@@ -75,6 +75,9 @@ interface ModuleCacheEntry {
  * `descriptor` directly since `island()` calls produce one stable object
  * per call site, created once at module load — never per-request.
  */
+/** How long a rejected import nobody re-rendered stays cached before it is dropped. */
+const ABANDONED_REJECTION_MS = 1000;
+
 const streamingModuleCache = new Map<IslandDescriptor<unknown>, ModuleCacheEntry>();
 
 /**
@@ -125,30 +128,19 @@ function readIslandModuleSuspending(descriptor: IslandDescriptor<unknown>): Reso
           // every request for that island, forever, throws the same stale
           // error.
           //
-          // Deliberately a macrotask (`setTimeout`, not deleting inline
-          // here): React re-invokes a component that threw a promise as
-          // soon as that promise settles — including on rejection — and
-          // that re-invocation happens synchronously within the same
-          // microtask turn as this `.then()` callback. Deleting the entry
-          // *inline* was tried and measured to cause exactly the bug it was
-          // meant to fix, worse: the re-invocation would find no cache
-          // entry, immediately call `descriptor.importer()` again, and
-          // throw a fresh pending promise — for a persistently-broken
-          // import this retries in a tight loop with no bound, hanging the
-          // request outright (confirmed: it turned an existing "reports a
-          // boundary error" test from a 1ms pass into a 5-second timeout).
-          // Scheduling the removal on a macrotask lets the CURRENT
-          // request's re-invocation still see `entry.status === "rejected"`
-          // and throw `entry.error` as a plain synchronous value — which
-          // React correctly treats as a real render error (not a suspend),
-          // reported exactly once, no retry — while a *future* request,
-          // necessarily at least one full event-loop turn later, finds the
-          // entry gone and retries fresh.
-          setTimeout(() => {
+          // The entry is removed when a render reads the rejection (below), not on a timer. A `setTimeout(0)`
+          // removal was used before and raced React 18's server renderer, which re-renders a suspended
+          // component from `setImmediate`: when the timer ran first (a busy machine), the re-render found no
+          // entry, imported again inside the same request, and the first failure was never reported. Deleting
+          // inline here is also wrong (the re-render would find no entry and retry in a loop). This timer only
+          // cleans up an entry no render ever read (the request was aborted); it is long enough that React's
+          // re-render always comes first, and `unref()` so it never keeps a process alive.
+          const abandoned = setTimeout(() => {
             if (streamingModuleCache.get(descriptor) === newEntry) {
               streamingModuleCache.delete(descriptor);
             }
-          }, 0);
+          }, ABANDONED_REJECTION_MS);
+          abandoned.unref?.();
         }
       ),
     };
@@ -156,7 +148,12 @@ function readIslandModuleSuspending(descriptor: IslandDescriptor<unknown>): Reso
     streamingModuleCache.set(descriptor, entry);
   }
   if (entry.status === "pending") throw entry.promise;
-  if (entry.status === "rejected") throw entry.error;
+  if (entry.status === "rejected") {
+    // This render reports the failure (React treats a thrown non-promise as a boundary error, once). Removing the
+    // entry now means the next render of this island, in this request or a later one, imports again.
+    if (streamingModuleCache.get(descriptor) === entry) streamingModuleCache.delete(descriptor);
+    throw entry.error;
+  }
   return entry.value as ResolvedIsland;
 }
 
