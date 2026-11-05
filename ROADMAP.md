@@ -6,6 +6,7 @@ Status words in the tables: **Fixed** (a release, and a file, test or CHANGELOG 
 
 ## Now
 
+- **Integration branch `release/0.4.0-final`** (approved by the maintainer, 2026-11-05): phase 0 state and merges; phase 1 finish the open 0.4.0 items (streaming flake wording, scaffold CI port base, quick findings such as H22, full gate); phase 4 red team on localhost; phase 5 docs; phase 6 verify and hand over; then, if time allows, phase 3B performance, phase 2 an experimental opt-in dev server and phase 3 an experimental opt-in desktop target. Log: `work-notes/final-progress.md`.
 - **Publish 0.4.0** (prepared on the `release/0.4.0` branch; the publish order is in the release notes of that branch's pull request, and the date in the CHANGELOG heading is filled in on the day). It is a security hardening release (findings H1 to H20); four changes need a check in some apps (`redirect()` to another origin, CSRF on cookie writes, `Cache-Control` on session responses, vite 6.4.4). It has not been run on a live Vercel or Netlify deployment. Read the [security model](docs/guides/SECURITY-MODEL.md) first.
 - Switch on GitHub's private vulnerability reporting for the repository (SECURITY.md names it as the preferred channel).
 - Outside testers: [TESTING.md](TESTING.md) is a 15-minute guide; what they hit goes into the findings table below.
