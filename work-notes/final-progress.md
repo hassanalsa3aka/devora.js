@@ -97,3 +97,36 @@ Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
 - Perf re-run against 3B: not possible yet (3B not run); repeated at the end if 3B runs.
 - RELEASE-DAY-0.4.0-final.md written; framework release-day.mjs text points at release/0.4.0-final; CHANGELOG's
   findings line updated (H1 to H29; H18, H30 to H32 open).
+
+## Phase 3B — performance (in progress at 01:00)
+
+- PLAN.md written (work-notes/perf/PLAN.md). Uses the existing harness (benchmarks/) unchanged: 8 scenarios, 10
+  frameworks, 5 runs, medians with ranges. Driver: one framework at a time, npm ci, run, node_modules removed.
+- Harness problems found: (1) the two Devora benchmark apps pin 0.4.0 in package.json while their lockfiles resolve
+  0.3.5, so `npm ci` fails until 0.4.0 is on npm (worked around for the run by pinning 0.3.5 in the working tree
+  only, reverted by the driver; not committed); (2) use-local-build.sh needed rsync (fixed: cp fallback, committed).
+- First results (container, relative only): branch vs published 0.3.5, Devora.js API app: JSON list 13,372 vs
+  15,428 req/s (beyond the spread), POST valid 16,425 vs 17,405 (beyond), authenticated GET, POST invalid and the
+  async step overlap (tie). Pages app: static 28,799 vs 29,838, SSR 3,778 vs 3,947, form POST 15,618 vs 19,054.
+  Profiling after the other frameworks finish (to keep their runs clean).
+- The two Devora 0.3.5 API scenarios D and E ran while two idle servers of mine (red team, docs preview) were still
+  up; they were stopped before the rest.
+
+## Phase 2 — own dev server (partly done)
+
+- a) ISLANDS-PAIN.md, b) DESIGN.md, e) ACCEPTANCE.md written (work-notes/dev-server/).
+- c) Decision: a full replacement for Vite in `devora dev` (SSR module graph, Fast Refresh, CSS pipeline) cannot be
+  finished with confidence in this session, and a flag that renders pages wrongly is worse than no flag. Built and
+  tested instead: `packages/dev-server`, the security core (loopback only, refuses production, DNS-rebinding host
+  check, HMR WebSocket with Origin + per-launch token, files only from listed roots with realpath and dotfile checks,
+  esbuild transforms, full-reload broadcast on change). NOT wired into the CLI: there is no
+  `--experimental-dev-server` flag yet, so default behaviour cannot change.
+- d) Benchmark against Vite: not possible (it does not render pages).
+
+## Phase 3 — desktop target (mostly done; window not built)
+
+- a) DESIGN.md with the Tauri/Electron table (keep Tauri). Adjustment: the token also travels as an HttpOnly,
+  SameSite=Strict cookie set by a one-time launch URL, because a web view cannot add a header to every request on
+  every platform.
+- b) `packages/desktop` + `devora desktop dev|build|serve --experimental` + examples/desktop-app + MANUAL-CHECK.md.
+- c) Docs and ROADMAP say mobile and Metro-class tooling come later; nothing about them in code.
