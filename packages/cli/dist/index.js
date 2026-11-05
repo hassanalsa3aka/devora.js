@@ -7184,6 +7184,11 @@ async function createAppDevServer(opts) {
       port: opts.port,
       strictPort: true,
       ...opts.host ? { host: true } : {},
+      // Finding H22: Vite has its own host check (a 403 "Blocked request" for a host it does not know). When the app
+      // lists `allowedHosts`, Vite gets the same list, so a listed host (a tunnel, a custom dev domain) reaches the
+      // app and Devora's check stays the one that answers. With no list, nothing is passed and Vite keeps its own
+      // default check (localhost and IP addresses). Never `true`: that would switch Vite's check off.
+      ...appConfig.allowedHosts !== void 0 ? { allowedHosts: [...appConfig.allowedHosts] } : {},
       // Build and adapter output lives inside the app folder; without this,
       // every `devora build --adapter=…` while dev runs reloaded open pages
       // once per written file ("page reload .vercel/output/static/…").
