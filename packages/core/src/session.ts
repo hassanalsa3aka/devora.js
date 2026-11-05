@@ -394,9 +394,11 @@ const MAX_WARNED_PATHS = 1_000;
  * warning is for the route that meant to be signed-in only and forgot.
  */
 export function warnIfSessionReadWithoutAuth(context: Pick<RequestContextResult, "authUsage">, urlOrPath: string | undefined): void {
-  if (process.env.NODE_ENV === "production") return;
+  // The usage check first: reading process.env is a native property lookup, and this runs on every request
+  // (1.5% of the CPU of a JSON GET in production, measured with --cpu-prof, phase 3B). Same result either order.
   const { sessionRead, requireAuthCalled } = context.authUsage();
   if (!sessionRead || requireAuthCalled) return;
+  if (process.env.NODE_ENV === "production") return;
   let pathname = urlOrPath ?? "(unknown path)";
   try {
     pathname = new URL(pathname, "http://localhost").pathname;
