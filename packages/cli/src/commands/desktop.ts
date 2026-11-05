@@ -70,7 +70,7 @@ function readSettings(appRoot: string, appName: string): DesktopSettings {
 }
 
 async function serveBuiltApp(opts: DesktopOptions, token: string, port: number | undefined) {
-  forceProductionNodeEnv("desktop serve");
+  forceProductionNodeEnv("start");
   const { root, project, app, appRoot } = await resolveApp(opts);
   loadProjectEnv(root, "production");
   const appConfig = await loadAppConfig(appRoot);

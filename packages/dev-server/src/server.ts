@@ -55,9 +55,9 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
   const hmr = createHmrChannel({ token, hostAllowed });
   const transforms = createTransformCache();
 
-  const send = (res: http.ServerResponse, status: number, body: string | Buffer, type = "text/plain; charset=utf-8") => {
+  const send = (res: http.ServerResponse, status: number, body: string | Buffer, type = "text/plain; charset=utf-8", extra: Record<string, string> = {}) => {
     res.statusCode = status;
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
+    for (const [k, v] of Object.entries({ ...SECURITY_HEADERS, ...extra })) res.setHeader(k, v);
     res.setHeader("Content-Type", type);
     res.end(body);
   };
@@ -73,8 +73,8 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
         if (isTransformable(resolved.file)) return send(res, 200, await transforms.load(resolved.file), "text/javascript; charset=utf-8");
         const type = TYPES[path.extname(resolved.file)];
         if (!type) return send(res, 403, "Forbidden");
-        res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-        return send(res, 200, await readFile(resolved.file), type);
+        // A file the page loads, not a page: nothing in it may run on this origin.
+        return send(res, 200, await readFile(resolved.file), type, { "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
       }
       if (options.fallback) return await options.fallback(req, res);
       send(res, 404, "Not Found");
