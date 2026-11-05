@@ -82,6 +82,8 @@ function resolveLikeBrowser(to: string): { url: URL; absolute: boolean } | undef
   }
 }
 
+const PLAIN_SAME_ORIGIN_PATH = /^\/(?![/\\])[A-Za-z0-9\-._~!$&'()*+,;=:@/?#]*$/;
+
 /**
  * The 400 a redirect target earns, or undefined when it is allowed. Checked
  * when `redirect()` is called and again when the response is sent (a loader
@@ -91,6 +93,11 @@ function resolveLikeBrowser(to: string): { url: URL; absolute: boolean } | undef
  * decodes it.
  */
 export function redirectRefusal(result: RedirectResult): HttpError | undefined {
+  // Fast path, same answer: a path that starts with one "/" (not "//" or "/\\"), made only of characters below
+  // (no "%", so decoding changes nothing; no backslash, space, tab, newline or other control character, so a
+  // browser reads it as written) can only resolve on this origin. The full check parses the target with the URL
+  // parser up to four times; on a form POST that redirects it was about 8% of the CPU (--cpu-prof, phase 3B).
+  if (PLAIN_SAME_ORIGIN_PATH.test(result.redirect)) return undefined;
   const allowed = result.allowedOrigins ?? [];
   let candidate = result.redirect;
   for (let round = 0; round < 4; round++) {

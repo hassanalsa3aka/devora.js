@@ -4105,9 +4105,9 @@ async function resolveSession(request, opts, now = Date.now()) {
 var warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
 var MAX_WARNED_PATHS = 1e3;
 function warnIfSessionReadWithoutAuth(context, urlOrPath) {
-  if (process.env.NODE_ENV === "production") return;
   const { sessionRead, requireAuthCalled } = context.authUsage();
   if (!sessionRead || requireAuthCalled) return;
+  if (process.env.NODE_ENV === "production") return;
   let pathname = urlOrPath ?? "(unknown path)";
   try {
     pathname = new URL(pathname, "http://localhost").pathname;

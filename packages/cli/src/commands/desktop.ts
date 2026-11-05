@@ -136,9 +136,9 @@ export async function desktopBuild(opts: DesktopOptions) {
   await build({ app: app.name });
   const version = (() => {
     try {
-      return (JSON.parse(readFileSync(path.join(appRoot, "package.json"), "utf8")) as { version?: string }).version ?? "0.1.0";
+      return (JSON.parse(readFileSync(path.join(appRoot, "package.json"), "utf8")) as { version?: string }).version ?? "0.1.0"; // version-ok: the app's own version, not Devora's
     } catch {
-      return "0.1.0";
+      return "0.1.0"; // version-ok: the app's own version, not Devora's
     }
   })();
   const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
