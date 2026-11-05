@@ -93,10 +93,14 @@ export function describeRequest(req: ProxiedRequestLike, trustProxy: TrustProxyS
   return {
     get url() {
       if (url === undefined) {
+        // Only the path and query come from the request target. An absolute-form target
+        // ("GET http://evil.example/x HTTP/1.1") or one starting with "//" used to replace the host, so
+        // ctx.url could name a host that `allowedHosts` never saw (red team 2026-11-05, finding H27).
+        const pathAndQuery = targetPathAndQuery(target);
         try {
-          url = new URL(target, `${scheme}://${host}`).href;
+          url = new URL(`${scheme}://${host}${pathAndQuery}`).href;
         } catch {
-          url = new URL(target, "http://localhost").href;
+          url = new URL(pathAndQuery, "http://localhost").href;
         }
       }
       return url;
@@ -121,3 +125,23 @@ function firstHeaderValue(value: string | string[] | undefined): string | undefi
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
   return first || undefined;
 }
+
+/**
+ * The path and query of a request target, always starting with a single "/": an origin-form target ("/a?b") as
+ * sent; an absolute-form one ("http://host/a?b") without its scheme and host; "*" and anything unparsable as "/".
+ * A target starting with "//" keeps its path ("//x/y" stays a path on this host, never a host named x).
+ */
+export function targetPathAndQuery(target: string): string {
+  let pathAndQuery: string;
+  if (target.startsWith("/")) pathAndQuery = target;
+  else {
+    try {
+      const parsed = new URL(target);
+      pathAndQuery = `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return "/";
+    }
+  }
+  return pathAndQuery.startsWith("//") ? `/${pathAndQuery.replace(/^\/+/, "")}` : pathAndQuery;
+}
+
