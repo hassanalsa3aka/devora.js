@@ -127,5 +127,9 @@ describe("dev server", () => {
     expect((await get(port, { Host: `localhost:${port}` }, "/", "localhost")).status).toBe(200);
     expect((await get(port, { Host: "evil.com" }, "/", "localhost")).status).toBe(400);
     expect((await get(port, { Host: "evil.com" }, "/api/whatever", "localhost")).status).toBe(400);
+    // Finding H22: a listed host that is not localhost reaches the app; Vite's own check does not answer 403 for it.
+    expect((await get(port, { Host: "app.example.com" }, "/", "localhost")).status).toBe(200);
+    expect((await get(port, { Host: "dev.example.org" }, "/", "localhost")).status).toBe(200);
+    expect((await get(port, { Host: "app.example.com.evil.com" }, "/", "localhost")).status).toBe(400);
   }, 30_000);
 });
