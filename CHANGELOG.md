@@ -75,7 +75,7 @@ Do these four checks before deploying 0.4.0. Each has a migration step.
 - New guide `docs/guides/SECURITY-MODEL.md`: what the framework does by default, what you must do, what it does not do. The Auth, Pages and Deploying guides, the README and `SECURITY.md` describe 0.4.0, and claims that overstated were narrowed (headers on files a CDN serves directly; CSRF being a per-route call in 0.3.5).
 - The examples and the benchmark apps depend on `@devorajs/core` and `@devorajs/cli` `^0.4.0` (the benchmark apps pin `0.4.0`). Their `package-lock.json` files still resolve 0.3.5 until 0.4.0 is on npm: run `npm install` in each after publishing. The checked-in benchmark results were measured on 0.3.5; 0.4.0 has not been measured.
 - The README and `create-devora`'s README have a command table for npm, Yarn and pnpm (create, install, dev, build, start, add a package, run a script, run the CLI once) and list what differs between them as it was seen. Bun and Deno were not tested and are not listed as supported. `create-devora`'s README no longer calls the framework "Vite-based" and the README's Vite requirement says 6.4.4 or later.
-- Findings H1 to H21 and T3 to T5 in `ROADMAP.md` record each change in this release with the test or file that proves it; H22 is open.
+- Findings H1 to H29 and T3 to T5 in `ROADMAP.md` record each change in this release with the test or file that proves it (H24 to H29 come from the red-team pass, `work-notes/redteam/REDTEAM.md` on the integration branch); H18, H30, H31 and H32 are open.
 
 ## 0.3.5 — 2026-10-16
 

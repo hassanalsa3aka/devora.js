@@ -70,3 +70,30 @@ attack-dev.mjs 26, fuzz.mts 9 parsers ~95M inputs, redos.mts 12 worst cases, gat
 - Time: about 1 h 45 min (over 45 min: the breadth of the brief's list; no single item took longer than 20 min).
 
 Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
+
+## Phase 5 — docs (done; devorajs-docs release/0.4.0-final)
+
+- security.tsx "Next release" section: method rule, four new default rows (ctx.url host, cookies, dev
+  open-in-editor, scaffold names), "do not share the domain", two upgrade checks, a "Red-team pass" paragraph (no
+  exploit details for the open H30/H31). roadmap.tsx: mobile and Metro-class tooling after desktop, nothing in code.
+- Release-day templates (upgrading-040.changes.tsx, release-day.mjs CSRF callout) updated; two new upgrade rows.
+  Fixed a release-day.mjs bug: step 7's second edit was always skipped as "already applied".
+- Blog draft: work-notes/drafts/red-team-before-0-4-0.md (not routed/linked, date left for publishing day).
+- Fact-check: work-notes/FACT-CHECK-final.md (docs repo), every new sentence in both repos.
+- Docs build exit 0; check:seo 33 pages all pass; release-day dry run all 8 steps (drafts from git 06bbf28,
+  the current drafts are "needs local file").
+- Not done: experimental dev server / desktop docs (phases 2 and 3 not started yet); package-manager table
+  unchanged (no change to document). Performance numbers: none (phase 3B not run yet).
+
+## Phase 6 — verify and hand over (done, first pass; repeated at the end if later phases change code)
+
+- Full gate after phase 4: PASS (68 files / 644 tests); scripts tests 14 PASS; check:docs PASS after phase 6 edits.
+- Scaffold matrix from the local build (scripts/ci-scaffold-pm.mjs): npm PASS, yarn1 PASS, pnpm9 PASS, pnpm10 PASS,
+  pnpm12 PASS, yarn4 FAIL twice for the same environment reason (corepack cannot download Yarn from
+  repo.yarnpkg.com through this container's network: ENOTFOUND, then UND_ERR_ABORTED with NODE_USE_ENV_PROXY=1).
+  Not a code failure; CI's package-managers job covers Yarn 4. Recorded and skipped per the brief.
+- Docs: build PASS, SEO PASS, screenshots of /security and /roadmap at 375 and 1280 px (no horizontal overflow) in
+  devorajs-docs work-notes/screenshots/.
+- Perf re-run against 3B: not possible yet (3B not run); repeated at the end if 3B runs.
+- RELEASE-DAY-0.4.0-final.md written; framework release-day.mjs text points at release/0.4.0-final; CHANGELOG's
+  findings line updated (H1 to H29; H18, H30 to H32 open).

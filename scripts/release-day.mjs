@@ -120,7 +120,7 @@ const bar = "=".repeat(78);
 console.log(`
 ${bar}
 THE REST OF THE DAY. Nothing below has been run. Run from the repository root, on main, after the
-release/0.4.0 and chore/release-day-0.4.0 branches are merged and this script's edits are committed.
+release/0.4.0-final branch is merged and this script's edits are committed.
 ${bar}
 
 1. Check the state
