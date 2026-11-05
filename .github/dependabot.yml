@@ -1,10 +1,10 @@
 # Dependabot opens pull requests for updates; it never merges anything. Security updates for a vulnerable
 # dependency come from GitHub's own alerts and ignore the schedule and the limits below.
 #
-# No semver-major updates for vite, @vitejs/plugin-react, @types/react or @types/react-dom in any npm project
-# here. The framework supports vite 6 (the CLI asks for ^6.4.4 and has not been run on vite 7 or 8), the
-# plugin's next major goes with a newer vite, and new projects start on React 18, so @types/react and
-# @types/react-dom 19 would not match the React they install. Minor and patch updates still come through.
+# No semver-major updates for vite, @vitejs/plugin-react, @types/react, @types/react-dom, react or react-dom in
+# any npm project here. The framework supports vite 6 (the CLI asks for ^6.4.4 and has not been run on vite 7 or 8),
+# the plugin's next major goes with a newer vite, and new projects start on React 18, so React 19 and its types
+# would not match the React they install. Minor and patch updates still come through.
 # Move these entries when the framework moves to a new vite or React major.
 version: 2
 updates:
@@ -22,6 +22,10 @@ updates:
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
     groups:
       dev-tools:
@@ -42,6 +46,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/api-bearer"
     schedule:
@@ -55,6 +63,10 @@ updates:
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/content-site"
@@ -70,6 +82,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/realtime"
     schedule:
@@ -84,6 +100,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/examples/background-jobs"
     schedule:
@@ -97,6 +117,10 @@ updates:
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
   # The GitHub Actions in .github/workflows, which are pinned to commit SHAs: Dependabot updates the SHA
   # and the version comment together.

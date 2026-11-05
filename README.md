@@ -145,7 +145,7 @@ What differs, as seen when these commands were run:
 - **Yarn 1** warns about an unmet peer dependency (`react`); a plain `yarn add` at the root asks for `-W`.
 - **Yarn 4** prints peer-dependency warnings (`YN0002`) about `react`. A new project works with Yarn 4's default
   settings, because `create-devora` writes a `.yarnrc.yml` with `nodeLinker: node-modules` when you pick Yarn
-  (Plug'n'Play, Yarn 4's default, does not run the CLI). A project made by `create-devora` 0.3.x needs that one-line
+  (Yarn 4's default, Plug'n'Play, also ran the CLI in a test from the 0.4.0 build, once `@devorajs/cli` declared `esbuild`; before that it stopped with `@devorajs/cli tried to access esbuild`). A project made by `create-devora` 0.3.x needs that one-line
   file added before installing.
 - **pnpm 9 and 10**: a plain `pnpm add` at the root asks for `-w`.
 - **pnpm 11 and later** (12.10 was tried) work with a new project, because `pnpm-workspace.yaml` now carries
@@ -257,7 +257,7 @@ routes and Netlify are not) (nor are 0.4.0's Vercel/Netlify header rules).
 
 ## Testing
 
-`pnpm run test` runs 613 Vitest tests in 64 files: `@devorajs/core` units, plus integration tests
+`pnpm run test` runs 626 Vitest tests in 65 files: `@devorajs/core` units, plus integration tests
 that boot real dev and production servers and send real HTTP requests (sessions, cookies, CSRF,
 `apiDir`, uploads, error pages), the adapter runtime and CommonJS-banner checks, the preflight
 checks, and the terminal formatter. CI also typechecks fresh `create-devora` projects against the
