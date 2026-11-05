@@ -253,8 +253,18 @@ export function parseCookieHeader(header: string | undefined): Record<string, st
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim();
+    // The first value of a repeated name wins (red team 2026-11-05): browsers send the cookie with the longer
+    // path, then the older one, first, so a cookie tossed in later from a sibling subdomain does not replace the
+    // app's own. Own-property check, so a name such as "constructor" is not mistaken for one already seen.
+    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
     const value = part.slice(eq + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    // A malformed escape in any cookie (one set by another app on the domain, or by hand) used to throw here and
+    // turn every page of the app into a 500 for that browser. Such a value is kept as sent.
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
   }
   return cookies;
 }
