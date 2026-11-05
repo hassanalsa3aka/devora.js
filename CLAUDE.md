@@ -21,7 +21,7 @@ explicit design reaction to Next.js's implicit caching and undocumented build fo
 - **React**, not Solid/Qwik — keeps the door open to native mobile later (a planned goal, not started).
 - **No built-in ORM/auth/file storage in v1** — bring your own. Don't add one.
 - **No RSC-style server/client serialization protocol in v1** — too large, too security-sensitive.
-- **CSRF is checked by default for cookie-authenticated POST/PUT/PATCH/DELETE** (0.4.0); a route
+- **CSRF is checked by default for cookie-authenticated writes** (every method but GET/HEAD/OPTIONS; 0.4.0); a route
   opts out with `export const csrf = false`. Bearer requests are exempt. Do not remove this default.
 - **Security is a default, not opt-in**: no `eval`/dynamic `Function()` anywhere in framework
   internals, ever — including in tooling you might be tempted to add (e.g. a plugin loader).

@@ -177,9 +177,9 @@ client IP posts to it:
 export const rateLimit = { max: 10, windowSeconds: 60 }; // 10 POSTs per IP per minute
 ```
 
-The eleventh `POST`/`PUT`/`PATCH`/`DELETE` in the window gets a 429 (an API route also gets
-`Retry-After`) before the action or handler runs, and before the session store is touched. `GET`
-is never counted. Nothing is limited unless a route exports `rateLimit`.
+The eleventh request in the window with any method but `GET`, `HEAD` and `OPTIONS` gets a 429 (an API
+route also gets `Retry-After`) before the action or handler runs, and before the session store is
+touched. `GET`, `HEAD` and `OPTIONS` are never counted. Nothing is limited unless a route exports `rateLimit`.
 
 What it does not do, so plan for it:
 

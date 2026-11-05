@@ -53,11 +53,13 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
 8. **Validate redirect targets you build from input.** `redirect(next)` refuses a foreign origin, but
    path-only targets are still yours to choose.
 9. **Keep dependencies current.** The CLI requires vite 6.4.4 or later (0.4.0).
+10. **Do not share the app's domain with sites you do not control.** Cookies can be set across
+    subdomains of one domain; host apps for other people, user content and previews on a separate domain.
 
 ## Behavior changes to check when you upgrade to 0.4.0
 
 - `redirect()` with a full URL to another origin now throws a 400. Pass `allowedOrigins`.
-- A cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE` without the CSRF token is a 403. Browser
+- A cookie-authenticated write (any method but `GET`, `HEAD` and `OPTIONS`) without the CSRF token is a 403. Browser
   `fetch` calls need `x-devora-csrf`; routes that must accept cross-site writes need `csrf = false`.
 - Responses that read or set the session cookie lose a `Cache-Control: public` the handler set.
 - Uploads: the whole request must finish in 60 seconds by default (`server.requestTimeoutMs`), and a
