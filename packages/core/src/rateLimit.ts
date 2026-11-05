@@ -4,8 +4,8 @@
  *
  *   export const rateLimit = { max: 10, windowSeconds: 60 };
  *
- * Each client IP (`ctx.ip`) gets `max` POST/PUT/PATCH/DELETE requests per
- * window on that route; the next one is a 429 before the action or handler
+ * Each client IP (`ctx.ip`) gets `max` requests with any method but GET,
+ * HEAD and OPTIONS per window on that route; the next one is a 429 before the action or handler
  * runs. GET, HEAD and OPTIONS are never counted. Explicit per route, like
  * everything else here: nothing is limited unless a route says so.
  *
@@ -27,7 +27,8 @@ export interface RateLimitConfig {
 /** Client IPs remembered per route; when full, expired entries go first, then the oldest. */
 export const RATE_LIMIT_MAX_KEYS = 10_000;
 
-const LIMITED_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// Every method except these is counted (an API route without `methods` runs its handler for any method).
+const UNCOUNTED_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export class RateLimitError extends HttpError {
   constructor(readonly retryAfterSeconds: number) {
@@ -90,7 +91,7 @@ const limiters = new WeakMap<RateLimitConfig, FixedWindowRateLimiter>();
  * method that is never counted.
  */
 export function enforceRateLimit(config: RateLimitConfig | undefined, method: string, ip: string | undefined): void {
-  if (!config || !LIMITED_METHODS.has(method.toUpperCase())) return;
+  if (!config || UNCOUNTED_METHODS.has(method.toUpperCase())) return;
   let limiter = limiters.get(config);
   if (!limiter) limiters.set(config, (limiter = new FixedWindowRateLimiter(config)));
   const retryAfter = limiter.hit(ip ?? "unknown");
