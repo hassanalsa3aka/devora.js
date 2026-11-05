@@ -3871,9 +3871,9 @@ function verifyCsrfToken(cookieValue, formValue) {
   if (cookieBuf.length !== formBuf.length) return false;
   return timingSafeEqual(cookieBuf, formBuf);
 }
-var CSRF_CHECKED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var CSRF_SAFE_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
 function verifyCsrfByDefault(options) {
-  if (!options.cookieAuthenticated || options.optedOut || !CSRF_CHECKED_METHODS.has(options.method.toUpperCase())) return;
+  if (!options.cookieAuthenticated || options.optedOut || CSRF_SAFE_METHODS.has(options.method.toUpperCase())) return;
   const fromForm = options.formData?.get(CSRF_FORM_FIELD);
   const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
   options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
@@ -4059,8 +4059,13 @@ function parseCookieHeader(header) {
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim();
+    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
     const value = part.slice(eq + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
   }
   return cookies;
 }
@@ -4846,7 +4851,7 @@ var ShellUsageContext = (0, import_react3.createContext)(null);
 
 // ../core/src/rateLimit.ts
 var RATE_LIMIT_MAX_KEYS = 1e4;
-var LIMITED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var UNCOUNTED_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
 var RateLimitError = class extends HttpError {
   constructor(retryAfterSeconds) {
     super(429, "Too many requests, try again later");
@@ -4892,7 +4897,7 @@ var FixedWindowRateLimiter = class {
 };
 var limiters = /* @__PURE__ */ new WeakMap();
 function enforceRateLimit(config, method, ip) {
-  if (!config || !LIMITED_METHODS.has(method.toUpperCase())) return;
+  if (!config || UNCOUNTED_METHODS.has(method.toUpperCase())) return;
   let limiter = limiters.get(config);
   if (!limiter) limiters.set(config, limiter = new FixedWindowRateLimiter(config));
   const retryAfter = limiter.hit(ip ?? "unknown");
@@ -5204,10 +5209,11 @@ function describeRequest(req, trustProxy) {
   return {
     get url() {
       if (url === void 0) {
+        const pathAndQuery = targetPathAndQuery(target);
         try {
-          url = new URL(target, `${scheme}://${host}`).href;
+          url = new URL(`${scheme}://${host}${pathAndQuery}`).href;
         } catch {
-          url = new URL(target, "http://localhost").href;
+          url = new URL(pathAndQuery, "http://localhost").href;
         }
       }
       return url;
@@ -5224,6 +5230,19 @@ function requestHost(req, trustProxy) {
 function firstHeaderValue(value) {
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
   return first || void 0;
+}
+function targetPathAndQuery(target) {
+  let pathAndQuery;
+  if (target.startsWith("/")) pathAndQuery = target;
+  else {
+    try {
+      const parsed = new URL(target);
+      pathAndQuery = `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return "/";
+    }
+  }
+  return pathAndQuery.startsWith("//") ? `/${pathAndQuery.replace(/^\/+/, "")}` : pathAndQuery;
 }
 
 // ../core/src/allowedHosts.ts
@@ -6018,6 +6037,37 @@ function createHostCheckPlugin(allowedHosts, trustProxy) {
     }
   };
 }
+function createOpenInEditorGuardPlugin() {
+  return {
+    name: "devora-open-in-editor-guard",
+    configureServer(server) {
+      server.middlewares.use("/__open-in-editor", (req, res, next) => {
+        if (isCrossSiteDevRequest(req.headers)) {
+          res.statusCode = 403;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("Forbidden: cross-site request to the dev server's open-in-editor endpoint");
+          return;
+        }
+        next();
+      });
+    }
+  };
+}
+function isCrossSiteDevRequest(headers) {
+  const site = headers["sec-fetch-site"];
+  if (typeof site === "string" && site !== "same-origin" && site !== "none") return true;
+  const origin = headers.origin;
+  if (typeof origin === "string" && origin !== "null") {
+    let originHost;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      return true;
+    }
+    return originHost !== headers.host;
+  }
+  return origin === "null";
+}
 function createApiMiddlewarePlugin(options) {
   return {
     name: "devora-api-middleware",
@@ -6337,6 +6387,22 @@ async function resolveAuthChoice(explicit, appName) {
 // ../scaffold/src/resolveScopeChoice.ts
 import { createInterface as createInterface2 } from "node:readline/promises";
 
+// ../scaffold/src/names.ts
+var APP_NAME = /^[a-z0-9][a-z0-9_-]{0,49}$/;
+var DOMAIN = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+function appNameProblem(name) {
+  if (APP_NAME.test(name)) return void 0;
+  return `app name "${name}" must be lowercase letters, digits, "-" or "_", start with a letter or digit, and be at most 50 characters`;
+}
+function domainProblem(domain) {
+  if (DOMAIN.test(domain)) return void 0;
+  return `domain "${domain}" must be a host name such as "app.example.com"`;
+}
+function assertScaffoldNames(name, domain) {
+  const problem = appNameProblem(name) ?? (domain === void 0 ? void 0 : domainProblem(domain));
+  if (problem) throw new Error(`[devora] ${problem}`);
+}
+
 // ../scaffold/src/scaffoldAppFiles.ts
 import path12 from "node:path";
 import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
@@ -6346,6 +6412,7 @@ var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served
   apiDir: "${SCAFFOLD_API_DIR}",
 `;
 async function scaffoldAppFiles(appDir, appName, opts) {
+  assertScaffoldNames(appName);
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;
@@ -7218,6 +7285,8 @@ async function createAppDevServer(opts) {
     plugins: [
       // First, so a request for an unknown host never reaches another middleware.
       createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      // Before Vite's own /__open-in-editor middleware (finding H28).
+      createOpenInEditorGuardPlugin(),
       // Also before Vite's own static-file handling (which serves public/ .svg files).
       createSvgHeadersPlugin(),
       islandsPlugin(),
@@ -8851,6 +8920,11 @@ async function detectScaffoldContext(root) {
 }
 async function scaffoldApp(appName, opts) {
   const root = process.cwd();
+  const nameProblem = appNameProblem(appName) ?? (opts.domain === void 0 ? void 0 : domainProblem(opts.domain));
+  if (nameProblem) {
+    console.error(`[devora] ${nameProblem}`);
+    process.exit(1);
+  }
   const appDir = path30.join(root, "apps", appName);
   if (existsSync18(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
