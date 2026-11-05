@@ -53,3 +53,20 @@ Priority order used (from the brief): phases 0, 1, 4, 5, 6 first, then 3B, 2, 3.
 
 Resume notes: phase 1 committed locally; push still refused (see phase 0). Next: phase 4 (red team).
 Gate script: $SCRATCH/gate.sh (copy kept under work-notes/redteam/scripts/gate.sh from phase 4 on).
+
+## Phase 4 — red team (done)
+
+Report: work-notes/redteam/REDTEAM.md; scripts in work-notes/redteam/scripts/ (attack-prod.mjs 121 checks,
+attack-dev.mjs 26, fuzz.mts 9 parsers ~95M inputs, redos.mts 12 worst cases, gate.sh).
+- Fixed with regression tests (each fails without its fix): H24 cookie escape → 500 for every page; H25 duplicate
+  cookie names (first wins); H26 CSRF + rateLimit for every method but GET/HEAD/OPTIONS; H27 ctx.url host from an
+  absolute-form/`//` target; H28 dev `/__open-in-editor` cross-site guard; H29 scaffold app name/domain validation.
+- Open, need a decision (ROADMAP): H30 CSRF token not bound to the session (double-submit; needs cookie write access
+  on the domain), H31 rateLimit IPv6 /64 rotation and table eviction, H32 Netlify reads the body before maxBodyBytes
+  (accepted: platform cap).
+- Behaviour changes to call out at release: duplicated cookie names (first wins); CSRF/rateLimit on unusual methods;
+  scaffolders refuse uppercase or odd app names (`Web` is refused; existing projects unaffected).
+- Gate after the fixes: 7 typechecks PASS, suite 68 files / 644 tests PASS, check:docs PASS, pack check PASS.
+- Time: about 1 h 45 min (over 45 min: the breadth of the brief's list; no single item took longer than 20 min).
+
+Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
