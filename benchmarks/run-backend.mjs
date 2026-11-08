@@ -7,7 +7,12 @@
  * tree), requests/second and p50/p99 (autocannon, same method as run.mjs), and the
  * bytes on the wire per scenario. Writes results/backend-raw-<date>.json.
  *
- * Usage: node run-backend.mjs [--only=express,fastify] [--quick]
+ * Load runs alternate between the apps (finding S7): round 1 loads every app once, round 2 again, and so
+ * on, each round starting one app later in the list, so a machine that drifts by 10% or more over ten
+ * minutes moves all apps together. Builds, start times and the wire probes still run one app at a time.
+ * `--sequential` gives the old order (all runs of one app, then the next).
+ *
+ * Usage: node run-backend.mjs [--only=express,fastify] [--quick] [--sequential] [--port=4310]
  */
 import http from "node:http";
 import { spawn, execFileSync, execSync } from "node:child_process";
@@ -20,15 +25,16 @@ import autocannon from "autocannon";
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")));
 const QUICK = "quick" in args;
+const SEQUENTIAL = "sequential" in args;
 const CONFIG = {
   buildRuns: QUICK ? 1 : 3,
   startRuns: QUICK ? 1 : 5,
-  loadRuns: QUICK ? 1 : 5,
+  loadRuns: Number(args.runs ?? (QUICK ? 1 : 5)),
   loadSeconds: QUICK ? 3 : 10,
   warmupSeconds: QUICK ? 1 : 5,
   connections: 50,
 };
-const PORT = 4310;
+const PORT = Number(args.port ?? 4310);
 const BASE = `http://localhost:${PORT}`;
 const JSON_HEADERS = { "content-type": "application/json", accept: "application/json" };
 
@@ -148,7 +154,7 @@ async function load(sc) {
 const results = {
   date: new Date().toISOString(),
   machine: { cpu: os.cpus()[0]?.model, cores: os.cpus().length, memoryGb: Math.round(os.totalmem() / 2 ** 30), os: `${os.type()} ${os.release()} (${process.platform} ${process.arch})`, node: process.version },
-  config: { ...CONFIG, tool: `autocannon ${JSON.parse(readFileSync(path.join(HERE, "node_modules/autocannon/package.json"), "utf-8")).version}` },
+  config: { ...CONFIG, order: SEQUENTIAL ? "sequential" : "interleaved (rounds; the start of the list rotates by one each round)", tool: `autocannon ${JSON.parse(readFileSync(path.join(HERE, "node_modules/autocannon/package.json"), "utf-8")).version}` },
   frameworks: {},
 };
 
@@ -194,11 +200,14 @@ for (const fw of FRAMEWORKS) {
       r.conforms[k] = s.expect(tool.status, tool.body);
       r.wire[k] = { loadTool: { status: tool.status, contentEncoding: tool.contentEncoding, bodyBytes: tool.bodyBytes, headerBytes: tool.headerBytes }, browser: { status: browser.status, contentEncoding: browser.contentEncoding, bodyBytes: browser.bodyBytes, headerBytes: browser.headerBytes } };
       if (!r.conforms[k]) { console.log(`!! ${k} does not match the contract (status ${tool.status}): ${tool.body.slice(0, 120)}`); continue; }
+      if (!SEQUENTIAL) { console.log(`${k}: wire probe done (${tool.bodyBytes} B body), load runs follow, alternating between apps`); continue; }
       r.load[k] = await load(s);
       console.log(`${k}: ${Math.round(r.load[k].rps.median)} req/s, p50 ${r.load[k].p50.median} ms, p99 ${r.load[k].p99.median} ms, ${tool.bodyBytes} B body + ${tool.headerBytes} B headers (${tool.contentEncoding ?? "identity"})`);
     }
-    r.memoryAfterLoadMb = treeRssKb(child.pid) / 1024;
-    console.log(`memory after load ${Math.round(r.memoryAfterLoadMb)} MB`);
+    if (SEQUENTIAL) {
+      r.memoryAfterLoadMb = treeRssKb(child.pid) / 1024;
+      console.log(`memory after load ${Math.round(r.memoryAfterLoadMb)} MB`);
+    }
   } finally {
     stopServer(child);
   }
@@ -206,8 +215,59 @@ for (const fw of FRAMEWORKS) {
   save();
 }
 
+if (!SEQUENTIAL) await interleavedLoad();
+
 save();
 console.log(`\nwrote ${path.relative(HERE, outFile)}`);
+
+/**
+ * Load runs, alternating between apps. Round r starts the apps in the list order rotated by r, starts each
+ * one's server fresh, warms it up on every scenario, runs each scenario once, and stops it.
+ */
+async function interleavedLoad() {
+  const keys = FRAMEWORKS.map((fw) => fw.key).filter((key) => results.frameworks[key]);
+  const samples = Object.fromEntries(keys.map((key) => [key, { scenarios: {}, memory: [], positions: [] }]));
+  for (let round = 0; round < CONFIG.loadRuns; round++) {
+    const order = keys.map((_, i) => keys[(i + round) % keys.length]);
+    console.log(`\n== load round ${round + 1} of ${CONFIG.loadRuns}: ${order.join(", ")}`);
+    for (const [position, key] of order.entries()) {
+      const fw = FRAMEWORKS.find((f) => f.key === key);
+      const r = results.frameworks[key];
+      await waitPortFree();
+      const { child } = await startServer(path.join(HERE, "apps", key), fw.env);
+      try {
+        const sc = await scenarios();
+        sc.postInvalid.expectNon2xx = true;
+        for (const [k, s] of Object.entries(sc)) {
+          if (!r.conforms[k]) continue; // did not match the contract in the first pass: not loaded, as before
+          const req = { url: BASE + s.path, method: s.method, headers: s.headers, ...(s.body ? { body: s.body } : {}) };
+          await cannon({ ...req, duration: CONFIG.warmupSeconds });
+          const res = await cannon({ ...req, duration: CONFIG.loadSeconds });
+          const into = (samples[key].scenarios[k] ??= { rps: [], p50: [], p99: [], bad: [] });
+          into.rps.push(res.requests.average);
+          into.p50.push(res.latency.p50);
+          into.p99.push(res.latency.p99);
+          into.bad.push(res.errors + res.timeouts + (s.expectNon2xx ? 0 : res.non2xx));
+          console.log(`${key} ${k}: ${Math.round(res.requests.average)} req/s`);
+        }
+        samples[key].memory.push(treeRssKb(child.pid) / 1024);
+        samples[key].positions.push(position + 1);
+      } finally {
+        stopServer(child);
+      }
+    }
+  }
+  for (const key of keys) {
+    const r = results.frameworks[key];
+    const got = samples[key];
+    r.load = Object.fromEntries(
+      Object.entries(got.scenarios).map(([k, v]) => [k, { rps: summary(v.rps), p50: summary(v.p50), p99: summary(v.p99), errorsOrUnexpected: v.bad }])
+    );
+    r.memoryAfterLoadMb = median(got.memory);
+    r.loadPositions = got.positions;
+    console.log(`${key}: memory after load ${Math.round(r.memoryAfterLoadMb)} MB; ` + Object.entries(r.load).map(([k, v]) => `${k} ${Math.round(v.rps.median)}`).join(", "));
+  }
+}
 
 function save() {
   mkdirSync(path.join(HERE, "results"), { recursive: true });

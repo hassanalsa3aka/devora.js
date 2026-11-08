@@ -18,7 +18,7 @@ import {
 } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
-import { createApiMiddlewarePlugin, createHostCheckPlugin } from "../server/apiMiddleware.js";
+import { createApiMiddlewarePlugin, createHostCheckPlugin, createOpenInEditorGuardPlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware, createSvgHeadersPlugin } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
@@ -80,6 +80,11 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
       port: opts.port,
       strictPort: true,
       ...(opts.host ? { host: true } : {}),
+      // Finding H22: Vite has its own host check (a 403 "Blocked request" for a host it does not know). When the app
+      // lists `allowedHosts`, Vite gets the same list, so a listed host (a tunnel, a custom dev domain) reaches the
+      // app and Devora's check stays the one that answers. With no list, nothing is passed and Vite keeps its own
+      // default check (localhost and IP addresses). Never `true`: that would switch Vite's check off.
+      ...(appConfig.allowedHosts !== undefined ? { allowedHosts: [...appConfig.allowedHosts] } : {}),
       // Build and adapter output lives inside the app folder; without this,
       // every `devora build --adapter=…` while dev runs reloaded open pages
       // once per written file ("page reload .vercel/output/static/…").
@@ -111,6 +116,8 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     plugins: [
       // First, so a request for an unknown host never reaches another middleware.
       createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      // Before Vite's own /__open-in-editor middleware (finding H28).
+      createOpenInEditorGuardPlugin(),
       // Also before Vite's own static-file handling (which serves public/ .svg files).
       createSvgHeadersPlugin(),
       islandsPlugin(),

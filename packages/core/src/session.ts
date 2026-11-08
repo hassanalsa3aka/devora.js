@@ -34,7 +34,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { DevoraConfigError } from "./configError.js";
 import type { AuthMode } from "./config.js";
 import { requestContextFields, type RequestContext, type RequestMeta, type SessionData, type SessionTransport } from "./serverFn.js";
-import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
+import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD, deriveSessionCsrfToken, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
 import { HttpError } from "./httpError.js";
 import { getSessionState, type SessionRecord, type SessionState, type SessionStore } from "./sessionStore.js";
 import { splitRouteParams, type RawRouteParams } from "./router.js";
@@ -253,8 +253,18 @@ export function parseCookieHeader(header: string | undefined): Record<string, st
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim();
+    // The first value of a repeated name wins (red team 2026-11-05): browsers send the cookie with the longer
+    // path, then the older one, first, so a cookie tossed in later from a sibling subdomain does not replace the
+    // app's own. Own-property check, so a name such as "constructor" is not mistaken for one already seen.
+    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
     const value = part.slice(eq + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    // A malformed escape in any cookie (one set by another app on the domain, or by hand) used to throw here and
+    // turn every page of the app into a 500 for that browser. Such a value is kept as sent.
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
   }
   return cookies;
 }
@@ -341,13 +351,17 @@ export async function resolveSession(
 export interface RequestContextResult {
   ctx: RequestContext;
   /**
-   * The CSRF token for *this* request — either the one already carried in
-   * the incoming cookie, or a freshly generated one if this is a first
-   * visit. A route embeds this into its rendered form (see csrf.ts's
-   * `CsrfField`); `ctx.verifyCsrf` on a later POST checks the submitted
-   * value against the cookie the browser actually sent, not this one.
+   * The CSRF token for *this* request. For a browser with a session cookie (a
+   * login made in this request counts) it is bound to that session: an HMAC of
+   * the session ID (`deriveSessionCsrfToken`). Otherwise it is the one already
+   * carried in the incoming CSRF cookie, or a freshly generated one on a first
+   * visit. Read it when the page is rendered, not earlier: it follows a login
+   * made by an action. A route embeds it into its rendered form (see csrf.ts's
+   * `CsrfField`); `ctx.verifyCsrf` on a later POST checks the submitted value
+   * against the session of the request when there is one, against the CSRF cookie
+   * the browser actually sent when there is not, never against this one.
    */
-  csrfToken: string;
+  readonly csrfToken: string;
   /** Set-Cookie values to attach to the response — one per cookie that
    * changed this request (session set/renewed/cleared, and/or a newly
    * established CSRF cookie), or undefined if nothing changed. */
@@ -384,9 +398,11 @@ const MAX_WARNED_PATHS = 1_000;
  * warning is for the route that meant to be signed-in only and forgot.
  */
 export function warnIfSessionReadWithoutAuth(context: Pick<RequestContextResult, "authUsage">, urlOrPath: string | undefined): void {
-  if (process.env.NODE_ENV === "production") return;
+  // The usage check first: reading process.env is a native property lookup, and this runs on every request
+  // (1.5% of the CPU of a JSON GET in production, measured with --cpu-prof, phase 3B). Same result either order.
   const { sessionRead, requireAuthCalled } = context.authUsage();
   if (!sessionRead || requireAuthCalled) return;
+  if (process.env.NODE_ENV === "production") return;
   let pathname = urlOrPath ?? "(unknown path)";
   try {
     pathname = new URL(pathname, "http://localhost").pathname;
@@ -447,10 +463,15 @@ export async function createRequestContext(
   // verifyCsrf can't pass against it.
   const csrfEnabled = opts.csrfCookie !== false;
   const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : undefined;
-  const csrfToken = csrfEnabled ? (incomingCsrfCookie ?? generateCsrfToken()) : "";
+  // The double-submit token: the cookie's value, for a request that has no session to bind a token to.
+  const anonymousCsrfToken = csrfEnabled ? (incomingCsrfCookie ?? generateCsrfToken()) : "";
   if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes(opts.cookie)}`);
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${anonymousCsrfToken}; ${buildCookieAttributes(opts.cookie)}`);
   }
+  // The session this request arrived with, when the browser authenticated by cookie. Its CSRF token is derived
+  // from the session ID, so the CSRF cookie plays no part in the check for a signed-in browser (H30).
+  const presentedCookieSessionId =
+    csrfEnabled && resolved.presentedTransport === "cookie" && resolved.record !== undefined ? resolved.sessionId : undefined;
 
   // Every store write goes through here: wrapped so a store whose methods
   // are synchronous (or throw synchronously) behaves like an async one, and
@@ -552,11 +573,18 @@ export async function createRequestContext(
         }
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
-      // Verified against the cookie actually sent on *this* request, not
-      // the possibly-freshly-generated `csrfToken` above — a POST arriving
-      // with no CSRF cookie at all has nothing legitimate to verify against
-      // and must fail, not silently pass against a token nobody submitted.
       const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
+      // A browser that arrived with a live session cookie must present the token derived from that session; the
+      // CSRF cookie is ignored for it, so a cookie planted from another origin proves nothing.
+      if (presentedCookieSessionId !== undefined) {
+        if (!verifyCsrfToken(deriveSessionCsrfToken(presentedCookieSessionId, opts), value)) {
+          throw new HttpError(403, "Missing or invalid CSRF token");
+        }
+        return;
+      }
+      // No session: verified against the cookie actually sent on *this* request, not the
+      // possibly-freshly-generated token above — a POST arriving with no CSRF cookie at all has nothing
+      // legitimate to verify against and must fail, not silently pass against a token nobody submitted.
       if (!verifyCsrfToken(incomingCsrfCookie, value)) {
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
@@ -565,7 +593,13 @@ export async function createRequestContext(
 
   return {
     ctx,
-    csrfToken,
+    // A getter: an action that logs in (setSession) and then renders must get the token of the new session.
+    get csrfToken() {
+      if (csrfEnabled && currentSessionId !== undefined && currentRecord !== undefined && transport === "cookie") {
+        return deriveSessionCsrfToken(currentSessionId, opts);
+      }
+      return anonymousCsrfToken;
+    },
     getSetCookie: () => (pendingSetCookies.length > 0 ? pendingSetCookies : undefined),
     cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== undefined,
     authUsage: () => ({ sessionRead, requireAuthCalled }),

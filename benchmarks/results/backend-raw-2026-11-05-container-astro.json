@@ -1,0 +1,380 @@
+{
+  "date": "2026-11-05T01:50:24.041Z",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryGb": 16,
+    "os": "Linux 6.18.44-fc-v236 (linux x64)",
+    "node": "v22.23.4"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "astro": {
+      "name": "Astro",
+      "kind": "pages",
+      "version": "7.3.8",
+      "loadAvgAtStart": 1.3,
+      "build": {
+        "coldMs": {
+          "median": 2059.8891729999996,
+          "min": 1915.5492839999997,
+          "max": 2564.812596,
+          "runs": [
+            2564.812596,
+            1915.5492839999997,
+            2059.8891729999996
+          ]
+        },
+        "warmMs": {
+          "median": 1381.6673290000017,
+          "min": 1337.842353,
+          "max": 1414.722601,
+          "runs": [
+            1414.722601,
+            1337.842353,
+            1381.6673290000017
+          ]
+        }
+      },
+      "startMs": {
+        "median": 333.85708299999897,
+        "min": 318.8009490000004,
+        "max": 339.1737269999994,
+        "runs": [
+          318.8009490000004,
+          339.1737269999994,
+          331.3970909999989,
+          333.85708299999897,
+          335.8433400000031
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 156.4609375,
+        "min": 154.09375,
+        "max": 158.31640625,
+        "runs": [
+          156.47265625,
+          156.42578125,
+          156.4609375,
+          158.31640625,
+          154.09375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 3632.9,
+            "min": 2494.81,
+            "max": 3694.64,
+            "runs": [
+              3632.9,
+              2986,
+              2494.81,
+              3694.64,
+              3681
+            ]
+          },
+          "p50": {
+            "median": 12,
+            "min": 12,
+            "max": 19,
+            "runs": [
+              12,
+              14,
+              19,
+              12,
+              12
+            ]
+          },
+          "p99": {
+            "median": 30,
+            "min": 26,
+            "max": 41,
+            "runs": [
+              29,
+              39,
+              41,
+              30,
+              26
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 4043.64,
+            "min": 3923.2,
+            "max": 4323.37,
+            "runs": [
+              4043.64,
+              4012.8,
+              4323.37,
+              4058.55,
+              3923.2
+            ]
+          },
+          "p50": {
+            "median": 11,
+            "min": 10,
+            "max": 11,
+            "runs": [
+              11,
+              11,
+              10,
+              11,
+              11
+            ]
+          },
+          "p99": {
+            "median": 28,
+            "min": 25,
+            "max": 29,
+            "runs": [
+              28,
+              28,
+              25,
+              29,
+              28
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 2826.1,
+            "min": 2784.2,
+            "max": 3006,
+            "runs": [
+              2991.2,
+              2816.28,
+              2784.2,
+              2826.1,
+              3006
+            ]
+          },
+          "p50": {
+            "median": 16,
+            "min": 15,
+            "max": 16,
+            "runs": [
+              15,
+              16,
+              16,
+              16,
+              15
+            ]
+          },
+          "p99": {
+            "median": 37,
+            "min": 36,
+            "max": 40,
+            "runs": [
+              37,
+              40,
+              36,
+              38,
+              37
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 2872.46,
+            "min": 2701,
+            "max": 2989.4,
+            "runs": [
+              2836.4,
+              2701,
+              2873.4,
+              2989.4,
+              2872.46
+            ]
+          },
+          "p50": {
+            "median": 16,
+            "min": 15,
+            "max": 17,
+            "runs": [
+              16,
+              17,
+              16,
+              15,
+              16
+            ]
+          },
+          "p99": {
+            "median": 36,
+            "min": 35,
+            "max": 38,
+            "runs": [
+              35,
+              36,
+              38,
+              35,
+              36
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 4785.2,
+            "min": 4577.61,
+            "max": 4870.4,
+            "runs": [
+              4791.61,
+              4870.4,
+              4577.61,
+              4785.2,
+              4636.61
+            ]
+          },
+          "p50": {
+            "median": 9,
+            "min": 9,
+            "max": 10,
+            "runs": [
+              9,
+              9,
+              10,
+              9,
+              9
+            ]
+          },
+          "p99": {
+            "median": 22,
+            "min": 21,
+            "max": 32,
+            "runs": [
+              22,
+              24,
+              22,
+              21,
+              32
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 144
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 144
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 144
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 144
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 144
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 279.13671875
+    }
+  }
+}

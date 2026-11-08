@@ -1,0 +1,12 @@
+
+== Fastify 5
+build cold 164 ms, warm 156 ms
+start 283 ms, idle 135 MB
+items: 19019 req/s, p50 2 ms, p99 5 ms, 3966 B body + 154 B headers (identity)
+me: 47408 req/s, p50 0 ms, p99 3 ms, 16 B body + 152 B headers (identity)
+postValid: 26706 req/s, p50 1 ms, p99 5 ms, 38 B body + 152 B headers (identity)
+postInvalid: 27829 req/s, p50 1 ms, p99 5 ms, 48 B body + 152 B headers (identity)
+slow: 16533 req/s, p50 2 ms, p99 5 ms, 43 B body + 152 B headers (identity)
+memory after load 159 MB
+
+wrote results/backend-raw-2026-11-05-container-fastify.json

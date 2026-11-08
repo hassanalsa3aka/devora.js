@@ -20,8 +20,8 @@ installing it into an unrelated project won't do much on its own.
   content as its import resolves, via React's own Suspense contract.
 - **Sessions & CSRF** — opaque, server-side, revocable sessions in a store you provide
   (`shared.sessions.store`), carried by an HttpOnly cookie or `Authorization: Bearer`; opt-in per
-  app (`auth: "shared" | "isolated" | "none"` in `devora.config.ts`); double-submit CSRF tokens for
-  cookie requests. Cookie `secure` (`true`/`"auto"`/`false`), `sameSite`, `domain` (one login
+  app (`auth: "shared" | "isolated" | "none"` in `devora.config.ts`); CSRF tokens bound to the session for
+  cookie requests (a double-submit cookie for requests with no session yet). Cookie `secure` (`true`/`"auto"`/`false`), `sameSite`, `domain` (one login
   across subdomains), lifetimes, `trustProxy` and `csrf: false` are configurable — see
   [AUTH.md](https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md).
   Cross-app isolation is cryptographic — the cookie name is part of the HMAC that turns a session

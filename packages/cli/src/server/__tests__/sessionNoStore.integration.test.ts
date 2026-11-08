@@ -9,7 +9,7 @@ import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { ViteDevServer } from "vite";
-import { createProdRequestHandler } from "@devorajs/core";
+import { createProdRequestHandler, deriveSessionCsrfToken, resolveSessionScope } from "@devorajs/core";
 import { createAppDevServer } from "../../commands/dev.js";
 import { findFreePort } from "../devNetwork.js";
 import { createFixtureProject, PAGE_ROUTES, write, type FixtureProject } from "./fixtureApp.js";
@@ -164,7 +164,8 @@ describe.each(["prod", "dev"])("Cache-Control on session responses (%s)", (which
     const dead = await fetch(`${base}/account`, { headers: { cookie: "devora_session=not-a-real-session" }, redirect: "manual" });
     expect(dead.status).toBe(302);
     expect(dead.headers.get("cache-control")).toBe("private, no-store");
-    const csrfToken = cookie.split("devora_csrf=")[1]!;
+    const sessionId = /devora_session=([^;]+)/.exec(cookie)![1]!;
+    const csrfToken = deriveSessionCsrfToken(sessionId, resolveSessionScope("shared", "fixture")); // bound to the session (H30)
     const logout = await fetch(`${base}/api/logout`, { method: "POST", headers: { cookie, "x-devora-csrf": csrfToken } });
     expect(logout.status).toBe(204);
     expect(logout.headers.get("cache-control")).toBe("private, no-store");

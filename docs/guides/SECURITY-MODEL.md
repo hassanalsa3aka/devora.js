@@ -36,7 +36,9 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
    From 0.4.0 a cookie-authenticated write is also CSRF-checked for you; an anonymous write
    (a login form) is not, so call `ctx.verifyCsrf()` there.
 2. **Send the token from the browser.** A page form renders `<CsrfField token={csrfToken} />`. A `fetch`
-   to an API route sends the `csrfToken` your page received in the `x-devora-csrf` header. A webhook or
+   to an API route sends the `csrfToken` your page received in the `x-devora-csrf` header. For a signed-in browser that
+   token is bound to its session (an HMAC of the session ID), so a page that logs in with `fetch()` needs a reload or a
+   navigation before it writes. A webhook or
    anything else that is not your own page and sends the session cookie needs `export const csrf = false`
    on its route (a webhook usually sends no session cookie and is not checked).
 3. **List your hosts.** Set `allowedHosts` in `app.config.ts` (0.4.0) so a forged `Host` is a 400.
@@ -44,7 +46,7 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
    `ctx.url`.
 4. **Never serve user-uploaded SVG or HTML from the app's origin.** The SVG policy is a backstop for
    files you ship. Serve uploads from a separate domain, or with `Content-Disposition: attachment`.
-5. **Limit logins at the front door.** A route can export `rateLimit` (0.4.0), but it counts in
+5. **Limit logins at the front door.** A route can export `rateLimit` (0.4.0; an IPv6 client is counted by its /64), but it counts in
    memory per process. Put the real limit in nginx, your platform's firewall or a WAF
    ([AUTH.md](../../packages/backend/AUTH.md#rate-limiting-logins)).
 6. **Set `trustProxy` correctly.** Only when the app can be reached only through your proxy.
@@ -53,11 +55,13 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
 8. **Validate redirect targets you build from input.** `redirect(next)` refuses a foreign origin, but
    path-only targets are still yours to choose.
 9. **Keep dependencies current.** The CLI requires vite 6.4.4 or later (0.4.0).
+10. **Do not share the app's domain with sites you do not control.** Cookies can be set across
+    subdomains of one domain; host apps for other people, user content and previews on a separate domain.
 
 ## Behavior changes to check when you upgrade to 0.4.0
 
 - `redirect()` with a full URL to another origin now throws a 400. Pass `allowedOrigins`.
-- A cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE` without the CSRF token is a 403. Browser
+- A cookie-authenticated write (any method but `GET`, `HEAD` and `OPTIONS`) without the CSRF token is a 403. Browser
   `fetch` calls need `x-devora-csrf`; routes that must accept cross-site writes need `csrf = false`.
 - Responses that read or set the session cookie lose a `Cache-Control: public` the handler set.
 - Uploads: the whole request must finish in 60 seconds by default (`server.requestTimeoutMs`), and a

@@ -327,10 +327,12 @@ describe("CSRF — enforced for cookie auth, skipped for Bearer auth", () => {
   it("a cookie-authenticated request is still CSRF-checked", async () => {
     const o = freshOpts();
     const id = await login(o);
-    const { ctx } = await createRequestContext({ cookieHeader: `devora_session=${id}; devora_csrf=real-token` }, o);
+    const { ctx, csrfToken } = await createRequestContext({ cookieHeader: `devora_session=${id}; devora_csrf=real-token` }, o);
     expect(ctx.sessionTransport).toBe("cookie");
     expect(() => ctx.verifyCsrf("wrong-token")).toThrow(/CSRF/);
-    expect(() => ctx.verifyCsrf("real-token")).not.toThrow();
+    // H30: the CSRF cookie's value no longer passes for a signed-in browser; the token bound to its session does
+    expect(() => ctx.verifyCsrf("real-token")).toThrow(/CSRF/);
+    expect(() => ctx.verifyCsrf(csrfToken)).not.toThrow();
   });
 
   it("a Bearer-authenticated request is exempt — no CSRF cookie or token needed", async () => {

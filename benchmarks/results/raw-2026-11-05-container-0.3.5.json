@@ -1,0 +1,1450 @@
+{
+  "date": "2026-11-05T00:44:55.424Z",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryGb": 16,
+    "os": "Linux 6.18.44-fc-v236 (linux x64)",
+    "node": "v22.23.4"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "browserRuns": 5,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora": {
+      "name": "Devora.js",
+      "version": "0.3.5",
+      "coreVersion": "0.3.5",
+      "build": {
+        "coldMs": {
+          "median": 1225.7523589999996,
+          "min": 1159.7904909999997,
+          "max": 1507.539544,
+          "runs": [
+            1507.539544,
+            1225.7523589999996,
+            1159.7904909999997
+          ]
+        },
+        "warmMs": {
+          "median": 1213.7533379999995,
+          "min": 1180.2056239999993,
+          "max": 1335.2863889999999,
+          "runs": [
+            1335.2863889999999,
+            1180.2056239999993,
+            1213.7533379999995
+          ]
+        }
+      },
+      "startMs": {
+        "median": 345.23487899999964,
+        "min": 300.93830399999933,
+        "max": 370.92088299999887,
+        "runs": [
+          370.92088299999887,
+          354.4958269999988,
+          300.93830399999933,
+          333.6913660000009,
+          345.23487899999964
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 156.64453125,
+        "min": 150.42578125,
+        "max": 159.8671875,
+        "runs": [
+          156.64453125,
+          150.42578125,
+          159.8671875,
+          155.83984375,
+          157.921875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 29837.82,
+            "min": 28822.55,
+            "max": 32176.73,
+            "runs": [
+              32176.73,
+              31215.2,
+              29837.82,
+              28867.64,
+              28822.55
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 3,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4,
+              3,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 3946.55,
+            "min": 3783.37,
+            "max": 4019.5,
+            "runs": [
+              4019.5,
+              3946.55,
+              3819.64,
+              3970.28,
+              3783.37
+            ]
+          },
+          "p50": {
+            "median": 11,
+            "min": 11,
+            "max": 11,
+            "runs": [
+              11,
+              11,
+              11,
+              11,
+              11
+            ]
+          },
+          "p99": {
+            "median": 29,
+            "min": 28,
+            "max": 31,
+            "runs": [
+              31,
+              28,
+              29,
+              28,
+              31
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 19054.19,
+            "min": 18064.41,
+            "max": 20165.1,
+            "runs": [
+              19054.19,
+              20165.1,
+              19586.19,
+              18064.41,
+              18880
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 6,
+            "max": 8,
+            "runs": [
+              7,
+              6,
+              6,
+              7,
+              8
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            209606,
+            221830,
+            215445,
+            180661,
+            188799
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4902,
+            "bodyBytes": 4902
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4902,
+            "bodyBytes": 4902
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 250.671875,
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 143414,
+          "jsGzip": 46657,
+          "jsBrotli": 40911,
+          "hydrationMs": {
+            "median": 74.89999999990687,
+            "min": 57.89999999990687,
+            "max": 102.39999999990687,
+            "runs": [
+              102.39999999990687,
+              74.89999999990687,
+              87.20000000018626,
+              66.89999999990687,
+              57.89999999990687
+            ]
+          }
+        }
+      }
+    },
+    "astro": {
+      "name": "Astro",
+      "version": "7.3.8",
+      "build": {
+        "coldMs": {
+          "median": 2165.088288,
+          "min": 2082.0252149999997,
+          "max": 2378.1928550000002,
+          "runs": [
+            2378.1928550000002,
+            2165.088288,
+            2082.0252149999997
+          ]
+        },
+        "warmMs": {
+          "median": 1555.6483709999998,
+          "min": 1434.5311349999993,
+          "max": 1966.5723779999998,
+          "runs": [
+            1555.6483709999998,
+            1966.5723779999998,
+            1434.5311349999993
+          ]
+        }
+      },
+      "startMs": {
+        "median": 350.1546679999992,
+        "min": 301.5254100000002,
+        "max": 380.1992379999974,
+        "runs": [
+          312.0635569999995,
+          301.5254100000002,
+          350.1546679999992,
+          355.3123319999977,
+          380.1992379999974
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 157.93359375,
+        "min": 156.58203125,
+        "max": 162.3984375,
+        "runs": [
+          162.3984375,
+          157.93359375,
+          157.3046875,
+          158.15234375,
+          156.58203125
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 6739.46,
+            "min": 6618.37,
+            "max": 6764.19,
+            "runs": [
+              6715.82,
+              6757.64,
+              6618.37,
+              6764.19,
+              6739.46
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 6,
+            "max": 7,
+            "runs": [
+              7,
+              6,
+              7,
+              6,
+              7
+            ]
+          },
+          "p99": {
+            "median": 12,
+            "min": 12,
+            "max": 17,
+            "runs": [
+              17,
+              12,
+              12,
+              13,
+              12
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 1290.73,
+            "min": 1227.64,
+            "max": 1294.37,
+            "runs": [
+              1294.37,
+              1227.64,
+              1246.28,
+              1292.5,
+              1290.73
+            ]
+          },
+          "p50": {
+            "median": 37,
+            "min": 36,
+            "max": 38,
+            "runs": [
+              37,
+              38,
+              37,
+              36,
+              37
+            ]
+          },
+          "p99": {
+            "median": 68,
+            "min": 61,
+            "max": 82,
+            "runs": [
+              72,
+              68,
+              82,
+              63,
+              61
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 2440.37,
+            "min": 2210.37,
+            "max": 2606.1,
+            "runs": [
+              2210.37,
+              2606.1,
+              2540.81,
+              2376.64,
+              2440.37
+            ]
+          },
+          "p50": {
+            "median": 18,
+            "min": 18,
+            "max": 21,
+            "runs": [
+              21,
+              18,
+              18,
+              19,
+              18
+            ]
+          },
+          "p99": {
+            "median": 41,
+            "min": 36,
+            "max": 42,
+            "runs": [
+              41,
+              36,
+              40,
+              41,
+              42
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            24309,
+            28662,
+            25402,
+            26137,
+            26838
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8391
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8391
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 675.7890625,
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 221290,
+          "jsGzip": 69060,
+          "jsBrotli": 59828,
+          "hydrationMs": {
+            "median": 78.30000000074506,
+            "min": 76.5,
+            "max": 87.59999999962747,
+            "runs": [
+              87.59999999962747,
+              77,
+              78.30000000074506,
+              80.5,
+              76.5
+            ]
+          }
+        }
+      }
+    },
+    "next": {
+      "name": "Next.js",
+      "version": "16.4.1",
+      "build": {
+        "coldMs": {
+          "median": 5239.485938,
+          "min": 5024.593609999998,
+          "max": 5354.811618000001,
+          "runs": [
+            5239.485938,
+            5354.811618000001,
+            5024.593609999998
+          ]
+        },
+        "warmMs": {
+          "median": 1982.0783729999994,
+          "min": 1970.4437609999986,
+          "max": 2031.095940000001,
+          "runs": [
+            1982.0783729999994,
+            2031.095940000001,
+            1970.4437609999986
+          ]
+        }
+      },
+      "startMs": {
+        "median": 538.0543880000005,
+        "min": 525.1699210000043,
+        "max": 601.2083810000004,
+        "runs": [
+          553.3434840000009,
+          601.2083810000004,
+          529.381304999999,
+          538.0543880000005,
+          525.1699210000043
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 156.17578125,
+        "min": 155.5078125,
+        "max": 157.078125,
+        "runs": [
+          157.078125,
+          155.5078125,
+          156.33203125,
+          155.74609375,
+          156.17578125
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 200,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 1578,
+            "min": 1437.28,
+            "max": 1699.6,
+            "runs": [
+              1437.28,
+              1578,
+              1519.55,
+              1612.28,
+              1699.6
+            ]
+          },
+          "p50": {
+            "median": 29,
+            "min": 27,
+            "max": 32,
+            "runs": [
+              32,
+              29,
+              30,
+              28,
+              27
+            ]
+          },
+          "p99": {
+            "median": 60,
+            "min": 54,
+            "max": 69,
+            "runs": [
+              69,
+              58,
+              62,
+              54,
+              60
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 317.5,
+            "min": 297.61,
+            "max": 323.8,
+            "runs": [
+              297.61,
+              317.5,
+              303.8,
+              319.4,
+              323.8
+            ]
+          },
+          "p50": {
+            "median": 149,
+            "min": 145,
+            "max": 159,
+            "runs": [
+              159,
+              148,
+              150,
+              149,
+              145
+            ]
+          },
+          "p99": {
+            "median": 286,
+            "min": 272,
+            "max": 360,
+            "runs": [
+              360,
+              335,
+              279,
+              286,
+              272
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 758,
+            "min": 706.1,
+            "max": 786.55,
+            "runs": [
+              706.1,
+              737,
+              758,
+              786.55,
+              761.2
+            ]
+          },
+          "p50": {
+            "median": 64,
+            "min": 62,
+            "max": 66,
+            "runs": [
+              66,
+              65,
+              64,
+              62,
+              63
+            ]
+          },
+          "p99": {
+            "median": 114,
+            "min": 96,
+            "max": 130,
+            "runs": [
+              130,
+              126,
+              96,
+              102,
+              114
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            7061,
+            7370,
+            8338,
+            8652,
+            7612
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 5559,
+            "bodyBytes": 5559
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 1811
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 17105
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 3562
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 352.17578125,
+      "browser": {
+        "/static": {
+          "jsBytes": 456139,
+          "jsGzip": 134953,
+          "jsBrotli": 115952
+        },
+        "/items": {
+          "jsBytes": 456466,
+          "jsGzip": 135218,
+          "jsBrotli": 116161,
+          "hydrationMs": {
+            "median": 122.79999999981374,
+            "min": 109.90000000037253,
+            "max": 127.70000000018626,
+            "runs": [
+              109.90000000037253,
+              124.20000000018626,
+              127.70000000018626,
+              122.79999999981374,
+              115.40000000037253
+            ]
+          }
+        }
+      }
+    },
+    "react-router": {
+      "name": "React Router",
+      "version": "8.4.0",
+      "build": {
+        "coldMs": {
+          "median": 1381.0749880000003,
+          "min": 1342.4342939999997,
+          "max": 1677.4402519999999,
+          "runs": [
+            1677.4402519999999,
+            1342.4342939999997,
+            1381.0749880000003
+          ]
+        },
+        "warmMs": {
+          "median": 1302.3529120000003,
+          "min": 1268.599166,
+          "max": 1365.491148,
+          "runs": [
+            1365.491148,
+            1268.599166,
+            1302.3529120000003
+          ]
+        }
+      },
+      "startMs": {
+        "median": 334.0375869999989,
+        "min": 326.4332709999999,
+        "max": 360.61330499999895,
+        "runs": [
+          326.4332709999999,
+          334.0375869999989,
+          360.3128540000016,
+          332.2416740000008,
+          360.61330499999895
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 147.2421875,
+        "min": 145.2265625,
+        "max": 150.0390625,
+        "runs": [
+          147.2421875,
+          145.2265625,
+          150.0390625,
+          146.67578125,
+          147.95703125
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static/",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 3628.4,
+            "min": 3533.91,
+            "max": 3704.2,
+            "runs": [
+              3533.91,
+              3704.2,
+              3560.4,
+              3628.4,
+              3633
+            ]
+          },
+          "p50": {
+            "median": 12,
+            "min": 12,
+            "max": 13,
+            "runs": [
+              13,
+              12,
+              13,
+              12,
+              12
+            ]
+          },
+          "p99": {
+            "median": 26,
+            "min": 25,
+            "max": 27,
+            "runs": [
+              27,
+              27,
+              26,
+              25,
+              25
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 543.1,
+            "min": 527.28,
+            "max": 569.6,
+            "runs": [
+              527.28,
+              553.73,
+              543.1,
+              569.6,
+              536.1
+            ]
+          },
+          "p50": {
+            "median": 87,
+            "min": 83,
+            "max": 92,
+            "runs": [
+              92,
+              87,
+              88,
+              83,
+              87
+            ]
+          },
+          "p99": {
+            "median": 143,
+            "min": 135,
+            "max": 155,
+            "runs": [
+              143,
+              149,
+              139,
+              155,
+              135
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 1862.37,
+            "min": 1752,
+            "max": 1994.46,
+            "runs": [
+              1752,
+              1904.64,
+              1994.46,
+              1823.64,
+              1862.37
+            ]
+          },
+          "p50": {
+            "median": 25,
+            "min": 24,
+            "max": 26,
+            "runs": [
+              26,
+              25,
+              24,
+              25,
+              25
+            ]
+          },
+          "p99": {
+            "median": 46,
+            "min": 46,
+            "max": 51,
+            "runs": [
+              51,
+              46,
+              46,
+              49,
+              46
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            19272,
+            20949,
+            21938,
+            20060,
+            20484
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4601,
+            "bodyBytes": 4601
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 1754
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 15153
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 3463
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 272.5625,
+      "browser": {
+        "/static": {
+          "jsBytes": 346383,
+          "jsGzip": 111192,
+          "jsBrotli": 97340
+        },
+        "/items": {
+          "jsBytes": 346438,
+          "jsGzip": 111241,
+          "jsBrotli": 97405,
+          "hydrationMs": {
+            "median": 110,
+            "min": 88.79999999981374,
+            "max": 119.90000000037253,
+            "runs": [
+              107.09999999962747,
+              110,
+              117.09999999962747,
+              119.90000000037253,
+              88.79999999981374
+            ]
+          }
+        }
+      }
+    },
+    "sveltekit": {
+      "name": "SvelteKit",
+      "version": "3.0.1",
+      "build": {
+        "coldMs": {
+          "median": 3210.693634,
+          "min": 3139.4987249999995,
+          "max": 3638.89789,
+          "runs": [
+            3638.89789,
+            3210.693634,
+            3139.4987249999995
+          ]
+        },
+        "warmMs": {
+          "median": 3238.682774000001,
+          "min": 3015.646955,
+          "max": 3464.135184999999,
+          "runs": [
+            3015.646955,
+            3464.135184999999,
+            3238.682774000001
+          ]
+        }
+      },
+      "startMs": {
+        "median": 225.95278899999903,
+        "min": 221.75426700000025,
+        "max": 289.90903400000025,
+        "runs": [
+          289.90903400000025,
+          221.7603339999987,
+          221.75426700000025,
+          225.95278899999903,
+          250.49835099999837
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 131.9765625,
+        "min": 131.85546875,
+        "max": 132.7421875,
+        "runs": [
+          132.0859375,
+          131.91796875,
+          131.85546875,
+          131.9765625,
+          132.7421875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 6512.8,
+            "min": 6334.4,
+            "max": 6855.6,
+            "runs": [
+              6432.8,
+              6855.6,
+              6659.46,
+              6512.8,
+              6334.4
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 17,
+            "min": 15,
+            "max": 18,
+            "runs": [
+              18,
+              15,
+              17,
+              17,
+              18
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 1313.91,
+            "min": 1263.41,
+            "max": 1333.73,
+            "runs": [
+              1263.41,
+              1291.91,
+              1320.64,
+              1313.91,
+              1333.73
+            ]
+          },
+          "p50": {
+            "median": 35,
+            "min": 35,
+            "max": 36,
+            "runs": [
+              36,
+              36,
+              35,
+              35,
+              35
+            ]
+          },
+          "p99": {
+            "median": 64,
+            "min": 61,
+            "max": 68,
+            "runs": [
+              64,
+              61,
+              65,
+              61,
+              68
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 5583.46,
+            "min": 5460.4,
+            "max": 5715.82,
+            "runs": [
+              5672.4,
+              5460.4,
+              5715.82,
+              5513.28,
+              5583.46
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 21,
+            "min": 20,
+            "max": 22,
+            "runs": [
+              20,
+              20,
+              21,
+              22,
+              22
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            56718,
+            54598,
+            62863,
+            60646,
+            61412
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1868,
+            "bodyBytes": 1868
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": 628,
+            "bodyBytes": 628
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 264.9609375,
+      "browser": {
+        "/static": {
+          "jsBytes": 87944,
+          "jsGzip": 34159,
+          "jsBrotli": 30829
+        },
+        "/items": {
+          "jsBytes": 88058,
+          "jsGzip": 34209,
+          "jsBrotli": 30907,
+          "hydrationMs": {
+            "median": 83.6000000005588,
+            "min": 76.8999999994412,
+            "max": 89,
+            "runs": [
+              89,
+              83.30000000074506,
+              83.6000000005588,
+              86.8999999994412,
+              76.8999999994412
+            ]
+          }
+        }
+      }
+    }
+  },
+  "sources": [
+    "raw-2026-11-05-container-devora-0.3.5.json",
+    "raw-2026-11-05-container-astro-pages.json",
+    "raw-2026-11-05-container-next-pages.json",
+    "raw-2026-11-05-container-react-router-pages.json",
+    "raw-2026-11-05-container-sveltekit-pages.json"
+  ]
+}

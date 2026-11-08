@@ -1,0 +1,13 @@
+
+== React Router
+build cold 1381 ms, warm 1302 ms
+start 334 ms, idle 147 MB
+wire static: load tool 4601 B (identity), browser 1754 B (br)
+wire items: load tool 15153 B (identity), browser 3463 B (br)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 3628 req/s, p50 12 ms, p99 26 ms
+items: 543 req/s, p50 87 ms, p99 143 ms
+form: 1862 req/s, p50 25 ms, p99 46 ms
+items JS 111241 B gzip, hydration 110 ms
+
+wrote results/raw-2026-11-05-container-react-router-pages.json

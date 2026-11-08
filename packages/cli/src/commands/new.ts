@@ -1,7 +1,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
-import { resolveAuthChoice, scaffoldAppFiles } from "@devorajs/scaffold";
+import { appNameProblem, domainProblem, resolveAuthChoice, scaffoldAppFiles } from "@devorajs/scaffold";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 
 /**
@@ -77,6 +77,12 @@ async function detectScaffoldContext(
  */
 export async function scaffoldApp(appName: string, opts: { domain?: string; auth?: string; kind?: string }): Promise<void> {
   const root = process.cwd();
+  // Before anything is written (finding H29): the name and domain go into paths, generated code and build commands.
+  const nameProblem = appNameProblem(appName) ?? (opts.domain === undefined ? undefined : domainProblem(opts.domain));
+  if (nameProblem) {
+    console.error(`[devora] ${nameProblem}`);
+    process.exit(1);
+  }
   const appDir = path.join(root, "apps", appName);
 
   if (existsSync(appDir)) {

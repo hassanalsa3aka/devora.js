@@ -1,0 +1,13 @@
+
+== Devora.js
+build cold 1226 ms, warm 1214 ms
+start 345 ms, idle 157 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4902 B (identity), browser 4902 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 29838 req/s, p50 1 ms, p99 4 ms
+items: 3947 req/s, p50 11 ms, p99 29 ms
+form: 19054 req/s, p50 2 ms, p99 7 ms
+items JS 46657 B gzip, hydration 75 ms
+
+wrote results/raw-2026-11-05-container-devora-0.3.5.json

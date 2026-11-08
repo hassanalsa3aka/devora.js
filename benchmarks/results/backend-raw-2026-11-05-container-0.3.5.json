@@ -1,0 +1,3624 @@
+{
+  "date": "2026-11-05T00:39:39.371Z",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryGb": 16,
+    "os": "Linux 6.18.44-fc-v236 (linux x64)",
+    "node": "v22.23.4"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora-api": {
+      "name": "Devora.js",
+      "kind": "backend+pages",
+      "version": "0.3.5",
+      "loadAvgAtStart": 0.28,
+      "coreVersion": "0.3.5",
+      "build": {
+        "coldMs": {
+          "median": 537.805081,
+          "min": 487.8325279999999,
+          "max": 650.098981,
+          "runs": [
+            650.098981,
+            537.805081,
+            487.8325279999999
+          ]
+        },
+        "warmMs": {
+          "median": 471.3091009999998,
+          "min": 470.2134249999999,
+          "max": 493.983254,
+          "runs": [
+            493.983254,
+            470.2134249999999,
+            471.3091009999998
+          ]
+        }
+      },
+      "startMs": {
+        "median": 337.0872450000006,
+        "min": 310.50491300000067,
+        "max": 367.29078499999923,
+        "runs": [
+          352.7937270000002,
+          337.0872450000006,
+          310.72698299999956,
+          367.29078499999923,
+          310.50491300000067
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 159.5,
+        "min": 156.890625,
+        "max": 162.25390625,
+        "runs": [
+          162.25390625,
+          157.80859375,
+          156.890625,
+          159.5,
+          161.81640625
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 15428.37,
+            "min": 14792.37,
+            "max": 15683.28,
+            "runs": [
+              15302.55,
+              15538.19,
+              15683.28,
+              15428.37,
+              14792.37
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 6,
+            "max": 9,
+            "runs": [
+              9,
+              6,
+              7,
+              6,
+              6
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 19617.6,
+            "min": 18908,
+            "max": 21208,
+            "runs": [
+              20792,
+              18908,
+              19604.8,
+              21208,
+              19617.6
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 7,
+            "runs": [
+              5,
+              6,
+              7,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 17404.8,
+            "min": 17004.73,
+            "max": 18688.73,
+            "runs": [
+              17370.41,
+              17404.8,
+              17004.73,
+              17505.1,
+              18688.73
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 5,
+            "max": 8,
+            "runs": [
+              8,
+              7,
+              6,
+              6,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 17336.37,
+            "min": 16595.64,
+            "max": 18186.55,
+            "runs": [
+              17433.46,
+              18186.55,
+              17336.37,
+              16976.37,
+              16595.64
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 6,
+            "max": 9,
+            "runs": [
+              6,
+              7,
+              8,
+              9,
+              7
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 14200.8,
+            "min": 13348,
+            "max": 14391.64,
+            "runs": [
+              13348,
+              14278.91,
+              14391.64,
+              13974.19,
+              14200.8
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 6,
+            "max": 7,
+            "runs": [
+              7,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 340
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 340
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 338
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 338
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 338
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 338
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 338
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 338
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 338
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 338
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 250.65625
+    },
+    "astro": {
+      "name": "Astro",
+      "kind": "pages",
+      "version": "7.3.8",
+      "loadAvgAtStart": 1.3,
+      "build": {
+        "coldMs": {
+          "median": 2059.8891729999996,
+          "min": 1915.5492839999997,
+          "max": 2564.812596,
+          "runs": [
+            2564.812596,
+            1915.5492839999997,
+            2059.8891729999996
+          ]
+        },
+        "warmMs": {
+          "median": 1381.6673290000017,
+          "min": 1337.842353,
+          "max": 1414.722601,
+          "runs": [
+            1414.722601,
+            1337.842353,
+            1381.6673290000017
+          ]
+        }
+      },
+      "startMs": {
+        "median": 333.85708299999897,
+        "min": 318.8009490000004,
+        "max": 339.1737269999994,
+        "runs": [
+          318.8009490000004,
+          339.1737269999994,
+          331.3970909999989,
+          333.85708299999897,
+          335.8433400000031
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 156.4609375,
+        "min": 154.09375,
+        "max": 158.31640625,
+        "runs": [
+          156.47265625,
+          156.42578125,
+          156.4609375,
+          158.31640625,
+          154.09375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 3632.9,
+            "min": 2494.81,
+            "max": 3694.64,
+            "runs": [
+              3632.9,
+              2986,
+              2494.81,
+              3694.64,
+              3681
+            ]
+          },
+          "p50": {
+            "median": 12,
+            "min": 12,
+            "max": 19,
+            "runs": [
+              12,
+              14,
+              19,
+              12,
+              12
+            ]
+          },
+          "p99": {
+            "median": 30,
+            "min": 26,
+            "max": 41,
+            "runs": [
+              29,
+              39,
+              41,
+              30,
+              26
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 4043.64,
+            "min": 3923.2,
+            "max": 4323.37,
+            "runs": [
+              4043.64,
+              4012.8,
+              4323.37,
+              4058.55,
+              3923.2
+            ]
+          },
+          "p50": {
+            "median": 11,
+            "min": 10,
+            "max": 11,
+            "runs": [
+              11,
+              11,
+              10,
+              11,
+              11
+            ]
+          },
+          "p99": {
+            "median": 28,
+            "min": 25,
+            "max": 29,
+            "runs": [
+              28,
+              28,
+              25,
+              29,
+              28
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 2826.1,
+            "min": 2784.2,
+            "max": 3006,
+            "runs": [
+              2991.2,
+              2816.28,
+              2784.2,
+              2826.1,
+              3006
+            ]
+          },
+          "p50": {
+            "median": 16,
+            "min": 15,
+            "max": 16,
+            "runs": [
+              15,
+              16,
+              16,
+              16,
+              15
+            ]
+          },
+          "p99": {
+            "median": 37,
+            "min": 36,
+            "max": 40,
+            "runs": [
+              37,
+              40,
+              36,
+              38,
+              37
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 2872.46,
+            "min": 2701,
+            "max": 2989.4,
+            "runs": [
+              2836.4,
+              2701,
+              2873.4,
+              2989.4,
+              2872.46
+            ]
+          },
+          "p50": {
+            "median": 16,
+            "min": 15,
+            "max": 17,
+            "runs": [
+              16,
+              17,
+              16,
+              15,
+              16
+            ]
+          },
+          "p99": {
+            "median": 36,
+            "min": 35,
+            "max": 38,
+            "runs": [
+              35,
+              36,
+              38,
+              35,
+              36
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 4785.2,
+            "min": 4577.61,
+            "max": 4870.4,
+            "runs": [
+              4791.61,
+              4870.4,
+              4577.61,
+              4785.2,
+              4636.61
+            ]
+          },
+          "p50": {
+            "median": 9,
+            "min": 9,
+            "max": 10,
+            "runs": [
+              9,
+              9,
+              10,
+              9,
+              9
+            ]
+          },
+          "p99": {
+            "median": 22,
+            "min": 21,
+            "max": 32,
+            "runs": [
+              22,
+              24,
+              22,
+              21,
+              32
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 144
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 144
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 144
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 144
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 144
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 144
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 279.13671875
+    },
+    "express": {
+      "name": "Express 5",
+      "kind": "backend",
+      "version": "5.3.0",
+      "loadAvgAtStart": 1.76,
+      "build": {
+        "coldMs": {
+          "median": 171.310153,
+          "min": 158.20373699999993,
+          "max": 221.90510799999998,
+          "runs": [
+            221.90510799999998,
+            171.310153,
+            158.20373699999993
+          ]
+        },
+        "warmMs": {
+          "median": 167.78092500000002,
+          "min": 166.81780400000002,
+          "max": 178.960189,
+          "runs": [
+            178.960189,
+            166.81780400000002,
+            167.78092500000002
+          ]
+        }
+      },
+      "startMs": {
+        "median": 248.6807670000003,
+        "min": 221.8186220000007,
+        "max": 299.1506819999995,
+        "runs": [
+          259.7779810000002,
+          248.6807670000003,
+          299.1506819999995,
+          246.74786100000074,
+          221.8186220000007
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 129.53515625,
+        "min": 129.33984375,
+        "max": 129.64453125,
+        "runs": [
+          129.64453125,
+          129.3671875,
+          129.53515625,
+          129.59765625,
+          129.33984375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 7051.1,
+            "min": 6819.82,
+            "max": 7598.2,
+            "runs": [
+              7051.1,
+              7240.91,
+              7598.2,
+              6819.82,
+              7020.55
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 16,
+            "min": 13,
+            "max": 20,
+            "runs": [
+              20,
+              16,
+              13,
+              20,
+              16
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 9201.46,
+            "min": 8887.8,
+            "max": 9366.19,
+            "runs": [
+              9201.46,
+              9273.4,
+              9366.19,
+              9137.6,
+              8887.8
+            ]
+          },
+          "p50": {
+            "median": 4,
+            "min": 4,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4,
+              4,
+              4
+            ]
+          },
+          "p99": {
+            "median": 15,
+            "min": 10,
+            "max": 16,
+            "runs": [
+              11,
+              16,
+              10,
+              16,
+              15
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 7087.82,
+            "min": 6812.19,
+            "max": 7368.55,
+            "runs": [
+              7368.55,
+              7219.82,
+              6812.19,
+              7087.82,
+              6916.91
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 15,
+            "min": 13,
+            "max": 18,
+            "runs": [
+              14,
+              13,
+              18,
+              15,
+              15
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 7318.73,
+            "min": 6956.91,
+            "max": 7760.55,
+            "runs": [
+              7760.55,
+              7068,
+              7328.6,
+              7318.73,
+              6956.91
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 15,
+            "min": 14,
+            "max": 15,
+            "runs": [
+              14,
+              15,
+              14,
+              15,
+              15
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 7915.28,
+            "min": 7633.8,
+            "max": 8329.82,
+            "runs": [
+              7848,
+              7915.28,
+              7633.8,
+              8032.91,
+              8329.82
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              6,
+              5,
+              6,
+              6,
+              5
+            ]
+          },
+          "p99": {
+            "median": 12,
+            "min": 10,
+            "max": 16,
+            "runs": [
+              12,
+              13,
+              16,
+              11,
+              10
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 197.46875
+    },
+    "fastify": {
+      "name": "Fastify 5",
+      "kind": "backend",
+      "version": "5.12.7",
+      "loadAvgAtStart": 1.43,
+      "build": {
+        "coldMs": {
+          "median": 164.31720900000002,
+          "min": 144.65453700000006,
+          "max": 165.558673,
+          "runs": [
+            164.31720900000002,
+            144.65453700000006,
+            165.558673
+          ]
+        },
+        "warmMs": {
+          "median": 155.51642099999998,
+          "min": 130.82101999999998,
+          "max": 166.4183220000001,
+          "runs": [
+            155.51642099999998,
+            130.82101999999998,
+            166.4183220000001
+          ]
+        }
+      },
+      "startMs": {
+        "median": 282.698631,
+        "min": 271.15862500000003,
+        "max": 298.26255200000014,
+        "runs": [
+          282.698631,
+          271.15862500000003,
+          297.74035299999923,
+          275.2006590000001,
+          298.26255200000014
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 134.69140625,
+        "min": 134.2109375,
+        "max": 135.65625,
+        "runs": [
+          135.65625,
+          134.69140625,
+          135.4140625,
+          134.2109375,
+          134.2109375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 19018.91,
+            "min": 18402.91,
+            "max": 19286.55,
+            "runs": [
+              19018.91,
+              18402.91,
+              18767.28,
+              19244.37,
+              19286.55
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              5,
+              6,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 47408,
+            "min": 43251.2,
+            "max": 53868.8,
+            "runs": [
+              47408,
+              50761.6,
+              46953.6,
+              53868.8,
+              43251.2
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 2,
+            "max": 4,
+            "runs": [
+              3,
+              3,
+              3,
+              2,
+              4
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 26706.19,
+            "min": 25932.37,
+            "max": 28496.8,
+            "runs": [
+              25932.37,
+              26592,
+              28213.82,
+              26706.19,
+              28496.8
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 4,
+            "max": 5,
+            "runs": [
+              4,
+              5,
+              4,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 27829.1,
+            "min": 26233.46,
+            "max": 28928.73,
+            "runs": [
+              27829.1,
+              27672.8,
+              28928.73,
+              28067.2,
+              26233.46
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 4,
+            "max": 5,
+            "runs": [
+              5,
+              4,
+              5,
+              4,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 16533.46,
+            "min": 15859.6,
+            "max": 16845.2,
+            "runs": [
+              15859.6,
+              16533.46,
+              16845.2,
+              16493.46,
+              16639.6
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 3,
+            "runs": [
+              3,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 158.796875
+    },
+    "hono": {
+      "name": "Hono",
+      "kind": "backend",
+      "version": "4.13.13",
+      "loadAvgAtStart": 1.4,
+      "build": {
+        "coldMs": {
+          "median": 153.174177,
+          "min": 136.90045699999996,
+          "max": 162.063599,
+          "runs": [
+            162.063599,
+            136.90045699999996,
+            153.174177
+          ]
+        },
+        "warmMs": {
+          "median": 151.4080540000001,
+          "min": 130.98598600000003,
+          "max": 184.835469,
+          "runs": [
+            184.835469,
+            130.98598600000003,
+            151.4080540000001
+          ]
+        }
+      },
+      "startMs": {
+        "median": 219.69058500000028,
+        "min": 217.8955189999997,
+        "max": 245.5503060000001,
+        "runs": [
+          229.30805599999985,
+          219.69058500000028,
+          219.6580869999998,
+          245.5503060000001,
+          217.8955189999997
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 131.7109375,
+        "min": 131.51953125,
+        "max": 131.87890625,
+        "runs": [
+          131.58984375,
+          131.51953125,
+          131.85546875,
+          131.87890625,
+          131.7109375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 19204,
+            "min": 18266.8,
+            "max": 19737.46,
+            "runs": [
+              19142.41,
+              18266.8,
+              19204,
+              19737.46,
+              19212.37
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 8,
+            "runs": [
+              5,
+              5,
+              8,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 40138.19,
+            "min": 39033.6,
+            "max": 41000.81,
+            "runs": [
+              39114.19,
+              40461.1,
+              40138.19,
+              41000.81,
+              39033.6
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 25296.73,
+            "min": 24450.19,
+            "max": 26404.8,
+            "runs": [
+              25296.73,
+              24787.64,
+              24450.19,
+              25873.6,
+              26404.8
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 1,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              1
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 4,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              4,
+              5,
+              4
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 26102.55,
+            "min": 25325.82,
+            "max": 27496,
+            "runs": [
+              25743.28,
+              26126.4,
+              27496,
+              26102.55,
+              25325.82
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              6
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 14974.4,
+            "min": 14653.6,
+            "max": 15252,
+            "runs": [
+              14974.4,
+              14665.6,
+              15252,
+              14653.6,
+              14981.1
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 155.9765625
+    },
+    "nest-express": {
+      "name": "NestJS (Express platform)",
+      "kind": "backend",
+      "version": "12.1.3",
+      "loadAvgAtStart": 1.14,
+      "build": {
+        "coldMs": {
+          "median": 1255.479386,
+          "min": 1254.274899,
+          "max": 1278.6298499999998,
+          "runs": [
+            1254.274899,
+            1278.6298499999998,
+            1255.479386
+          ]
+        },
+        "warmMs": {
+          "median": 1308.009353,
+          "min": 1187.667644,
+          "max": 1332.1787649999997,
+          "runs": [
+            1308.009353,
+            1187.667644,
+            1332.1787649999997
+          ]
+        }
+      },
+      "startMs": {
+        "median": 547.3300049999998,
+        "min": 513.910374000001,
+        "max": 623.3720969999995,
+        "runs": [
+          582.333028,
+          547.3300049999998,
+          541.695654000001,
+          513.910374000001,
+          623.3720969999995
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 167.72265625,
+        "min": 163.12109375,
+        "max": 170.5546875,
+        "runs": [
+          167.72265625,
+          167.73828125,
+          163.12109375,
+          170.5546875,
+          165.02734375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 5611.6,
+            "min": 5305.1,
+            "max": 5711.82,
+            "runs": [
+              5611.6,
+              5711.82,
+              5652.91,
+              5611.2,
+              5305.1
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 21,
+            "min": 18,
+            "max": 22,
+            "runs": [
+              19,
+              18,
+              21,
+              22,
+              22
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 7185.1,
+            "min": 7102.55,
+            "max": 7561.4,
+            "runs": [
+              7185.1,
+              7504.37,
+              7102.55,
+              7127.46,
+              7561.4
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              5,
+              6,
+              6,
+              5
+            ]
+          },
+          "p99": {
+            "median": 16,
+            "min": 14,
+            "max": 19,
+            "runs": [
+              19,
+              18,
+              16,
+              16,
+              14
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 6018.37,
+            "min": 5844.19,
+            "max": 6342,
+            "runs": [
+              6018.37,
+              6342,
+              6072,
+              5844.19,
+              5959.1
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 20,
+            "min": 19,
+            "max": 21,
+            "runs": [
+              20,
+              19,
+              19,
+              21,
+              20
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 4967.19,
+            "min": 4895.91,
+            "max": 5374.4,
+            "runs": [
+              5374.4,
+              5026,
+              4967.19,
+              4895.91,
+              4897.28
+            ]
+          },
+          "p50": {
+            "median": 8,
+            "min": 8,
+            "max": 9,
+            "runs": [
+              8,
+              8,
+              9,
+              9,
+              8
+            ]
+          },
+          "p99": {
+            "median": 23,
+            "min": 21,
+            "max": 25,
+            "runs": [
+              21,
+              23,
+              23,
+              23,
+              25
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 7796.6,
+            "min": 7393.2,
+            "max": 7903.2,
+            "runs": [
+              7892,
+              7903.2,
+              7796.6,
+              7393.2,
+              7669.28
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              5,
+              6,
+              6,
+              5
+            ]
+          },
+          "p99": {
+            "median": 14,
+            "min": 11,
+            "max": 15,
+            "runs": [
+              14,
+              12,
+              11,
+              15,
+              14
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 255.234375
+    },
+    "nest-fastify": {
+      "name": "NestJS (Fastify platform)",
+      "kind": "backend",
+      "version": "12.1.3",
+      "loadAvgAtStart": 1.4,
+      "build": {
+        "coldMs": {
+          "median": 1766.165371,
+          "min": 1648.5580360000004,
+          "max": 1769.6330479999997,
+          "runs": [
+            1766.165371,
+            1648.5580360000004,
+            1769.6330479999997
+          ]
+        },
+        "warmMs": {
+          "median": 1716.202041,
+          "min": 1559.9351960000004,
+          "max": 1790.9909040000002,
+          "runs": [
+            1716.202041,
+            1790.9909040000002,
+            1559.9351960000004
+          ]
+        }
+      },
+      "startMs": {
+        "median": 544.7712509999983,
+        "min": 459.29655699999967,
+        "max": 591.1696250000023,
+        "runs": [
+          494.7557799999995,
+          459.29655699999967,
+          545.0085410000011,
+          544.7712509999983,
+          591.1696250000023
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 168.05078125,
+        "min": 158.63671875,
+        "max": 168.8203125,
+        "runs": [
+          168.05078125,
+          168.421875,
+          168.8203125,
+          158.63671875,
+          167.9375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 17900.37,
+            "min": 16138.91,
+            "max": 18082.55,
+            "runs": [
+              17932.37,
+              16138.91,
+              16793.82,
+              17900.37,
+              18082.55
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 30681.46,
+            "min": 29376.8,
+            "max": 32201.6,
+            "runs": [
+              30681.46,
+              30456.8,
+              30729.46,
+              32201.6,
+              29376.8
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 21921.6,
+            "min": 21075.2,
+            "max": 22733.82,
+            "runs": [
+              21921.6,
+              21075.2,
+              21855.28,
+              22332.37,
+              22733.82
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 4,
+            "max": 5,
+            "runs": [
+              4,
+              5,
+              4,
+              5,
+              4
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 16488.73,
+            "min": 16384.73,
+            "max": 17287.28,
+            "runs": [
+              16384.73,
+              16488.73,
+              16680.37,
+              17287.28,
+              16433.1
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 5,
+            "max": 7,
+            "runs": [
+              6,
+              7,
+              5,
+              6,
+              6
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 15176.8,
+            "min": 14158.91,
+            "max": 15404,
+            "runs": [
+              15176.8,
+              14158.91,
+              14994.4,
+              15291.28,
+              15404
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              6,
+              5,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 188.4609375
+    },
+    "next": {
+      "name": "Next.js",
+      "kind": "pages",
+      "version": "16.4.1",
+      "loadAvgAtStart": 1.04,
+      "build": {
+        "coldMs": {
+          "median": 5038.041948000002,
+          "min": 4927.068293,
+          "max": 5644.546161,
+          "runs": [
+            5644.546161,
+            4927.068293,
+            5038.041948000002
+          ]
+        },
+        "warmMs": {
+          "median": 1981.9422379999996,
+          "min": 1963.4053869999998,
+          "max": 1997.911728000001,
+          "runs": [
+            1963.4053869999998,
+            1997.911728000001,
+            1981.9422379999996
+          ]
+        }
+      },
+      "startMs": {
+        "median": 549.7791830000024,
+        "min": 495.55820400000084,
+        "max": 581.830624000002,
+        "runs": [
+          549.7791830000024,
+          577.0335200000009,
+          495.55820400000084,
+          512.6948730000004,
+          581.830624000002
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 156.33984375,
+        "min": 155.859375,
+        "max": 158.2734375,
+        "runs": [
+          155.9375,
+          156.33984375,
+          155.859375,
+          158.2734375,
+          156.375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 1245.91,
+            "min": 1196.2,
+            "max": 1274.46,
+            "runs": [
+              1196.2,
+              1246.6,
+              1216.55,
+              1245.91,
+              1274.46
+            ]
+          },
+          "p50": {
+            "median": 38,
+            "min": 38,
+            "max": 39,
+            "runs": [
+              38,
+              38,
+              39,
+              38,
+              38
+            ]
+          },
+          "p99": {
+            "median": 70,
+            "min": 63,
+            "max": 75,
+            "runs": [
+              74,
+              75,
+              68,
+              63,
+              70
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 1289.64,
+            "min": 1269.64,
+            "max": 1317.1,
+            "runs": [
+              1289.64,
+              1317.1,
+              1269.64,
+              1312.64,
+              1279.73
+            ]
+          },
+          "p50": {
+            "median": 37,
+            "min": 36,
+            "max": 37,
+            "runs": [
+              37,
+              37,
+              37,
+              36,
+              37
+            ]
+          },
+          "p99": {
+            "median": 66,
+            "min": 63,
+            "max": 71,
+            "runs": [
+              64,
+              63,
+              67,
+              71,
+              66
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 1081.82,
+            "min": 911.4,
+            "max": 1102.82,
+            "runs": [
+              1082.37,
+              1102.82,
+              1081.82,
+              913.9,
+              911.4
+            ]
+          },
+          "p50": {
+            "median": 44,
+            "min": 43,
+            "max": 48,
+            "runs": [
+              44,
+              43,
+              44,
+              48,
+              46
+            ]
+          },
+          "p99": {
+            "median": 81,
+            "min": 74,
+            "max": 117,
+            "runs": [
+              74,
+              81,
+              79,
+              99,
+              117
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 1085.41,
+            "min": 1065.2,
+            "max": 1138.19,
+            "runs": [
+              1138.19,
+              1072.82,
+              1085.41,
+              1065.2,
+              1095.73
+            ]
+          },
+          "p50": {
+            "median": 43,
+            "min": 43,
+            "max": 44,
+            "runs": [
+              43,
+              44,
+              43,
+              44,
+              43
+            ]
+          },
+          "p99": {
+            "median": 88,
+            "min": 77,
+            "max": 90,
+            "runs": [
+              77,
+              83,
+              90,
+              89,
+              88
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 1905,
+            "min": 1781.5,
+            "max": 1981.9,
+            "runs": [
+              1952.9,
+              1878.6,
+              1981.9,
+              1905,
+              1781.5
+            ]
+          },
+          "p50": {
+            "median": 22,
+            "min": 21,
+            "max": 24,
+            "runs": [
+              21,
+              23,
+              22,
+              22,
+              24
+            ]
+          },
+          "p99": {
+            "median": 60,
+            "min": 59,
+            "max": 66,
+            "runs": [
+              60,
+              60,
+              59,
+              66,
+              63
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 231
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 231
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 231
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 231
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 231
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 231
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 231
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 231
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 231
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 231
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 326.140625
+    },
+    "react-router": {
+      "name": "React Router",
+      "kind": "pages",
+      "version": "8.4.0",
+      "loadAvgAtStart": 2.15,
+      "build": {
+        "coldMs": {
+          "median": 1360.6108399999994,
+          "min": 1244.0961739999998,
+          "max": 1682.731307,
+          "runs": [
+            1682.731307,
+            1244.0961739999998,
+            1360.6108399999994
+          ]
+        },
+        "warmMs": {
+          "median": 1572.6532459999999,
+          "min": 1363.6352909999996,
+          "max": 1619.381163,
+          "runs": [
+            1619.381163,
+            1363.6352909999996,
+            1572.6532459999999
+          ]
+        }
+      },
+      "startMs": {
+        "median": 355.9177649999983,
+        "min": 353.8576780000003,
+        "max": 385.81107899999915,
+        "runs": [
+          366.08765499999936,
+          353.8576780000003,
+          385.81107899999915,
+          355.9177649999983,
+          354.62098400000104
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 149.12109375,
+        "min": 144.265625,
+        "max": 150.234375,
+        "runs": [
+          149.12109375,
+          144.265625,
+          144.57421875,
+          149.5546875,
+          150.234375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 1642,
+            "min": 1626.3,
+            "max": 1681.8,
+            "runs": [
+              1626.3,
+              1638.8,
+              1681.8,
+              1668.9,
+              1642
+            ]
+          },
+          "p50": {
+            "median": 28,
+            "min": 28,
+            "max": 28,
+            "runs": [
+              28,
+              28,
+              28,
+              28,
+              28
+            ]
+          },
+          "p99": {
+            "median": 51,
+            "min": 47,
+            "max": 65,
+            "runs": [
+              58,
+              65,
+              51,
+              47,
+              50
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 1786.46,
+            "min": 1394.6,
+            "max": 1817.2,
+            "runs": [
+              1394.6,
+              1708.2,
+              1786.46,
+              1815.28,
+              1817.2
+            ]
+          },
+          "p50": {
+            "median": 26,
+            "min": 25,
+            "max": 36,
+            "runs": [
+              36,
+              27,
+              26,
+              26,
+              25
+            ]
+          },
+          "p99": {
+            "median": 53,
+            "min": 48,
+            "max": 62,
+            "runs": [
+              62,
+              53,
+              48,
+              53,
+              48
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 1735.73,
+            "min": 1678.5,
+            "max": 1823.46,
+            "runs": [
+              1697.46,
+              1678.5,
+              1786.91,
+              1735.73,
+              1823.46
+            ]
+          },
+          "p50": {
+            "median": 27,
+            "min": 26,
+            "max": 27,
+            "runs": [
+              27,
+              27,
+              26,
+              27,
+              26
+            ]
+          },
+          "p99": {
+            "median": 50,
+            "min": 46,
+            "max": 60,
+            "runs": [
+              60,
+              50,
+              52,
+              48,
+              46
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 1733.3,
+            "min": 1712.1,
+            "max": 1758.64,
+            "runs": [
+              1712.1,
+              1733.3,
+              1752.28,
+              1728.55,
+              1758.64
+            ]
+          },
+          "p50": {
+            "median": 27,
+            "min": 27,
+            "max": 27,
+            "runs": [
+              27,
+              27,
+              27,
+              27,
+              27
+            ]
+          },
+          "p99": {
+            "median": 56,
+            "min": 51,
+            "max": 58,
+            "runs": [
+              51,
+              52,
+              56,
+              57,
+              58
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 2356.6,
+            "min": 2273.2,
+            "max": 2521.4,
+            "runs": [
+              2304.6,
+              2356.6,
+              2389.82,
+              2273.2,
+              2521.4
+            ]
+          },
+          "p50": {
+            "median": 19,
+            "min": 18,
+            "max": 20,
+            "runs": [
+              20,
+              19,
+              19,
+              20,
+              18
+            ]
+          },
+          "p99": {
+            "median": 42,
+            "min": 36,
+            "max": 48,
+            "runs": [
+              42,
+              48,
+              40,
+              43,
+              36
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 182
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "bodyBytes": 478,
+            "headerBytes": 204
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 182
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "bodyBytes": 20,
+            "headerBytes": 204
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 182
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": "br",
+            "bodyBytes": 42,
+            "headerBytes": 204
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 182
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": "br",
+            "bodyBytes": 48,
+            "headerBytes": 204
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 182
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "bodyBytes": 46,
+            "headerBytes": 204
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 252.44140625
+    },
+    "sveltekit": {
+      "name": "SvelteKit",
+      "kind": "pages",
+      "version": "3.0.1",
+      "loadAvgAtStart": 1.2,
+      "build": {
+        "coldMs": {
+          "median": 2968.487762999999,
+          "min": 2864.2209829999993,
+          "max": 3866.3010990000002,
+          "runs": [
+            3866.3010990000002,
+            2864.2209829999993,
+            2968.487762999999
+          ]
+        },
+        "warmMs": {
+          "median": 2985.6924499999986,
+          "min": 2956.8398960000004,
+          "max": 3052.091785999999,
+          "runs": [
+            2956.8398960000004,
+            2985.6924499999986,
+            3052.091785999999
+          ]
+        }
+      },
+      "startMs": {
+        "median": 249.1565580000024,
+        "min": 203.92201600000044,
+        "max": 276.8488709999983,
+        "runs": [
+          203.92201600000044,
+          249.1565580000024,
+          250.9950719999979,
+          276.8488709999983,
+          227.94018700000015
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 132.4921875,
+        "min": 132.28125,
+        "max": 133.5625,
+        "runs": [
+          133.5625,
+          132.28125,
+          132.4921875,
+          132.38671875,
+          132.546875
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 7350.4,
+            "min": 7260.19,
+            "max": 7566.19,
+            "runs": [
+              7566.19,
+              7350.4,
+              7316.55,
+              7389.1,
+              7260.19
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 16,
+            "min": 13,
+            "max": 23,
+            "runs": [
+              13,
+              17,
+              23,
+              14,
+              16
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 8202.37,
+            "min": 5194,
+            "max": 8810,
+            "runs": [
+              8656,
+              8810,
+              8022.6,
+              5194,
+              8202.37
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 8,
+            "runs": [
+              5,
+              5,
+              5,
+              8,
+              5
+            ]
+          },
+          "p99": {
+            "median": 14,
+            "min": 12,
+            "max": 21,
+            "runs": [
+              12,
+              12,
+              15,
+              21,
+              14
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 5899.46,
+            "min": 5683.55,
+            "max": 6184.55,
+            "runs": [
+              5683.55,
+              5899.46,
+              6184.55,
+              5734.37,
+              6015.2
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 20,
+            "min": 18,
+            "max": 21,
+            "runs": [
+              21,
+              20,
+              18,
+              20,
+              19
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 5863.6,
+            "min": 5507.1,
+            "max": 5992.4,
+            "runs": [
+              5507.1,
+              5863.6,
+              5842,
+              5992.4,
+              5928.19
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 20,
+            "min": 19,
+            "max": 22,
+            "runs": [
+              22,
+              20,
+              20,
+              19,
+              20
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 8662.91,
+            "min": 8282.8,
+            "max": 8797.6,
+            "runs": [
+              8669,
+              8662.91,
+              8797.6,
+              8282.8,
+              8518
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "p99": {
+            "median": 11,
+            "min": 10,
+            "max": 11,
+            "runs": [
+              11,
+              10,
+              11,
+              11,
+              11
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 912.77734375
+    }
+  },
+  "sources": [
+    "backend-raw-2026-11-05-container-devora-api-0.3.5.json",
+    "backend-raw-2026-11-05-container-astro.json",
+    "backend-raw-2026-11-05-container-express.json",
+    "backend-raw-2026-11-05-container-fastify.json",
+    "backend-raw-2026-11-05-container-hono.json",
+    "backend-raw-2026-11-05-container-nest-express.json",
+    "backend-raw-2026-11-05-container-nest-fastify.json",
+    "backend-raw-2026-11-05-container-next.json",
+    "backend-raw-2026-11-05-container-react-router.json",
+    "backend-raw-2026-11-05-container-sveltekit.json"
+  ]
+}

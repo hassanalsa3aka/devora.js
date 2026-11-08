@@ -1,0 +1,14 @@
+{
+  "name": "@devorajs/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Experimental, opt-in desktop target for Devora.js: the sidecar rules (per-launch token, loopback-only random port, navigation and IPC policy) and the generated Tauri 2 configuration. Not published.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

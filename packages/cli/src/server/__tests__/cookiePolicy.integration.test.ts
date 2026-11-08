@@ -10,7 +10,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { createProdRequestHandler, type ProdRequestHandlerOptions, type SessionManifest } from "@devorajs/core";
+import { createProdRequestHandler, deriveSessionCsrfToken, resolveSessionScope, type ProdRequestHandlerOptions, type SessionManifest } from "@devorajs/core";
 import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.js";
 
 const BUILT_LOGIN = `
@@ -135,7 +135,8 @@ describe("Secure", () => {
     expect(noToken.status).toBe(403);
     const again = await fetch(`${base}/api/login`, {
       method: "POST",
-      headers: { Cookie: cookie, "Content-Type": "application/json", "x-devora-csrf": csrf.split("=")[1]! },
+      // H30: a signed-in browser's token is bound to its session, not the CSRF cookie's value
+      headers: { Cookie: cookie, "Content-Type": "application/json", "x-devora-csrf": deriveSessionCsrfToken(session.split(";")[0]!.slice("devora_session=".length), resolveSessionScope("shared", "fixture")) },
       body: "{}",
     });
     expect(again.status).toBe(200);

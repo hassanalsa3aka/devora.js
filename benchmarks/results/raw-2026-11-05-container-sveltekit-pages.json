@@ -1,0 +1,306 @@
+{
+  "date": "2026-11-05T01:38:00.840Z",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryGb": 16,
+    "os": "Linux 6.18.44-fc-v236 (linux x64)",
+    "node": "v22.23.4"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "browserRuns": 5,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "sveltekit": {
+      "name": "SvelteKit",
+      "version": "3.0.1",
+      "build": {
+        "coldMs": {
+          "median": 3210.693634,
+          "min": 3139.4987249999995,
+          "max": 3638.89789,
+          "runs": [
+            3638.89789,
+            3210.693634,
+            3139.4987249999995
+          ]
+        },
+        "warmMs": {
+          "median": 3238.682774000001,
+          "min": 3015.646955,
+          "max": 3464.135184999999,
+          "runs": [
+            3015.646955,
+            3464.135184999999,
+            3238.682774000001
+          ]
+        }
+      },
+      "startMs": {
+        "median": 225.95278899999903,
+        "min": 221.75426700000025,
+        "max": 289.90903400000025,
+        "runs": [
+          289.90903400000025,
+          221.7603339999987,
+          221.75426700000025,
+          225.95278899999903,
+          250.49835099999837
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 131.9765625,
+        "min": 131.85546875,
+        "max": 132.7421875,
+        "runs": [
+          132.0859375,
+          131.91796875,
+          131.85546875,
+          131.9765625,
+          132.7421875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "load": {
+        "static": {
+          "rps": {
+            "median": 6512.8,
+            "min": 6334.4,
+            "max": 6855.6,
+            "runs": [
+              6432.8,
+              6855.6,
+              6659.46,
+              6512.8,
+              6334.4
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 17,
+            "min": 15,
+            "max": 18,
+            "runs": [
+              18,
+              15,
+              17,
+              17,
+              18
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 1313.91,
+            "min": 1263.41,
+            "max": 1333.73,
+            "runs": [
+              1263.41,
+              1291.91,
+              1320.64,
+              1313.91,
+              1333.73
+            ]
+          },
+          "p50": {
+            "median": 35,
+            "min": 35,
+            "max": 36,
+            "runs": [
+              36,
+              36,
+              35,
+              35,
+              35
+            ]
+          },
+          "p99": {
+            "median": 64,
+            "min": 61,
+            "max": 68,
+            "runs": [
+              64,
+              61,
+              65,
+              61,
+              68
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 5583.46,
+            "min": 5460.4,
+            "max": 5715.82,
+            "runs": [
+              5672.4,
+              5460.4,
+              5715.82,
+              5513.28,
+              5583.46
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 21,
+            "min": 20,
+            "max": 22,
+            "runs": [
+              20,
+              20,
+              21,
+              22,
+              22
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            56718,
+            54598,
+            62863,
+            60646,
+            61412
+          ]
+        }
+      },
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1868,
+            "bodyBytes": 1868
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": 628,
+            "bodyBytes": 628
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "memoryAfterLoadMb": 264.9609375,
+      "browser": {
+        "/static": {
+          "jsBytes": 87944,
+          "jsGzip": 34159,
+          "jsBrotli": 30829
+        },
+        "/items": {
+          "jsBytes": 88058,
+          "jsGzip": 34209,
+          "jsBrotli": 30907,
+          "hydrationMs": {
+            "median": 83.6000000005588,
+            "min": 76.8999999994412,
+            "max": 89,
+            "runs": [
+              89,
+              83.30000000074506,
+              83.6000000005588,
+              86.8999999994412,
+              76.8999999994412
+            ]
+          }
+        }
+      }
+    }
+  }
+}

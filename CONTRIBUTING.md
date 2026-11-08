@@ -24,27 +24,12 @@ npm and Yarn also work — see `docs/history/VERIFICATION.md` for what's actuall
 The repo is developed and tested with **pnpm 9** (CI installs `pnpm@9.9.0`; locally,
 `npx pnpm@9.9.0 install` works without changing your global pnpm).
 
-pnpm 11 no longer reads the `"pnpm"` field in the root
-`package.json`, where this repo keeps its `esbuild` override. pnpm then warns that the field is
-ignored and refuses to run scripts:
-
-```
-[ERR_PNPM_VERIFY_DEPS_BEFORE_RUN] Your node_modules are out of sync with your lockfile, and
-installing would drop "pnpm.overrides" from the lockfile ...
-```
-
-Until the override moves (follow-up below), either use pnpm 9, or skip that check for a single
-command:
-
-```bash
-PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false pnpm run test
-```
-
-Don't run `pnpm install` with pnpm 11 and commit the result: it rewrites the lockfile without the
-override.
-
-Follow-up (not done yet): move `overrides` out of the `"pnpm"` field into `pnpm-workspace.yaml`,
-where pnpm 11's warning points, and check that pnpm 9 still applies it.
+pnpm 11 and later no longer read the `"pnpm"` field of the root `package.json`, where pnpm 9 and 10 (and CI) read the
+repo's overrides. The same settings are therefore also in `pnpm-workspace.yaml` (`overrides` for `esbuild` and
+`source-map-js`, `linkWorkspacePackages`, `allowBuilds`), which pnpm 9 and 10 ignore. With them `pnpm@12` installs the
+repo with the committed lockfile (`pnpm install --frozen-lockfile`), links the workspace's own `@devorajs/*` packages,
+and resolves one esbuild (0.28.x); pnpm 11 and later still print a warning that the `"pnpm"` field is ignored, which is
+expected while CI stays on pnpm 9.9.0. If you change an override, change it in both files.
 
 ## Filing a useful issue
 

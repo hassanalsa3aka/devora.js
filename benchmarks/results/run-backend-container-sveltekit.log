@@ -1,0 +1,12 @@
+
+== SvelteKit
+build cold 2968 ms, warm 2986 ms
+start 249 ms, idle 132 MB
+items: 7350 req/s, p50 6 ms, p99 16 ms, 3966 B body + 138 B headers (identity)
+me: 8202 req/s, p50 5 ms, p99 14 ms, 16 B body + 136 B headers (identity)
+postValid: 5899 req/s, p50 7 ms, p99 20 ms, 38 B body + 136 B headers (identity)
+postInvalid: 5864 req/s, p50 7 ms, p99 20 ms, 48 B body + 136 B headers (identity)
+slow: 8663 req/s, p50 5 ms, p99 11 ms, 43 B body + 136 B headers (identity)
+memory after load 913 MB
+
+wrote results/backend-raw-2026-11-05-container-sveltekit.json

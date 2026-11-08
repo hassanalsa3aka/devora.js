@@ -104,7 +104,7 @@ Fairness notes specific to these scenarios:
   heap when a server is faster, so compare it with care.
 
 ```bash
-node run-backend.mjs [--only=devora-api,express] [--quick] [--tag=name]
+node run-backend.mjs [--only=devora-api,express] [--quick] [--tag=name] [--sequential] [--runs=5] [--port=4310]
 node report-backend.mjs results/backend-raw-<date>.json     # results/backend-report.md
 node compare.mjs <backend-before> <backend-after> <pages-before> <pages-after>   # results/before-after.md
 ```
@@ -138,7 +138,15 @@ npm run bench                            # about 20 minutes; --quick for a smoke
 npm run report                           # results/report.md and results/latest.json
 ```
 
-Port 4300 must be free. `results/raw-<date>.json` keeps every run's numbers.
+Port 4300 (4310 for the backend run) must be free; `--port=<n>` picks another. `results/raw-<date>.json` keeps every run's numbers.
+
+**Load runs alternate between the frameworks.** Round 1 loads every framework once, round 2 loads every framework again,
+and so on, and each round starts one framework later in the list (a framework's server is started fresh for each
+round). A machine that drifts by 10% or more over ten minutes, as a shared or cloud one can, then moves every framework
+together instead of favouring the ones measured first (finding S7: a "-13%" for 0.4.0 on one scenario was a tie when
+interleaved). Builds, start times, the wire probes and the browser metrics still run one framework at a time. The raw
+file records the order (`config.order`, and `loadPositions` per framework). The interleaved run takes about a third longer;
+`--sequential` restores the old order (all runs of one framework, then the next), and `--runs=<n>` sets the number of rounds.
 
 ## Caveats
 

@@ -1,0 +1,13 @@
+
+== Astro
+build cold 2165 ms, warm 1556 ms
+start 350 ms, idle 158 MB
+wire static: load tool 398 B (identity), browser 398 B (identity)
+wire items: load tool 8391 B (identity), browser 8391 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+static: 6739 req/s, p50 7 ms, p99 12 ms
+items: 1291 req/s, p50 37 ms, p99 68 ms
+form: 2440 req/s, p50 18 ms, p99 41 ms
+items JS 69060 B gzip, hydration 78 ms
+
+wrote results/raw-2026-11-05-container-astro-pages.json

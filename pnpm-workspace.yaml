@@ -3,3 +3,20 @@ packages:
   - "apps/*"
   - "adapters/*"
   - "create-devora"
+
+# pnpm 11 and later read these settings from this file and ignore the "pnpm" field of the root package.json, which is
+# where pnpm 9 (CI pins 9.9.0) and 10 still read the same overrides; pnpm 9 and 10 ignore the keys below. Keep the two
+# in step.
+#  - overrides: every esbuild in the tree is 0.28.x. Without it the test runner's vite 5 and create-devora's old dev
+#    range would bring esbuild 0.21.5, which has a moderate advisory (dev server, GHSA-67mh-4wv8-2f99; not shipped).
+#  - linkWorkspacePackages: use the workspace's own @devorajs/* packages, not the published ones. Without it pnpm 11
+#    and later fetch @devorajs/core@^0.4.0 from npm (a failed install before 0.4.0 is published, the published code
+#    instead of this checkout after it).
+#  - allowBuilds: let esbuild's install script run (pnpm 11 and later fail the install on an unapproved build script).
+overrides:
+  esbuild: ^0.28.2
+  source-map-js: ^1.2.2
+linkWorkspacePackages: true
+allowBuilds:
+  esbuild: true
+

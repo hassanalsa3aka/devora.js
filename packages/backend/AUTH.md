@@ -73,10 +73,18 @@ Bearer-authenticated ones — a cross-site page can make a browser send cookies,
 `Authorization` header.
 
 **CSRF is checked by default for cookie-authenticated writes.** A `POST`, `PUT`, `PATCH` or
-`DELETE` that arrives with a live session in the session cookie is checked before the page's
-`action` or the API route's `handler` runs: the token must be in the `_csrf` form field
-(`<CsrfField token={csrfToken} />`) or the `x-devora-csrf` header (`CSRF_HEADER_NAME`), or the
-request gets a 403. Bearer-authenticated requests, requests with no session cookie (including the
+`DELETE` (and any other method but `GET`, `HEAD` and `OPTIONS`) that arrives with a live session in
+the session cookie is checked before the page's `action` or the API route's `handler` runs: the
+token must be in the `_csrf` form field (`<CsrfField token={csrfToken} />`) or the `x-devora-csrf`
+header (`CSRF_HEADER_NAME`), or the request gets a 403.
+
+**The token of a signed-in browser is bound to its session.** It is an HMAC of the session ID,
+keyed with the session secret (`deriveSessionCsrfToken()`), and the page's `csrfToken` is that
+value, so the CSRF cookie plays no part in the check for a request with a session cookie: a cookie
+planted from a sibling subdomain proves nothing. Requests with no session (a login form) still use
+the double-submit CSRF cookie. Because the token follows the session, a page that signs the user in
+with `fetch()` and keeps writing without a reload still holds the signed-out token: reload or
+navigate after the login (a form login that redirects does this by itself). Bearer-authenticated requests, requests with no session cookie (including the
 login itself) and `GET`/`HEAD`/`OPTIONS` are not checked by default; call `ctx.verifyCsrf()`
 yourself where you want them checked (for example a login form). A route opts out with
 `export const csrf = false;` and is then on its own. An app with `csrf: false` (no CSRF cookie) has
@@ -170,16 +178,16 @@ with 403 — it never passes silently.
 ## Rate limiting logins
 
 A route that creates sessions (a login form, a sign-up or token endpoint) can limit how often one
-client IP posts to it:
+client posts to it. A client is an IPv4 address, or the /64 prefix of an IPv6 address:
 
 ```ts
 // apps/dashboard/routes/login.tsx, or an API route such as api/session.ts
-export const rateLimit = { max: 10, windowSeconds: 60 }; // 10 POSTs per IP per minute
+export const rateLimit = { max: 10, windowSeconds: 60 }; // 10 POSTs per client per minute
 ```
 
-The eleventh `POST`/`PUT`/`PATCH`/`DELETE` in the window gets a 429 (an API route also gets
-`Retry-After`) before the action or handler runs, and before the session store is touched. `GET`
-is never counted. Nothing is limited unless a route exports `rateLimit`.
+The eleventh request in the window with any method but `GET`, `HEAD` and `OPTIONS` gets a 429 (an API
+route also gets `Retry-After`) before the action or handler runs, and before the session store is
+touched. `GET`, `HEAD` and `OPTIONS` are never counted. Nothing is limited unless a route exports `rateLimit`.
 
 What it does not do, so plan for it:
 
@@ -188,6 +196,14 @@ What it does not do, so plan for it:
   one client hammering one instance; it does not stop a distributed attack.
 - **It keys on `ctx.ip`.** Behind a proxy, set `trustProxy` in app.config.ts (and make the app
   reachable only through that proxy), or every client shares the proxy's address and one count.
+- **IPv6 clients are counted by /64.** An IPv6 subscriber is normally given a whole /64 (2^64
+  addresses), so counting each address separately would give it an endless supply of fresh counts.
+  The key is the first four groups of the address (`2001:db8:abcd:12::/64`); an IPv4-mapped
+  address (`::ffff:203.0.113.7`) counts as its IPv4 address, a zone id (`%eth0`) is ignored, and
+  IPv4 clients are counted per address as before (`rateLimitKey()`). The cost: everyone on one /64
+  (a household, an office, a mobile carrier that gives out shared prefixes) shares one count. The
+  per-route table keeps at most 10,000 clients and drops the oldest when it is full, so a
+  distributed flood can still push entries out; that is another reason to limit at the proxy too.
 - **It does not lock accounts.** Slowing guesses against one account from many IPs needs a
   per-account counter in your own auth code (for example failed attempts stored with the user).
 

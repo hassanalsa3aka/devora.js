@@ -1,0 +1,12 @@
+
+== Devora.js
+build cold 490 ms, warm 493 ms
+start 371 ms, idle 159 MB
+items: 13372 req/s, p50 3 ms, p99 8 ms, 3966 B body + 373 B headers (identity)
+me: 17995 req/s, p50 2 ms, p99 7 ms, 16 B body + 371 B headers (identity)
+postValid: 16425 req/s, p50 2 ms, p99 9 ms, 38 B body + 371 B headers (identity)
+postInvalid: 16569 req/s, p50 2 ms, p99 7 ms, 48 B body + 371 B headers (identity)
+slow: 13591 req/s, p50 3 ms, p99 6 ms, 43 B body + 371 B headers (identity)
+memory after load 248 MB
+
+wrote results/backend-raw-2026-11-05-container-devora-api-branch.json

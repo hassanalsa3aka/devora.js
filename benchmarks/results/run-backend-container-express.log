@@ -1,0 +1,12 @@
+
+== Express 5
+build cold 171 ms, warm 168 ms
+start 249 ms, idle 130 MB
+items: 7051 req/s, p50 6 ms, p99 16 ms, 3966 B body + 219 B headers (identity)
+me: 9201 req/s, p50 4 ms, p99 15 ms, 16 B body + 216 B headers (identity)
+postValid: 7088 req/s, p50 6 ms, p99 15 ms, 38 B body + 216 B headers (identity)
+postInvalid: 7319 req/s, p50 6 ms, p99 15 ms, 48 B body + 216 B headers (identity)
+slow: 7915 req/s, p50 6 ms, p99 12 ms, 43 B body + 216 B headers (identity)
+memory after load 197 MB
+
+wrote results/backend-raw-2026-11-05-container-express.json

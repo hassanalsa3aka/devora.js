@@ -38,6 +38,7 @@ const NEVER = [
   [/(^|\/)build\.mjs$/, "build script"],
   [/\.(log|tgz|orig|rej|swp)$|~$|(^|\/)\.DS_Store$/, "log, archive or editor leftover"],
   [/(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/, "lockfile"],
+  [/(^|\/)work-notes\//, "work-notes (internal notes, never published)"],
   [/(^|\/)src\//, "source folder (not in `files`)"],
 ];
 

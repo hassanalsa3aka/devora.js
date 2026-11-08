@@ -211,6 +211,9 @@ importers:
       '@devorajs/core':
         specifier: '*'
         version: link:../core
+      '@devorajs/desktop':
+        specifier: '*'
+        version: link:../desktop
       '@devorajs/scaffold':
         specifier: '*'
         version: link:../scaffold
@@ -248,6 +251,28 @@ importers:
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)
+
+  packages/desktop:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/dev-server:
+    dependencies:
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   packages/scaffold:
     devDependencies:

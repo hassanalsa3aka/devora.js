@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { createProdRequestHandler } from "@devorajs/core";
+import { createProdRequestHandler, deriveSessionCsrfToken, resolveSessionScope } from "@devorajs/core";
 import { createFixtureProject, setCookieValue, write, type FixtureProject } from "./fixtureApp.js";
 
 const BUILT_API: Record<string, string> = {
@@ -179,7 +179,7 @@ describe("production handler — unified session auth", () => {
 
     const cookieWithToken = await fetch(`${base}/api/transfer`, {
       method: "POST",
-      headers: { Cookie: `devora_session=${id}; devora_csrf=${csrf}`, "x-devora-csrf": csrf },
+      headers: { Cookie: `devora_session=${id}; devora_csrf=${csrf}`, "x-devora-csrf": deriveSessionCsrfToken(id, resolveSessionScope("shared", "fixture")) },
     });
     expect(cookieWithToken.status).toBe(200);
 

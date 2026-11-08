@@ -254,7 +254,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
               request.meta
             )
           : createNoAuthContext(request.params, request.meta);
-        const { ctx, csrfToken } = context;
+        const { ctx } = context;
         getSetCookie = context.getSetCookie;
         settle = context.settle;
         touchesSessionCookie = context.touchesSessionCookie;
@@ -291,7 +291,7 @@ export function createRenderRoute(deps: RenderRouteDeps) {
           await settle();
           return redirectTo(data);
         }
-        const html = await renderPage(deps, routeModule, { data, csrfToken, actionData }, request.islandClientUrl, request.devPreambleUrl, {
+        const html = await renderPage(deps, routeModule, { data, csrfToken: context.csrfToken, actionData }, request.islandClientUrl, request.devPreambleUrl, {
           appHead: request.head,
           styles: request.styles,
         });

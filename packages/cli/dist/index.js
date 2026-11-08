@@ -3848,7 +3848,7 @@ function renderShellMarkup(mainHtml, options = {}) {
 }
 
 // ../core/src/session.ts
-import { createHmac, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHmac as createHmac2, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 
 // ../core/src/configError.ts
 var DevoraConfigError = class extends Error {
@@ -3857,23 +3857,26 @@ var DevoraConfigError = class extends Error {
 
 // ../core/src/csrf.ts
 var import_react = __toESM(require_react(), 1);
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 var CSRF_COOKIE_NAME = "devora_csrf";
 var CSRF_FORM_FIELD = "_csrf";
 var CSRF_HEADER_NAME = "x-devora-csrf";
 function generateCsrfToken() {
   return randomBytes(32).toString("base64url");
 }
-function verifyCsrfToken(cookieValue, formValue) {
-  if (!cookieValue || typeof formValue !== "string" || !formValue) return false;
-  const cookieBuf = Buffer.from(cookieValue);
+function deriveSessionCsrfToken(sessionId, options) {
+  return createHmac("sha256", options.secret).update(`csrf:${options.name}:${sessionId}`).digest("base64url");
+}
+function verifyCsrfToken(cookieValue2, formValue) {
+  if (!cookieValue2 || typeof formValue !== "string" || !formValue) return false;
+  const cookieBuf = Buffer.from(cookieValue2);
   const formBuf = Buffer.from(formValue);
   if (cookieBuf.length !== formBuf.length) return false;
   return timingSafeEqual(cookieBuf, formBuf);
 }
-var CSRF_CHECKED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var CSRF_SAFE_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
 function verifyCsrfByDefault(options) {
-  if (!options.cookieAuthenticated || options.optedOut || !CSRF_CHECKED_METHODS.has(options.method.toUpperCase())) return;
+  if (!options.cookieAuthenticated || options.optedOut || CSRF_SAFE_METHODS.has(options.method.toUpperCase())) return;
   const fromForm = options.formData?.get(CSRF_FORM_FIELD);
   const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
   options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
@@ -4026,7 +4029,7 @@ function sessionStoreKey(sessionId, opts) {
   const memoKey = `${opts.name}:${sessionId}`;
   let key = perSecret.get(memoKey);
   if (key === void 0) {
-    key = createHmac("sha256", opts.secret).update(memoKey).digest("base64url");
+    key = createHmac2("sha256", opts.secret).update(memoKey).digest("base64url");
     if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
       storeKeyMemo.clear();
       storeKeyMemoSize = 0;
@@ -4059,8 +4062,13 @@ function parseCookieHeader(header) {
     const eq = part.indexOf("=");
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim();
+    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
     const value = part.slice(eq + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
   }
   return cookies;
 }
@@ -4100,9 +4108,9 @@ async function resolveSession(request, opts, now = Date.now()) {
 var warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
 var MAX_WARNED_PATHS = 1e3;
 function warnIfSessionReadWithoutAuth(context, urlOrPath) {
-  if (process.env.NODE_ENV === "production") return;
   const { sessionRead, requireAuthCalled } = context.authUsage();
   if (!sessionRead || requireAuthCalled) return;
+  if (process.env.NODE_ENV === "production") return;
   let pathname = urlOrPath ?? "(unknown path)";
   try {
     pathname = new URL(pathname, "http://localhost").pathname;
@@ -4134,10 +4142,11 @@ async function createRequestContext(request, opts, params = {}, meta) {
   }
   const csrfEnabled = opts.csrfCookie !== false;
   const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : void 0;
-  const csrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
+  const anonymousCsrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
   if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes(opts.cookie)}`);
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${anonymousCsrfToken}; ${buildCookieAttributes(opts.cookie)}`);
   }
+  const presentedCookieSessionId = csrfEnabled && resolved.presentedTransport === "cookie" && resolved.record !== void 0 ? resolved.sessionId : void 0;
   const track = (write) => {
     const promise = (async () => write())();
     pendingWrites.push(promise);
@@ -4220,6 +4229,12 @@ async function createRequestContext(request, opts, params = {}, meta) {
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
       const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
+      if (presentedCookieSessionId !== void 0) {
+        if (!verifyCsrfToken(deriveSessionCsrfToken(presentedCookieSessionId, opts), value)) {
+          throw new HttpError(403, "Missing or invalid CSRF token");
+        }
+        return;
+      }
       if (!verifyCsrfToken(incomingCsrfCookie, value)) {
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
@@ -4227,7 +4242,13 @@ async function createRequestContext(request, opts, params = {}, meta) {
   };
   return {
     ctx,
-    csrfToken,
+    // A getter: an action that logs in (setSession) and then renders must get the token of the new session.
+    get csrfToken() {
+      if (csrfEnabled && currentSessionId !== void 0 && currentRecord !== void 0 && transport === "cookie") {
+        return deriveSessionCsrfToken(currentSessionId, opts);
+      }
+      return anonymousCsrfToken;
+    },
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
     cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
     authUsage: () => ({ sessionRead, requireAuthCalled }),
@@ -4296,10 +4317,10 @@ function toSessionManifest(sessions) {
 }
 function resolveSessionManifest(input) {
   const { appName, authMode, sessions, appSessions } = input;
-  const fail = (message) => new Error(`[devora] "${appName}": ${message}`);
+  const fail2 = (message) => new Error(`[devora] "${appName}": ${message}`);
   if (authMode === "none") {
     if (appSessions !== void 0 || input.csrf !== void 0) {
-      throw fail(
+      throw fail2(
         `app.config.ts sets ${appSessions !== void 0 ? "`sessions`" : "`csrf`"}, but this app has auth: "none" (no sessions at all). Remove it, or give the app auth: "shared"/"isolated" in devora.config.ts.`
       );
     }
@@ -4312,18 +4333,18 @@ function resolveSessionManifest(input) {
     for (const key of ["activeSeconds", "idleSeconds"]) {
       const value = config?.[key];
       if (value !== void 0 && !(typeof value === "number" && Number.isFinite(value) && value > 0)) {
-        throw fail(`${where}.${key} must be a positive number of seconds (got ${JSON.stringify(value)}).`);
+        throw fail2(`${where}.${key} must be a positive number of seconds (got ${JSON.stringify(value)}).`);
       }
     }
   }
   if (authMode === "shared") {
     if (appSessions?.activeSeconds !== void 0 || appSessions?.idleSeconds !== void 0) {
-      throw fail(
+      throw fail2(
         `per-app session lifetimes are only for auth: "isolated" apps \u2014 a shared session is one session across every shared app. Set shared.sessions.activeSeconds/idleSeconds in devora.config.ts instead.`
       );
     }
     if (appSessions?.cookie?.domain !== void 0) {
-      throw fail(
+      throw fail2(
         `sessions.cookie.domain in app.config.ts is only for auth: "isolated" apps \u2014 shared apps use shared.sessions.cookie.domain in devora.config.ts.`
       );
     }
@@ -4331,11 +4352,11 @@ function resolveSessionManifest(input) {
   const projectCookie = sessions?.cookie ?? {};
   const appCookie = appSessions?.cookie ?? {};
   const domainSource = authMode === "shared" ? projectCookie.domain : appCookie.domain;
-  const domain = domainSource === void 0 ? void 0 : normalizeCookieDomain(domainSource, fail);
+  const domain = domainSource === void 0 ? void 0 : normalizeCookieDomain(domainSource, fail2);
   if (authMode === "shared" && domain !== void 0) {
     for (const key of ["secure", "sameSite"]) {
       if (appCookie[key] !== void 0 && appCookie[key] !== projectCookie[key]) {
-        throw fail(
+        throw fail2(
           `sessions.cookie.${key} in app.config.ts differs from shared.sessions.cookie, but shared apps share one cookie across ${domain} \u2014 set it once in devora.config.ts.`
         );
       }
@@ -4343,24 +4364,24 @@ function resolveSessionManifest(input) {
   }
   const secure = appCookie.secure ?? projectCookie.secure;
   if (secure !== void 0 && secure !== true && secure !== false && secure !== "auto") {
-    throw fail(`sessions.cookie.secure must be true, false or "auto" (got ${JSON.stringify(secure)}).`);
+    throw fail2(`sessions.cookie.secure must be true, false or "auto" (got ${JSON.stringify(secure)}).`);
   }
   const rawSameSite = appCookie.sameSite ?? projectCookie.sameSite;
   let sameSite;
   if (rawSameSite !== void 0) {
     const lowered = String(rawSameSite).toLowerCase();
     if (lowered !== "lax" && lowered !== "strict" && lowered !== "none") {
-      throw fail(`sessions.cookie.sameSite must be "lax", "strict" or "none" (got ${JSON.stringify(rawSameSite)}).`);
+      throw fail2(`sessions.cookie.sameSite must be "lax", "strict" or "none" (got ${JSON.stringify(rawSameSite)}).`);
     }
     sameSite = lowered;
   }
   if (sameSite === "none" && secure !== void 0 && secure !== true) {
-    throw fail(`sessions.cookie.sameSite "none" requires secure: true \u2014 browsers reject SameSite=None without Secure.`);
+    throw fail2(`sessions.cookie.sameSite "none" requires secure: true \u2014 browsers reject SameSite=None without Secure.`);
   }
   if (domain !== void 0) {
     const appDomain = input.appDomain.trim().toLowerCase().replace(/:\d+$/, "");
     if (appDomain !== domain && !appDomain.endsWith(`.${domain}`)) {
-      throw fail(
+      throw fail2(
         `sessions.cookie.domain "${domain}" doesn't cover this app's domain "${input.appDomain}" \u2014 browsers would reject the cookie. Use a domain the app is served from (or a parent of it).`
       );
     }
@@ -4379,10 +4400,10 @@ function resolveSessionManifest(input) {
     ...input.csrf === false ? { csrfCookie: false } : {}
   };
 }
-function normalizeCookieDomain(raw, fail) {
+function normalizeCookieDomain(raw, fail2) {
   const domain = String(raw).trim().toLowerCase().replace(/^\./, "");
   if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
-    throw fail(
+    throw fail2(
       `sessions.cookie.domain "${raw}" must be a plain domain like "example.com" (no scheme, port or path, and not a single label like "localhost").`
     );
   }
@@ -4845,8 +4866,41 @@ var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 var ShellUsageContext = (0, import_react3.createContext)(null);
 
 // ../core/src/rateLimit.ts
+import { isIPv6 } from "node:net";
+function rateLimitKey(ip) {
+  if (!ip) return "unknown";
+  let address = ip;
+  if (address.startsWith("[") && address.endsWith("]")) address = address.slice(1, -1);
+  const zone = address.indexOf("%");
+  if (zone !== -1) address = address.slice(0, zone);
+  if (!isIPv6(address)) return ip;
+  const groups = ipv6Groups(address);
+  if (!groups) return ip;
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 65535) {
+    return `${groups[6] >> 8}.${groups[6] & 255}.${groups[7] >> 8}.${groups[7] & 255}`;
+  }
+  return `${groups.slice(0, 4).map((g) => g.toString(16)).join(":")}::/64`;
+}
+function ipv6Groups(address) {
+  let text = address.toLowerCase();
+  const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+  if (tail) {
+    const [a, b, c, d] = tail.slice(1).map(Number);
+    if (a > 255 || b > 255 || c > 255 || d > 255) return void 0;
+    text = text.slice(0, tail.index) + (a << 8 | b).toString(16) + ":" + (c << 8 | d).toString(16);
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return void 0;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - rest.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return void 0;
+  const all = [...head, ...Array(halves.length === 2 ? missing : 0).fill("0"), ...rest];
+  const groups = all.map((g) => /^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN);
+  return groups.length === 8 && groups.every((g) => !Number.isNaN(g)) ? groups : void 0;
+}
 var RATE_LIMIT_MAX_KEYS = 1e4;
-var LIMITED_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var UNCOUNTED_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
 var RateLimitError = class extends HttpError {
   constructor(retryAfterSeconds) {
     super(429, "Too many requests, try again later");
@@ -4892,10 +4946,10 @@ var FixedWindowRateLimiter = class {
 };
 var limiters = /* @__PURE__ */ new WeakMap();
 function enforceRateLimit(config, method, ip) {
-  if (!config || !LIMITED_METHODS.has(method.toUpperCase())) return;
+  if (!config || UNCOUNTED_METHODS.has(method.toUpperCase())) return;
   let limiter = limiters.get(config);
   if (!limiter) limiters.set(config, limiter = new FixedWindowRateLimiter(config));
-  const retryAfter = limiter.hit(ip ?? "unknown");
+  const retryAfter = limiter.hit(rateLimitKey(ip));
   if (retryAfter !== void 0) throw new RateLimitError(retryAfter);
 }
 
@@ -5204,10 +5258,11 @@ function describeRequest(req, trustProxy) {
   return {
     get url() {
       if (url === void 0) {
+        const pathAndQuery = targetPathAndQuery(target);
         try {
-          url = new URL(target, `${scheme}://${host}`).href;
+          url = new URL(`${scheme}://${host}${pathAndQuery}`).href;
         } catch {
-          url = new URL(target, "http://localhost").href;
+          url = new URL(pathAndQuery, "http://localhost").href;
         }
       }
       return url;
@@ -5224,6 +5279,19 @@ function requestHost(req, trustProxy) {
 function firstHeaderValue(value) {
   const first = (Array.isArray(value) ? value[0] : value)?.split(",")[0]?.trim();
   return first || void 0;
+}
+function targetPathAndQuery(target) {
+  let pathAndQuery;
+  if (target.startsWith("/")) pathAndQuery = target;
+  else {
+    try {
+      const parsed = new URL(target);
+      pathAndQuery = `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return "/";
+    }
+  }
+  return pathAndQuery.startsWith("//") ? `/${pathAndQuery.replace(/^\/+/, "")}` : pathAndQuery;
 }
 
 // ../core/src/allowedHosts.ts
@@ -5278,17 +5346,17 @@ var DEFAULT_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
 var ORIGIN_RE = /^https?:\/\/(\*\.)?[a-z0-9.-]+(:\d+)?$/i;
 function validateCorsConfig(appName, cors) {
   if (cors === void 0) return;
-  const fail = (message) => new Error(`[devora] "${appName}": cors.${message}`);
+  const fail2 = (message) => new Error(`[devora] "${appName}": cors.${message}`);
   if (cors.origins !== "*") {
-    if (!Array.isArray(cors.origins) || cors.origins.length === 0) throw fail(`origins must be "*" or a non-empty list of origins`);
+    if (!Array.isArray(cors.origins) || cors.origins.length === 0) throw fail2(`origins must be "*" or a non-empty list of origins`);
     for (const origin of cors.origins) {
       if (typeof origin !== "string" || !ORIGIN_RE.test(origin)) {
-        throw fail(`origins: "${origin}" isn't an origin \u2014 use scheme://host[:port] with no path, e.g. "https://app.example.com"`);
+        throw fail2(`origins: "${origin}" isn't an origin \u2014 use scheme://host[:port] with no path, e.g. "https://app.example.com"`);
       }
     }
   }
   if (cors.credentials === true && cors.origins === "*") {
-    throw fail(`credentials: true can't be combined with origins: "*" \u2014 list the origins that may send cookies`);
+    throw fail2(`credentials: true can't be combined with origins: "*" \u2014 list the origins that may send cookies`);
   }
 }
 function originAllowed(cors, origin) {
@@ -6018,6 +6086,37 @@ function createHostCheckPlugin(allowedHosts, trustProxy) {
     }
   };
 }
+function createOpenInEditorGuardPlugin() {
+  return {
+    name: "devora-open-in-editor-guard",
+    configureServer(server) {
+      server.middlewares.use("/__open-in-editor", (req, res, next) => {
+        if (isCrossSiteDevRequest(req.headers)) {
+          res.statusCode = 403;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("Forbidden: cross-site request to the dev server's open-in-editor endpoint");
+          return;
+        }
+        next();
+      });
+    }
+  };
+}
+function isCrossSiteDevRequest(headers) {
+  const site = headers["sec-fetch-site"];
+  if (typeof site === "string" && site !== "same-origin" && site !== "none") return true;
+  const origin = headers.origin;
+  if (typeof origin === "string" && origin !== "null") {
+    let originHost;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      return true;
+    }
+    return originHost !== headers.host;
+  }
+  return origin === "null";
+}
 function createApiMiddlewarePlugin(options) {
   return {
     name: "devora-api-middleware",
@@ -6337,6 +6436,22 @@ async function resolveAuthChoice(explicit, appName) {
 // ../scaffold/src/resolveScopeChoice.ts
 import { createInterface as createInterface2 } from "node:readline/promises";
 
+// ../scaffold/src/names.ts
+var APP_NAME = /^[a-z0-9][a-z0-9_-]{0,49}$/;
+var DOMAIN = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+function appNameProblem(name) {
+  if (APP_NAME.test(name)) return void 0;
+  return `app name "${name}" must be lowercase letters, digits, "-" or "_", start with a letter or digit, and be at most 50 characters`;
+}
+function domainProblem(domain) {
+  if (DOMAIN.test(domain)) return void 0;
+  return `domain "${domain}" must be a host name such as "app.example.com"`;
+}
+function assertScaffoldNames(name, domain) {
+  const problem = appNameProblem(name) ?? (domain === void 0 ? void 0 : domainProblem(domain));
+  if (problem) throw new Error(`[devora] ${problem}`);
+}
+
 // ../scaffold/src/scaffoldAppFiles.ts
 import path12 from "node:path";
 import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
@@ -6346,6 +6461,7 @@ var API_DIR_CONFIG_LINES = `  // API routes live in ${SCAFFOLD_API_DIR}/ (served
   apiDir: "${SCAFFOLD_API_DIR}",
 `;
 async function scaffoldAppFiles(appDir, appName, opts) {
+  assertScaffoldNames(appName);
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;
@@ -7184,6 +7300,11 @@ async function createAppDevServer(opts) {
       port: opts.port,
       strictPort: true,
       ...opts.host ? { host: true } : {},
+      // Finding H22: Vite has its own host check (a 403 "Blocked request" for a host it does not know). When the app
+      // lists `allowedHosts`, Vite gets the same list, so a listed host (a tunnel, a custom dev domain) reaches the
+      // app and Devora's check stays the one that answers. With no list, nothing is passed and Vite keeps its own
+      // default check (localhost and IP addresses). Never `true`: that would switch Vite's check off.
+      ...appConfig.allowedHosts !== void 0 ? { allowedHosts: [...appConfig.allowedHosts] } : {},
       // Build and adapter output lives inside the app folder; without this,
       // every `devora build --adapter=…` while dev runs reloaded open pages
       // once per written file ("page reload .vercel/output/static/…").
@@ -7213,6 +7334,8 @@ async function createAppDevServer(opts) {
     plugins: [
       // First, so a request for an unknown host never reaches another middleware.
       createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      // Before Vite's own /__open-in-editor middleware (finding H28).
+      createOpenInEditorGuardPlugin(),
       // Also before Vite's own static-file handling (which serves public/ .svg files).
       createSvgHeadersPlugin(),
       islandsPlugin(),
@@ -8615,8 +8738,361 @@ async function build3(opts) {
 `);
 }
 
-// ../../adapters/adapter-node/src/index.ts
+// src/commands/desktop.ts
+import { existsSync as existsSync18, mkdirSync, readFileSync as readFileSync7, writeFileSync } from "node:fs";
+import path30 from "node:path";
+
+// ../desktop/src/token.ts
+import { randomBytes as randomBytes4, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
+var DESKTOP_TOKEN_HEADER = "x-devora-desktop-token";
+var DESKTOP_TOKEN_COOKIE = "devora_desktop";
+var DESKTOP_LAUNCH_PATH = "/__devora_desktop/launch";
+var DESKTOP_TOKEN_ENV = "DEVORA_DESKTOP_TOKEN";
+function generateLaunchToken() {
+  return randomBytes4(32).toString("base64url");
+}
+function isWellFormedToken(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
+}
+function tokensMatch(expected, presented) {
+  if (!isWellFormedToken(presented)) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(presented);
+  return a.length === b.length && timingSafeEqual3(a, b);
+}
+function cookieValue(header, name) {
+  if (!header) return void 0;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq !== -1 && part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+  }
+  return void 0;
+}
+function guardDesktopRequest(token, req, res) {
+  if (!isWellFormedToken(token)) throw new Error("[devora desktop] the launch token is missing or malformed");
+  const url = new URL(req.url ?? "/", "http://127.0.0.1");
+  if (url.pathname === DESKTOP_LAUNCH_PATH) {
+    if ((req.method === "GET" || req.method === "HEAD") && tokensMatch(token, url.searchParams.get("token"))) {
+      res.statusCode = 303;
+      res.setHeader("Set-Cookie", `${DESKTOP_TOKEN_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`);
+      res.setHeader("Location", "/");
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.end();
+      return "launched";
+    }
+    return refuse(res);
+  }
+  const header = req.headers[DESKTOP_TOKEN_HEADER];
+  if (tokensMatch(token, Array.isArray(header) ? header[0] : header)) return "allowed";
+  if (tokensMatch(token, cookieValue(req.headers.cookie, DESKTOP_TOKEN_COOKIE))) return "allowed";
+  return refuse(res);
+}
+function refuse(res) {
+  res.statusCode = 403;
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.end("Forbidden: this server only answers the desktop window that started it");
+  return "refused";
+}
+
+// ../desktop/src/server.ts
 import http from "node:http";
+import net2 from "node:net";
+var DESKTOP_HOST = "127.0.0.1";
+function pickLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const probe = net2.createServer();
+    probe.unref();
+    probe.on("error", reject);
+    probe.listen(0, DESKTOP_HOST, () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+function assertLoopbackHost(host) {
+  if (host !== DESKTOP_HOST) {
+    throw new Error(`[devora desktop] the desktop server listens on ${DESKTOP_HOST} only (got "${host}")`);
+  }
+}
+function isDesktopHostHeader(value, port) {
+  return value === DESKTOP_HOST || value === `${DESKTOP_HOST}:${port}`;
+}
+async function startDesktopServer(options) {
+  const host = options.host ?? DESKTOP_HOST;
+  assertLoopbackHost(host);
+  const port = options.port ?? await pickLoopbackPort();
+  const server = http.createServer((req, res) => {
+    if (!isDesktopHostHeader(req.headers.host, port)) {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.end("Bad Request: unknown host");
+      return;
+    }
+    if (guardDesktopRequest(options.token, req, res) !== "allowed") return;
+    Promise.resolve(options.handler(req, res)).catch((error) => {
+      console.error("[devora desktop] request failed:", error);
+      if (!res.headersSent) res.statusCode = 500;
+      res.end();
+    });
+  });
+  server.headersTimeout = 15e3;
+  server.requestTimeout = 6e4;
+  server.keepAliveTimeout = 5e3;
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, () => resolve());
+  });
+  return {
+    server,
+    port,
+    origin: `http://${DESKTOP_HOST}:${port}`,
+    close: () => new Promise((resolve) => server.close(() => resolve()))
+  };
+}
+
+// ../desktop/src/policy.ts
+var COMMAND_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+function parseIpcAllowlist(value) {
+  if (value === void 0) return [];
+  if (!Array.isArray(value)) throw new Error("[devora desktop] desktop.ipc must be a list of command names");
+  const names = /* @__PURE__ */ new Set();
+  for (const entry of value) {
+    if (typeof entry !== "string" || !COMMAND_NAME.test(entry)) {
+      throw new Error(`[devora desktop] desktop.ipc entry ${JSON.stringify(entry)} is not a command name such as "open_file_dialog"`);
+    }
+    names.add(entry);
+  }
+  return [...names];
+}
+
+// ../desktop/src/tauri.ts
+var IDENTIFIER = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+){2,}$/i;
+var DESKTOP_CSP = "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+function generateTauriProject(options) {
+  if (!IDENTIFIER.test(options.identifier)) throw new Error(`[devora desktop] identifier "${options.identifier}" must look like com.example.app`);
+  if (!/^[\w .-]{1,64}$/.test(options.productName)) throw new Error(`[devora desktop] productName "${options.productName}" must be plain letters, digits, spaces, ".", "-" or "_"`);
+  const commands = parseIpcAllowlist(options.ipc);
+  const sidecar = options.sidecar ?? "binaries/devora-server";
+  if (options.updaterEndpoint && !options.updaterPublicKey) throw new Error("[devora desktop] an update endpoint needs updaterPublicKey: updates must be signed");
+  if (options.updaterEndpoint && !options.updaterEndpoint.startsWith("https://")) throw new Error("[devora desktop] the update endpoint must be https");
+  const conf = {
+    $schema: "https://schema.tauri.app/config/2",
+    productName: options.productName,
+    version: options.version,
+    identifier: options.identifier,
+    build: {},
+    app: {
+      // The window is created in main.rs once the sidecar's random port is known.
+      windows: [],
+      withGlobalTauri: false,
+      security: {
+        csp: DESKTOP_CSP,
+        dangerousDisableAssetCspModification: false,
+        freezePrototype: true,
+        capabilities: ["main"]
+      }
+    },
+    bundle: { active: true, externalBin: [sidecar] },
+    plugins: options.updaterPublicKey && options.updaterEndpoint ? { updater: { pubkey: options.updaterPublicKey, endpoints: [options.updaterEndpoint] } } : {}
+  };
+  const capability = {
+    $schema: "../gen/schemas/desktop-schema.json",
+    identifier: "main",
+    description: "Generated by devora desktop: only the commands listed in app.config.ts desktop.ipc (default none).",
+    windows: ["main"],
+    // No remote URLs get any permission.
+    permissions: commands.map((name) => `allow-${name.replace(/_/g, "-")}`)
+  };
+  return {
+    "tauri.conf.json": JSON.stringify(conf, null, 2) + "\n",
+    "capabilities/main.json": JSON.stringify(capability, null, 2) + "\n",
+    "src/main.rs": mainRs(sidecar),
+    "Cargo.toml": cargoToml(options),
+    "build.rs": "fn main() {\n    tauri_build::build()\n}\n"
+  };
+}
+function cargoToml(options) {
+  const crate = options.productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "devora-app";
+  return `[package]
+name = "${crate}"
+version = "${options.version}"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+rand = "0.8"
+base64 = "0.22"
+url = "2"
+`;
+}
+function mainRs(sidecar) {
+  const binary = sidecar.split("/").pop();
+  return `// Generated by devora desktop. Template: review it, then build it on your machine (see MANUAL-CHECK.md).
+// The shell starts the app's server as a sidecar on 127.0.0.1 with a random port and a per-launch token,
+// opens one window on that origin and refuses every other navigation. That window.open() is refused too must be
+// checked by hand on each OS (MANUAL-CHECK.md); add an on_new_window handler if your Tauri version offers one.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use base64::Engine;
+use rand::RngCore;
+use std::net::TcpListener;
+use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_shell::ShellExt;
+
+fn free_loopback_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()).map(|a| a.port()).expect("no free port")
+}
+
+fn launch_token() -> String {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            let port = free_loopback_port();
+            let token = launch_token();
+            let origin = format!("http://127.0.0.1:{port}");
+            // The token goes to the server through the environment, never on its command line.
+            let (_rx, _child) = app
+                .shell()
+                .sidecar("${binary}")?
+                .env("HOST", "127.0.0.1")
+                .env("PORT", port.to_string())
+                .env("NODE_ENV", "production")
+                .env("DEVORA_DESKTOP_TOKEN", &token)
+                .spawn()?;
+            // TODO(manual check): wait until the server answers before opening the window.
+            let launch = format!("{origin}/__devora_desktop/launch?token={token}");
+            let allowed = url::Url::parse(&origin)?.origin();
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch.parse()?))
+                .title(app.package_info().name.clone())
+                .on_navigation(move |url| url.origin() == allowed)
+                .build()?;
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running the desktop app");
+}
+`;
+}
+
+// src/commands/desktop.ts
+function fail(message) {
+  console.error(`[devora desktop] ${message}`);
+  process.exit(1);
+}
+async function resolveApp(opts) {
+  if (!opts.experimental) {
+    fail("the desktop target is experimental and off by default: run it with --experimental (see work-notes/desktop/DESIGN.md)");
+  }
+  const root = process.cwd();
+  const project = await loadProjectConfig(root);
+  const app = opts.app ? project.apps.find((a) => a.name === opts.app) : project.apps.length === 1 ? project.apps[0] : void 0;
+  if (!app) fail(opts.app ? `no app named "${opts.app}" in devora.config.ts` : "pass --app <name>: the desktop target builds one app");
+  const appRoot = resolveAppDir(root, app.dir);
+  return { root, project, app, appRoot };
+}
+function readSettings(appRoot, appName) {
+  const file = path30.join(appRoot, "desktop.json");
+  const raw = existsSync18(file) ? JSON.parse(readFileSync7(file, "utf8")) : {};
+  return {
+    productName: typeof raw.productName === "string" ? raw.productName : appName,
+    identifier: typeof raw.identifier === "string" ? raw.identifier : `com.example.${appName.replace(/_/g, "-")}`,
+    ipc: parseIpcAllowlist(raw.ipc)
+  };
+}
+async function serveBuiltApp(opts, token, port) {
+  forceProductionNodeEnv("start");
+  const { root, project, app, appRoot } = await resolveApp(opts);
+  loadProjectEnv(root, "production");
+  const appConfig = await loadAppConfig(appRoot);
+  validateCorsConfig(app.name, appConfig.cors);
+  const handle = createProdRequestHandler(
+    appRoot,
+    app.name,
+    resolveAuthMode(project, app.name),
+    app.domain,
+    appConfig.security,
+    false,
+    appConfig.defaultRenderMode,
+    {
+      apiDir: appConfig.apiDir,
+      head: appConfig.head,
+      maxBodyBytes: appConfig.maxBodyBytes,
+      maxFormFields: appConfig.maxFormFields,
+      maxFormFiles: appConfig.maxFormFiles,
+      // The window is the only client: no proxy in front, one host.
+      trustProxy: false,
+      allowedHosts: [DESKTOP_HOST]
+    }
+  );
+  const server = await startDesktopServer({
+    token,
+    port,
+    handler: async (req, res) => {
+      if (!await handle(req, res)) {
+        res.statusCode = 404;
+        res.end("Not found");
+      }
+    }
+  });
+  return server;
+}
+async function desktopServe(opts) {
+  const token = process.env[DESKTOP_TOKEN_ENV];
+  if (!isWellFormedToken(token)) fail(`${DESKTOP_TOKEN_ENV} must hold the launch token the desktop shell created`);
+  delete process.env[DESKTOP_TOKEN_ENV];
+  const port = process.env.PORT ? parsePort(process.env.PORT, "PORT") : void 0;
+  if (process.env.PORT && port === void 0) process.exit(1);
+  const server = await serveBuiltApp(opts, token, port);
+  console.log(`[devora desktop] serving on ${server.origin} (token required)`);
+}
+async function desktopDev(opts) {
+  printHeader("desktop dev \xB7 experimental");
+  const { app } = await resolveApp(opts);
+  await build3({ app: app.name });
+  const token = generateLaunchToken();
+  const server = await serveBuiltApp(opts, token, void 0);
+  console.log(`[devora desktop] "${app.name}" is served on ${server.origin} behind the desktop rules (127.0.0.1 only, per-launch token).`);
+  console.log(`[devora desktop] open this once in a browser on this machine to check the app as the window will show it:`);
+  console.log(`  ${server.origin}${DESKTOP_LAUNCH_PATH}?token=${token}`);
+  console.log(`[devora desktop] the token changes every launch; without it every request gets a 403.`);
+}
+async function desktopBuild(opts) {
+  printHeader("desktop build \xB7 experimental");
+  const { app, appRoot } = await resolveApp(opts);
+  const settings = readSettings(appRoot, app.name);
+  await build3({ app: app.name });
+  const version = (() => {
+    try {
+      return JSON.parse(readFileSync7(path30.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
+    } catch {
+      return "0.1.0";
+    }
+  })();
+  const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
+  const out = path30.join(appRoot, "desktop", "src-tauri");
+  for (const [name, content] of Object.entries(files)) {
+    const file = path30.join(out, name);
+    mkdirSync(path30.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  }
+  console.log(`[devora desktop] wrote ${path30.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
+  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder (work-notes/desktop/MANUAL-CHECK.md).");
+}
+
+// ../../adapters/adapter-node/src/index.ts
+import http2 from "node:http";
 var DEFAULT_SERVER_LIMITS = {
   headersTimeoutMs: 15e3,
   requestTimeoutMs: 6e4,
@@ -8661,7 +9137,7 @@ function createNodeServer(opts) {
     }
   );
   const limits = resolveServerLimits(opts.serverLimits);
-  const server = http.createServer(
+  const server = http2.createServer(
     {
       maxHeaderSize: limits.maxHeaderBytes,
       // How often Node checks headersTimeout/requestTimeout (its default is every 30 s).
@@ -8824,17 +9300,17 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path30 from "node:path";
-import { existsSync as existsSync18 } from "node:fs";
+import path31 from "node:path";
+import { existsSync as existsSync19 } from "node:fs";
 import { writeFile as writeFile6, readFile as readFile8 } from "node:fs/promises";
 async function detectScaffoldContext(root) {
-  if (existsSync18(path30.join(root, "packages", "cli", "dist", "index.js"))) {
+  if (existsSync19(path31.join(root, "packages", "cli", "dist", "index.js"))) {
     return { cliInvocation: "monorepo", coreVersion: "*" };
   }
   let coreVersion = "*";
   let cliVersion;
-  const rootPkgPath = path30.join(root, "package.json");
-  if (existsSync18(rootPkgPath)) {
+  const rootPkgPath = path31.join(root, "package.json");
+  if (existsSync19(rootPkgPath)) {
     try {
       const rootPkg = JSON.parse(await readFile8(rootPkgPath, "utf-8"));
       coreVersion = rootPkg.dependencies?.["@devorajs/core"] ?? rootPkg.devDependencies?.["@devorajs/core"] ?? coreVersion;
@@ -8846,8 +9322,13 @@ async function detectScaffoldContext(root) {
 }
 async function scaffoldApp(appName, opts) {
   const root = process.cwd();
-  const appDir = path30.join(root, "apps", appName);
-  if (existsSync18(appDir)) {
+  const nameProblem = appNameProblem(appName) ?? (opts.domain === void 0 ? void 0 : domainProblem(opts.domain));
+  if (nameProblem) {
+    console.error(`[devora] ${nameProblem}`);
+    process.exit(1);
+  }
+  const appDir = path31.join(root, "apps", appName);
+  if (existsSync19(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
@@ -8865,11 +9346,11 @@ async function scaffoldApp(appName, opts) {
     cliVersion: context.cliVersion,
     // A create-devora "frontend only" project has no packages/backend —
     // depending on @devorajs/backend there would break every install.
-    withBackend: existsSync18(path30.join(root, "packages", "backend", "package.json")),
+    withBackend: existsSync19(path31.join(root, "packages", "backend", "package.json")),
     kind
   });
-  const configPath = path30.join(root, "devora.config.ts");
-  if (existsSync18(configPath)) {
+  const configPath = path31.join(root, "devora.config.ts");
+  if (existsSync19(configPath)) {
     const original = await readFile8(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
     const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
@@ -8892,7 +9373,7 @@ ${insertion}`);
 }
 var newApp = scaffoldApp;
 async function defaultAppKind(root) {
-  if (!existsSync18(path30.join(root, "devora.config.ts"))) return "pages";
+  if (!existsSync19(path31.join(root, "devora.config.ts"))) return "pages";
   try {
     const project = await loadProjectConfig(root);
     const configs = await Promise.all(project.apps.map((a) => loadAppConfig(resolveAppDir(root, a.dir)).catch(() => ({}))));
@@ -8903,15 +9384,15 @@ async function defaultAppKind(root) {
 }
 
 // src/commands/remove.ts
-import path31 from "node:path";
-import { existsSync as existsSync19 } from "node:fs";
+import path32 from "node:path";
+import { existsSync as existsSync20 } from "node:fs";
 import { readFile as readFile9, writeFile as writeFile7, rm as rm3 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path31.join(root, "apps", appName);
-  const configPath = path31.join(root, "devora.config.ts");
+  const appDir = path32.join(root, "apps", appName);
+  const configPath = path32.join(root, "devora.config.ts");
   let removedFromConfig = false;
-  if (existsSync19(configPath)) {
+  if (existsSync20(configPath)) {
     const original = await readFile9(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
@@ -8920,7 +9401,7 @@ async function removeApp(appName) {
       removedFromConfig = true;
     }
   }
-  const dirExisted = existsSync19(appDir);
+  const dirExisted = existsSync20(appDir);
   if (dirExisted) {
     await rm3(appDir, { recursive: true, force: true });
   }
@@ -8956,7 +9437,7 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path32 from "node:path";
+import path33 from "node:path";
 import { writeFile as writeFile8 } from "node:fs/promises";
 var VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 function assertValidDomain(app) {
@@ -9012,23 +9493,23 @@ async function generateProxy(opts) {
     return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path32.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  const outPath = opts.out ?? path33.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
   await writeFile8(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }
 
 // src/commands/split.ts
-import path35 from "node:path";
-import { existsSync as existsSync20 } from "node:fs";
+import path36 from "node:path";
+import { existsSync as existsSync21 } from "node:fs";
 import { rm as rm4 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
-import path34 from "node:path";
+import path35 from "node:path";
 
 // src/build/gitHelpers.ts
 import { execFileSync } from "node:child_process";
-import path33 from "node:path";
+import path34 from "node:path";
 function git(args, cwd) {
   try {
     const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
@@ -9056,10 +9537,10 @@ function listSubmodules(repoRoot) {
   const entries = [];
   for (const line of result.stdout.trim().split("\n")) {
     const [key, ...rest] = line.split(" ");
-    const path38 = rest.join(" ");
+    const path39 = rest.join(" ");
     const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
     const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
-    entries.push({ name, path: path38, url: urlResult.stdout.trim() });
+    entries.push({ name, path: path39, url: urlResult.stdout.trim() });
   }
   return entries;
 }
@@ -9070,9 +9551,9 @@ function revListCounts(cwd, theirRef, ourRef = "HEAD") {
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
 }
 function assertInsideRoot(root, targetPath, label) {
-  const resolvedRoot = path33.resolve(root);
-  const resolvedTarget = path33.resolve(targetPath);
-  if (!resolvedTarget.startsWith(resolvedRoot + path33.sep)) {
+  const resolvedRoot = path34.resolve(root);
+  const resolvedTarget = path34.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path34.sep)) {
     throw new Error(
       `[devora] refusing to operate on "${label}" \u2014 it resolves to "${resolvedTarget}", outside the project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
     );
@@ -9089,7 +9570,7 @@ function resolveSplitTarget(root, project, name) {
     if (!project.shared.backend) {
       throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
     }
-    const target2 = path34.join(root, project.shared.backend);
+    const target2 = path35.join(root, project.shared.backend);
     assertInsideRoot(root, target2, "shared.backend");
     return target2;
   }
@@ -9097,15 +9578,15 @@ function resolveSplitTarget(root, project, name) {
   if (!app) {
     throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
   }
-  const target = path34.join(root, app.dir);
+  const target = path35.join(root, app.dir);
   assertInsideRoot(root, target, `apps.${name}.dir`);
   return target;
 }
 function nameForSplitTarget(root, project, relativePath) {
-  if (project.shared.backend && path34.normalize(project.shared.backend) === path34.normalize(relativePath)) {
+  if (project.shared.backend && path35.normalize(project.shared.backend) === path35.normalize(relativePath)) {
     return "backend";
   }
-  const app = project.apps.find((a) => path34.normalize(a.dir) === path34.normalize(relativePath));
+  const app = project.apps.find((a) => path35.normalize(a.dir) === path35.normalize(relativePath));
   return app?.name ?? relativePath;
 }
 
@@ -9135,8 +9616,8 @@ async function split(name, opts) {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const targetPath = resolveSplitTarget(root, project, name);
-  const relPath = path35.relative(root, targetPath);
-  if (!existsSync20(targetPath)) {
+  const relPath = path36.relative(root, targetPath);
+  if (!existsSync21(targetPath)) {
     console.error(`[devora] ${relPath} doesn't exist`);
     process.exit(1);
   }
@@ -9195,7 +9676,7 @@ Your real content (with its real history) is safely pushed to ${opts.repo} \u201
 }
 
 // src/commands/sync.ts
-import path36 from "node:path";
+import path37 from "node:path";
 async function sync(names, opts) {
   if (opts.fromMain === opts.toMain) {
     console.error(`[devora] specify exactly one of --from-main or --to-main.`);
@@ -9208,7 +9689,7 @@ async function sync(names, opts) {
   if (opts.all) {
     targets = [];
     for (const s of listSubmodules(root)) {
-      const targetPath = path36.join(root, s.path);
+      const targetPath = path37.join(root, s.path);
       try {
         assertInsideRoot(root, targetPath, s.path);
         targets.push({ name: s.path, path: targetPath });
@@ -9226,7 +9707,7 @@ async function sync(names, opts) {
     return;
   }
   for (const target of targets) {
-    const relPath = path36.relative(root, target.path);
+    const relPath = path37.relative(root, target.path);
     console.log(`
 [devora] ${relPath}:`);
     const fetch = git(["fetch", "origin"], target.path);
@@ -9302,7 +9783,7 @@ async function syncToMain(targetPath, relPath, opts) {
 }
 
 // src/commands/status.ts
-import path37 from "node:path";
+import path38 from "node:path";
 async function status() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -9314,7 +9795,7 @@ async function status() {
   console.log(`[devora] sync status:
 `);
   for (const sub of submodules) {
-    const targetPath = path37.join(root, sub.path);
+    const targetPath = path38.join(root, sub.path);
     try {
       assertInsideRoot(root, targetPath, sub.path);
     } catch (err) {
@@ -9368,6 +9849,14 @@ program.command("build").description("Build all apps (or one with --app)").optio
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
 ).option("--quiet", QUIET_HELP).action(async (opts) => build3(opts));
 program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
+var desktop = program.command("desktop").description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
+for (const [name, description, action] of [
+  ["dev", "build the app and serve it behind the desktop rules on 127.0.0.1 with a per-launch token", desktopDev],
+  ["build", "build the app and write its Tauri 2 project (apps/<app>/desktop/src-tauri)", desktopBuild],
+  ["serve", "the sidecar the desktop shell starts (token in DEVORA_DESKTOP_TOKEN, port in PORT)", desktopServe]
+]) {
+  desktop.command(name).description(description).option("--app <name>", "the app to package").option("--experimental", "required: the desktop target is experimental").option("--quiet", QUIET_HELP).action(async (opts) => action(opts));
+}
 program.command("deploy").description(
   "Build and deploy to Vercel or Netlify (all apps, or one with --app) \u2014 each app must already be linked (`vercel link` / `netlify link`) to its own project/site"
 ).requiredOption("--adapter <target>", "vercel or netlify").option("--app <name>", "deploy only this app").option("--prod", "deploy to production (default: preview)").action(async (opts) => deploy(opts));

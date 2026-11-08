@@ -1,0 +1,12 @@
+
+== NestJS (Fastify platform)
+build cold 1766 ms, warm 1716 ms
+start 545 ms, idle 168 MB
+items: 17900 req/s, p50 2 ms, p99 6 ms, 3966 B body + 154 B headers (identity)
+me: 30681 req/s, p50 1 ms, p99 3 ms, 16 B body + 152 B headers (identity)
+postValid: 21922 req/s, p50 2 ms, p99 4 ms, 38 B body + 152 B headers (identity)
+postInvalid: 16489 req/s, p50 2 ms, p99 6 ms, 48 B body + 152 B headers (identity)
+slow: 15177 req/s, p50 3 ms, p99 5 ms, 43 B body + 152 B headers (identity)
+memory after load 188 MB
+
+wrote results/backend-raw-2026-11-05-container-nest-fastify.json

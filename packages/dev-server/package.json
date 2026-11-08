@@ -1,0 +1,17 @@
+{
+  "name": "@devorajs/dev-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Experimental: the security core of a Devora.js dev server of its own (work-notes/dev-server/DESIGN.md). Not wired into the CLI yet; Vite stays the dev server. Not published.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -1,0 +1,381 @@
+{
+  "date": "2026-11-05T00:48:23.613Z",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores": 4,
+    "memoryGb": 16,
+    "os": "Linux 6.18.44-fc-v236 (linux x64)",
+    "node": "v22.23.4"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora-api": {
+      "name": "Devora.js",
+      "kind": "backend+pages",
+      "version": "0.3.5",
+      "loadAvgAtStart": 1.69,
+      "coreVersion": "0.3.5",
+      "build": {
+        "coldMs": {
+          "median": 489.655359,
+          "min": 463.12841000000026,
+          "max": 499.85111300000017,
+          "runs": [
+            489.655359,
+            499.85111300000017,
+            463.12841000000026
+          ]
+        },
+        "warmMs": {
+          "median": 493.42406100000005,
+          "min": 458.4666070000003,
+          "max": 524.7200339999999,
+          "runs": [
+            493.42406100000005,
+            458.4666070000003,
+            524.7200339999999
+          ]
+        }
+      },
+      "startMs": {
+        "median": 371.3949869999997,
+        "min": 310.8469349999996,
+        "max": 435.1215689999999,
+        "runs": [
+          435.1215689999999,
+          371.3949869999997,
+          340.68604200000027,
+          310.8469349999996,
+          394.164612999999
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 158.515625,
+        "min": 154.46875,
+        "max": 162.65234375,
+        "runs": [
+          158.0546875,
+          162.65234375,
+          158.60546875,
+          154.46875,
+          158.515625
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 13372,
+            "min": 12966.19,
+            "max": 13730.19,
+            "runs": [
+              13730.19,
+              13372,
+              13366.4,
+              13633.6,
+              12966.19
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 8,
+            "min": 8,
+            "max": 10,
+            "runs": [
+              8,
+              8,
+              9,
+              10,
+              8
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 17995.28,
+            "min": 17384,
+            "max": 19505.6,
+            "runs": [
+              17384,
+              17393.6,
+              17995.28,
+              19505.6,
+              18116
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 6,
+            "max": 8,
+            "runs": [
+              7,
+              6,
+              8,
+              6,
+              7
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 16425.46,
+            "min": 15730.19,
+            "max": 16608.41,
+            "runs": [
+              16486.91,
+              16425.46,
+              15730.19,
+              16608.41,
+              16258.19
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 9,
+            "min": 7,
+            "max": 10,
+            "runs": [
+              10,
+              7,
+              9,
+              9,
+              8
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 16569.1,
+            "min": 15831.2,
+            "max": 17381.2,
+            "runs": [
+              16054.55,
+              17381.2,
+              16569.1,
+              15831.2,
+              17274.8
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 7,
+            "max": 8,
+            "runs": [
+              8,
+              7,
+              8,
+              7,
+              7
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 13591.2,
+            "min": 13545.6,
+            "max": 14150.91,
+            "runs": [
+              13577.1,
+              13591.2,
+              13545.6,
+              13637.46,
+              14150.91
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 6,
+            "max": 7,
+            "runs": [
+              6,
+              6,
+              7,
+              7,
+              6
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 247.57421875
+    }
+  }
+}
