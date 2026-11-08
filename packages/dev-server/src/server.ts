@@ -43,6 +43,8 @@ export interface DevServerOptions {
     appRoot: string;
     /** Folder served at the site root, as in production (default: none). */
     publicDir?: string;
+    /** Cache the bundled dependencies on disk (default true). */
+    depsCache?: boolean;
     /** A backend-only app has no browser code: no dependency bundling, no client modules. */
     backendOnly?: boolean;
     /** Content-Security-Policy for an .svg file (the core's SVG_CSP); a sandboxing default otherwise. */
@@ -126,8 +128,9 @@ async function discoverClientDeps(appRoot: string, extra: string[]): Promise<str
     if (files.includes(f)) entries.add(f);
   }
   const sources = new Map<string, string>();
-  for (const f of files) {
-    const src = await readFile(f, "utf8");
+  const texts = await Promise.all(files.map((f) => readFile(f, "utf8")));
+  for (const [i, f] of files.entries()) {
+    const src = texts[i]!;
     sources.set(f, src);
     if (/renderMode\s*=\s*["']csr["']/.test(src)) entries.add(f);
     if (src.includes("island")) {
@@ -176,31 +179,45 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
 
   let deps: DepsManager | undefined;
   let clientModules: ClientModules | undefined;
+  // The dependency bundle is prepared in the background: the server listens first (as Vite's does) and a request that needs
+  // the bundle waits for it. A failure is printed at once and answered as a 500 naming the dependency.
+  let depsReady: Promise<void> = Promise.resolve();
+  let depsError: Error | undefined;
   if (app && !app.backendOnly) {
-    const resolvable: string[] = [];
-    const { createRequire } = await import("node:module");
-    const req = createRequire(path.join(app.appRoot, "package.json"));
-    for (const d of FRAMEWORK_CLIENT_DEPS) {
-      if (d === "react-refresh/runtime") {
-        resolvable.push(d);
-        continue;
-      }
-      try {
-        req.resolve(d);
-        resolvable.push(d);
-      } catch {
-        // an app without this dependency simply does not get it
-      }
-    }
-    trace("dependency scan starts");
-    const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
-    trace(`dependency scan done (${found.length} dependencies)`);
-    deps = await createDepsManager(app.appRoot, found);
-    trace("dependency bundle done");
     // Files are looked up by real path (symlinks followed), so the URL table is keyed by real paths too.
     const realRoots = await Promise.all(options.roots.map(async (r) => ({ ...r, dir: await realpath(r.dir).catch(() => r.dir) })));
     clientModules = createClientModules({ roots: realRoots, deps: () => deps });
+    depsReady = (async () => {
+      const resolvable: string[] = [];
+      const { createRequire } = await import("node:module");
+      const req = createRequire(path.join(app.appRoot, "package.json"));
+      for (const d of FRAMEWORK_CLIENT_DEPS) {
+        if (d === "react-refresh/runtime") {
+          resolvable.push(d);
+          continue;
+        }
+        try {
+          req.resolve(d);
+          resolvable.push(d);
+        } catch {
+          // an app without this dependency simply does not get it
+        }
+      }
+      trace("dependency scan starts");
+      const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
+      trace(`dependency scan done (${found.length} dependencies)`);
+      deps = await createDepsManager(app.appRoot, found, { cache: app.depsCache });
+      trace(`dependency bundle ready (${deps.fromCache ? "from the cache" : "built"})`);
+    })().catch((error: Error) => {
+      depsError = error;
+      console.error(error.message);
+    });
   }
+  /** Waits for the dependency bundle; throws the reason when it could not be made. */
+  const needDeps = async () => {
+    await depsReady;
+    if (depsError) throw depsError;
+  };
 
   const send = (res: http.ServerResponse, status: number, body: string | Buffer, type = "text/plain; charset=utf-8", extra: Record<string, string> = {}) => {
     res.statusCode = status;
@@ -240,6 +257,7 @@ export default undefined;`;
     }
     if (isTransformable(file)) {
       if (clientModules) {
+        await needDeps();
         const mod = await clientModules.load(file);
         // Only what this module asks for: other modules were transformed to decide what a change means, never loaded.
         const bare = mod.bare.filter((s) => !deps?.has(s));
@@ -292,11 +310,13 @@ export default undefined;`;
       if (pathname.startsWith(MODULE_PREFIX)) return await serveModule(req, res, url);
       if (app && pathname.startsWith(DEPS_PREFIX)) {
         const name = pathname.slice(DEPS_PREFIX.length);
+        await needDeps();
         const code = /^[\w.-]+$/.test(name) ? deps?.file(name) : undefined;
         return code === undefined ? send(res, 404, "Not Found") : send(res, 200, code, "text/javascript; charset=utf-8");
       }
       if (app && pathname === "/_devora/hmr-client.js") return send(res, 200, HMR_CLIENT, "text/javascript; charset=utf-8");
-      if (deps && pathname === PREAMBLE_PATH) {
+      if (app && !app.backendOnly && pathname === PREAMBLE_PATH) {
+        await needDeps();
         if (!tokenMatches(token, url.searchParams.get("token") ?? undefined)) return send(res, 403, "Forbidden");
         return send(res, 200, preambleScript(token, `${DEPS_PREFIX}${depKey("react-refresh/runtime")}.js`), "text/javascript; charset=utf-8");
       }
@@ -330,6 +350,7 @@ export default undefined;`;
     (await realpath(file).catch(async () => path.join(await realpath(path.dirname(file)).catch(() => path.dirname(file)), path.basename(file))));
 
   async function changed(changedFile: string): Promise<void> {
+    await depsReady; // what a change means depends on which dependencies are CommonJS
     const file = await realPathOf(changedFile);
     transforms.invalidate(file);
     clientModules?.invalidate(file);
