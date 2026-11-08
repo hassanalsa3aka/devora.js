@@ -90,9 +90,10 @@ export async function resolve(specifier, context, nextResolve) {
     if (port) port.postMessage({ edge: [parentFile, file] });
     return { url: srcUrl(file, epoch), shortCircuit: true };
   }
-  if (isFrameworkSource(file) && /\.(tsx|ts|jsx|mts|cts)$/.test(file)) {
-    // The framework's own TypeScript source (a checkout of the repository): one instance for all apps, compiled by these
-    // hooks. Installed packages are compiled JavaScript and stay with the default loader.
+  if (!inNodeModules(file) && /\.(tsx|ts|jsx|mts|cts)$/.test(file)) {
+    // TypeScript source that is not part of the app and not an installed package: the framework's own source in a
+    // checkout of the repository, or a linked workspace package. One instance for all apps, compiled by these hooks.
+    // Installed packages are compiled JavaScript and stay with the default loader.
     return { url: srcUrl(file, "fw"), shortCircuit: true };
   }
   return { url: pathToFileURL(file).href, shortCircuit: true };

@@ -124,8 +124,8 @@ export function setCookieValue(res: Response, name: string): string | undefined 
  * DEVORA_TEST_DEV_SERVER=experimental, the experimental dev server in a child process (its module loader hooks are
  * process-wide, so it does not share this test runner's process). Same shape either way.
  */
-export async function bootDevServer(options: import("../../commands/dev.js").AppDevServerOptions): Promise<import("../../commands/devExperimental.js").DevServerHandle> {
-  if (process.env.DEVORA_TEST_DEV_SERVER !== "experimental") {
+export async function bootDevServer(options: import("../../commands/dev.js").AppDevServerOptions, force?: "experimental"): Promise<import("../../commands/devExperimental.js").DevServerHandle> {
+  if (force !== "experimental" && process.env.DEVORA_TEST_DEV_SERVER !== "experimental") {
     const { createAppDevServer } = await import("../../commands/dev.js");
     return createAppDevServer(options);
   }

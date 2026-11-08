@@ -5,7 +5,7 @@
  * again, while `node_modules` and the framework's own packages stay loaded once. No module of a request's making is
  * ever imported: callers pass files their own router already matched.
  */
-import { register } from "node:module";
+import { findSourceMap, register } from "node:module";
 import { MessageChannel, type MessagePort } from "node:worker_threads";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -87,8 +87,20 @@ export async function createServerModuleHost(options: { appId: string; projectRo
       }
       return [...seen];
     },
-    ssrFixStacktrace() {
-      // Stack traces point at the original files already: the transform adds an inline source map.
+    ssrFixStacktrace(error) {
+      // Frames name `devora-src://<file>.devora-module?devora=…:line:col` (generated code); show the file and line written.
+      if (typeof error.stack !== "string") return;
+      error.stack = error.stack.replace(/devora-src:\/\/(\S+?)\.devora-module(\?devora=[^:)\s]+):(\d+):(\d+)/g, (whole, file: string, query: string, line: string, col: string) => {
+        let plain = file;
+        try {
+          plain = decodeURIComponent(file);
+        } catch {
+          // keep the encoded name
+        }
+        const entry = findSourceMap(whole.split(":").slice(0, -2).join(":"))?.findEntry(Number(line) - 1, Number(col) - 1);
+        void query;
+        return entry && "originalLine" in entry ? `${plain}:${entry.originalLine + 1}:${entry.originalColumn + 1}` : `${plain}:${line}:${col}`;
+      });
     },
   };
 }

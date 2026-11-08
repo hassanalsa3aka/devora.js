@@ -36,6 +36,8 @@ export interface DevServerOptions {
     appRoot: string;
     /** Folder served at the site root, as in production (default: none). */
     publicDir?: string;
+    /** A backend-only app has no browser code: no dependency bundling, no client modules. */
+    backendOnly?: boolean;
     /** Content-Security-Policy for an .svg file (the core's SVG_CSP); a sandboxing default otherwise. */
     svgCsp?: string;
     /** Extra browser dependencies to bundle up front. */
@@ -167,7 +169,7 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
 
   let deps: DepsManager | undefined;
   let clientModules: ClientModules | undefined;
-  if (app) {
+  if (app && !app.backendOnly) {
     const resolvable: string[] = [];
     const { createRequire } = await import("node:module");
     const req = createRequire(path.join(app.appRoot, "package.json"));
@@ -185,7 +187,9 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
     }
     const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
     deps = await createDepsManager(app.appRoot, found);
-    clientModules = createClientModules({ roots: options.roots, deps: () => deps });
+    // Files are looked up by real path (symlinks followed), so the URL table is keyed by real paths too.
+    const realRoots = await Promise.all(options.roots.map(async (r) => ({ ...r, dir: await realpath(r.dir).catch(() => r.dir) })));
+    clientModules = createClientModules({ roots: realRoots, deps: () => deps });
   }
 
   const send = (res: http.ServerResponse, status: number, body: string | Buffer, type = "text/plain; charset=utf-8", extra: Record<string, string> = {}) => {
@@ -227,7 +231,7 @@ export default undefined;`;
     if (isTransformable(file)) {
       if (clientModules) {
         const mod = await clientModules.load(file);
-        const bare = [...clientModules.bareImports].filter((s) => !deps!.has(s));
+        const bare = [...clientModules.bareImports].filter((s) => !deps?.has(s));
         if (bare.length > 0) await ensureDeps(bare);
         return send(res, 200, mod.code, "text/javascript; charset=utf-8");
       }
@@ -263,7 +267,8 @@ export default undefined;`;
     }
   };
 
-  const server = http.createServer({ maxHeaderSize: 16 * 1024 }, async (req, res) => {
+  // connectionsCheckingInterval: Node checks headersTimeout/requestTimeout only every 30 s by default (as adapter-node does).
+  const server = http.createServer({ maxHeaderSize: 16 * 1024, connectionsCheckingInterval: 1_000 }, async (req, res) => {
     try {
       if (!hostAllowed(req.headers.host)) return send(res, 400, "Bad Request: unknown host");
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -271,11 +276,11 @@ export default undefined;`;
       if (pathname.startsWith(MODULE_PREFIX)) return await serveModule(req, res, url);
       if (app && pathname.startsWith(DEPS_PREFIX)) {
         const name = pathname.slice(DEPS_PREFIX.length);
-        const code = /^[\w.-]+$/.test(name) ? deps!.file(name) : undefined;
+        const code = /^[\w.-]+$/.test(name) ? deps?.file(name) : undefined;
         return code === undefined ? send(res, 404, "Not Found") : send(res, 200, code, "text/javascript; charset=utf-8");
       }
       if (app && pathname === "/_devora/hmr-client.js") return send(res, 200, HMR_CLIENT, "text/javascript; charset=utf-8");
-      if (app && pathname === PREAMBLE_PATH) {
+      if (deps && pathname === PREAMBLE_PATH) {
         if (!tokenMatches(token, url.searchParams.get("token") ?? undefined)) return send(res, 403, "Forbidden");
         return send(res, 200, preambleScript(token, `${DEPS_PREFIX}${depKey("react-refresh/runtime")}.js`), "text/javascript; charset=utf-8");
       }
@@ -303,7 +308,12 @@ export default undefined;`;
   });
   const port = (server.address() as AddressInfo).port;
 
-  async function changed(file: string): Promise<void> {
+  /** The real path of a changed file (a deleted file has none: its folder's real path plus its name). */
+  const realPathOf = async (file: string) =>
+    (await realpath(file).catch(async () => path.join(await realpath(path.dirname(file)).catch(() => path.dirname(file)), path.basename(file))));
+
+  async function changed(changedFile: string): Promise<void> {
+    const file = await realPathOf(changedFile);
     transforms.invalidate(file);
     clientModules?.invalidate(file);
     app?.onChange?.(file);
@@ -318,6 +328,7 @@ export default undefined;`;
     try {
       await clientModules.load(file); // a syntax error is reported to the overlay instead of reloading into a 500
     } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return hmr.broadcast({ type: "full-reload" }); // deleted or renamed
       return hmr.broadcast({ type: "error", message: error instanceof Error ? error.message : String(error) });
     }
     if (!clientModules.wasLoaded(file)) return hmr.broadcast({ type: "full-reload" });

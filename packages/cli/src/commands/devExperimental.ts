@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   backendStatusFor,
@@ -55,7 +55,9 @@ function resolvePublicDir(appRoot: string): string | undefined {
  * and header handlers as the Vite path, over `@devorajs/dev-server`'s confined routes, esbuild transforms and Fast Refresh.
  * Loaded only when the flag is given, so the default path never imports it.
  */
-export async function createExperimentalAppDevServer(opts: AppDevServerOptions): Promise<DevServerHandle> {
+export async function createExperimentalAppDevServer(options: AppDevServerOptions): Promise<DevServerHandle> {
+  // Real paths throughout (symlinks followed): the module loader and the URL table compare paths as files resolve.
+  const opts = { ...options, appRoot: realpathSync(options.appRoot), projectRoot: realpathSync(options.projectRoot) };
   const { app, appRoot, authMode, appConfig } = opts;
   const sessionManifest = resolveSessionManifest({
     appName: app.name,
@@ -101,6 +103,7 @@ export async function createExperimentalAppDevServer(opts: AppDevServerOptions):
     app: {
       appRoot,
       publicDir,
+      backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {
         // The same cleanup Vite's hot-update hook does: run the dispose callbacks of the changed module and of what imports it.
@@ -163,17 +166,22 @@ export async function createExperimentalAppDevServer(opts: AppDevServerOptions):
       ) as Middleware
     );
   }
-  handler = chain(handlers, (_req, res, error) => {
+  // What Connect's final handler (and so Vite's dev server) answers when nothing handled the request: the same page.
+  const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const finalPage = (res: ServerResponse, status: number, text: string) => {
+    res.statusCode = status;
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(`<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>Error</title>\n</head>\n<body>\n<pre>${escapeHtml(text)}</pre>\n</body>\n</html>\n`);
+  };
+  handler = chain(handlers, (req, res, error) => {
     if (res.headersSent) return void res.end();
     if (error !== undefined) {
       console.error(`[devora] "${app.name}" request error:`, error);
-      res.statusCode = 500;
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      return void res.end(error instanceof Error ? `${error.name}: ${error.message}\n` : "Internal Server Error\n");
+      return finalPage(res, 500, error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : String(error));
     }
-    res.statusCode = 404;
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.end("Not Found\n");
+    finalPage(res, 404, `Cannot ${req.method} ${req.url}`);
   });
 
   return {

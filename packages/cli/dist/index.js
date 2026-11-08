@@ -6579,7 +6579,7 @@ __export(devExperimental_exports, {
   createExperimentalAppDevServer: () => createExperimentalAppDevServer
 });
 import path16 from "node:path";
-import { existsSync as existsSync8, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync8, readFileSync as readFileSync3, realpathSync } from "node:fs";
 function chain(handlers, finish) {
   return async (req, res) => {
     let i = 0;
@@ -6601,7 +6601,8 @@ function resolvePublicDir(appRoot) {
   const fallback = path16.join(appRoot, "public");
   return existsSync8(fallback) ? fallback : void 0;
 }
-async function createExperimentalAppDevServer(opts) {
+async function createExperimentalAppDevServer(options) {
+  const opts = { ...options, appRoot: realpathSync(options.appRoot), projectRoot: realpathSync(options.projectRoot) };
   const { app, appRoot, authMode, appConfig } = opts;
   const sessionManifest = resolveSessionManifest({
     appName: app.name,
@@ -6643,6 +6644,7 @@ async function createExperimentalAppDevServer(opts) {
     app: {
       appRoot,
       publicDir,
+      backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {
         for (const f of modules.invalidate(file)) runAndClearDisposable(f);
@@ -6703,18 +6705,31 @@ async function createExperimentalAppDevServer(opts) {
       )
     );
   }
-  handler = chain(handlers, (_req, res, error) => {
+  const escapeHtml2 = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const finalPage = (res, status2, text) => {
+    res.statusCode = status2;
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>${escapeHtml2(text)}</pre>
+</body>
+</html>
+`);
+  };
+  handler = chain(handlers, (req, res, error) => {
     if (res.headersSent) return void res.end();
     if (error !== void 0) {
       console.error(`[devora] "${app.name}" request error:`, error);
-      res.statusCode = 500;
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      return void res.end(error instanceof Error ? `${error.name}: ${error.message}
-` : "Internal Server Error\n");
+      return finalPage(res, 500, error instanceof Error ? error.stack ?? `${error.name}: ${error.message}` : String(error));
     }
-    res.statusCode = 404;
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.end("Not Found\n");
+    finalPage(res, 404, `Cannot ${req.method} ${req.url}`);
   });
   return {
     close: () => server.close(),
