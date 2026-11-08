@@ -84,6 +84,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
   const packagesDir = path.join(opts.projectRoot, "packages");
   if (existsSync(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
 
+  devServer.trace("cli: dev-server module loaded");
   const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots });
   const cssGraph = devServer.createCssGraph(roots);
   const publicDir = resolvePublicDir(appRoot);
@@ -94,6 +95,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
     config: { publicDir: publicDir ?? "", root: appRoot },
   };
 
+  devServer.trace("cli: module host ready");
   let handler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | undefined;
   const server = await devServer.startExperimentalDevServer({
     roots,

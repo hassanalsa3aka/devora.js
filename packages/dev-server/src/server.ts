@@ -20,6 +20,13 @@ import { createClientModules, type ClientModules } from "./clientModules.js";
 import { HMR_CLIENT, preambleScript } from "./clientScripts.js";
 
 export const MODULE_PREFIX = "/_devora/m/";
+
+/** DEVORA_DEV_TRACE=1 prints the time of each start-up step (milliseconds since this server began starting). */
+const TRACE = process.env.DEVORA_DEV_TRACE === "1";
+const traceStart = performance.now();
+export function trace(step: string): void {
+  if (TRACE) console.error(`[devora dev-server trace] ${(performance.now() - traceStart).toFixed(0).padStart(5)} ms  ${step}`);
+}
 export const PREAMBLE_PATH = "/_devora/preamble.js";
 
 export interface DevServerOptions {
@@ -185,8 +192,11 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
         // an app without this dependency simply does not get it
       }
     }
+    trace("dependency scan starts");
     const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
+    trace(`dependency scan done (${found.length} dependencies)`);
     deps = await createDepsManager(app.appRoot, found);
+    trace("dependency bundle done");
     // Files are looked up by real path (symlinks followed), so the URL table is keyed by real paths too.
     const realRoots = await Promise.all(options.roots.map(async (r) => ({ ...r, dir: await realpath(r.dir).catch(() => r.dir) })));
     clientModules = createClientModules({ roots: realRoots, deps: () => deps });
@@ -271,6 +281,10 @@ export default undefined;`;
 
   // connectionsCheckingInterval: Node checks headersTimeout/requestTimeout only every 30 s by default (as adapter-node does).
   const server = http.createServer({ maxHeaderSize: 16 * 1024, connectionsCheckingInterval: 1_000 }, async (req, res) => {
+    if (TRACE) {
+      const began = performance.now();
+      res.on("finish", () => trace(`${req.method} ${(req.url ?? "").slice(0, 60)} -> ${res.statusCode} in ${(performance.now() - began).toFixed(1)} ms`));
+    }
     try {
       if (!hostAllowed(req.headers.host)) return send(res, 400, "Bad Request: unknown host");
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -309,6 +323,7 @@ export default undefined;`;
     server.listen(options.port ?? 0, bindHost, () => resolve());
   });
   const port = (server.address() as AddressInfo).port;
+  trace("listening");
 
   /** The real path of a changed file (a deleted file has none: its folder's real path plus its name). */
   const realPathOf = async (file: string) =>
