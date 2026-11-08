@@ -1,6 +1,7 @@
 // Plain JavaScript on purpose: the Node loader hooks (hooks.mjs) run in their own thread and import this file by
 // path, and the TypeScript side imports it too, so server modules and browser modules go through one parser and
 // one set of rules. Nothing here evaluates code: it reads source text, parses it (acorn) and edits ranges.
+import { statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "acorn";
@@ -36,6 +37,25 @@ export async function resolveFile(abs) {
   for (const c of candidates) if (await isFile(c)) return c;
   for (const ext of EXTENSIONS) if (await isFile(abs + ext)) return abs + ext;
   for (const ext of EXTENSIONS) if (await isFile(path.join(abs, "index" + ext))) return path.join(abs, "index" + ext);
+  return undefined;
+}
+
+function isFileSync(p) {
+  try {
+    return statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** The same lookup as resolveFile(), synchronously (the in-thread module hooks cannot wait). */
+export function resolveFileSync(abs) {
+  const candidates = [abs];
+  const m = /\.(m?js|jsx)$/.exec(abs);
+  if (m) candidates.push(abs.slice(0, -m[0].length) + ".ts", abs.slice(0, -m[0].length) + ".tsx");
+  for (const c of candidates) if (isFileSync(c)) return c;
+  for (const ext of EXTENSIONS) if (isFileSync(abs + ext)) return abs + ext;
+  for (const ext of EXTENSIONS) if (isFileSync(path.join(abs, "index" + ext))) return path.join(abs, "index" + ext);
   return undefined;
 }
 
@@ -139,6 +159,20 @@ export async function islandEdits(program, resolveSpecifier, urlOf) {
   for (const call of supported) {
     if (call.alreadyResolved) continue;
     const file = await resolveSpecifier(call.specifier);
+    const url = file ? urlOf(file) : undefined;
+    if (url) edits.push({ start: call.insertAt, end: call.insertAt, text: `, ${JSON.stringify(url)}` });
+  }
+  return edits;
+}
+
+/** islandEdits() with a synchronous resolver. */
+export function islandEditsSync(program, resolveSpecifier, urlOf) {
+  const { supported, unsupported } = findIslandCalls(program);
+  if (unsupported.length > 0) throw new Error(UNSUPPORTED_ISLAND_CALL_MESSAGE);
+  const edits = [];
+  for (const call of supported) {
+    if (call.alreadyResolved) continue;
+    const file = resolveSpecifier(call.specifier);
     const url = file ? urlOf(file) : undefined;
     if (url) edits.push({ start: call.insertAt, end: call.insertAt, text: `, ${JSON.stringify(url)}` });
   }

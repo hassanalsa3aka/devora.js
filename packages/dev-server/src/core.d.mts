@@ -16,3 +16,5 @@ export function listImports(program: any): ImportRef[];
 export function instrumentRefresh(code: string, program: any): { edits: { start: number; end: number; text: string }[]; head: string; tail: string; components: string[]; isBoundary: boolean };
 export function splitSourceMap(code: string): { code: string; map: string };
 export function scanImports(source: string): string[];
+export function resolveFileSync(abs: string): string | undefined;
+export function islandEditsSync(program: any, resolveSpecifier: (spec: string) => string | undefined, urlOf: (file: string) => string | undefined): { start: number; end: number; text: string }[];

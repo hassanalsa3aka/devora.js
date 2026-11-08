@@ -41,6 +41,10 @@ export default function Rich() {
 `
   );
   write(path.join(app, "routes", "throws.tsx"), 'export const renderMode = "ssr";\nexport default function Throws() { throw new Error("boom in throws.tsx"); }\n');
+  // dispose callbacks: `db.ts` registers one; `unrelated.ts` is a module nothing in the chain imports
+  write(path.join(app, "helpers", "db.ts"), 'import { registerDisposable } from "@devorajs/core";\n(globalThis as any).__log ??= [];\n(globalThis as any).__log.push("db opened");\nregisterDisposable(import.meta.url, () => (globalThis as any).__log.push("db disposed"));\nexport const handle = "db-v1";\n');
+  write(path.join(app, "helpers", "unrelated.ts"), 'export const noise = "n1";\n');
+  write(path.join(app, "routes", "disposal.tsx"), 'import { handle } from "../helpers/db";\nimport { noise } from "../helpers/unrelated";\nexport const renderMode = "ssr";\nexport default function Disposal() { return <p id="d">{handle}|{noise}|{((globalThis as any).__log as string[]).join(",")}</p>; }\n');
   write(path.join(app, "island-client.tsx"), 'import { hydrateIslands } from "@devorajs/core/client";\nhydrateIslands();\n');
   dev = await bootDevServer(
     {
@@ -106,5 +110,23 @@ describe("experimental dev server — what its module loader does", () => {
       html = await (await fetch(`${base}/rich`)).text();
     }
     expect(html).toContain("changed greeting");
+  });
+
+  it("dispose callbacks run for the modules that run again, and only those", async () => {
+    const read = async () => /id="d">([^<]*)</.exec((await (await fetch(`${base}/disposal`)).text()).replaceAll("<!-- -->", ""))?.[1] ?? "";
+    expect(await read()).toBe("db-v1|n1|db opened");
+    write(path.join(fixture.appRoot, "helpers", "unrelated.ts"), 'export const noise = "n2";\n');
+    let seen = "";
+    for (let i = 0; i < 40 && !seen.includes("n2"); i++) {
+      await sleep(100);
+      seen = await read();
+    }
+    expect(seen).toBe("db-v1|n2|db opened"); // db.ts did not run again and was not disposed
+    write(path.join(fixture.appRoot, "helpers", "db.ts"), (await import("node:fs")).readFileSync(path.join(fixture.appRoot, "helpers", "db.ts"), "utf8").replace("db-v1", "db-v2"));
+    for (let i = 0; i < 40 && !seen.includes("db-v2"); i++) {
+      await sleep(100);
+      seen = await read();
+    }
+    expect(seen).toBe("db-v2|n2|db opened,db disposed,db opened"); // disposed once, then opened once more
   });
 });
