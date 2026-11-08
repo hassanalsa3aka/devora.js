@@ -52,7 +52,7 @@ function ensureRegistered(projectRoot: string): Registration {
 export interface ServerModuleHost {
   /** Imports a route, entry or store file the framework's own router matched, at the current epoch. */
   ssrLoadModule(file: string): Promise<Record<string, unknown>>;
-  /** The next import re-executes the app's module graph. Returns the changed file plus the files that import it. */
+  /** The next import re-executes the app's whole module graph. Returns every app module that was loaded, for their dispose callbacks. */
   invalidate(file: string): string[];
   ssrFixStacktrace(error: Error): void;
 }
@@ -75,17 +75,14 @@ export async function createServerModuleHost(options: { appId: string; projectRo
     ssrLoadModule: (file) => import(`devora-src://${pathToFileURL(file).pathname}.devora-module?devora=${options.appId}.${epoch}`) as Promise<Record<string, unknown>>,
     invalidate(file) {
       epoch += 1;
-      const seen = new Set<string>([file]);
-      const queue = [file];
-      while (queue.length > 0) {
-        for (const parent of reg.edges.get(queue.pop()!) ?? []) {
-          if (!seen.has(parent)) {
-            seen.add(parent);
-            queue.push(parent);
-          }
-        }
+      // Every module of the app is executed again at the next import (not only what imports the changed file), so
+      // every one of them gets its dispose callback: a database handle in an unrelated module must not be leaked.
+      const all = new Set<string>([file]);
+      for (const [child, parents] of reg.edges) {
+        all.add(child);
+        for (const parent of parents) all.add(parent);
       }
-      return [...seen];
+      return [...all];
     },
     ssrFixStacktrace(error) {
       // Frames name `devora-src://<file>.devora-module?devora=…:line:col` (generated code); show the file and line written.
