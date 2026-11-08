@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ViteDevServer } from "vite";
+import type { DevModuleHost } from "./devModuleHost.js";
 import {
   createSessionOptionsResolver,
   toSessionManifest,
@@ -25,7 +25,7 @@ import {
  * project-level settings alone.
  */
 export function createDevSessionOptionsResolver(
-  vite: ViteDevServer,
+  vite: DevModuleHost,
   projectRoot: string,
   sessions: SessionsConfig | undefined,
   authMode: AuthMode,

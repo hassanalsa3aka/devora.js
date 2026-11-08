@@ -8,17 +8,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, setCookieValue, write, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, setCookieValue, write, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 import { SVG_CSP, deriveSessionCsrfToken, resolveSessionScope, type SessionsConfig } from "@devorajs/core";
 
 /** The CSRF token of a signed-in browser (bound to its session, H30); the dev server uses the dev-only secret. */
 const sessionToken = (sessionId: string) => deriveSessionCsrfToken(sessionId, resolveSessionScope("shared", "fixture"));
 
-async function boot(fixture: FixtureProject, sessions: SessionsConfig): Promise<{ server: ViteDevServer; base: string }> {
-  const server = await createAppDevServer({
+async function boot(fixture: FixtureProject, sessions: SessionsConfig): Promise<{ server: DevServerHandle; base: string }> {
+  const server = await bootDevServer({
     projectRoot: fixture.projectRoot,
     app: { name: "fixture", dir: "app", domain: "fixture.example.com" },
     appRoot: fixture.appRoot,
@@ -38,7 +37,7 @@ function json(body: unknown): RequestInit {
 }
 
 let fixture: FixtureProject;
-let server: ViteDevServer;
+let server: DevServerHandle;
 let base: string;
 
 beforeAll(async () => {
@@ -235,7 +234,7 @@ describe("unified session auth — real dev server", () => {
 
 describe("session states over real time — real dev server", () => {
   let shortFixture: FixtureProject;
-  let shortServer: ViteDevServer;
+  let shortServer: DevServerHandle;
   let shortBase: string;
 
   beforeAll(async () => {

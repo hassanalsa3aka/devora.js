@@ -5,21 +5,20 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
 import { isCrossSiteDevRequest } from "../apiMiddleware.js";
-import { createFixtureProject, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 const ORIGINAL_ENV = { ...process.env };
 let fixture: FixtureProject;
-let dev: ViteDevServer | undefined;
+let dev: DevServerHandle | undefined;
 let port = 0;
 
 beforeAll(async () => {
   process.env.NODE_ENV = "development";
   fixture = createFixtureProject();
-  dev = await createAppDevServer({
+  dev = await bootDevServer({
     projectRoot: fixture.projectRoot,
     app: { name: "fixture", dir: "app", domain: "app.example.com" },
     appRoot: fixture.appRoot,
@@ -48,17 +47,23 @@ function get(path: string, headers: Record<string, string>): Promise<number> {
   });
 }
 
+// The experimental dev server has no editor endpoint at all (design rule 9): every request below is a plain 404.
+const EXPERIMENTAL = process.env.DEVORA_TEST_DEV_SERVER === "experimental";
+
 describe("dev server /__open-in-editor guard", () => {
   it("refuses a request the browser marks cross-site or same-site, or with a foreign Origin", async () => {
-    expect(await get("/__open-in-editor?file=/etc/hostname", { "Sec-Fetch-Site": "cross-site" })).toBe(403);
-    expect(await get("/__open-in-editor?file=/etc/hostname", { "Sec-Fetch-Site": "same-site" })).toBe(403);
-    expect(await get("/__open-in-editor?file=/etc/hostname", { Origin: "http://evil.example" })).toBe(403);
-    expect(await get("/__open-in-editor?file=/etc/hostname", { Origin: "null" })).toBe(403);
+    const refused = EXPERIMENTAL ? 404 : 403;
+    expect(await get("/__open-in-editor?file=/etc/hostname", { "Sec-Fetch-Site": "cross-site" })).toBe(refused);
+    expect(await get("/__open-in-editor?file=/etc/hostname", { "Sec-Fetch-Site": "same-site" })).toBe(refused);
+    expect(await get("/__open-in-editor?file=/etc/hostname", { Origin: "http://evil.example" })).toBe(refused);
+    expect(await get("/__open-in-editor?file=/etc/hostname", { Origin: "null" })).toBe(refused);
   }, 30_000);
 
   it("lets a same-origin request through to Vite", async () => {
     // No `file` parameter: Vite answers 500 "missing file parameter" without starting an editor.
-    expect(await get("/__open-in-editor", { "Sec-Fetch-Site": "same-origin", Origin: `http://localhost:${port}` })).not.toBe(403);
+    const status = await get("/__open-in-editor", { "Sec-Fetch-Site": "same-origin", Origin: `http://localhost:${port}` });
+    if (EXPERIMENTAL) expect(status).toBe(404);
+    else expect(status).not.toBe(403);
   }, 30_000);
 
   it("isCrossSiteDevRequest", () => {

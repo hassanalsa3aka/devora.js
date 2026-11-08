@@ -38,6 +38,7 @@ program
   )
   .option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)")
   .option("--quiet", QUIET_HELP)
+  .option("--experimental-dev-server", "run the experimental dev server of Devora's own instead of Vite (repository checkout only; also DEVORA_EXPERIMENTAL_DEV_SERVER=1)")
   .action(async (opts) => dev(opts));
 
 program

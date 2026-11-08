@@ -2,6 +2,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { createServer, type ViteDevServer } from "vite";
+import type { DevServerHandle } from "./devExperimental.js";
 import {
   listRouteFiles,
   listRoutePaths,
@@ -47,6 +48,15 @@ export interface AppDevServerOptions {
   port: number;
   /** Bind every interface instead of loopback only (`devora dev --host`). */
   host?: boolean;
+}
+
+/** Options of `devora dev` that change what runs, not what the apps are. */
+export interface DevCommandOptions {
+  app?: string;
+  host?: boolean;
+  routes?: boolean;
+  /** `--experimental-dev-server` (or DEVORA_EXPERIMENTAL_DEV_SERVER=1): the dev server of Devora's own instead of Vite. */
+  experimentalDevServer?: boolean;
 }
 
 /**
@@ -188,7 +198,7 @@ interface BootedApp {
   authMode: AuthMode;
   appRoot: string;
   apiDir: string | undefined;
-  server: ViteDevServer;
+  server: DevServerHandle;
 }
 
 export interface DevSession {
@@ -204,7 +214,7 @@ export interface DevSession {
  * app.config.ts) can report it and keep watching; servers already booted
  * when a later one fails are closed first.
  */
-export async function startDevSession(root: string, opts: { app?: string; host?: boolean }): Promise<DevSession> {
+export async function startDevSession(root: string, opts: { app?: string; host?: boolean; experimentalDevServer?: boolean }): Promise<DevSession> {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
 
@@ -247,7 +257,7 @@ export async function startDevSession(root: string, opts: { app?: string; host?:
       }
       claimed.add(port);
 
-      const server = await createAppDevServer({
+      const serverOptions: AppDevServerOptions = {
         projectRoot: root,
         app,
         appRoot,
@@ -256,7 +266,11 @@ export async function startDevSession(root: string, opts: { app?: string; host?:
         sessions: project.shared.sessions,
         port,
         host: opts.host,
-      });
+      };
+      // The experimental server is loaded only when asked for, so the default path never imports it.
+      const server: DevServerHandle = opts.experimentalDevServer
+        ? await (await import("./devExperimental.js")).createExperimentalAppDevServer(serverOptions)
+        : await createAppDevServer(serverOptions);
       booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
     }
   } catch (err) {
@@ -272,8 +286,10 @@ function printStartupError(err: unknown): void {
   console.error(isDevoraError(err) ? (err as Error).message : err);
 }
 
-export async function dev(opts: { app?: string; host?: boolean; routes?: boolean }) {
+export async function dev(opts: DevCommandOptions) {
   const root = process.cwd();
+  if (process.env.DEVORA_EXPERIMENTAL_DEV_SERVER === "1") opts = { ...opts, experimentalDevServer: true };
+  if (opts.experimentalDevServer) console.log("[devora] experimental dev server (not Vite): see the roadmap before relying on it");
   const expandRoutes = opts.routes === true || process.env.DEVORA_ROUTES === "all";
 
   let session: DevSession;
@@ -295,7 +311,7 @@ export async function dev(opts: { app?: string; host?: boolean; routes?: boolean
  * a message when a restart cannot help (Prisma), and keeps watching after a
  * failed restart so fixing the file and saving tries again.
  */
-function watchAndRestart(root: string, opts: { app?: string; host?: boolean }, first: DevSession, expandRoutes: boolean): void {
+function watchAndRestart(root: string, opts: DevCommandOptions, first: DevSession, expandRoutes: boolean): void {
   let session: DevSession | undefined = first;
   let targets = first.targets;
   let restarting = false;

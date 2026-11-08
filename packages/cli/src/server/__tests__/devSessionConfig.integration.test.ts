@@ -6,17 +6,16 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
 import type { AppRuntimeConfig, SessionsConfig } from "@devorajs/core";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 let fixture: FixtureProject;
-const servers: ViteDevServer[] = [];
+const servers: DevServerHandle[] = [];
 
 async function boot(appConfig: AppRuntimeConfig, sessions: SessionsConfig, authMode: "shared" | "isolated" = "shared") {
-  const server = await createAppDevServer({
+  const server = await bootDevServer({
     projectRoot: fixture.projectRoot,
     app: { name: "fixture", dir: "app", domain: "app.example.com" },
     appRoot: fixture.appRoot,

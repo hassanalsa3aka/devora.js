@@ -9,18 +9,17 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
 import { createProdRequestHandler } from "@devorajs/core";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, write, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 const HELLO = (from: string) => `
 export const handler = () => ({ status: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: "${from}" }) });
 `;
 
 let fixture: FixtureProject;
-let dev: ViteDevServer;
+let dev: DevServerHandle;
 let devBase: string;
 let prod: http.Server;
 let prodBase: string;
@@ -32,7 +31,7 @@ beforeAll(async () => {
   // The default folder still exists in the fixture — it must NOT be served.
   write(path.join(fixture.appRoot, "api", "hello.ts"), HELLO("api"));
 
-  dev = await createAppDevServer({
+  dev = await bootDevServer({
     projectRoot: fixture.projectRoot,
     app: { name: "fixture", dir: "app", domain: "fixture.example.com" },
     appRoot: fixture.appRoot,

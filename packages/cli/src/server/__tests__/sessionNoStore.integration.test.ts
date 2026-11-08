@@ -8,11 +8,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
 import { createProdRequestHandler, deriveSessionCsrfToken, resolveSessionScope } from "@devorajs/core";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, PAGE_ROUTES, write, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, PAGE_ROUTES, write, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -40,7 +39,7 @@ export const renderStreaming = createRenderStreaming({ createElement, renderToPi
 
 let fixture: FixtureProject;
 let prod: http.Server;
-let dev: ViteDevServer;
+let dev: DevServerHandle;
 const bases: Record<string, string> = {};
 
 beforeAll(async () => {
@@ -90,7 +89,7 @@ export async function handler(_req, ctx) { await ctx.revokeSession(); return { s
   // Dev: the real dev server on the same fixture.
   process.env.NODE_ENV = "development";
   const app = { name: "fixture", dir: "app", domain: "fixture.example.com" };
-  dev = await createAppDevServer({
+  dev = await bootDevServer({
     projectRoot: fixture.projectRoot,
     app,
     appRoot: fixture.appRoot,
