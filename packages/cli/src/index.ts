@@ -66,7 +66,7 @@ const desktop = program
   .command("desktop")
   .description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
 for (const [name, description, action] of [
-  ["dev", "build the app and serve it behind the desktop rules on 127.0.0.1 with a per-launch token", desktopDev],
+  ["dev", "build the app and open it in a window (Tauri 2 shell; needs Rust), or serve it behind the desktop rules on 127.0.0.1 with a per-launch token when the window cannot open", desktopDev],
   ["build", "build the app and write its Tauri 2 project (apps/<app>/desktop/src-tauri)", desktopBuild],
   ["serve", "the sidecar the desktop shell starts (token in DEVORA_DESKTOP_TOKEN, port in PORT)", desktopServe],
 ] as const) {
@@ -75,6 +75,7 @@ for (const [name, description, action] of [
     .description(description)
     .option("--app <name>", "the app to package")
     .option("--experimental", "required: the desktop target is experimental")
+    .option("--no-window", "dev: serve the app behind the desktop rules without opening a window")
     .option("--quiet", QUIET_HELP)
     .action(async (opts) => action(opts));
 }

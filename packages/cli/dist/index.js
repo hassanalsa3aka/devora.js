@@ -5264,8 +5264,8 @@ async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let total = 0;
   let overflowed = false;
-  for await (const chunk of req) {
-    total += chunk.length;
+  for await (const chunk2 of req) {
+    total += chunk2.length;
     if (total > maxBytes) {
       overflowed = true;
       chunks.length = 0;
@@ -5275,7 +5275,7 @@ async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
       }
       continue;
     }
-    chunks.push(chunk);
+    chunks.push(chunk2);
   }
   if (overflowed) throw new PayloadTooLargeError(maxBytes);
   return Buffer.concat(chunks);
@@ -8347,8 +8347,8 @@ function routeCssPlugin(out) {
     generateBundle(_options, bundle) {
       const chunks = /* @__PURE__ */ new Map();
       for (const item of Object.values(bundle)) if (item.type === "chunk") chunks.set(item.fileName, item);
-      for (const chunk of chunks.values()) {
-        if (!chunk.isEntry) continue;
+      for (const chunk2 of chunks.values()) {
+        if (!chunk2.isEntry) continue;
         const css = /* @__PURE__ */ new Set();
         const seen = /* @__PURE__ */ new Set();
         const visit = (fileName) => {
@@ -8360,8 +8360,8 @@ function routeCssPlugin(out) {
           for (const file of meta?.importedCss ?? []) css.add(`/${file}`);
           for (const dep of [...current.imports, ...current.dynamicImports]) visit(dep);
         };
-        visit(chunk.fileName);
-        if (css.size > 0) out[chunk.name] = [...css];
+        visit(chunk2.fileName);
+        if (css.size > 0) out[chunk2.name] = [...css];
       }
     }
   };
@@ -9331,8 +9331,9 @@ async function build3(opts) {
 
 // src/commands/desktop.ts
 init_src();
-import { existsSync as existsSync19, mkdirSync, readFileSync as readFileSync8, writeFileSync } from "node:fs";
-import path31 from "node:path";
+import { spawn as spawn3 } from "node:child_process";
+import { existsSync as existsSync20, mkdirSync, readFileSync as readFileSync8, writeFileSync } from "node:fs";
+import path32 from "node:path";
 
 // ../desktop/src/token.ts
 import { randomBytes as randomBytes4, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
@@ -9459,6 +9460,42 @@ function parseIpcAllowlist(value) {
   return [...names];
 }
 
+// ../desktop/src/icon.ts
+import { deflateSync } from "node:zlib";
+var TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buffer) {
+  let c = 4294967295;
+  for (const byte of buffer) c = TABLE[(c ^ byte) & 255] ^ c >>> 8;
+  return (c ^ 4294967295) >>> 0;
+}
+function chunk(type, data) {
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+function placeholderIconPng(size = 128) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 6;
+  const row = Buffer.alloc(1 + size * 4);
+  for (let x = 0; x < size; x++) row.set([30, 41, 59, 255], 1 + x * 4);
+  const raw = Buffer.concat(Array.from({ length: size }, () => row));
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", header), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
 // ../desktop/src/tauri.ts
 var IDENTIFIER = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+){2,}$/i;
 var DESKTOP_CSP = "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
@@ -9474,7 +9511,8 @@ function generateTauriProject(options) {
     productName: options.productName,
     version: options.version,
     identifier: options.identifier,
-    build: {},
+    // The window shows the server's own origin, never these files; Tauri still wants a folder to embed.
+    build: { frontendDist: "./frontend" },
     app: {
       // The window is created in main.rs once the sidecar's random port is known.
       windows: [],
@@ -9486,7 +9524,7 @@ function generateTauriProject(options) {
         capabilities: ["main"]
       }
     },
-    bundle: { active: true, externalBin: [sidecar] },
+    bundle: { active: true, icon: ["icons/icon.png"], externalBin: [sidecar] },
     plugins: options.updaterPublicKey && options.updaterEndpoint ? { updater: { pubkey: options.updaterPublicKey, endpoints: [options.updaterEndpoint] } } : {}
   };
   const capability = {
@@ -9502,8 +9540,13 @@ function generateTauriProject(options) {
     "capabilities/main.json": JSON.stringify(capability, null, 2) + "\n",
     "src/main.rs": mainRs(sidecar),
     "Cargo.toml": cargoToml(options),
-    "build.rs": "fn main() {\n    tauri_build::build()\n}\n"
+    "build.rs": "fn main() {\n    tauri_build::build()\n}\n",
+    "frontend/index.html": '<!doctype html><meta charset="utf-8"><title>devora</title><p>Starting the app server\u2026</p>\n',
+    ".gitignore": "target/\ngen/\n"
   };
+}
+function generateTauriBinaryFiles() {
+  return { "icons/icon.png": placeholderIconPng(128) };
 }
 function cargoToml(options) {
   const crate = options.productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "devora-app";
@@ -9517,27 +9560,60 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 rand = "0.8"
 base64 = "0.22"
-url = "2"
 `;
 }
+var HARDEN_SCRIPT = `(function () {
+  window.open = function () { return null; };
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a[target]") : null;
+    if (a && a.target !== "_self") { e.preventDefault(); if (a.origin === location.origin) location.assign(a.href); }
+  }, true);
+  document.addEventListener("submit", function (e) {
+    if (e.target && e.target.target && e.target.target !== "_self") e.target.target = "_self";
+  }, true);
+})();`;
 function mainRs(sidecar) {
   const binary = sidecar.split("/").pop();
-  return `// Generated by devora desktop. Template: review it, then build it on your machine (see MANUAL-CHECK.md).
-// The shell starts the app's server as a sidecar on 127.0.0.1 with a random port and a per-launch token,
-// opens one window on that origin and refuses every other navigation. That window.open() is refused too must be
-// checked by hand on each OS (MANUAL-CHECK.md); add an on_new_window handler if your Tauri version offers one.
+  return `// Generated by devora desktop. Review it before shipping; what the window does is a manual check
+// (examples/desktop-app/README.md).
+//
+// The shell asks the OS for a free port on 127.0.0.1, makes a per-launch token, starts the app's server on that port with
+// the token in its environment (never on its command line), waits until the server answers, and opens ONE window on that
+// origin. Navigation to any other origin is refused. No command is exposed to the page (see capabilities/main.json).
+// Closing the window stops the server; the server also stops by itself if this process disappears.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use base64::Engine;
 use rand::RngCore;
-use std::net::TcpListener;
-use tauri::{WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_shell::ShellExt;
+use std::error::Error;
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+
+/// The running server process. Dropped (and killed) when the app state goes away, and killed on exit.
+struct Server(Mutex<Option<Child>>);
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
 
 fn free_loopback_port() -> u16 {
+    // Debug builds only: DEVORA_DESKTOP_PORT pins the port while you debug. A release build always asks the OS.
+    #[cfg(debug_assertions)]
+    if let Some(port) = std::env::var("DEVORA_DESKTOP_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        return port;
+    }
     TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()).map(|a| a.port()).expect("no free port")
 }
 
@@ -9547,35 +9623,183 @@ fn launch_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
+/// Debug builds (devora desktop dev): run the CLI's own server command, handed over in the environment.
+#[cfg(debug_assertions)]
+fn server_command() -> Result<Command, Box<dyn Error>> {
+    let node = std::env::var("DEVORA_DESKTOP_NODE")?;
+    let argv = std::env::var("DEVORA_DESKTOP_SERVER_ARGV")?;
+    let root = std::env::var("DEVORA_DESKTOP_ROOT")?;
+    let mut command = Command::new(node);
+    command.args(argv.split('\\n').filter(|a| !a.is_empty())).current_dir(root);
+    Ok(command)
+}
+
+/// Release builds: the bundled server binary (${binary}, Tauri's externalBin) next to this executable.
+#[cfg(not(debug_assertions))]
+fn server_command() -> Result<Command, Box<dyn Error>> {
+    let exe = std::env::current_exe()?;
+    let dir = exe.parent().ok_or("the executable has no folder")?;
+    Ok(Command::new(dir.join("${binary}")))
+}
+
+fn spawn_server(port: u16, token: &str) -> Result<Child, Box<dyn Error>> {
+    let mut command = server_command()?;
+    command
+        .env("HOST", "127.0.0.1")
+        .env("PORT", port.to_string())
+        .env("NODE_ENV", "production")
+        .env("DEVORA_DESKTOP_TOKEN", token)
+        .env("DEVORA_DESKTOP_PARENT_PID", std::process::id().to_string())
+        .stdin(Stdio::null());
+    Ok(command.spawn()?)
+}
+
+/// Waits until the server accepts a connection; fails (so no window opens) if it exits first or takes over 60 s.
+fn wait_for_server(port: u16, child: &mut Child) -> Result<(), Box<dyn Error>> {
+    let address: SocketAddr = format!("127.0.0.1:{port}").parse()?;
+    let started = Instant::now();
+    loop {
+        if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
+            return Ok(());
+        }
+        if let Some(status) = child.try_wait()? {
+            return Err(format!("the app server exited before it was ready ({status})").into());
+        }
+        if started.elapsed() > Duration::from_secs(60) {
+            return Err("the app server did not answer within 60 seconds".into());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn stop_server(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<Server>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
+
+const HARDEN: &str = r#"${HARDEN_SCRIPT}"#;
+
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let port = free_loopback_port();
             let token = launch_token();
+            let mut child = spawn_server(port, &token)?;
+            if let Err(error) = wait_for_server(port, &mut child) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+            app.manage(Server(Mutex::new(Some(child))));
             let origin = format!("http://127.0.0.1:{port}");
-            // The token goes to the server through the environment, never on its command line.
-            let (_rx, _child) = app
-                .shell()
-                .sidecar("${binary}")?
-                .env("HOST", "127.0.0.1")
-                .env("PORT", port.to_string())
-                .env("NODE_ENV", "production")
-                .env("DEVORA_DESKTOP_TOKEN", &token)
-                .spawn()?;
-            // TODO(manual check): wait until the server answers before opening the window.
-            let launch = format!("{origin}/__devora_desktop/launch?token={token}");
-            let allowed = url::Url::parse(&origin)?.origin();
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch.parse()?))
+            let launch: tauri::Url = format!("{origin}/__devora_desktop/launch?token={token}").parse()?;
+            let allowed = tauri::Url::parse(&origin)?.origin();
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch))
                 .title(app.package_info().name.clone())
+                .inner_size(1100.0, 760.0)
+                .initialization_script(HARDEN)
+                // Any URL whose origin is not the server's own is refused: no other site is ever shown in this window.
                 .on_navigation(move |url| url.origin() == allowed)
                 .build()?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the desktop app");
+        .build(tauri::generate_context!())
+        .expect("error while building the desktop app")
+        .run(|app, event| {
+            if let RunEvent::Exit = event {
+                stop_server(app);
+            }
+        });
 }
 `;
+}
+
+// ../desktop/src/prereqs.ts
+import { existsSync as existsSync19 } from "node:fs";
+import os2 from "node:os";
+import path31 from "node:path";
+import { spawnSync as spawnSync2 } from "node:child_process";
+var systemRunner = (command, args) => {
+  const result = spawnSync2(command, args, { encoding: "utf8", timeout: 15e3 });
+  return { ok: result.status === 0 && !result.error, output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim() };
+};
+var RUSTUP = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh";
+function checkDesktopPrerequisites(run = systemRunner, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const home = options.home ?? os2.homedir();
+  const items = [];
+  if (platform === "darwin") {
+    const xcode = run("xcode-select", ["-p"]);
+    items.push({ name: "Xcode command line tools", ok: xcode.ok, detail: xcode.ok ? xcode.output : "xcode-select -p found no developer folder", fix: "xcode-select --install" });
+  } else if (platform === "linux") {
+    const webkit = run("pkg-config", ["--exists", "webkit2gtk-4.1"]);
+    items.push({
+      name: "WebKitGTK 4.1 (the web view)",
+      ok: webkit.ok,
+      detail: webkit.ok ? "webkit2gtk-4.1 found" : "pkg-config did not find webkit2gtk-4.1",
+      fix: "install your distribution's WebKitGTK 4.1 development package (Debian/Ubuntu: sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev)"
+    });
+  } else {
+    items.push({ name: "Windows build tools and WebView2", ok: true, detail: "not checked by devora: install the Visual Studio C++ Build Tools (WebView2 ships with Windows 11)" });
+  }
+  for (const tool of ["rustc", "cargo"]) {
+    const direct = run(tool, ["--version"]);
+    if (direct.ok) {
+      items.push({ name: tool, ok: true, detail: direct.output });
+      continue;
+    }
+    const inHome = path31.join(home, ".cargo", "bin", tool);
+    if (existsSync19(inHome)) {
+      items.push({ name: tool, ok: false, detail: `${inHome} exists but ${tool} is not on PATH in this terminal`, fix: `source "$HOME/.cargo/env"   # or open a new terminal` });
+    } else {
+      items.push({ name: tool, ok: false, detail: `${tool} was not found`, fix: RUSTUP });
+    }
+  }
+  if (options.forBuild) {
+    const tauri = run("cargo", ["tauri", "--version"]);
+    items.push({ name: "Tauri CLI (only `desktop build` needs it)", ok: tauri.ok, detail: tauri.ok ? tauri.output : "cargo tauri was not found", fix: 'cargo install tauri-cli --version "^2" --locked' });
+  }
+  return { ready: items.every((i) => i.ok), items };
+}
+function describeMissing(report) {
+  const lines = [];
+  for (const item of report.items.filter((i) => !i.ok)) {
+    lines.push(`  missing: ${item.name} (${item.detail})`);
+    if (item.fix) lines.push(`    run: ${item.fix}`);
+  }
+  return lines;
+}
+
+// ../desktop/src/parent.ts
+var DESKTOP_PARENT_PID_ENV = "DEVORA_DESKTOP_PARENT_PID";
+function isProcessAlive(pid, kill = process.kill) {
+  try {
+    kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+function parseParentPid(value) {
+  if (value === void 0 || !/^\d{1,10}$/.test(value)) return void 0;
+  const pid = Number(value);
+  return pid > 1 ? pid : void 0;
+}
+function watchParent(pid, onGone, intervalMs = 1e3, alive = isProcessAlive) {
+  const timer = setInterval(() => {
+    if (!alive(pid)) {
+      clearInterval(timer);
+      onGone();
+    }
+  }, intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
 }
 
 // src/commands/desktop.ts
@@ -9595,8 +9819,8 @@ async function resolveApp(opts) {
   return { root, project, app, appRoot };
 }
 function readSettings(appRoot, appName) {
-  const file = path31.join(appRoot, "desktop.json");
-  const raw = existsSync19(file) ? JSON.parse(readFileSync8(file, "utf8")) : {};
+  const file = path32.join(appRoot, "desktop.json");
+  const raw = existsSync20(file) ? JSON.parse(readFileSync8(file, "utf8")) : {};
   return {
     productName: typeof raw.productName === "string" ? raw.productName : appName,
     identifier: typeof raw.identifier === "string" ? raw.identifier : `com.example.${appName.replace(/_/g, "-")}`,
@@ -9648,39 +9872,103 @@ async function desktopServe(opts) {
   if (process.env.PORT && port === void 0) process.exit(1);
   const server = await serveBuiltApp(opts, token, port);
   console.log(`[devora desktop] serving on ${server.origin} (token required)`);
+  const parent = parseParentPid(process.env[DESKTOP_PARENT_PID_ENV]);
+  if (parent !== void 0) {
+    watchParent(parent, () => {
+      console.log("[devora desktop] the window's process is gone: stopping");
+      void server.close().finally(() => process.exit(0));
+    });
+  }
 }
 async function desktopDev(opts) {
   printHeader("desktop dev \xB7 experimental");
-  const { app } = await resolveApp(opts);
+  const { app, appRoot, root } = await resolveApp(opts);
   await build3({ app: app.name });
+  if (opts.window === false) {
+    console.log("[devora desktop] --no-window: serving the app on its own, no window.");
+  } else {
+    const report = checkDesktopPrerequisites();
+    if (report.ready) return openWindow(app.name, appRoot, root);
+    console.log("[devora desktop] NO WINDOW WILL OPEN: this machine is missing what the window needs:");
+    for (const line of describeMissing(report)) console.log(line);
+    console.log("[devora desktop] after installing it, run this command again. Until then the app is served on its own (server-only mode):");
+  }
   const token = generateLaunchToken();
-  const server = await serveBuiltApp(opts, token, void 0);
+  const pinned = process.env.PORT ? parsePort(process.env.PORT, "PORT") : void 0;
+  if (process.env.PORT && pinned === void 0) process.exit(1);
+  const server = await serveBuiltApp(opts, token, pinned);
   console.log(`[devora desktop] "${app.name}" is served on ${server.origin} behind the desktop rules (127.0.0.1 only, per-launch token).`);
   console.log(`[devora desktop] open this once in a browser on this machine to check the app as the window will show it:`);
   console.log(`  ${server.origin}${DESKTOP_LAUNCH_PATH}?token=${token}`);
   console.log(`[devora desktop] the token changes every launch; without it every request gets a 403.`);
+}
+function writeTauriProject(appRoot, settings, version) {
+  const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
+  const out = path32.join(appRoot, "desktop", "src-tauri");
+  for (const [name, content] of Object.entries(files)) {
+    const file = path32.join(out, name);
+    mkdirSync(path32.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  }
+  for (const [name, content] of Object.entries(generateTauriBinaryFiles())) {
+    const file = path32.join(out, name);
+    if (existsSync20(file)) continue;
+    mkdirSync(path32.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  }
+  return out;
+}
+function appVersion(appRoot) {
+  try {
+    return JSON.parse(readFileSync8(path32.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
+  } catch {
+    return "0.1.0";
+  }
+}
+async function openWindow(appName, appRoot, root) {
+  const settings = readSettings(appRoot, appName);
+  const out = writeTauriProject(appRoot, settings, appVersion(appRoot));
+  const entry = process.argv[1] ? path32.resolve(process.argv[1]) : void 0;
+  if (!entry) fail("cannot tell which script started this command, so the window cannot start the server");
+  const serverArgv = [...process.execArgv, entry, "desktop", "serve", "--experimental", "--app", appName];
+  console.log(`[devora desktop] opening a window for "${appName}": cargo run in ${path32.relative(root, out)}`);
+  console.log("[devora desktop] the first run downloads and compiles the Tauri crates: several minutes. Later runs start in seconds.");
+  const child = spawn3("cargo", ["run", "--manifest-path", path32.join(out, "Cargo.toml")], {
+    cwd: out,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      DEVORA_DESKTOP_NODE: process.execPath,
+      DEVORA_DESKTOP_SERVER_ARGV: serverArgv.join("\n"),
+      DEVORA_DESKTOP_ROOT: root,
+      // PORT, when set, pins the shell's port too (debug builds only honour it).
+      ...process.env.PORT ? { DEVORA_DESKTOP_PORT: process.env.PORT } : {}
+    }
+  });
+  const forward = (signal) => () => {
+    child.kill(signal);
+  };
+  process.once("SIGINT", forward("SIGINT"));
+  process.once("SIGTERM", forward("SIGTERM"));
+  child.on("error", (error) => fail(`could not run cargo: ${error.message}`));
+  child.on("exit", (code, signal) => {
+    console.log(`[devora desktop] the window closed${code ? ` (cargo exited with ${code})` : ""}${signal ? ` (${signal})` : ""}`);
+    process.exit(code ?? (signal ? 130 : 1));
+  });
 }
 async function desktopBuild(opts) {
   printHeader("desktop build \xB7 experimental");
   const { app, appRoot } = await resolveApp(opts);
   const settings = readSettings(appRoot, app.name);
   await build3({ app: app.name });
-  const version = (() => {
-    try {
-      return JSON.parse(readFileSync8(path31.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
-    } catch {
-      return "0.1.0";
-    }
-  })();
-  const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
-  const out = path31.join(appRoot, "desktop", "src-tauri");
-  for (const [name, content] of Object.entries(files)) {
-    const file = path31.join(out, name);
-    mkdirSync(path31.dirname(file), { recursive: true });
-    writeFileSync(file, content);
+  const out = writeTauriProject(appRoot, settings, appVersion(appRoot));
+  console.log(`[devora desktop] wrote ${path32.relative(process.cwd(), out)} (IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
+  const report = checkDesktopPrerequisites(void 0, { forBuild: true });
+  if (!report.ready) {
+    console.log("[devora desktop] this machine cannot bundle it yet:");
+    for (const line of describeMissing(report)) console.log(line);
   }
-  console.log(`[devora desktop] wrote ${path31.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
-  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder");
+  console.log("[devora desktop] bundling also needs the server as a binary next to the app (packaging is not decided yet; see ROADMAP.md): `devora desktop dev` is the supported way to see the window.");
 }
 
 // src/commands/start.ts
@@ -9896,17 +10184,17 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path32 from "node:path";
-import { existsSync as existsSync20 } from "node:fs";
+import path33 from "node:path";
+import { existsSync as existsSync21 } from "node:fs";
 import { writeFile as writeFile6, readFile as readFile8 } from "node:fs/promises";
 async function detectScaffoldContext(root) {
-  if (existsSync20(path32.join(root, "packages", "cli", "dist", "index.js"))) {
+  if (existsSync21(path33.join(root, "packages", "cli", "dist", "index.js"))) {
     return { cliInvocation: "monorepo", coreVersion: "*" };
   }
   let coreVersion = "*";
   let cliVersion;
-  const rootPkgPath = path32.join(root, "package.json");
-  if (existsSync20(rootPkgPath)) {
+  const rootPkgPath = path33.join(root, "package.json");
+  if (existsSync21(rootPkgPath)) {
     try {
       const rootPkg = JSON.parse(await readFile8(rootPkgPath, "utf-8"));
       coreVersion = rootPkg.dependencies?.["@devorajs/core"] ?? rootPkg.devDependencies?.["@devorajs/core"] ?? coreVersion;
@@ -9923,8 +10211,8 @@ async function scaffoldApp(appName, opts) {
     console.error(`[devora] ${nameProblem}`);
     process.exit(1);
   }
-  const appDir = path32.join(root, "apps", appName);
-  if (existsSync20(appDir)) {
+  const appDir = path33.join(root, "apps", appName);
+  if (existsSync21(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
@@ -9942,11 +10230,11 @@ async function scaffoldApp(appName, opts) {
     cliVersion: context.cliVersion,
     // A create-devora "frontend only" project has no packages/backend —
     // depending on @devorajs/backend there would break every install.
-    withBackend: existsSync20(path32.join(root, "packages", "backend", "package.json")),
+    withBackend: existsSync21(path33.join(root, "packages", "backend", "package.json")),
     kind
   });
-  const configPath = path32.join(root, "devora.config.ts");
-  if (existsSync20(configPath)) {
+  const configPath = path33.join(root, "devora.config.ts");
+  if (existsSync21(configPath)) {
     const original = await readFile8(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
     const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
@@ -9969,7 +10257,7 @@ ${insertion}`);
 }
 var newApp = scaffoldApp;
 async function defaultAppKind(root) {
-  if (!existsSync20(path32.join(root, "devora.config.ts"))) return "pages";
+  if (!existsSync21(path33.join(root, "devora.config.ts"))) return "pages";
   try {
     const project = await loadProjectConfig(root);
     const configs = await Promise.all(project.apps.map((a) => loadAppConfig(resolveAppDir(root, a.dir)).catch(() => ({}))));
@@ -9980,15 +10268,15 @@ async function defaultAppKind(root) {
 }
 
 // src/commands/remove.ts
-import path33 from "node:path";
-import { existsSync as existsSync21 } from "node:fs";
+import path34 from "node:path";
+import { existsSync as existsSync22 } from "node:fs";
 import { readFile as readFile9, writeFile as writeFile7, rm as rm3 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path33.join(root, "apps", appName);
-  const configPath = path33.join(root, "devora.config.ts");
+  const appDir = path34.join(root, "apps", appName);
+  const configPath = path34.join(root, "devora.config.ts");
   let removedFromConfig = false;
-  if (existsSync21(configPath)) {
+  if (existsSync22(configPath)) {
     const original = await readFile9(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
@@ -9997,7 +10285,7 @@ async function removeApp(appName) {
       removedFromConfig = true;
     }
   }
-  const dirExisted = existsSync21(appDir);
+  const dirExisted = existsSync22(appDir);
   if (dirExisted) {
     await rm3(appDir, { recursive: true, force: true });
   }
@@ -10034,7 +10322,7 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path34 from "node:path";
+import path35 from "node:path";
 import { writeFile as writeFile8 } from "node:fs/promises";
 var VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 function assertValidDomain(app) {
@@ -10090,23 +10378,23 @@ async function generateProxy(opts) {
     return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path34.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  const outPath = opts.out ?? path35.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
   await writeFile8(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }
 
 // src/commands/split.ts
-import path37 from "node:path";
-import { existsSync as existsSync22 } from "node:fs";
+import path38 from "node:path";
+import { existsSync as existsSync23 } from "node:fs";
 import { rm as rm4 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
-import path36 from "node:path";
+import path37 from "node:path";
 
 // src/build/gitHelpers.ts
 import { execFileSync } from "node:child_process";
-import path35 from "node:path";
+import path36 from "node:path";
 function git(args, cwd) {
   try {
     const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
@@ -10134,10 +10422,10 @@ function listSubmodules(repoRoot) {
   const entries = [];
   for (const line of result.stdout.trim().split("\n")) {
     const [key, ...rest] = line.split(" ");
-    const path40 = rest.join(" ");
+    const path41 = rest.join(" ");
     const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
     const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
-    entries.push({ name, path: path40, url: urlResult.stdout.trim() });
+    entries.push({ name, path: path41, url: urlResult.stdout.trim() });
   }
   return entries;
 }
@@ -10148,9 +10436,9 @@ function revListCounts(cwd, theirRef, ourRef = "HEAD") {
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
 }
 function assertInsideRoot(root, targetPath, label) {
-  const resolvedRoot = path35.resolve(root);
-  const resolvedTarget = path35.resolve(targetPath);
-  if (!resolvedTarget.startsWith(resolvedRoot + path35.sep)) {
+  const resolvedRoot = path36.resolve(root);
+  const resolvedTarget = path36.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path36.sep)) {
     throw new Error(
       `[devora] refusing to operate on "${label}" \u2014 it resolves to "${resolvedTarget}", outside the project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
     );
@@ -10167,7 +10455,7 @@ function resolveSplitTarget(root, project, name) {
     if (!project.shared.backend) {
       throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
     }
-    const target2 = path36.join(root, project.shared.backend);
+    const target2 = path37.join(root, project.shared.backend);
     assertInsideRoot(root, target2, "shared.backend");
     return target2;
   }
@@ -10175,15 +10463,15 @@ function resolveSplitTarget(root, project, name) {
   if (!app) {
     throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
   }
-  const target = path36.join(root, app.dir);
+  const target = path37.join(root, app.dir);
   assertInsideRoot(root, target, `apps.${name}.dir`);
   return target;
 }
 function nameForSplitTarget(root, project, relativePath) {
-  if (project.shared.backend && path36.normalize(project.shared.backend) === path36.normalize(relativePath)) {
+  if (project.shared.backend && path37.normalize(project.shared.backend) === path37.normalize(relativePath)) {
     return "backend";
   }
-  const app = project.apps.find((a) => path36.normalize(a.dir) === path36.normalize(relativePath));
+  const app = project.apps.find((a) => path37.normalize(a.dir) === path37.normalize(relativePath));
   return app?.name ?? relativePath;
 }
 
@@ -10213,8 +10501,8 @@ async function split(name, opts) {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const targetPath = resolveSplitTarget(root, project, name);
-  const relPath = path37.relative(root, targetPath);
-  if (!existsSync22(targetPath)) {
+  const relPath = path38.relative(root, targetPath);
+  if (!existsSync23(targetPath)) {
     console.error(`[devora] ${relPath} doesn't exist`);
     process.exit(1);
   }
@@ -10273,7 +10561,7 @@ Your real content (with its real history) is safely pushed to ${opts.repo} \u201
 }
 
 // src/commands/sync.ts
-import path38 from "node:path";
+import path39 from "node:path";
 async function sync(names, opts) {
   if (opts.fromMain === opts.toMain) {
     console.error(`[devora] specify exactly one of --from-main or --to-main.`);
@@ -10286,7 +10574,7 @@ async function sync(names, opts) {
   if (opts.all) {
     targets = [];
     for (const s of listSubmodules(root)) {
-      const targetPath = path38.join(root, s.path);
+      const targetPath = path39.join(root, s.path);
       try {
         assertInsideRoot(root, targetPath, s.path);
         targets.push({ name: s.path, path: targetPath });
@@ -10304,7 +10592,7 @@ async function sync(names, opts) {
     return;
   }
   for (const target of targets) {
-    const relPath = path38.relative(root, target.path);
+    const relPath = path39.relative(root, target.path);
     console.log(`
 [devora] ${relPath}:`);
     const fetch = git(["fetch", "origin"], target.path);
@@ -10380,7 +10668,7 @@ async function syncToMain(targetPath, relPath, opts) {
 }
 
 // src/commands/status.ts
-import path39 from "node:path";
+import path40 from "node:path";
 async function status() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -10392,7 +10680,7 @@ async function status() {
   console.log(`[devora] sync status:
 `);
   for (const sub of submodules) {
-    const targetPath = path39.join(root, sub.path);
+    const targetPath = path40.join(root, sub.path);
     try {
       assertInsideRoot(root, targetPath, sub.path);
     } catch (err) {
@@ -10448,11 +10736,11 @@ program.command("build").description("Build all apps (or one with --app)").optio
 program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
 var desktop = program.command("desktop").description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
 for (const [name, description, action] of [
-  ["dev", "build the app and serve it behind the desktop rules on 127.0.0.1 with a per-launch token", desktopDev],
+  ["dev", "build the app and open it in a window (Tauri 2 shell; needs Rust), or serve it behind the desktop rules on 127.0.0.1 with a per-launch token when the window cannot open", desktopDev],
   ["build", "build the app and write its Tauri 2 project (apps/<app>/desktop/src-tauri)", desktopBuild],
   ["serve", "the sidecar the desktop shell starts (token in DEVORA_DESKTOP_TOKEN, port in PORT)", desktopServe]
 ]) {
-  desktop.command(name).description(description).option("--app <name>", "the app to package").option("--experimental", "required: the desktop target is experimental").option("--quiet", QUIET_HELP).action(async (opts) => action(opts));
+  desktop.command(name).description(description).option("--app <name>", "the app to package").option("--experimental", "required: the desktop target is experimental").option("--no-window", "dev: serve the app behind the desktop rules without opening a window").option("--quiet", QUIET_HELP).action(async (opts) => action(opts));
 }
 program.command("deploy").description(
   "Build and deploy to Vercel or Netlify (all apps, or one with --app) \u2014 each app must already be linked (`vercel link` / `netlify link`) to its own project/site"
