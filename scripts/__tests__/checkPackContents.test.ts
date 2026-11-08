@@ -26,9 +26,10 @@ describe("checkPackList", () => {
       "debug.log",
       "dist/.DS_Store",
       "node_modules/x/index.js",
+      "work-notes/FINAL-REPORT.md",
     ];
     const problems: string[] = checkPackList({ ...base, packed });
-    for (const needle of ["notes.txt", ".env", "dist/.env.local", "server.pem", "__tests__/a.test.js", "dist/a.test.js", "src/index.ts", "tsconfig.json", "build.mjs", "pnpm-lock.yaml", "debug.log", ".DS_Store", "node_modules/x"]) {
+    for (const needle of ["notes.txt", ".env", "dist/.env.local", "server.pem", "__tests__/a.test.js", "dist/a.test.js", "src/index.ts", "tsconfig.json", "build.mjs", "pnpm-lock.yaml", "debug.log", ".DS_Store", "node_modules/x", "work-notes/FINAL-REPORT.md"]) {
       expect(problems.some((p) => p.includes(needle)), needle).toBe(true);
     }
   });

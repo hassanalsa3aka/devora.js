@@ -31,7 +31,8 @@ import { createElement } from "react";
 import { redirect } from "@devorajs/core";
 export const renderMode = "ssr";
 export async function action(formData, ctx) { return redirect("/saved"); }
-export default function Settings() { return createElement("p", null, "settings"); }`;
+// Renders the token the way CsrfField does: a signed-in browser gets the one bound to its session (H30).
+export default function Settings({ csrfToken }) { return createElement("form", { method: "post" }, createElement("input", { type: "hidden", name: "_csrf", value: csrfToken ?? "" }), createElement("p", null, "settings")); }`;
 const OPTED_OUT_PAGE = SETTINGS_PAGE.replace('export const renderMode = "ssr";', 'export const renderMode = "ssr";\nexport const csrf = false;');
 const BUILT_ENTRY_SERVER = `
 import { createElement } from "react";
@@ -85,7 +86,12 @@ async function cookieLogin(): Promise<{ cookie: string; token: string }> {
   const res = await fetch(`${base}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   const pick = (name: string) => res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`))!.split(";")[0]!;
   const csrf = pick("devora_csrf");
-  return { cookie: `${pick("devora_session")}; ${csrf}`, token: csrf.slice("devora_csrf=".length) };
+  const cookie = `${pick("devora_session")}; ${csrf}`;
+  // The token a signed-in page receives is bound to the session (H30), so it comes from a rendered page, not the cookie.
+  const html = await (await fetch(`${base}/settings`, { headers: { cookie } })).text();
+  const token = /name="_csrf" value="([^"]+)"/.exec(html)?.[1];
+  if (!token) throw new Error("the settings page did not render a CSRF token");
+  return { cookie, token };
 }
 
 describe("API routes", () => {

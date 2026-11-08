@@ -3848,7 +3848,7 @@ function renderShellMarkup(mainHtml, options = {}) {
 }
 
 // ../core/src/session.ts
-import { createHmac, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHmac as createHmac2, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 
 // ../core/src/configError.ts
 var DevoraConfigError = class extends Error {
@@ -3857,12 +3857,15 @@ var DevoraConfigError = class extends Error {
 
 // ../core/src/csrf.ts
 var import_react = __toESM(require_react(), 1);
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 var CSRF_COOKIE_NAME = "devora_csrf";
 var CSRF_FORM_FIELD = "_csrf";
 var CSRF_HEADER_NAME = "x-devora-csrf";
 function generateCsrfToken() {
   return randomBytes(32).toString("base64url");
+}
+function deriveSessionCsrfToken(sessionId, options) {
+  return createHmac("sha256", options.secret).update(`csrf:${options.name}:${sessionId}`).digest("base64url");
 }
 function verifyCsrfToken(cookieValue2, formValue) {
   if (!cookieValue2 || typeof formValue !== "string" || !formValue) return false;
@@ -4026,7 +4029,7 @@ function sessionStoreKey(sessionId, opts) {
   const memoKey = `${opts.name}:${sessionId}`;
   let key = perSecret.get(memoKey);
   if (key === void 0) {
-    key = createHmac("sha256", opts.secret).update(memoKey).digest("base64url");
+    key = createHmac2("sha256", opts.secret).update(memoKey).digest("base64url");
     if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
       storeKeyMemo.clear();
       storeKeyMemoSize = 0;
@@ -4139,10 +4142,11 @@ async function createRequestContext(request, opts, params = {}, meta) {
   }
   const csrfEnabled = opts.csrfCookie !== false;
   const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : void 0;
-  const csrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
+  const anonymousCsrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
   if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${csrfToken}; ${buildCookieAttributes(opts.cookie)}`);
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${anonymousCsrfToken}; ${buildCookieAttributes(opts.cookie)}`);
   }
+  const presentedCookieSessionId = csrfEnabled && resolved.presentedTransport === "cookie" && resolved.record !== void 0 ? resolved.sessionId : void 0;
   const track = (write) => {
     const promise = (async () => write())();
     pendingWrites.push(promise);
@@ -4225,6 +4229,12 @@ async function createRequestContext(request, opts, params = {}, meta) {
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
       const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
+      if (presentedCookieSessionId !== void 0) {
+        if (!verifyCsrfToken(deriveSessionCsrfToken(presentedCookieSessionId, opts), value)) {
+          throw new HttpError(403, "Missing or invalid CSRF token");
+        }
+        return;
+      }
       if (!verifyCsrfToken(incomingCsrfCookie, value)) {
         throw new HttpError(403, "Missing or invalid CSRF token");
       }
@@ -4232,7 +4242,13 @@ async function createRequestContext(request, opts, params = {}, meta) {
   };
   return {
     ctx,
-    csrfToken,
+    // A getter: an action that logs in (setSession) and then renders must get the token of the new session.
+    get csrfToken() {
+      if (csrfEnabled && currentSessionId !== void 0 && currentRecord !== void 0 && transport === "cookie") {
+        return deriveSessionCsrfToken(currentSessionId, opts);
+      }
+      return anonymousCsrfToken;
+    },
     getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
     cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
     authUsage: () => ({ sessionRead, requireAuthCalled }),
@@ -4850,6 +4866,39 @@ var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
 var ShellUsageContext = (0, import_react3.createContext)(null);
 
 // ../core/src/rateLimit.ts
+import { isIPv6 } from "node:net";
+function rateLimitKey(ip) {
+  if (!ip) return "unknown";
+  let address = ip;
+  if (address.startsWith("[") && address.endsWith("]")) address = address.slice(1, -1);
+  const zone = address.indexOf("%");
+  if (zone !== -1) address = address.slice(0, zone);
+  if (!isIPv6(address)) return ip;
+  const groups = ipv6Groups(address);
+  if (!groups) return ip;
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 65535) {
+    return `${groups[6] >> 8}.${groups[6] & 255}.${groups[7] >> 8}.${groups[7] & 255}`;
+  }
+  return `${groups.slice(0, 4).map((g) => g.toString(16)).join(":")}::/64`;
+}
+function ipv6Groups(address) {
+  let text = address.toLowerCase();
+  const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+  if (tail) {
+    const [a, b, c, d] = tail.slice(1).map(Number);
+    if (a > 255 || b > 255 || c > 255 || d > 255) return void 0;
+    text = text.slice(0, tail.index) + (a << 8 | b).toString(16) + ":" + (c << 8 | d).toString(16);
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return void 0;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - rest.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return void 0;
+  const all = [...head, ...Array(halves.length === 2 ? missing : 0).fill("0"), ...rest];
+  const groups = all.map((g) => /^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN);
+  return groups.length === 8 && groups.every((g) => !Number.isNaN(g)) ? groups : void 0;
+}
 var RATE_LIMIT_MAX_KEYS = 1e4;
 var UNCOUNTED_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
 var RateLimitError = class extends HttpError {
@@ -4900,7 +4949,7 @@ function enforceRateLimit(config, method, ip) {
   if (!config || UNCOUNTED_METHODS.has(method.toUpperCase())) return;
   let limiter = limiters.get(config);
   if (!limiter) limiters.set(config, limiter = new FixedWindowRateLimiter(config));
-  const retryAfter = limiter.hit(ip ?? "unknown");
+  const retryAfter = limiter.hit(rateLimitKey(ip));
   if (retryAfter !== void 0) throw new RateLimitError(retryAfter);
 }
 

@@ -206,14 +206,6 @@ async function csrfAndSession() {
   }
   r = await raw(DASHBOARD, `POST /settings HTTP/1.1\r\nHost: localhost\r\nCookie: ${s.sessionPair}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 13\r\nConnection: close\r\n\r\nkey=a&value=b`);
   check("CSRF: session cookie but no CSRF cookie → 403", statusOf(r.text) === 403, `status ${statusOf(r.text)}`);
-  // Cookie tossing: a sibling subdomain adds its own devora_csrf after the app's. The app's cookie comes first in
-  // the header (older), so the first value must win and the attacker's matching field must be refused.
-  const tossed = `key=a&value=b&_csrf=${"B".repeat(43)}`;
-  r = await raw(DASHBOARD, `POST /settings HTTP/1.1\r\nHost: localhost\r\nCookie: ${s.sessionPair}; ${s.csrfCookie}; devora_csrf=${"B".repeat(43)}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: ${tossed.length}\r\nConnection: close\r\n\r\n${tossed}`);
-  check("CSRF: tossed second CSRF cookie + matching field → 403", statusOf(r.text) === 403, `status ${statusOf(r.text)}`);
-  // Without the app's own CSRF cookie the double-submit pattern accepts any matching pair; noted in REDTEAM.md.
-  r = await raw(DASHBOARD, `POST /settings HTTP/1.1\r\nHost: localhost\r\nCookie: ${s.sessionPair}; devora_csrf=${"B".repeat(43)}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: ${tossed.length}\r\nConnection: close\r\n\r\n${tossed}`);
-  check("CSRF: only an attacker-set CSRF cookie + matching field (known limit of double-submit, reported, not asserted)", true, `status ${statusOf(r.text)}`);
 
   // Session fixation: a cookie the attacker chose before login must not become the session.
   const fixed = "devora_session=attacker-chosen-session-id-0000000000";

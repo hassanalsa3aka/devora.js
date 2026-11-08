@@ -12,7 +12,10 @@ import type { ViteDevServer } from "vite";
 import { createAppDevServer } from "../../commands/dev.js";
 import { findFreePort } from "../devNetwork.js";
 import { createFixtureProject, setCookieValue, write, type FixtureProject } from "./fixtureApp.js";
-import { SVG_CSP, type SessionsConfig } from "@devorajs/core";
+import { SVG_CSP, deriveSessionCsrfToken, resolveSessionScope, type SessionsConfig } from "@devorajs/core";
+
+/** The CSRF token of a signed-in browser (bound to its session, H30); the dev server uses the dev-only secret. */
+const sessionToken = (sessionId: string) => deriveSessionCsrfToken(sessionId, resolveSessionScope("shared", "fixture"));
 
 async function boot(fixture: FixtureProject, sessions: SessionsConfig): Promise<{ server: ViteDevServer; base: string }> {
   const server = await createAppDevServer({
@@ -165,7 +168,7 @@ describe("unified session auth — real dev server", () => {
     // The default CSRF check covers a cookie-authenticated POST: the token goes in the header.
     const logout = await fetch(`${base}/api/logout`, {
       method: "POST",
-      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}`, "x-devora-csrf": csrf },
+      headers: { Cookie: `devora_session=${sessionId}; devora_csrf=${csrf}`, "x-devora-csrf": sessionToken(sessionId) },
     });
     expect(logout.status).toBe(204);
     expect(logout.headers.getSetCookie().some((c) => c.startsWith("devora_session=;"))).toBe(true);
@@ -201,9 +204,13 @@ describe("unified session auth — real dev server", () => {
 
     const rightToken = await fetch(`${base}/api/transfer`, {
       method: "POST",
-      headers: { Cookie: cookie, "x-devora-csrf": csrf },
+      headers: { Cookie: cookie, "x-devora-csrf": sessionToken(sessionId) },
     });
     expect(rightToken.status).toBe(200);
+
+    // H30: the CSRF cookie's own value is not the token for a signed-in browser
+    const cookieValueAsToken = await fetch(`${base}/api/transfer`, { method: "POST", headers: { Cookie: cookie, "x-devora-csrf": csrf } });
+    expect(cookieValueAsToken.status).toBe(403);
   });
 
   it("CSRF is NOT enforced for Bearer auth — the same session, sent as a Bearer token, needs no token", async () => {

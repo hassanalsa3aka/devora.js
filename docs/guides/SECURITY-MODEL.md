@@ -36,7 +36,9 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
    From 0.4.0 a cookie-authenticated write is also CSRF-checked for you; an anonymous write
    (a login form) is not, so call `ctx.verifyCsrf()` there.
 2. **Send the token from the browser.** A page form renders `<CsrfField token={csrfToken} />`. A `fetch`
-   to an API route sends the `csrfToken` your page received in the `x-devora-csrf` header. A webhook or
+   to an API route sends the `csrfToken` your page received in the `x-devora-csrf` header. For a signed-in browser that
+   token is bound to its session (an HMAC of the session ID), so a page that logs in with `fetch()` needs a reload or a
+   navigation before it writes. A webhook or
    anything else that is not your own page and sends the session cookie needs `export const csrf = false`
    on its route (a webhook usually sends no session cookie and is not checked).
 3. **List your hosts.** Set `allowedHosts` in `app.config.ts` (0.4.0) so a forged `Host` is a 400.
@@ -44,7 +46,7 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
    `ctx.url`.
 4. **Never serve user-uploaded SVG or HTML from the app's origin.** The SVG policy is a backstop for
    files you ship. Serve uploads from a separate domain, or with `Content-Disposition: attachment`.
-5. **Limit logins at the front door.** A route can export `rateLimit` (0.4.0), but it counts in
+5. **Limit logins at the front door.** A route can export `rateLimit` (0.4.0; an IPv6 client is counted by its /64), but it counts in
    memory per process. Put the real limit in nginx, your platform's firewall or a WAF
    ([AUTH.md](../../packages/backend/AUTH.md#rate-limiting-logins)).
 6. **Set `trustProxy` correctly.** Only when the app can be reached only through your proxy.

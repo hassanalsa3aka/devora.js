@@ -11,7 +11,6 @@ hashes are in `work-notes/FINAL-REPORT.md`.
 
 - [not run] Read `work-notes/FINAL-REPORT.md`, `work-notes/redteam/REDTEAM.md` and the 0.4.0 CHANGELOG entry.
 - [not run] Switch on GitHub's private vulnerability reporting (Settings → Code security). SECURITY.md names it.
-- [not run] Decide H30 and H31 (ROADMAP): both are left open for 0.4.0.
 
 ## 1. Merge the integration branches into main
 

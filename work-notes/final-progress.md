@@ -61,9 +61,8 @@ attack-dev.mjs 26, fuzz.mts 9 parsers ~95M inputs, redos.mts 12 worst cases, gat
 - Fixed with regression tests (each fails without its fix): H24 cookie escape → 500 for every page; H25 duplicate
   cookie names (first wins); H26 CSRF + rateLimit for every method but GET/HEAD/OPTIONS; H27 ctx.url host from an
   absolute-form/`//` target; H28 dev `/__open-in-editor` cross-site guard; H29 scaffold app name/domain validation.
-- Open, need a decision (ROADMAP): H30 CSRF token not bound to the session (double-submit; needs cookie write access
-  on the domain), H31 rateLimit IPv6 /64 rotation and table eviction, H32 Netlify reads the body before maxBodyBytes
-  (accepted: platform cap).
+- Later fixed for 0.4.0: H30 (CSRF token bound to the session) and H31 (rateLimit keys IPv6 on the /64). Open:
+  H32 Netlify reads the body before maxBodyBytes (accepted: platform cap).
 - Behaviour changes to call out at release: duplicated cookie names (first wins); CSRF/rateLimit on unusual methods;
   scaffolders refuse uppercase or odd app names (`Web` is refused; existing projects unaffected).
 - Gate after the fixes: 7 typechecks PASS, suite 68 files / 644 tests PASS, check:docs PASS, pack check PASS.
@@ -75,7 +74,7 @@ Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
 
 - security.tsx "Next release" section: method rule, four new default rows (ctx.url host, cookies, dev
   open-in-editor, scaffold names), "do not share the domain", two upgrade checks, a "Red-team pass" paragraph (no
-  exploit details for the open H30/H31). roadmap.tsx: mobile and Metro-class tooling after desktop, nothing in code.
+  exploit details). roadmap.tsx: mobile and Metro-class tooling after desktop, nothing in code.
 - Release-day templates (upgrading-040.changes.tsx, release-day.mjs CSRF callout) updated; two new upgrade rows.
   Fixed a release-day.mjs bug: step 7's second edit was always skipped as "already applied".
 - Blog draft: work-notes/drafts/red-team-before-0-4-0.md (not routed/linked, date left for publishing day).
@@ -96,7 +95,7 @@ Resume notes: phase 4 committed and pushed. Next: phase 5 (docs repo).
   devorajs-docs work-notes/screenshots/.
 - Perf re-run against 3B: not possible yet (3B not run); repeated at the end if 3B runs.
 - RELEASE-DAY-0.4.0-final.md written; framework release-day.mjs text points at release/0.4.0-final; CHANGELOG's
-  findings line updated (H1 to H29; H18, H30 to H32 open).
+  findings line updated (at that time H1 to H29; later updated).
 
 ## Phase 3B — performance (in progress at 01:00)
 

@@ -14,7 +14,13 @@
  * Chromium. Writes results/raw-<date>.json; `npm run report` turns the
  * newest one into results/report.md.
  *
- * Usage: node run.mjs [--only=devora,next] [--quick]
+ * Load runs alternate between the frameworks (finding S7): round 1 loads every framework once, round 2 loads
+ * every framework again, and so on, each round starting one framework later in the list. A machine that
+ * drifts by 10% or more over ten minutes (a shared or cloud one) then moves all frameworks together instead
+ * of favouring the ones measured first. Builds, start times, wire probes and browser metrics still run one
+ * framework at a time. `--sequential` gives the old order (all runs of one framework, then the next).
+ *
+ * Usage: node run.mjs [--only=devora,next] [--quick] [--sequential] [--port=4300]
  *   CHROME_PATH=/path/to/chrome   use this Chromium instead of Playwright's
  */
 import http from "node:http";
@@ -29,18 +35,19 @@ import { chromium } from "playwright";
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")));
 const QUICK = "quick" in args;
+const SEQUENTIAL = "sequential" in args;
 
 const CONFIG = {
   buildRuns: QUICK ? 1 : 3,
   startRuns: QUICK ? 1 : 5,
-  loadRuns: QUICK ? 1 : 5,
+  loadRuns: Number(args.runs ?? (QUICK ? 1 : 5)),
   loadSeconds: QUICK ? 3 : 10,
   warmupSeconds: QUICK ? 1 : 5,
   connections: 50,
   browserRuns: QUICK ? 1 : 5,
 };
 
-const PORT = 4300;
+const PORT = Number(args.port ?? 4300);
 // What a browser sends for a page or a form submission. SvelteKit answers a
 // form POST that accepts any type with JSON (its JS-enhanced path), so the
 // header matters.
@@ -223,6 +230,48 @@ async function load(url, extra = {}) {
   return { rps: summary(rps), p50: summary(p50), p99: summary(p99), errors, non2xx };
 }
 
+/**
+ * Load runs, alternating between frameworks. Round r starts the frameworks in the list order rotated by r, starts
+ * each one's server fresh, warms it up on every page, runs each page once, and stops it. Returns, per framework key,
+ * what `load()` returns per page, plus the memory after the load of each round and the order each round used.
+ */
+async function interleavedLoad(frameworks, byKey) {
+  const samples = Object.fromEntries(frameworks.map((fw) => [fw.key, { pages: {}, memory: [], positions: [] }]));
+  for (let round = 0; round < CONFIG.loadRuns; round++) {
+    const order = frameworks.map((_, i) => frameworks[(i + round) % frameworks.length]);
+    console.log(`\n== load round ${round + 1} of ${CONFIG.loadRuns}: ${order.map((f) => f.key).join(", ")}`);
+    for (const [position, fw] of order.entries()) {
+      const r = byKey[fw.key];
+      const form = r.formRequest;
+      const targets = {
+        static: { url: `http://localhost:${PORT}${r.staticPath}` },
+        items: { url: `http://localhost:${PORT}/items` },
+        form: { url: `http://localhost:${PORT}${form.path}`, method: "POST", headers: form.headers, body: form.body },
+      };
+      await waitPortFree();
+      const { child } = await startServer(path.join(HERE, "apps", fw.key));
+      try {
+        for (const [page, target] of Object.entries(targets)) {
+          await cannon({ ...target, duration: CONFIG.warmupSeconds });
+          const res = await cannon({ ...target, duration: CONFIG.loadSeconds });
+          const into = (samples[fw.key].pages[page] ??= { rps: [], p50: [], p99: [], errors: [], non2xx: [] });
+          into.rps.push(res.requests.average);
+          into.p50.push(res.latency.p50);
+          into.p99.push(res.latency.p99);
+          into.errors.push(res.errors + res.timeouts);
+          into.non2xx.push(res.non2xx);
+          console.log(`${fw.key} ${page}: ${Math.round(res.requests.average)} req/s`);
+        }
+        samples[fw.key].memory.push(treeRssKb(child.pid) / 1024);
+        samples[fw.key].positions.push(position + 1);
+      } finally {
+        stopServer(child);
+      }
+    }
+  }
+  return samples;
+}
+
 async function browserMetrics(browser) {
   const base = `http://localhost:${PORT}`;
   const out = {};
@@ -279,7 +328,7 @@ const results = {
     os: `${os.type()} ${os.release()} (${process.platform} ${process.arch})`,
     node: process.version,
   },
-  config: { ...CONFIG, tool: `autocannon ${JSON.parse(readFileSync(path.join(HERE, "node_modules/autocannon/package.json"), "utf-8")).version}` },
+  config: { ...CONFIG, order: SEQUENTIAL ? "sequential" : "interleaved (rounds; the start of the list rotates by one each round)", tool: `autocannon ${JSON.parse(readFileSync(path.join(HERE, "node_modules/autocannon/package.json"), "utf-8")).version}` },
   frameworks: {},
 };
 
@@ -323,11 +372,16 @@ try {
       const staticRes = await fetch(`http://localhost:${PORT}/static`, { redirect: "manual" });
       const staticPath = staticRes.status >= 300 && staticRes.status < 400 ? new URL(staticRes.headers.get("location"), `http://localhost:${PORT}`).pathname : "/static";
       r.staticPath = staticPath;
-      r.load = {
-        static: await load(`http://localhost:${PORT}${staticPath}`),
-        items: await load(`http://localhost:${PORT}/items`),
-        form: await load(`http://localhost:${PORT}${form.path}`, { method: "POST", headers: form.headers, body: form.body }),
-      };
+      if (SEQUENTIAL) {
+        r.load = {
+          static: await load(`http://localhost:${PORT}${staticPath}`),
+          items: await load(`http://localhost:${PORT}/items`),
+          form: await load(`http://localhost:${PORT}${form.path}`, { method: "POST", headers: form.headers, body: form.body }),
+        };
+      } else {
+        // The load runs happen later, alternating between frameworks; keep what they need.
+        Object.defineProperty(r, "formRequest", { value: form, enumerable: false });
+      }
       r.wire = {
         static: await probe(`http://localhost:${PORT}${staticPath}`),
         items: await probe(`http://localhost:${PORT}/items`),
@@ -336,8 +390,10 @@ try {
       for (const [k, v] of Object.entries(r.wire)) {
         console.log(`wire ${k}: load tool ${v.loadTool.bodyBytes} B (${v.loadTool.contentEncoding ?? "identity"}), browser ${v.browser.bodyBytes} B (${v.browser.contentEncoding ?? "identity"})`);
       }
-      for (const [k, v] of Object.entries(r.load)) console.log(`${k}: ${Math.round(v.rps.median)} req/s, p50 ${v.p50.median} ms, p99 ${v.p99.median} ms`);
-      r.memoryAfterLoadMb = treeRssKb(child.pid) / 1024;
+      if (SEQUENTIAL) {
+        for (const [k, v] of Object.entries(r.load)) console.log(`${k}: ${Math.round(v.rps.median)} req/s, p50 ${v.p50.median} ms, p99 ${v.p99.median} ms`);
+        r.memoryAfterLoadMb = treeRssKb(child.pid) / 1024;
+      }
       r.browser = await browserMetrics(browser);
       console.log(`items JS ${r.browser["/items"].jsGzip} B gzip, hydration ${Math.round(r.browser["/items"].hydrationMs.median)} ms`);
     } finally {
@@ -345,6 +401,20 @@ try {
     }
     results.frameworks[fw.key] = r;
     mkdirSync(path.join(HERE, "results"), { recursive: true });
+    writeFileSync(path.join(HERE, "results", `raw-${results.date.slice(0, 10)}${QUICK ? "-quick" : ""}${args.tag ? "-" + args.tag : ""}.json`), JSON.stringify(results, null, 2) + "\n");
+  }
+  if (!SEQUENTIAL) {
+    const samples = await interleavedLoad(FRAMEWORKS, results.frameworks);
+    for (const fw of FRAMEWORKS) {
+      const r = results.frameworks[fw.key];
+      const got = samples[fw.key];
+      r.load = Object.fromEntries(
+        Object.entries(got.pages).map(([page, v]) => [page, { rps: summary(v.rps), p50: summary(v.p50), p99: summary(v.p99), errors: v.errors, non2xx: v.non2xx }])
+      );
+      r.memoryAfterLoadMb = median(got.memory);
+      r.loadPositions = got.positions;
+      for (const [k, v] of Object.entries(r.load)) console.log(`${fw.key} ${k}: ${Math.round(v.rps.median)} req/s (${v.rps.runs.map(Math.round).join(", ")}), p50 ${v.p50.median} ms, p99 ${v.p99.median} ms`);
+    }
     writeFileSync(path.join(HERE, "results", `raw-${results.date.slice(0, 10)}${QUICK ? "-quick" : ""}${args.tag ? "-" + args.tag : ""}.json`), JSON.stringify(results, null, 2) + "\n");
   }
 } finally {
