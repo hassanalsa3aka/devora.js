@@ -231,8 +231,10 @@ export default undefined;`;
     if (isTransformable(file)) {
       if (clientModules) {
         const mod = await clientModules.load(file);
-        const bare = [...clientModules.bareImports].filter((s) => !deps?.has(s));
+        // Only what this module asks for: other modules were transformed to decide what a change means, never loaded.
+        const bare = mod.bare.filter((s) => !deps?.has(s));
         if (bare.length > 0) await ensureDeps(bare);
+        clientModules.markServed(file);
         return send(res, 200, mod.code, "text/javascript; charset=utf-8");
       }
       return send(res, 200, await transforms.load(file), "text/javascript; charset=utf-8");

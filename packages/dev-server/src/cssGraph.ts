@@ -33,19 +33,34 @@ interface Node {
 }
 
 export function createCssGraph(roots: UrlRoot[]) {
+  // The import lines of a file, read again only when the file changed (size and modification time).
+  const scanned = new Map<string, { key: string; specifiers: string[] }>();
+  const importsOf = (file: string): string[] => {
+    let key: string;
+    try {
+      const info = statSync(file);
+      key = `${info.size}:${info.mtimeMs}`;
+    } catch {
+      return [];
+    }
+    const hit = scanned.get(file);
+    if (hit?.key === key) return hit.specifiers;
+    let specifiers: string[] = [];
+    try {
+      specifiers = scanImports(readFileSync(file, "utf8"));
+    } catch {
+      // unreadable: no imports
+    }
+    scanned.set(file, { key, specifiers });
+    return specifiers;
+  };
   const nodeFor = (file: string, seen: Map<string, Node>): Node => {
     const known = seen.get(file);
     if (known) return known;
     const node: Node = { id: file, url: urlForFile(file, roots) ?? file, importedModules: new Set() };
     seen.set(file, node);
     if (CSS_EXT.test(file) || !/\.(tsx|ts|jsx|js|mjs)$/.test(file)) return node;
-    let source: string;
-    try {
-      source = readFileSync(file, "utf8");
-    } catch {
-      return node;
-    }
-    for (const spec of scanImports(source)) {
+    for (const spec of importsOf(file)) {
       if (!spec.startsWith(".")) continue;
       const clean = spec.split("?")[0]!;
       if (spec.includes("?")) continue; // ?inline, ?raw, ?url are values, not stylesheets

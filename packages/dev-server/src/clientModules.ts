@@ -19,13 +19,16 @@ export interface ClientModule {
   isBoundary: boolean;
   /** Absolute files this module imports (scripts, styles, assets). */
   imports: string[];
+  /** Bare specifiers this module imports (dependencies it needs bundled). */
+  bare: string[];
 }
 
 export interface ClientModules {
   load(file: string): Promise<ClientModule>;
   urlOf(file: string): string | undefined;
-  /** True once the browser (or a crawl) has loaded this file. */
+  /** True once the server has served this file to a browser (transforming it to decide what a change means does not count). */
   wasLoaded(file: string): boolean;
+  markServed(file: string): void;
   importersOf(file: string): string[];
   isBoundary(file: string): boolean;
   invalidate(file: string): void;
@@ -35,6 +38,7 @@ export interface ClientModules {
 
 export function createClientModules(options: { roots: UrlRoot[]; deps: () => DepsManager | undefined; onNewDependency?: (specifier: string) => void }): ClientModules {
   const cache = new Map<string, { key: string; module: ClientModule }>();
+  const served = new Set<string>();
   const importers = new Map<string, Set<string>>();
   const bareImports = new Set<string>();
   const urlOf = (file: string) => urlForFile(file, options.roots);
@@ -61,6 +65,7 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
     const program = parseModule(body);
     const edits: { start: number; end: number; text: string }[] = [];
     const imports: string[] = [];
+    const bare: string[] = [];
     const dir = path.dirname(file);
     const deps = options.deps();
 
@@ -75,6 +80,7 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
         target = u === undefined ? "/_devora/m/outside-the-served-folders" : CSS_EXT.test(resolved) || ASSET_EXT.test(resolved) || resolved.endsWith(".json") ? `${u}?import` : u;
       } else if (!spec.startsWith("/") && !spec.startsWith("data:") && !spec.startsWith("http:") && !spec.startsWith("https:") && !spec.startsWith("node:")) {
         bareImports.add(spec);
+        bare.push(spec);
         if (deps && !deps.has(spec)) options.onNewDependency?.(spec);
         target = `${DEPS_PREFIX}${depKey(spec)}.js`;
       }
@@ -131,7 +137,7 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
     if (usesHot) code = code.replaceAll("import.meta.hot", "__devoraHot");
     code = head + code + tail + map;
 
-    const module: ClientModule = { code, isBoundary: refresh.isBoundary, imports };
+    const module: ClientModule = { code, isBoundary: refresh.isBoundary, imports, bare };
     cache.set(file, { key, module });
     for (const imported of imports) {
       let set = importers.get(imported);
@@ -144,7 +150,8 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
   return {
     load,
     urlOf,
-    wasLoaded: (file) => cache.has(file),
+    wasLoaded: (file) => served.has(file),
+    markServed: (file) => void served.add(file),
     importersOf: (file) => [...(importers.get(file) ?? [])],
     isBoundary: (file) => cache.get(file)?.module.isBoundary ?? false,
     invalidate(file) {

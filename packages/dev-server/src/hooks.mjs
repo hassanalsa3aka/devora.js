@@ -9,7 +9,7 @@
 //    becomes an empty module and an image or font import its URL;
 //  - report import edges to the main thread (for disposing changed modules).
 // Nothing from a request reaches this file: it only sees the specifiers the app's own code imports.
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { transform } from "esbuild";
@@ -99,6 +99,9 @@ export async function resolve(specifier, context, nextResolve) {
   return { url: pathToFileURL(file).href, shortCircuit: true };
 }
 
+// Compiled output by file, kept across epochs: an edit re-executes every module but only recompiles the files that changed.
+const compiled = new Map();
+
 const LOADERS = { ".tsx": "tsx", ".ts": "ts", ".mts": "ts", ".cts": "ts", ".jsx": "jsx", ".js": "js", ".mjs": "js" };
 
 export async function load(url, context, nextLoad) {
@@ -111,6 +114,10 @@ export async function load(url, context, nextLoad) {
     return { format: "module", source: `export default ${JSON.stringify(urlForFile(file, rootsOf(url)) ?? "")};\n`, shortCircuit: true };
   }
   if (ext === ".json") return { format: "module", source: `export default ${await readFile(file, "utf8")};\n`, shortCircuit: true };
+  const info = await stat(file);
+  const key = `${info.size}:${info.mtimeMs}:${versioned}`;
+  const hit = compiled.get(file);
+  if (hit?.key === key) return { format: "module", source: hit.code, shortCircuit: true };
   const source = await readFile(file, "utf8");
   let code;
   try {
@@ -137,5 +144,6 @@ export async function load(url, context, nextLoad) {
     );
     code = applyEdits(body, edits) + map;
   }
+  compiled.set(file, { key, code });
   return { format: "module", source: code, shortCircuit: true };
 }
