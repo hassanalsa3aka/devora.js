@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs, { existsSync } from "node:fs";
 import type { ServerResponse } from "node:http";
-import type { Connect, ViteDevServer } from "vite";
+import type { Connect } from "vite";
 import {
   matchRoute,
   collectSitemapPaths,
@@ -36,12 +36,19 @@ import {
 import type { SessionManifest, SessionsConfig } from "@devorajs/core";
 import { createDevSessionOptionsResolver } from "./devSessionOptions.js";
 import { REACT_REFRESH_PREAMBLE_VIRTUAL_ID } from "./reactRefreshPreamblePlugin.js";
+import type { DevAssetUrls, DevPageHost } from "./devModuleHost.js";
 
 // See reactRefreshPreamblePlugin.ts's doc comment — "/@id/" is Vite's own
 // documented convention for requesting an arbitrary resolved module id
 // directly by URL (from HTML, not a JS import specifier Vite's import
 // analysis could rewrite for us).
 const DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
+const VITE_ASSET_URLS: DevAssetUrls = {
+  islandClient: "/island-client.tsx",
+  csrClient: "/csr-client.tsx",
+  preamble: DEV_PREAMBLE_URL,
+  moduleUrl: (file) => `/@fs/${file}`,
+};
 
 /**
  * The SSR request handler (ROADMAP.md #1): matches a request to a route
@@ -63,7 +70,7 @@ const DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
  * build step exists yet to generate it once at build time).
  */
 export function createSsrMiddleware(
-  vite: ViteDevServer,
+  vite: DevPageHost,
   appRoot: string,
   appName: string,
   authMode: AuthMode,
@@ -72,7 +79,9 @@ export function createSsrMiddleware(
   appDefaultRenderMode: RenderMode | undefined,
   security: AppRuntimeConfig["security"] | undefined,
   sessions: { projectRoot: string; config: SessionsConfig | undefined; manifest?: SessionManifest },
-  page: { head?: HeadConfig; maxBodyBytes?: number; maxFormFields?: number; maxFormFiles?: number; trustProxy?: boolean | number } = {}
+  page: { head?: HeadConfig; maxBodyBytes?: number; maxFormFields?: number; maxFormFiles?: number; trustProxy?: boolean | number } = {},
+  /** Where the page's scripts come from; Vite's own conventions unless the experimental dev server says otherwise. */
+  urls: DevAssetUrls = VITE_ASSET_URLS
 ): Connect.NextHandleFunction {
   const routesDir = path.join(appRoot, "routes");
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -165,7 +174,7 @@ export function createSsrMiddleware(
         // component's own job (see csrRoute.ts). Dev serves the route file
         // itself and csr-client.tsx by path, same trick islandsPlugin.ts
         // uses for islands; production resolves real hashed URLs instead.
-        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL, {
+        const html = renderCsrShell(routeModule, urls.moduleUrl(match.filePath), urls.csrClient, urls.preamble, {
           appHead: head,
           styles,
         });
@@ -202,8 +211,8 @@ export function createSsrMiddleware(
           authorizationHeader: req.headers.authorization,
           params: match.params,
           sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
-          islandClientUrl: "/island-client.tsx",
-          devPreambleUrl: DEV_PREAMBLE_URL,
+          islandClientUrl: urls.islandClient,
+          devPreambleUrl: urls.preamble,
           nonce,
           meta,
           head,
@@ -267,9 +276,9 @@ export function createSsrMiddleware(
         // (match.params), the same way ssr/csr already do — so there's
         // nothing to reject here (architecture-v2.md §3.6).
         const { html } = await entryServer.renderStatic(routeModule, {
-          islandClientUrl: "/island-client.tsx",
+          islandClientUrl: urls.islandClient,
           params: match.params,
-          devPreambleUrl: DEV_PREAMBLE_URL,
+          devPreambleUrl: urls.preamble,
           url: new URL(url.pathname, meta.url).href,
           head,
           styles,
@@ -304,9 +313,9 @@ export function createSsrMiddleware(
         sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : undefined,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see docs/history/BUILD-LOG.md #4.
-        islandClientUrl: "/island-client.tsx",
+        islandClientUrl: urls.islandClient,
         appDefaultRenderMode,
-        devPreambleUrl: DEV_PREAMBLE_URL,
+        devPreambleUrl: urls.preamble,
         meta,
         head,
         styles,
@@ -351,7 +360,7 @@ const CSS_FILE_RE = /\.(css|scss|sass|less|styl|stylus|pcss|postcss)$/;
  * directly as CSS). `?inline`/`?raw`/`?url` imports are values, not
  * stylesheets, and are skipped.
  */
-export function collectCssUrls(vite: ViteDevServer, file: string): string[] {
+export function collectCssUrls(vite: DevPageHost, file: string): string[] {
   const urls: string[] = [];
   const seen = new Set<unknown>();
   type Node = { id: string | null; url: string; importedModules: Set<Node> };
@@ -382,7 +391,7 @@ interface DevEntryServer {
  * public dir or under the app root (a source module Vite transforms). Any
  * other dotted URL may be a route, e.g. a catch-all page for /docs/v1.2.
  */
-function isStaticFileRequest(vite: ViteDevServer, pathname: string): boolean {
+function isStaticFileRequest(vite: DevPageHost, pathname: string): boolean {
   let rel: string;
   try {
     rel = decodeURIComponent(pathname).replace(/^\/+/, "");

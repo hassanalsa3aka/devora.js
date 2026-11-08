@@ -1,5 +1,6 @@
 import type { ServerResponse } from "node:http";
-import type { Connect, Plugin, ViteDevServer } from "vite";
+import type { Connect, Plugin } from "vite";
+import type { DevModuleHost } from "./devModuleHost.js";
 import {
   matchRoute,
   dispatchApiRoute,
@@ -144,7 +145,7 @@ export function createApiMiddlewarePlugin(options: ApiMiddlewareOptions): Plugin
   };
 }
 
-function createApiMiddleware(vite: ViteDevServer, options: ApiMiddlewareOptions): Connect.NextHandleFunction {
+export function createApiMiddleware(vite: DevModuleHost, options: ApiMiddlewareOptions): Connect.NextHandleFunction {
   const { appRoot, appName, authMode, security } = options;
   const apiDir = resolveApiDir(appRoot, options.apiDir);
   const resolveSessionOptions = createDevSessionOptionsResolver(

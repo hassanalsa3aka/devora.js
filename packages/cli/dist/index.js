@@ -5,12 +5,24 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
 var __commonJS = (cb, mod) => function __require() {
   try {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   } catch (e) {
     throw mod = 0, e;
   }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -28,6 +40,774 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+
+// ../core/src/config.ts
+function resolveAuthMode(project, appName) {
+  const app = project.apps.find((a) => a.name === appName);
+  if (!app) throw new Error(`[framework.config] unknown app: "${appName}"`);
+  return app.auth ?? project.shared.auth;
+}
+var init_config = __esm({
+  "../core/src/config.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/serverFn.ts
+function requestContextFields(meta) {
+  const source = meta ?? DEFAULT_REQUEST_META;
+  let url;
+  let headers;
+  const getUrl = () => {
+    if (!url) {
+      try {
+        url = new URL(source.url);
+      } catch {
+        url = new URL(DEFAULT_REQUEST_META.url);
+      }
+    }
+    return url;
+  };
+  const getHeaders = () => {
+    if (!headers) {
+      headers = new Headers();
+      for (const [name, value] of Object.entries(source.headers)) {
+        if (value === void 0) continue;
+        for (const item of Array.isArray(value) ? value : [value]) {
+          try {
+            headers.append(name, item);
+          } catch {
+          }
+        }
+      }
+    }
+    return headers;
+  };
+  let request;
+  return {
+    get url() {
+      return getUrl();
+    },
+    get headers() {
+      return getHeaders();
+    },
+    method: source.method,
+    ip: source.ip,
+    get request() {
+      if (!request) {
+        try {
+          request = new Request(getUrl(), { method: source.method, headers: getHeaders() });
+        } catch {
+          request = new Request(getUrl(), { headers: getHeaders() });
+        }
+      }
+      return request;
+    }
+  };
+}
+var DEFAULT_REQUEST_META;
+var init_serverFn = __esm({
+  "../core/src/serverFn.ts"() {
+    "use strict";
+    DEFAULT_REQUEST_META = { url: "http://localhost/", method: "GET", headers: {} };
+  }
+});
+
+// ../core/src/route.ts
+var init_route = __esm({
+  "../core/src/route.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/router.ts
+import fs from "node:fs";
+import path from "node:path";
+function splitRouteParams(raw = {}) {
+  const params = {};
+  const catchAll = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) {
+      catchAll[name] = value;
+      params[name] = value.join("/");
+    } else {
+      params[name] = value;
+    }
+  }
+  return { params, catchAll };
+}
+function matchRoute(routesDir, urlPath) {
+  return matchInTable(buildRouteTable(routesDir), urlPath);
+}
+function buildRouteTable(routesDir) {
+  const entries = collectRouteFiles(routesDir).map((filePath) => {
+    const segments = fileToRouteSegments(routesDir, filePath).map(parseSegment);
+    return { filePath, segments, pattern: fileToRoutePath(routesDir, filePath) };
+  });
+  for (const entry of entries) {
+    const rest = entry.segments.findIndex((s) => s.kind === "catchAll" || s.kind === "optionalCatchAll");
+    if (rest !== -1 && rest !== entry.segments.length - 1) {
+      throw new Error(
+        `[devora] ${entry.filePath}: a catch-all segment must be the last part of the route (found ${JSON.stringify(entry.pattern)}). Move the files that sit under it elsewhere.`
+      );
+    }
+  }
+  const seen = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const shape = entry.segments.map((s) => s.kind === "static" ? `s:${s.value}` : s.kind).join("/");
+    const other = seen.get(shape);
+    if (other) {
+      throw new Error(
+        `[devora] two routes match the same URLs: ${other.filePath} and ${entry.filePath} (both are ${JSON.stringify(entry.pattern)}-shaped). Rename or remove one.`
+      );
+    }
+    seen.set(shape, entry);
+  }
+  return { entries };
+}
+function matchInTable(table, urlPath) {
+  const normalized = normalizePath(urlPath);
+  const urlSegments = segmentsOf(normalized);
+  const decoded = [];
+  for (const raw of urlSegments) {
+    const value = decodeSegment(raw);
+    if (value === null) return null;
+    decoded.push(value);
+  }
+  let best = null;
+  for (const entry of table.entries) {
+    const params = matchSegments(entry.segments, decoded);
+    if (!params) continue;
+    if (!best || moreSpecific(entry.segments, best.entry.segments)) best = { entry, params };
+  }
+  if (!best) return null;
+  return { filePath: best.entry.filePath, routePath: normalized, params: best.params };
+}
+function matchSegments(route, url) {
+  const params = {};
+  for (let i = 0; i < route.length; i++) {
+    const seg = route[i];
+    if (seg.kind === "catchAll" || seg.kind === "optionalCatchAll") {
+      const rest = url.slice(i);
+      if (seg.kind === "catchAll" && rest.length === 0) return null;
+      params[seg.name] = rest;
+      return params;
+    }
+    const value = url[i];
+    if (value === void 0) return null;
+    if (seg.kind === "static") {
+      if (seg.value !== value) return null;
+    } else {
+      params[seg.name] = value;
+    }
+  }
+  return url.length === route.length ? params : null;
+}
+function moreSpecific(a, b) {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const ra = a[i] ? RANK[a[i].kind] : -1;
+    const rb = b[i] ? RANK[b[i].kind] : -1;
+    if (ra !== rb) return ra > rb;
+  }
+  return false;
+}
+function decodeSegment(raw) {
+  if (raw === "") return null;
+  let value;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  if (value === "" || value === "." || value === ".." || /[\\/\0]/.test(value)) return null;
+  return value;
+}
+function parseSegment(raw) {
+  let m = /^\[\[\.\.\.([^\[\]]+)\]\]$/.exec(raw);
+  if (m) return { kind: "optionalCatchAll", name: m[1] };
+  m = /^\[\.\.\.([^\[\]]+)\]$/.exec(raw);
+  if (m) return { kind: "catchAll", name: m[1] };
+  if (isDynamicSegment(raw)) return { kind: "param", name: paramName(raw) };
+  return { kind: "static", value: raw };
+}
+function listRoutePaths(routesDir) {
+  return collectRouteFiles(routesDir).map((filePath) => fileToRoutePath(routesDir, filePath));
+}
+function listRouteFiles(routesDir) {
+  return collectRouteFiles(routesDir);
+}
+function routeFileToPath(routesDir, filePath) {
+  return fileToRoutePath(routesDir, filePath);
+}
+function isDynamicRouteFile(routesDir, filePath) {
+  return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
+}
+function resolveStaticRoutePath(routesDir, filePath, params) {
+  const out = [];
+  for (const segment of fileToRouteSegments(routesDir, filePath)) {
+    const parsed = parseSegment(segment);
+    if (parsed.kind === "static") {
+      out.push(parsed.value);
+      continue;
+    }
+    const value = params[parsed.name];
+    if (value === void 0) {
+      throw new Error(
+        `[devora] getStaticParams() entry is missing "${parsed.name}" for dynamic route segment "${segment}"`
+      );
+    }
+    const isRest = parsed.kind === "catchAll" || parsed.kind === "optionalCatchAll";
+    if (isRest !== Array.isArray(value)) {
+      throw new Error(
+        `[devora] getStaticParams() "${parsed.name}" for "${segment}" must be ${isRest ? "a string[]" : "a string"}`
+      );
+    }
+    const parts = Array.isArray(value) ? value : [value];
+    if (parsed.kind === "catchAll" && parts.length === 0) {
+      throw new Error(`[devora] getStaticParams() "${parsed.name}" for "${segment}" must have at least one segment`);
+    }
+    for (const part of parts) {
+      if (typeof part !== "string" || part === "" || part === "." || part === ".." || /[\\/\0]/.test(part)) {
+        throw new Error(
+          `[devora] getStaticParams() "${parsed.name}" contains an unusable path segment ${JSON.stringify(part)} (empty, ".", "..", or containing a slash)`
+        );
+      }
+      out.push(encodeURIComponent(part));
+    }
+  }
+  return out.length === 0 ? "/" : "/" + out.join("/");
+}
+function isDynamicSegment(segment) {
+  return segment.startsWith("[") && segment.endsWith("]") && segment.length > 2;
+}
+function paramName(segment) {
+  return segment.replace(/^\[\[?(\.\.\.)?/, "").replace(/\]\]?$/, "");
+}
+function normalizePath(urlPath) {
+  if (urlPath === "" || urlPath === "/") return "/";
+  return urlPath.replace(/\/+$/, "");
+}
+function segmentsOf(normalized) {
+  return normalized === "/" ? [] : normalized.slice(1).split("/");
+}
+function collectRouteFiles(routesDir) {
+  if (!fs.existsSync(routesDir)) return [];
+  const files = [];
+  for (const entry of fs.readdirSync(routesDir, { withFileTypes: true })) {
+    const full = path.join(routesDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectRouteFiles(full));
+    } else if (ROUTE_EXTENSIONS.has(path.extname(entry.name))) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+function fileToRouteSegments(routesDir, filePath) {
+  const rel2 = path.relative(routesDir, filePath);
+  const noExt = rel2.slice(0, -path.extname(rel2).length);
+  const segments = noExt.split(path.sep);
+  if (segments[segments.length - 1] === "index") segments.pop();
+  return segments;
+}
+function fileToRoutePath(routesDir, filePath) {
+  const segments = fileToRouteSegments(routesDir, filePath);
+  return segments.length === 0 ? "/" : "/" + segments.join("/");
+}
+var ROUTE_EXTENSIONS, RANK;
+var init_router = __esm({
+  "../core/src/router.ts"() {
+    "use strict";
+    ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
+    RANK = { static: 3, param: 2, catchAll: 1, optionalCatchAll: 0 };
+  }
+});
+
+// ../core/src/theme.ts
+var DEVORA_LOGO_URL, THEME_CSS;
+var init_theme = __esm({
+  "../core/src/theme.ts"() {
+    "use strict";
+    DEVORA_LOGO_URL = "/icons/devorajs-logo-withoutbg.png";
+    THEME_CSS = `
+:root {
+  color-scheme: dark light;
+  --devora-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --devora-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --devora-text-xs: 0.75rem;
+  --devora-text-sm: 0.875rem;
+  --devora-text-base: 1rem;
+  --devora-text-lg: 1.125rem;
+  --devora-text-xl: 1.375rem;
+  --devora-text-2xl: clamp(1.875rem, 1.45rem + 1.6vw, 2.5rem);
+  --devora-space-1: 0.25rem;
+  --devora-space-2: 0.5rem;
+  --devora-space-3: 0.75rem;
+  --devora-space-4: 1rem;
+  --devora-space-6: 1.5rem;
+  --devora-space-8: 2rem;
+  --devora-space-12: 3rem;
+  --devora-radius-sm: 6px;
+  --devora-radius: 10px;
+  --devora-radius-lg: 14px;
+  --devora-content-width: 760px;
+  --devora-wide-width: 1120px;
+  --devora-gutter: clamp(1rem, 0.6rem + 1.8vw, 1.5rem);
+
+  --devora-bg: #0b0b12;
+  --devora-surface: #11111a;
+  --devora-header-bg: rgba(17, 17, 26, 0.85);
+  --devora-card: #15151f;
+  --devora-fg: #f4f4f6;
+  --devora-fg-muted: #a6a6b8;
+  --devora-fg-subtle: #8a8a9e;
+  --devora-border: #262633;
+  --devora-border-strong: #383850;
+  --devora-accent-from: #3b82f6;
+  --devora-accent-to: #a855f7;
+  --devora-button-from: #2563eb;
+  --devora-button-to: #7c3aed;
+  --devora-link: #93b8ff;
+  --devora-ring: rgba(120, 160, 255, 0.55);
+  --devora-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --devora-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --devora-hover: rgba(255, 255, 255, 0.06);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --devora-bg: #f7f7fa;
+    --devora-surface: #ffffff;
+    --devora-header-bg: rgba(255, 255, 255, 0.88);
+    --devora-card: #ffffff;
+    --devora-fg: #15151e;
+    --devora-fg-muted: #4c4c5c;
+    --devora-fg-subtle: #646475;
+    --devora-border: #e3e3eb;
+    --devora-border-strong: #cdcdd9;
+    --devora-accent-from: #2563eb;
+    --devora-accent-to: #9333ea;
+    --devora-link: #1d4ed8;
+    --devora-ring: rgba(37, 99, 235, 0.45);
+    --devora-shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.06);
+    --devora-shadow: 0 1px 2px rgba(20, 20, 40, 0.05), 0 8px 24px rgba(20, 20, 40, 0.07);
+    --devora-hover: rgba(20, 20, 40, 0.05);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--devora-bg);
+  color: var(--devora-fg);
+  font-family: var(--devora-font);
+  font-size: var(--devora-text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: var(--devora-link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--devora-ring);
+  outline-offset: 2px;
+  border-radius: var(--devora-radius-sm);
+}
+h1, h2, h3 { line-height: 1.2; color: var(--devora-fg); }
+code {
+  font-family: var(--devora-mono);
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: 5px;
+  padding: 0.1em 0.4em;
+  font-size: 0.875em;
+}
+img { max-width: 100%; }
+
+/* Shell: full-height column; <main> grows, so the footer sits at the
+   bottom of a short page and below the content of a long one. */
+.devora-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.devora-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--devora-header-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  backdrop-filter: saturate(180%) blur(10px);
+  border-bottom: 1px solid var(--devora-border);
+}
+.devora-header-inner {
+  max-width: var(--devora-wide-width);
+  margin: 0 auto;
+  min-height: 60px;
+  padding: var(--devora-space-2) var(--devora-gutter);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--devora-space-2) var(--devora-space-4);
+}
+.devora-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--devora-space-2);
+  text-decoration: none;
+  color: var(--devora-fg);
+  font-weight: 700;
+  font-size: var(--devora-text-lg);
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+.devora-brand img { height: 28px; width: 28px; display: block; }
+.devora-brand .devora-js, .devora-gradient-text {
+  background: linear-gradient(90deg, var(--devora-accent-from), var(--devora-accent-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.devora-app-badge {
+  font-size: var(--devora-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--devora-fg-muted);
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  flex-shrink: 0;
+}
+.devora-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--devora-space-1);
+  margin-left: auto;
+}
+.devora-nav a {
+  color: var(--devora-fg-muted);
+  text-decoration: none;
+  font-size: var(--devora-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--devora-radius-sm);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.devora-nav a:hover, .devora-nav a[aria-current="page"] { color: var(--devora-fg); background: var(--devora-hover); }
+@media (max-width: 640px) {
+  /* The nav takes its own row and wraps \u2014 no hidden, sideways-scrolling links. */
+  .devora-nav { order: 3; width: 100%; margin: 0 calc(-1 * var(--devora-space-2)); }
+}
+
+/* Page content: one centered reading column */
+.devora-page {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: calc(var(--devora-content-width) + 2 * var(--devora-gutter));
+  margin: 0 auto;
+  padding: clamp(2rem, 1.2rem + 3.5vw, 4rem) var(--devora-gutter) clamp(3rem, 2rem + 4vw, 5rem);
+}
+.devora-page > :first-child { margin-top: 0; }
+.devora-page h1 {
+  font-size: var(--devora-text-2xl);
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--devora-space-4);
+}
+.devora-page h2 {
+  font-size: var(--devora-text-xl);
+  letter-spacing: -0.01em;
+  margin: var(--devora-space-12) 0 var(--devora-space-4);
+  padding-bottom: var(--devora-space-2);
+  border-bottom: 1px solid var(--devora-border);
+}
+.devora-page h3 { font-size: var(--devora-text-lg); margin: var(--devora-space-8) 0 var(--devora-space-3); }
+.devora-page p { margin: 0 0 var(--devora-space-4); color: var(--devora-fg-muted); }
+.devora-page p code, .devora-page li code { color: var(--devora-fg); }
+.devora-lead { font-size: var(--devora-text-lg); color: var(--devora-fg-muted); max-width: 60ch; }
+.devora-page strong { color: var(--devora-fg); }
+.devora-page ul, .devora-page ol { color: var(--devora-fg-muted); padding-left: 1.25rem; margin: 0 0 var(--devora-space-4); }
+.devora-page li { margin: var(--devora-space-2) 0; }
+.devora-page li::marker { color: var(--devora-accent-from); }
+.devora-page hr { border: 0; border-top: 1px solid var(--devora-border); margin: var(--devora-space-8) 0; }
+.devora-page pre {
+  margin: 0 0 var(--devora-space-6);
+  padding: var(--devora-space-4) 1.125rem;
+  overflow-x: auto;
+  font-size: var(--devora-text-sm);
+  line-height: 1.65;
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: var(--devora-radius);
+}
+.devora-page pre code { background: transparent; border: none; padding: 0; font-size: 1em; }
+
+/* Cards, and a responsive grid of them */
+.devora-card {
+  padding: var(--devora-space-6);
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: var(--devora-radius-lg);
+  box-shadow: var(--devora-shadow-sm);
+  margin: var(--devora-space-6) 0;
+}
+.devora-card > :first-child { margin-top: 0; }
+.devora-card > :last-child { margin-bottom: 0; }
+.devora-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--devora-space-4);
+  margin: var(--devora-space-8) 0;
+}
+.devora-grid > .devora-card { margin: 0; }
+.devora-card h3 { margin: 0 0 var(--devora-space-2); font-size: var(--devora-text-base); }
+
+/* Forms: a card, labels above full-width fields */
+.devora-page form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--devora-space-4);
+  max-width: 440px;
+  margin: var(--devora-space-6) 0;
+  padding: var(--devora-space-6);
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: var(--devora-radius-lg);
+  box-shadow: var(--devora-shadow);
+}
+.devora-page label {
+  font-size: var(--devora-text-sm);
+  font-weight: 600;
+  color: var(--devora-fg);
+  margin-bottom: calc(-1 * var(--devora-space-2));
+}
+.devora-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.devora-page textarea,
+.devora-page select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--devora-radius-sm);
+  border: 1px solid var(--devora-border-strong);
+  background: var(--devora-bg);
+  color: var(--devora-fg);
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.devora-page textarea { min-height: 6rem; resize: vertical; }
+.devora-page input::placeholder, .devora-page textarea::placeholder { color: var(--devora-fg-subtle); }
+.devora-page input:focus, .devora-page textarea:focus, .devora-page select:focus {
+  outline: none;
+  border-color: var(--devora-accent-from);
+  box-shadow: 0 0 0 3px var(--devora-ring);
+}
+.devora-page button, .devora-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--devora-space-2);
+  min-height: 42px;
+  padding: 0.55rem 1.25rem;
+  border-radius: var(--devora-radius-sm);
+  border: none;
+  /* Darker than the brand gradient so white text stays above 4.5:1 contrast. */
+  background: linear-gradient(90deg, var(--devora-button-from), var(--devora-button-to));
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--devora-text-sm);
+  text-decoration: none;
+  cursor: pointer;
+  align-self: flex-start;
+  box-shadow: var(--devora-shadow-sm);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.devora-page button:hover, .devora-button:hover { filter: brightness(1.08); }
+.devora-page button:active, .devora-button:active { transform: translateY(1px); }
+.devora-page button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Error and status pages */
+.devora-error, .devora-status { text-align: center; padding-top: clamp(3rem, 2rem + 8vw, 7rem); }
+.devora-error h1, .devora-status h1 {
+  font-size: clamp(3rem, 2rem + 6vw, 5rem);
+  letter-spacing: -0.04em;
+  margin-bottom: var(--devora-space-2);
+  background: linear-gradient(90deg, var(--devora-accent-from), var(--devora-accent-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.devora-status h1 { font-size: var(--devora-text-2xl); }
+.devora-error pre { text-align: left; }
+.devora-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--devora-space-2);
+  font-size: var(--devora-text-sm);
+  font-weight: 600;
+  color: var(--devora-fg);
+  background: var(--devora-card);
+  border: 1px solid var(--devora-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+}
+.devora-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+
+/* Footer */
+.devora-footer {
+  border-top: 1px solid var(--devora-border);
+  background: var(--devora-surface);
+  color: var(--devora-fg-subtle);
+  font-size: var(--devora-text-sm);
+}
+.devora-footer-inner {
+  max-width: var(--devora-wide-width);
+  margin: 0 auto;
+  padding: var(--devora-space-6) var(--devora-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: var(--devora-space-4);
+}
+.devora-footer a { color: var(--devora-fg-muted); }
+.devora-footer a:hover { color: var(--devora-fg); }
+.devora-footer-custom, .devora-footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--devora-space-3) var(--devora-space-8);
+}
+.devora-footer-brand { display: inline-flex; align-items: center; gap: var(--devora-space-2); }
+.devora-footer-brand a { text-decoration: none; font-weight: 600; }
+.devora-footer img { height: 18px; width: 18px; display: block; }
+.devora-footer-links { display: flex; flex-wrap: wrap; gap: var(--devora-space-2) var(--devora-space-6); }
+.devora-footer-links a { text-decoration: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+`;
+  }
+});
+
+// ../core/src/html.ts
+function attrs(pairs) {
+  return Object.entries(pairs).filter(([, v]) => v !== void 0 && v !== false).map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${escapeHtml(String(v))}"`).join("");
+}
+function linkTag(link) {
+  return `<link${attrs({
+    rel: link.rel,
+    href: link.href,
+    type: link.type,
+    sizes: link.sizes,
+    as: link.as,
+    media: link.media,
+    crossorigin: link.crossorigin,
+    hreflang: link.hreflang,
+    title: link.title
+  })} />`;
+}
+function headTags(head) {
+  if (!head) return [];
+  return [
+    ...(head.stylesheets ?? []).map((href) => linkTag({ rel: "stylesheet", href })),
+    ...(head.links ?? []).map(linkTag),
+    ...(head.meta ?? []).map(
+      (m) => `<meta${attrs({ name: m.name, property: m.property, "http-equiv": m.httpEquiv, content: m.content })} />`
+    ),
+    ...(head.scripts ?? []).map(
+      (script) => `<script${attrs({
+        type: script.type === "classic" ? void 0 : "module",
+        src: script.src,
+        defer: script.defer,
+        async: script.async,
+        crossorigin: script.crossorigin
+      })}></script>`
+    )
+  ];
+}
+function includesTheme(options) {
+  const theme = options.appHead?.theme ?? "auto";
+  if (theme === true || theme === false) return theme;
+  return options.usedShell === true || options.clientRendered === true;
+}
+function renderHead(meta, options = {}) {
+  const { title, description, og } = meta ?? {};
+  const ogTitle = og?.title ?? title;
+  const ogDescription = og?.description ?? description;
+  const appHead = options.appHead;
+  const extra = [...headTags(appHead), ...headTags(meta?.head)];
+  const declaredMeta = [...appHead?.meta ?? [], ...meta?.head?.meta ?? []];
+  const declaredLinks = [...appHead?.links ?? [], ...meta?.head?.links ?? []];
+  const theme = includesTheme(options);
+  const hasIcon = declaredLinks.some((l) => l.rel.split(/\s+/).includes("icon"));
+  const hasViewport = declaredMeta.some((m) => m.name === "viewport");
+  const lines = [
+    `<meta charset="utf-8" />`,
+    hasViewport ? "" : `<meta name="viewport" content="width=device-width, initial-scale=1" />`,
+    theme && !hasIcon ? `<link rel="icon" href="${DEVORA_LOGO_URL}" />` : "",
+    theme ? `<style>${THEME_CSS}</style>` : "",
+    ...(options.styles ?? []).map((href) => linkTag({ rel: "stylesheet", href })),
+    title ? `<title>${escapeHtml(title)}</title>` : "",
+    description ? `<meta name="description" content="${escapeHtml(description)}" />` : "",
+    ogTitle ? `<meta property="og:title" content="${escapeHtml(ogTitle)}" />` : "",
+    ogDescription ? `<meta property="og:description" content="${escapeHtml(ogDescription)}" />` : "",
+    ogTitle || ogDescription ? `<meta property="og:type" content="${escapeHtml(og?.type ?? "website")}" />` : "",
+    og?.image ? `<meta property="og:image" content="${escapeHtml(og.image)}" />` : "",
+    og?.url ? `<meta property="og:url" content="${escapeHtml(og.url)}" />` : "",
+    ...extra
+  ].filter(Boolean);
+  return `<!doctype html>
+<html${appHead?.lang ? ` lang="${escapeHtml(appHead.lang)}"` : ""}>
+  <head>
+    ${lines.join("\n    ")}
+  </head>
+  <body>
+`;
+}
+function renderTail(opts) {
+  const preambleScript = opts.devPreambleUrl ? `<script type="module" src="${escapeHtml(opts.devPreambleUrl)}"></script>
+    ` : "";
+  return `    ${preambleScript}${opts.islandScriptUrl ? `<script type="module" src="${escapeHtml(opts.islandScriptUrl)}"></script>` : ""}
+    ${opts.csrScriptUrl ? `<script type="module" src="${escapeHtml(opts.csrScriptUrl)}"></script>` : ""}
+  </body>
+</html>
+`;
+}
+function renderHtmlDocument(opts) {
+  return `${renderHead(opts.meta, opts.head)}    <div id="root">${opts.bodyHtml}</div>
+${renderTail(opts)}`;
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function renderShellMarkup(mainHtml, options = {}) {
+  const logo = options.logo === false ? "" : `<img src="${DEVORA_LOGO_URL}" alt="" width="28" height="28" />`;
+  const badge = options.badge ? `<span class="devora-app-badge">${escapeHtml(options.badge)}</span>` : "";
+  return `<div class="devora-shell"><header class="devora-header"><div class="devora-header-inner"><a href="/" class="devora-brand" aria-label="devora.js home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}</div></header><main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main><footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row"><div class="devora-footer-brand"><span>Built with <a href="https://github.com/hassanalsa3aka/devora.js">devora.js</a></span></div></div></div></footer></div>`;
+}
+var init_html = __esm({
+  "../core/src/html.ts"() {
+    "use strict";
+    init_theme();
+  }
+});
+
+// ../core/src/configError.ts
+var DevoraConfigError;
+var init_configError = __esm({
+  "../core/src/configError.ts"() {
+    "use strict";
+    DevoraConfigError = class extends Error {
+      name = "DevoraConfigError";
+    };
+  }
+});
 
 // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.production.min.js
 var require_react_production_min = __commonJS({
@@ -2188,6 +2968,1082 @@ var require_react = __commonJS({
   }
 });
 
+// ../core/src/csrf.ts
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+function generateCsrfToken() {
+  return randomBytes(32).toString("base64url");
+}
+function deriveSessionCsrfToken(sessionId, options) {
+  return createHmac("sha256", options.secret).update(`csrf:${options.name}:${sessionId}`).digest("base64url");
+}
+function verifyCsrfToken(cookieValue2, formValue) {
+  if (!cookieValue2 || typeof formValue !== "string" || !formValue) return false;
+  const cookieBuf = Buffer.from(cookieValue2);
+  const formBuf = Buffer.from(formValue);
+  if (cookieBuf.length !== formBuf.length) return false;
+  return timingSafeEqual(cookieBuf, formBuf);
+}
+function verifyCsrfByDefault(options) {
+  if (!options.cookieAuthenticated || options.optedOut || CSRF_SAFE_METHODS.has(options.method.toUpperCase())) return;
+  const fromForm = options.formData?.get(CSRF_FORM_FIELD);
+  const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
+  options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
+}
+var import_react, CSRF_COOKIE_NAME, CSRF_FORM_FIELD, CSRF_HEADER_NAME, CSRF_SAFE_METHODS;
+var init_csrf = __esm({
+  "../core/src/csrf.ts"() {
+    "use strict";
+    import_react = __toESM(require_react(), 1);
+    CSRF_COOKIE_NAME = "devora_csrf";
+    CSRF_FORM_FIELD = "_csrf";
+    CSRF_HEADER_NAME = "x-devora-csrf";
+    CSRF_SAFE_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
+  }
+});
+
+// ../core/src/httpError.ts
+function getHttpErrorStatus(err) {
+  if (!err || typeof err !== "object") return void 0;
+  const candidate = err.status ?? err.statusCode;
+  if (typeof candidate !== "number" || !Number.isInteger(candidate)) return void 0;
+  return candidate >= 400 && candidate <= 599 ? candidate : void 0;
+}
+function jsonMessageResponse(status2, message, headers) {
+  return {
+    status: status2,
+    headers: { ...headers ?? {}, "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ message })
+  };
+}
+function apiNotFoundResponse() {
+  return jsonMessageResponse(404, "Not found");
+}
+function apiErrorResponse(err) {
+  const status2 = getHttpErrorStatus(err);
+  if (status2 !== void 0) {
+    if (status2 >= 500) console.error("[devora] API route error:", err);
+    return jsonMessageResponse(status2, errorMessage(err) || "Request failed");
+  }
+  console.error("[devora] API route error:", err);
+  const message = process.env.NODE_ENV === "production" ? "Internal Server Error" : errorMessage(err) || "Internal Server Error";
+  return jsonMessageResponse(500, message);
+}
+function errorMessage(err) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return "";
+}
+function backendStatusResponse(appName) {
+  return {
+    status: 200,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+    body: JSON.stringify({ app: appName, status: "ok", api: "/api" })
+  };
+}
+function backendStatusPage(appName) {
+  const main = `<span class="devora-pill">API is running</span><h1>${escapeHtml(appName)}</h1><p class="devora-lead">This app serves JSON under <code>/api</code>. Its routes live in the app's API folder.</p>`;
+  return {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    body: renderHtmlDocument({
+      bodyHtml: renderShellMarkup(main, { mainClass: "devora-status", badge: appName, logo: false }),
+      meta: { title: `${appName} \u2014 API` },
+      head: { appHead: { theme: true } }
+    })
+  };
+}
+function backendStatusFor(appName, accept) {
+  const value = Array.isArray(accept) ? accept.join(",") : accept ?? "";
+  return /\btext\/html\b/i.test(value) ? backendStatusPage(appName) : backendStatusResponse(appName);
+}
+var HttpError;
+var init_httpError = __esm({
+  "../core/src/httpError.ts"() {
+    "use strict";
+    init_html();
+    HttpError = class extends Error {
+      status;
+      constructor(status2, message) {
+        super(message);
+        this.name = "HttpError";
+        this.status = status2;
+      }
+    };
+  }
+});
+
+// ../core/src/sessionStore.ts
+function getSessionState(record, now = Date.now()) {
+  if (!record || now >= record.expiresAt) return "dead";
+  if (now >= record.activeExpiresAt) return "idle";
+  return "active";
+}
+function isSessionStore(value) {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value;
+  return typeof candidate.get === "function" && typeof candidate.set === "function" && typeof candidate.delete === "function";
+}
+function createMemorySessionStore() {
+  const records = /* @__PURE__ */ new Map();
+  let writesSinceSweep = 0;
+  return {
+    get(key) {
+      const record = records.get(key);
+      if (!record) return void 0;
+      if (getSessionState(record) === "dead") {
+        records.delete(key);
+        return void 0;
+      }
+      return structuredClone(record);
+    },
+    set(key, record) {
+      records.set(key, structuredClone(record));
+      if (++writesSinceSweep >= SWEEP_EVERY_N_WRITES) {
+        writesSinceSweep = 0;
+        const now = Date.now();
+        for (const [k, r] of records) {
+          if (getSessionState(r, now) === "dead") records.delete(k);
+        }
+      }
+    },
+    delete(key) {
+      records.delete(key);
+    }
+  };
+}
+function getProcessMemorySessionStore() {
+  const holder = globalThis;
+  holder[MEMORY_STORE_KEY] ??= createMemorySessionStore();
+  return holder[MEMORY_STORE_KEY];
+}
+var SWEEP_EVERY_N_WRITES, MEMORY_STORE_KEY;
+var init_sessionStore = __esm({
+  "../core/src/sessionStore.ts"() {
+    "use strict";
+    SWEEP_EVERY_N_WRITES = 1e3;
+    MEMORY_STORE_KEY = /* @__PURE__ */ Symbol.for("devora.sessions.memoryStore");
+  }
+});
+
+// ../core/src/session.ts
+import { createHmac as createHmac2, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+function resolveSecret(envKey) {
+  const configured = process.env[envKey] ?? process.env.DEVORA_SESSION_SECRET;
+  if (configured) return configured;
+  const label = envKey === "DEVORA_SESSION_SECRET" ? envKey : `${envKey} (or DEVORA_SESSION_SECRET)`;
+  if (process.env.NODE_ENV === "production") {
+    throw new DevoraConfigError(
+      `[devora] no session secret configured: set ${label} before running in production (e.g. \`openssl rand -base64 32\`). See ${SESSION_SECRET_DOCS}`
+    );
+  }
+  if (warnedForKey !== envKey) {
+    console.warn(
+      `[devora] no ${label} set \u2014 using an insecure dev-only default. Set this before deploying \u2014 see ${SESSION_SECRET_DOCS}`
+    );
+    warnedForKey = envKey;
+  }
+  return DEV_INSECURE_SECRET;
+}
+function resolveSessionScope(authMode, appName) {
+  if (authMode === "isolated") {
+    const envKey = `DEVORA_SESSION_SECRET_${appName.toUpperCase()}`;
+    return { name: `devora_session_${appName}`, secret: resolveSecret(envKey) };
+  }
+  return { name: "devora_session", secret: resolveSecret("DEVORA_SESSION_SECRET") };
+}
+function sessionStoreKey(sessionId, opts) {
+  let perSecret = storeKeyMemo.get(opts.secret);
+  if (!perSecret) storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
+  const memoKey = `${opts.name}:${sessionId}`;
+  let key = perSecret.get(memoKey);
+  if (key === void 0) {
+    key = createHmac2("sha256", opts.secret).update(memoKey).digest("base64url");
+    if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
+      storeKeyMemo.clear();
+      storeKeyMemoSize = 0;
+      storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
+    }
+    perSecret.set(memoKey, key);
+    storeKeyMemoSize++;
+  }
+  return key;
+}
+function generateSessionId() {
+  return randomBytes2(32).toString("base64url");
+}
+function buildCookieAttributes(cookie, maxAgeSeconds, withDomain = false) {
+  const attributes = cookie ?? { secure: process.env.NODE_ENV === "production", sameSite: "Lax" };
+  let attrs2 = `Path=/; HttpOnly; SameSite=${attributes.sameSite}`;
+  if (withDomain && attributes.domain) attrs2 += `; Domain=${attributes.domain}`;
+  if (maxAgeSeconds !== void 0) attrs2 += `; Max-Age=${maxAgeSeconds}`;
+  return attributes.secure ? `${attrs2}; Secure` : attrs2;
+}
+function parseCookieHeader(header) {
+  const cookies = {};
+  if (!header) return cookies;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
+    const value = part.slice(eq + 1).trim();
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
+  }
+  return cookies;
+}
+function readBearerToken(header) {
+  const value = Array.isArray(header) ? header[0] : header;
+  if (!value) return void 0;
+  const match = /^Bearer[ \t]+(\S+)[ \t]*$/i.exec(value);
+  return match ? match[1] : void 0;
+}
+function periodsOf(opts) {
+  return {
+    active: opts.activePeriodMs ?? DEFAULT_SESSION_ACTIVE_PERIOD_MS,
+    idle: opts.idlePeriodMs ?? DEFAULT_SESSION_IDLE_PERIOD_MS
+  };
+}
+async function resolveSession(request, opts, now = Date.now()) {
+  const bearer = readBearerToken(request.authorizationHeader);
+  const presentedTransport = bearer !== void 0 ? "bearer" : parseCookieHeader(request.cookieHeader)[opts.name] ? "cookie" : void 0;
+  const sessionId = bearer ?? parseCookieHeader(request.cookieHeader)[opts.name];
+  if (!presentedTransport || !sessionId) return { presentedTransport, state: "none", renewed: false };
+  if (!SESSION_ID_PATTERN.test(sessionId)) return { presentedTransport, state: "dead", renewed: false };
+  const key = sessionStoreKey(sessionId, opts);
+  const record = await opts.store.get(key);
+  const state = getSessionState(record, now);
+  if (state === "dead" || !record) {
+    if (record) await opts.store.delete(key);
+    return { presentedTransport, state: "dead", renewed: false };
+  }
+  if (state === "idle") {
+    const { active, idle } = periodsOf(opts);
+    const renewedRecord = { data: record.data, activeExpiresAt: now + active, expiresAt: now + active + idle };
+    await opts.store.set(key, renewedRecord);
+    return { presentedTransport, state, sessionId, record: renewedRecord, renewed: true };
+  }
+  return { presentedTransport, state, sessionId, record, renewed: false };
+}
+function warnIfSessionReadWithoutAuth(context, urlOrPath) {
+  const { sessionRead, requireAuthCalled } = context.authUsage();
+  if (!sessionRead || requireAuthCalled) return;
+  if (process.env.NODE_ENV === "production") return;
+  let pathname = urlOrPath ?? "(unknown path)";
+  try {
+    pathname = new URL(pathname, "http://localhost").pathname;
+  } catch {
+  }
+  if (warnedSessionWithoutAuth.has(pathname) || warnedSessionWithoutAuth.size >= MAX_WARNED_PATHS) return;
+  warnedSessionWithoutAuth.add(pathname);
+  console.warn(
+    `[devora] ${pathname} read ctx.session but never called ctx.requireAuth(). If this route is for signed-in users only, call ctx.requireAuth() first (a 401 when there is no session); if it also serves signed-out visitors, check ctx.session for undefined before using it. (Shown once per path, in dev only.)`
+  );
+}
+async function createRequestContext(request, opts, params = {}, meta) {
+  const fields = requestContextFields(meta);
+  const cookies = parseCookieHeader(request.cookieHeader);
+  const resolved = await resolveSession(request, opts);
+  const pendingSetCookies = [];
+  const pendingWrites = [];
+  let currentSessionId = resolved.sessionId;
+  let currentRecord = resolved.record;
+  let transport = currentRecord ? resolved.presentedTransport : void 0;
+  const sessionCookie = (sessionId, record) => `${opts.name}=${sessionId}; ${buildCookieAttributes(opts.cookie, Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1e3)), true)}`;
+  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(opts.cookie, 0, true)}`;
+  if (resolved.presentedTransport === "cookie") {
+    if (resolved.state === "dead") pendingSetCookies.push(clearedSessionCookie());
+    else if (resolved.renewed && currentSessionId && currentRecord) {
+      pendingSetCookies.push(sessionCookie(currentSessionId, currentRecord));
+    }
+  }
+  const csrfEnabled = opts.csrfCookie !== false;
+  const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : void 0;
+  const anonymousCsrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
+  if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
+    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${anonymousCsrfToken}; ${buildCookieAttributes(opts.cookie)}`);
+  }
+  const presentedCookieSessionId = csrfEnabled && resolved.presentedTransport === "cookie" && resolved.record !== void 0 ? resolved.sessionId : void 0;
+  const track = (write) => {
+    const promise = (async () => write())();
+    pendingWrites.push(promise);
+    promise.catch(() => {
+    });
+    return promise;
+  };
+  const revokeSession = (sessionId) => {
+    if (sessionId !== void 0 && sessionId !== currentSessionId) {
+      if (!SESSION_ID_PATTERN.test(sessionId)) return Promise.resolve();
+      const otherKey = sessionStoreKey(sessionId, opts);
+      return track(() => opts.store.delete(otherKey));
+    }
+    if (currentSessionId === void 0) return Promise.resolve();
+    const key = sessionStoreKey(currentSessionId, opts);
+    if (transport === "cookie") pendingSetCookies.push(clearedSessionCookie());
+    currentSessionId = void 0;
+    currentRecord = void 0;
+    transport = void 0;
+    return track(() => opts.store.delete(key));
+  };
+  let sessionRead = false;
+  let requireAuthCalled = false;
+  const split2 = splitRouteParams(params);
+  const ctx = {
+    params: split2.params,
+    catchAll: split2.catchAll,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
+    method: fields.method,
+    ip: fields.ip,
+    get request() {
+      return fields.request;
+    },
+    get session() {
+      sessionRead = true;
+      return currentRecord?.data;
+    },
+    get sessionTransport() {
+      return transport;
+    },
+    requireAuth: () => {
+      requireAuthCalled = true;
+      if (currentRecord === void 0) {
+        throw new HttpError(401, "Authentication required");
+      }
+    },
+    setSession: (data, options) => {
+      const nextTransport = options?.transport ?? transport ?? "cookie";
+      const previousId = currentSessionId;
+      const sessionId = generateSessionId();
+      const now = Date.now();
+      const { active, idle } = periodsOf(opts);
+      const record = { data, activeExpiresAt: now + active, expiresAt: now + active + idle };
+      currentSessionId = sessionId;
+      currentRecord = record;
+      transport = nextTransport;
+      if (nextTransport === "cookie") pendingSetCookies.push(sessionCookie(sessionId, record));
+      return track(async () => {
+        if (previousId !== void 0) await opts.store.delete(sessionStoreKey(previousId, opts));
+        await opts.store.set(sessionStoreKey(sessionId, opts), record);
+        return sessionId;
+      });
+    },
+    revokeSession,
+    clearSession: () => revokeSession(),
+    verifyCsrf: (submitted) => {
+      if (transport === "bearer" && currentRecord !== void 0) return;
+      if (!csrfEnabled) {
+        if (!warnedCsrfDisabled) {
+          console.warn(
+            `[devora] ctx.verifyCsrf() rejected a request that isn't Bearer-authenticated: this app has csrf: false in app.config.ts, so no CSRF cookie exists to verify against.`
+          );
+          warnedCsrfDisabled = true;
+        }
+        throw new HttpError(403, "Missing or invalid CSRF token");
+      }
+      const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
+      if (presentedCookieSessionId !== void 0) {
+        if (!verifyCsrfToken(deriveSessionCsrfToken(presentedCookieSessionId, opts), value)) {
+          throw new HttpError(403, "Missing or invalid CSRF token");
+        }
+        return;
+      }
+      if (!verifyCsrfToken(incomingCsrfCookie, value)) {
+        throw new HttpError(403, "Missing or invalid CSRF token");
+      }
+    }
+  };
+  return {
+    ctx,
+    // A getter: an action that logs in (setSession) and then renders must get the token of the new session.
+    get csrfToken() {
+      if (csrfEnabled && currentSessionId !== void 0 && currentRecord !== void 0 && transport === "cookie") {
+        return deriveSessionCsrfToken(currentSessionId, opts);
+      }
+      return anonymousCsrfToken;
+    },
+    getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
+    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
+    authUsage: () => ({ sessionRead, requireAuthCalled }),
+    touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
+    settle: async () => {
+      for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
+    }
+  };
+}
+function sessionsDisabledError(method) {
+  return new Error(
+    `[devora] ctx.${method}() was called, but this app has sessions disabled (auth: "none" in devora.config.ts). Set auth: "shared" or "isolated" for this app if it needs login.`
+  );
+}
+function createNoAuthContext(params = {}, meta) {
+  const fields = requestContextFields(meta);
+  const split2 = splitRouteParams(params);
+  const ctx = {
+    params: split2.params,
+    catchAll: split2.catchAll,
+    get url() {
+      return fields.url;
+    },
+    get headers() {
+      return fields.headers;
+    },
+    method: fields.method,
+    ip: fields.ip,
+    get request() {
+      return fields.request;
+    },
+    session: void 0,
+    sessionTransport: void 0,
+    requireAuth: () => {
+      throw sessionsDisabledError("requireAuth");
+    },
+    setSession: () => {
+      throw sessionsDisabledError("setSession");
+    },
+    revokeSession: () => {
+      throw sessionsDisabledError("revokeSession");
+    },
+    clearSession: () => {
+      throw sessionsDisabledError("clearSession");
+    },
+    verifyCsrf: () => {
+      throw sessionsDisabledError("verifyCsrf");
+    }
+  };
+  return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
+  }, touchesSessionCookie: () => false, cookieAuthenticated: false, authUsage: () => ({ sessionRead: false, requireAuthCalled: false }) };
+}
+var DEFAULT_SESSION_ACTIVE_PERIOD_MS, DEFAULT_SESSION_IDLE_PERIOD_MS, DEV_INSECURE_SECRET, SESSION_SECRET_DOCS, warnedForKey, STORE_KEY_MEMO_MAX, storeKeyMemo, storeKeyMemoSize, SESSION_ID_PATTERN, warnedCsrfDisabled, warnedSessionWithoutAuth, MAX_WARNED_PATHS, PRIVATE_NO_STORE;
+var init_session = __esm({
+  "../core/src/session.ts"() {
+    "use strict";
+    init_configError();
+    init_serverFn();
+    init_csrf();
+    init_httpError();
+    init_sessionStore();
+    init_router();
+    DEFAULT_SESSION_ACTIVE_PERIOD_MS = 24 * 60 * 60 * 1e3;
+    DEFAULT_SESSION_IDLE_PERIOD_MS = 14 * 24 * 60 * 60 * 1e3;
+    DEV_INSECURE_SECRET = "dev-insecure-session-secret-do-not-use-in-production";
+    SESSION_SECRET_DOCS = "https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md";
+    STORE_KEY_MEMO_MAX = 5e3;
+    storeKeyMemo = /* @__PURE__ */ new Map();
+    storeKeyMemoSize = 0;
+    SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+    warnedCsrfDisabled = false;
+    warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
+    MAX_WARNED_PATHS = 1e3;
+    PRIVATE_NO_STORE = "private, no-store";
+  }
+});
+
+// ../core/src/sessionConfig.ts
+import { existsSync, readFileSync } from "node:fs";
+import path2 from "node:path";
+function toSessionManifest(sessions) {
+  const store = sessions?.store === void 0 ? null : sessions.store === "memory" ? "memory" : "module";
+  return {
+    store,
+    activePeriodMs: sessions?.activeSeconds !== void 0 ? sessions.activeSeconds * 1e3 : void 0,
+    idlePeriodMs: sessions?.idleSeconds !== void 0 ? sessions.idleSeconds * 1e3 : void 0
+  };
+}
+function resolveSessionManifest(input) {
+  const { appName, authMode, sessions, appSessions } = input;
+  const fail2 = (message) => new Error(`[devora] "${appName}": ${message}`);
+  if (authMode === "none") {
+    if (appSessions !== void 0 || input.csrf !== void 0) {
+      throw fail2(
+        `app.config.ts sets ${appSessions !== void 0 ? "`sessions`" : "`csrf`"}, but this app has auth: "none" (no sessions at all). Remove it, or give the app auth: "shared"/"isolated" in devora.config.ts.`
+      );
+    }
+    return void 0;
+  }
+  for (const [where, config] of [
+    ["shared.sessions", sessions],
+    ["app.config.ts sessions", appSessions]
+  ]) {
+    for (const key of ["activeSeconds", "idleSeconds"]) {
+      const value = config?.[key];
+      if (value !== void 0 && !(typeof value === "number" && Number.isFinite(value) && value > 0)) {
+        throw fail2(`${where}.${key} must be a positive number of seconds (got ${JSON.stringify(value)}).`);
+      }
+    }
+  }
+  if (authMode === "shared") {
+    if (appSessions?.activeSeconds !== void 0 || appSessions?.idleSeconds !== void 0) {
+      throw fail2(
+        `per-app session lifetimes are only for auth: "isolated" apps \u2014 a shared session is one session across every shared app. Set shared.sessions.activeSeconds/idleSeconds in devora.config.ts instead.`
+      );
+    }
+    if (appSessions?.cookie?.domain !== void 0) {
+      throw fail2(
+        `sessions.cookie.domain in app.config.ts is only for auth: "isolated" apps \u2014 shared apps use shared.sessions.cookie.domain in devora.config.ts.`
+      );
+    }
+  }
+  const projectCookie = sessions?.cookie ?? {};
+  const appCookie = appSessions?.cookie ?? {};
+  const domainSource = authMode === "shared" ? projectCookie.domain : appCookie.domain;
+  const domain = domainSource === void 0 ? void 0 : normalizeCookieDomain(domainSource, fail2);
+  if (authMode === "shared" && domain !== void 0) {
+    for (const key of ["secure", "sameSite"]) {
+      if (appCookie[key] !== void 0 && appCookie[key] !== projectCookie[key]) {
+        throw fail2(
+          `sessions.cookie.${key} in app.config.ts differs from shared.sessions.cookie, but shared apps share one cookie across ${domain} \u2014 set it once in devora.config.ts.`
+        );
+      }
+    }
+  }
+  const secure = appCookie.secure ?? projectCookie.secure;
+  if (secure !== void 0 && secure !== true && secure !== false && secure !== "auto") {
+    throw fail2(`sessions.cookie.secure must be true, false or "auto" (got ${JSON.stringify(secure)}).`);
+  }
+  const rawSameSite = appCookie.sameSite ?? projectCookie.sameSite;
+  let sameSite;
+  if (rawSameSite !== void 0) {
+    const lowered = String(rawSameSite).toLowerCase();
+    if (lowered !== "lax" && lowered !== "strict" && lowered !== "none") {
+      throw fail2(`sessions.cookie.sameSite must be "lax", "strict" or "none" (got ${JSON.stringify(rawSameSite)}).`);
+    }
+    sameSite = lowered;
+  }
+  if (sameSite === "none" && secure !== void 0 && secure !== true) {
+    throw fail2(`sessions.cookie.sameSite "none" requires secure: true \u2014 browsers reject SameSite=None without Secure.`);
+  }
+  if (domain !== void 0) {
+    const appDomain = input.appDomain.trim().toLowerCase().replace(/:\d+$/, "");
+    if (appDomain !== domain && !appDomain.endsWith(`.${domain}`)) {
+      throw fail2(
+        `sessions.cookie.domain "${domain}" doesn't cover this app's domain "${input.appDomain}" \u2014 browsers would reject the cookie. Use a domain the app is served from (or a parent of it).`
+      );
+    }
+  }
+  const active = authMode === "isolated" ? appSessions?.activeSeconds ?? sessions?.activeSeconds : sessions?.activeSeconds;
+  const idle = authMode === "isolated" ? appSessions?.idleSeconds ?? sessions?.idleSeconds : sessions?.idleSeconds;
+  const cookie = {};
+  if (secure !== void 0) cookie.secure = secure;
+  if (sameSite !== void 0) cookie.sameSite = sameSite;
+  if (domain !== void 0) cookie.domain = domain;
+  return {
+    store: sessions?.store === void 0 ? null : sessions.store === "memory" ? "memory" : "module",
+    ...active !== void 0 ? { activePeriodMs: active * 1e3 } : {},
+    ...idle !== void 0 ? { idlePeriodMs: idle * 1e3 } : {},
+    ...Object.keys(cookie).length > 0 ? { cookie } : {},
+    ...input.csrf === false ? { csrfCookie: false } : {}
+  };
+}
+function normalizeCookieDomain(raw, fail2) {
+  const domain = String(raw).trim().toLowerCase().replace(/^\./, "");
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
+    throw fail2(
+      `sessions.cookie.domain "${raw}" must be a plain domain like "example.com" (no scheme, port or path, and not a single label like "localhost").`
+    );
+  }
+  return domain;
+}
+function createCookieAttributesResolver(manifest, appName) {
+  const sameSite = manifest.cookie?.sameSite ?? "lax";
+  if (process.env.NODE_ENV !== "production") {
+    if (sameSite === "none" && !warnedDevSameSiteNone) {
+      console.warn(
+        `[devora] "${appName}": sessions.cookie.sameSite "none" needs Secure, which dev never sets \u2014 dev cookies use SameSite=Lax.`
+      );
+      warnedDevSameSiteNone = true;
+    }
+    const devAttributes = { secure: false, sameSite: sameSite === "none" ? "Lax" : SAME_SITE_ATTRIBUTE[sameSite] };
+    return () => devAttributes;
+  }
+  const secure = manifest.cookie?.secure ?? true;
+  const domain = manifest.cookie?.domain;
+  return (isHttps) => ({
+    secure: secure === "auto" ? isHttps : secure,
+    sameSite: SAME_SITE_ATTRIBUTE[sameSite],
+    ...domain !== void 0 ? { domain } : {}
+  });
+}
+function readSessionManifest(serverOutDir) {
+  const manifestPath = path2.join(serverOutDir, SESSION_MANIFEST_FILE);
+  if (!existsSync(manifestPath)) return { store: null };
+  return JSON.parse(readFileSync(manifestPath, "utf-8"));
+}
+function assertSessionStoreConfigured(manifest) {
+  if (manifest.store !== null) return;
+  if (process.env.NODE_ENV === "production") {
+    throw new DevoraConfigError(
+      `[devora] no session store configured: add sessions: { store: "memory" } under shared in devora.config.ts (one long-running server only; for serverless or several instances use a path to a module that default-exports a SessionStore backed by your database), and set DEVORA_SESSION_SECRET (openssl rand -base64 32). See packages/backend/AUTH.md`
+    );
+  }
+  if (!warnedUnconfigured) {
+    console.warn(
+      `[devora] no shared.sessions.store set in devora.config.ts \u2014 using an in-memory session store (sessions are lost on restart). Production will refuse to start until one is set.`
+    );
+    warnedUnconfigured = true;
+  }
+}
+function createSessionOptionsResolver(authMode, appName, manifest, loadModule) {
+  assertSessionStoreConfigured(manifest);
+  const scope = resolveSessionScope(authMode, appName);
+  const periods = { activePeriodMs: manifest.activePeriodMs, idlePeriodMs: manifest.idlePeriodMs };
+  const cookieAttributes = createCookieAttributesResolver(manifest, appName);
+  const csrfCookie = manifest.csrfCookie !== false;
+  const loadStore = async () => {
+    if (manifest.store !== "module") return getProcessMemorySessionStore();
+    let store = (await loadModule()).default;
+    const nested = store?.default;
+    if (!isSessionStore(store) && isSessionStore(nested)) store = nested;
+    if (!isSessionStore(store)) {
+      throw new Error(
+        "[devora] the shared.sessions.store module must default-export a SessionStore ({ get, set, delete }) \u2014 see defineSessionStore()"
+      );
+    }
+    return store;
+  };
+  return async (request) => ({
+    ...scope,
+    ...periods,
+    store: await loadStore(),
+    cookie: cookieAttributes(request?.isHttps === true),
+    csrfCookie
+  });
+}
+var SESSION_MANIFEST_FILE, SESSION_STORE_BUILD_KEY, SAME_SITE_ATTRIBUTE, warnedDevSameSiteNone, warnedUnconfigured;
+var init_sessionConfig = __esm({
+  "../core/src/sessionConfig.ts"() {
+    "use strict";
+    init_configError();
+    init_session();
+    init_sessionStore();
+    SESSION_MANIFEST_FILE = "session-manifest.json";
+    SESSION_STORE_BUILD_KEY = "session-store";
+    SAME_SITE_ATTRIBUTE = {
+      lax: "Lax",
+      strict: "Strict",
+      none: "None"
+    };
+    warnedDevSameSiteNone = false;
+    warnedUnconfigured = false;
+  }
+});
+
+// ../core/src/securityHeaders.ts
+import { randomBytes as randomBytes3 } from "node:crypto";
+function isSvgPath(pathname) {
+  const q = pathname.indexOf("?");
+  return /\.svg$/i.test(q === -1 ? pathname : pathname.slice(0, q));
+}
+function generateNonce() {
+  return randomBytes3(16).toString("base64");
+}
+function addNonceToCsp(csp, nonce) {
+  const directives = csp.split(";").map((d) => d.trim()).filter(Boolean);
+  const nonceToken = `'nonce-${nonce}'`;
+  let sawScriptSrc = false;
+  let sawScriptSrcElem = false;
+  const updated = directives.map((directive) => {
+    if (directive === "script-src" || directive.startsWith("script-src ")) {
+      sawScriptSrc = true;
+      return `${directive} ${nonceToken}`;
+    }
+    if (directive === "script-src-elem" || directive.startsWith("script-src-elem ")) {
+      sawScriptSrcElem = true;
+      return `${directive} ${nonceToken}`;
+    }
+    return directive;
+  });
+  if (!sawScriptSrc && !sawScriptSrcElem) {
+    updated.push(`script-src 'self' ${nonceToken}`);
+  }
+  return updated.join("; ");
+}
+function resolveSecurityHeaders(security, streamingNonce) {
+  const baseCsp = security?.csp ?? DEFAULT_CSP;
+  const headers = {
+    "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
+    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS,
+    [NOSNIFF_HEADER.name]: NOSNIFF_HEADER.value
+  };
+  if (security?.hsts !== false) {
+    headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
+  }
+  if (security?.noindex === true) {
+    headers["X-Robots-Tag"] = "noindex";
+  }
+  return headers;
+}
+var DEFAULT_CSP, DEFAULT_FRAME_OPTIONS, DEFAULT_HSTS_VALUE, NOSNIFF_HEADER, SVG_CSP;
+var init_securityHeaders = __esm({
+  "../core/src/securityHeaders.ts"() {
+    "use strict";
+    DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
+    DEFAULT_FRAME_OPTIONS = "DENY";
+    DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
+    NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" };
+    SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+  }
+});
+
+// ../core/src/sitemap.ts
+async function collectSitemapPaths(routesDir, loadRoute) {
+  const out = /* @__PURE__ */ new Set();
+  for (const filePath of listRouteFiles(routesDir)) {
+    if (!isDynamicRouteFile(routesDir, filePath)) {
+      out.add(routeFileToPath(routesDir, filePath));
+      continue;
+    }
+    const mod = await loadRoute(filePath);
+    if (!mod?.getStaticParams) continue;
+    for (const params of await mod.getStaticParams()) {
+      out.add(resolveStaticRoutePath(routesDir, filePath, params));
+    }
+  }
+  return [...out].sort();
+}
+function generateSitemapXml(routePaths, domain) {
+  const urls = routePaths.filter((routePath) => !routePath.includes("[")).map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
+}
+var init_sitemap = __esm({
+  "../core/src/sitemap.ts"() {
+    "use strict";
+    init_router();
+  }
+});
+
+// ../core/src/staticFiles.ts
+import path3 from "node:path";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { readFile, realpath, stat as statAsync } from "node:fs/promises";
+import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
+function contentTypeFor(filePath) {
+  return CONTENT_TYPES[path3.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+}
+function isCompressible(type) {
+  return type.startsWith("text/") || type.startsWith("application/javascript") || type.startsWith("application/json") || type.startsWith("application/xml") || type.startsWith("application/manifest+json") || type.startsWith("image/svg+xml");
+}
+function makeStaticBody(body, type, cacheControl) {
+  const etag = `"${createHash("sha1").update(body).digest("base64url").slice(0, 22)}"`;
+  return { body, type, etag, cacheControl };
+}
+function acceptsEncoding(header, name) {
+  if (!header) return false;
+  const value = Array.isArray(header) ? header.join(",") : header;
+  for (const part of value.split(",")) {
+    const [token, ...params] = part.trim().split(";");
+    if (token.trim().toLowerCase() !== name) continue;
+    const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+    return q === void 0 || Number(q.slice(2)) > 0;
+  }
+  return false;
+}
+function matchesEtag(ifNoneMatch, etag) {
+  if (!ifNoneMatch) return false;
+  const value = Array.isArray(ifNoneMatch) ? ifNoneMatch.join(",") : ifNoneMatch;
+  if (value.trim() === "*") return true;
+  const bare = etag.replace(/^W\//, "");
+  return value.split(",").some((candidate) => candidate.trim().replace(/^W\//, "") === bare);
+}
+function compress(entry, kind) {
+  const existing = entry[kind];
+  if (existing) return existing;
+  const made = new Promise((resolve, reject) => {
+    if (kind === "br") {
+      brotliCompress(
+        entry.body,
+        { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5, [zlibConstants.BROTLI_PARAM_SIZE_HINT]: entry.body.length } },
+        (err, out) => err ? reject(err) : resolve(out)
+      );
+    } else {
+      gzip(entry.body, { level: 6 }, (err, out) => err ? reject(err) : resolve(out));
+    }
+  });
+  entry[kind] = made;
+  made.then(
+    (out) => {
+      if (entry.budget && entry.reserved !== void 0) {
+        if (entry.budget.reserve(out.length)) entry.reserved += out.length;
+        else entry[kind] = void 0;
+      }
+    },
+    () => {
+      entry[kind] = void 0;
+    }
+  );
+  return made;
+}
+async function sendStaticBody(req, res, entry) {
+  let body = entry.body;
+  let etag = entry.etag;
+  let encoding;
+  const compressible = isCompressible(entry.type) && entry.body.length >= MIN_COMPRESS_BYTES;
+  if (compressible) {
+    res.setHeader("Vary", "Accept-Encoding");
+    const accept = req.headers["accept-encoding"];
+    if (acceptsEncoding(accept, "br")) {
+      encoding = "br";
+      etag = entry.etag.slice(0, -1) + '-br"';
+    } else if (acceptsEncoding(accept, "gzip")) {
+      encoding = "gzip";
+      etag = entry.etag.slice(0, -1) + '-gz"';
+    }
+  }
+  res.setHeader("Content-Type", entry.type);
+  res.setHeader("Cache-Control", entry.cacheControl);
+  res.setHeader("ETag", etag);
+  if (matchesEtag(req.headers["if-none-match"], etag)) {
+    res.statusCode = 304;
+    res.end();
+    return;
+  }
+  if (encoding) {
+    body = await compress(entry, encoding === "br" ? "br" : "gz");
+    res.setHeader("Content-Encoding", encoding);
+  }
+  res.statusCode = 200;
+  res.setHeader("Content-Length", body.length);
+  if (req.method === "HEAD") {
+    res.end();
+    return;
+  }
+  res.end(body);
+}
+function createStaticFileServer(rootDir, budget = new ByteBudget()) {
+  const root = path3.resolve(rootDir);
+  const metas = /* @__PURE__ */ new Map();
+  let realRoot;
+  async function realPathInsideRoot(filePath) {
+    try {
+      realRoot ??= await realpath(root);
+      return (await realpath(filePath)).startsWith(realRoot + path3.sep);
+    } catch {
+      return false;
+    }
+  }
+  function resolveInside(pathname) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(pathname);
+    } catch {
+      return void 0;
+    }
+    if (decoded.includes("\0") || decoded.includes("\\")) return void 0;
+    const filePath = path3.resolve(root, "." + decoded);
+    if (!filePath.startsWith(root + path3.sep)) return void 0;
+    return filePath;
+  }
+  function forget(filePath) {
+    const old = metas.get(filePath);
+    if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
+    metas.delete(filePath);
+  }
+  async function lookup(filePath, type, cacheControl, confined = false) {
+    let meta = metas.get(filePath);
+    const now = Date.now();
+    if (meta && now - meta.checkedAt > REVALIDATE_MS) {
+      let stat2;
+      try {
+        stat2 = await statAsync(filePath);
+      } catch {
+        forget(filePath);
+        return void 0;
+      }
+      if (confined && !await realPathInsideRoot(filePath)) {
+        forget(filePath);
+        return void 0;
+      }
+      if (stat2.isFile() && stat2.size === meta.size && stat2.mtimeMs === meta.mtimeMs) {
+        meta.checkedAt = now;
+      } else {
+        forget(filePath);
+        meta = void 0;
+      }
+    }
+    if (meta) return meta;
+    let stat;
+    try {
+      stat = await statAsync(filePath);
+    } catch {
+      return void 0;
+    }
+    if (!stat.isFile()) return void 0;
+    if (confined && !await realPathInsideRoot(filePath)) return void 0;
+    meta = {
+      file: filePath,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      type,
+      etag: `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
+      cacheControl,
+      checkedAt: now
+    };
+    if (stat.size <= MAX_FILE_BYTES && budget.reserve(stat.size)) {
+      const body = makeStaticBody(await readFile(filePath), type, cacheControl);
+      body.reserved = stat.size;
+      body.budget = budget;
+      meta.body = body;
+    }
+    metas.set(filePath, meta);
+    return meta;
+  }
+  async function serveFile(req, res, filePath, type, cacheControl, confined = false) {
+    const meta = await lookup(filePath, type, cacheControl, confined);
+    if (!meta) return false;
+    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.statusCode = 405;
+      res.setHeader("Allow", "GET, HEAD");
+      res.end("Method Not Allowed");
+      return true;
+    }
+    if (meta.body) {
+      await sendStaticBody(req, res, meta.body);
+      return true;
+    }
+    res.setHeader("Content-Type", meta.type);
+    res.setHeader("Cache-Control", meta.cacheControl);
+    res.setHeader("ETag", meta.etag);
+    if (matchesEtag(req.headers["if-none-match"], meta.etag)) {
+      res.statusCode = 304;
+      res.end();
+      return true;
+    }
+    res.statusCode = 200;
+    res.setHeader("Content-Length", meta.size);
+    if (req.method === "HEAD") {
+      res.end();
+      return true;
+    }
+    await new Promise((resolve) => {
+      const stream = createReadStream(meta.file);
+      stream.on("error", () => {
+        res.destroy();
+        resolve();
+      });
+      res.on("close", () => {
+        stream.destroy();
+        resolve();
+      });
+      stream.on("end", resolve);
+      stream.pipe(res);
+    });
+    return true;
+  }
+  const serve = async (req, res, pathname, immutable) => {
+    const filePath = resolveInside(pathname);
+    if (!filePath) return false;
+    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE, true);
+  };
+  return { serve, serveFile, budget };
+}
+var CONTENT_TYPES, MIN_COMPRESS_BYTES, MAX_FILE_BYTES, MAX_CACHE_BYTES, REVALIDATE_MS, ByteBudget, IMMUTABLE_CACHE, PUBLIC_FILE_CACHE, HTML_CACHE;
+var init_staticFiles = __esm({
+  "../core/src/staticFiles.ts"() {
+    "use strict";
+    init_securityHeaders();
+    CONTENT_TYPES = {
+      ".html": "text/html; charset=utf-8",
+      ".htm": "text/html; charset=utf-8",
+      ".js": "application/javascript; charset=utf-8",
+      ".mjs": "application/javascript; charset=utf-8",
+      ".css": "text/css; charset=utf-8",
+      ".map": "application/json; charset=utf-8",
+      ".json": "application/json; charset=utf-8",
+      ".webmanifest": "application/manifest+json; charset=utf-8",
+      ".xml": "application/xml; charset=utf-8",
+      ".txt": "text/plain; charset=utf-8",
+      ".csv": "text/csv; charset=utf-8",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".avif": "image/avif",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+      ".woff": "font/woff",
+      ".woff2": "font/woff2",
+      ".ttf": "font/ttf",
+      ".otf": "font/otf",
+      ".pdf": "application/pdf",
+      ".wasm": "application/wasm",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mp3": "audio/mpeg"
+    };
+    MIN_COMPRESS_BYTES = 1024;
+    MAX_FILE_BYTES = 2 * 1024 * 1024;
+    MAX_CACHE_BYTES = 64 * 1024 * 1024;
+    REVALIDATE_MS = 1e3;
+    ByteBudget = class {
+      constructor(limit = MAX_CACHE_BYTES) {
+        this.limit = limit;
+      }
+      limit;
+      used = 0;
+      reserve(bytes) {
+        if (this.used + bytes > this.limit) return false;
+        this.used += bytes;
+        return true;
+      }
+      release(bytes) {
+        this.used = Math.max(0, this.used - bytes);
+      }
+    };
+    IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
+    PUBLIC_FILE_CACHE = "public, max-age=3600";
+    HTML_CACHE = "public, max-age=0, must-revalidate";
+  }
+});
+
+// ../core/src/island.ts
+var init_island = __esm({
+  "../core/src/island.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/islandComponent.tsx
+function clearStreamingModuleCache() {
+  streamingModuleCache.clear();
+}
+var import_react2, IslandCollectorContext, IslandStreamingContext, streamingModuleCache;
+var init_islandComponent = __esm({
+  "../core/src/islandComponent.tsx"() {
+    "use strict";
+    import_react2 = __toESM(require_react(), 1);
+    IslandCollectorContext = (0, import_react2.createContext)(null);
+    IslandStreamingContext = (0, import_react2.createContext)(null);
+    streamingModuleCache = /* @__PURE__ */ new Map();
+  }
+});
+
+// ../core/src/buildKey.ts
+import path4 from "node:path";
+function toBuildKey(appRoot, filePath) {
+  const rel2 = path4.relative(appRoot, filePath);
+  const noExt = rel2.slice(0, -path4.extname(rel2).length);
+  return noExt.split(path4.sep).join("/").replace(/[[\]]/g, "_");
+}
+var init_buildKey = __esm({
+  "../core/src/buildKey.ts"() {
+    "use strict";
+  }
+});
+
 // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react-jsx-runtime.production.min.js
 var require_react_jsx_runtime_production_min = __commonJS({
   "../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react-jsx-runtime.production.min.js"(exports) {
@@ -3118,1752 +4974,25 @@ var require_jsx_runtime = __commonJS({
   }
 });
 
-// src/index.ts
-import { Command } from "commander";
-
-// src/commands/dev.ts
-import path16 from "node:path";
-import { createRequire } from "node:module";
-import { createServer } from "vite";
-
-// ../core/src/config.ts
-function resolveAuthMode(project, appName) {
-  const app = project.apps.find((a) => a.name === appName);
-  if (!app) throw new Error(`[framework.config] unknown app: "${appName}"`);
-  return app.auth ?? project.shared.auth;
-}
-
-// ../core/src/serverFn.ts
-var DEFAULT_REQUEST_META = { url: "http://localhost/", method: "GET", headers: {} };
-function requestContextFields(meta) {
-  const source = meta ?? DEFAULT_REQUEST_META;
-  let url;
-  let headers;
-  const getUrl = () => {
-    if (!url) {
-      try {
-        url = new URL(source.url);
-      } catch {
-        url = new URL(DEFAULT_REQUEST_META.url);
-      }
-    }
-    return url;
-  };
-  const getHeaders = () => {
-    if (!headers) {
-      headers = new Headers();
-      for (const [name, value] of Object.entries(source.headers)) {
-        if (value === void 0) continue;
-        for (const item of Array.isArray(value) ? value : [value]) {
-          try {
-            headers.append(name, item);
-          } catch {
-          }
-        }
-      }
-    }
-    return headers;
-  };
-  let request;
-  return {
-    get url() {
-      return getUrl();
-    },
-    get headers() {
-      return getHeaders();
-    },
-    method: source.method,
-    ip: source.ip,
-    get request() {
-      if (!request) {
-        try {
-          request = new Request(getUrl(), { method: source.method, headers: getHeaders() });
-        } catch {
-          request = new Request(getUrl(), { headers: getHeaders() });
-        }
-      }
-      return request;
-    }
-  };
-}
-
-// ../core/src/router.ts
-import fs from "node:fs";
-import path from "node:path";
-var ROUTE_EXTENSIONS = /* @__PURE__ */ new Set([".tsx", ".ts"]);
-function splitRouteParams(raw = {}) {
-  const params = {};
-  const catchAll = {};
-  for (const [name, value] of Object.entries(raw)) {
-    if (Array.isArray(value)) {
-      catchAll[name] = value;
-      params[name] = value.join("/");
-    } else {
-      params[name] = value;
-    }
-  }
-  return { params, catchAll };
-}
-var RANK = { static: 3, param: 2, catchAll: 1, optionalCatchAll: 0 };
-function matchRoute(routesDir, urlPath) {
-  return matchInTable(buildRouteTable(routesDir), urlPath);
-}
-function buildRouteTable(routesDir) {
-  const entries = collectRouteFiles(routesDir).map((filePath) => {
-    const segments = fileToRouteSegments(routesDir, filePath).map(parseSegment);
-    return { filePath, segments, pattern: fileToRoutePath(routesDir, filePath) };
-  });
-  for (const entry of entries) {
-    const rest = entry.segments.findIndex((s) => s.kind === "catchAll" || s.kind === "optionalCatchAll");
-    if (rest !== -1 && rest !== entry.segments.length - 1) {
-      throw new Error(
-        `[devora] ${entry.filePath}: a catch-all segment must be the last part of the route (found ${JSON.stringify(entry.pattern)}). Move the files that sit under it elsewhere.`
-      );
-    }
-  }
-  const seen = /* @__PURE__ */ new Map();
-  for (const entry of entries) {
-    const shape = entry.segments.map((s) => s.kind === "static" ? `s:${s.value}` : s.kind).join("/");
-    const other = seen.get(shape);
-    if (other) {
-      throw new Error(
-        `[devora] two routes match the same URLs: ${other.filePath} and ${entry.filePath} (both are ${JSON.stringify(entry.pattern)}-shaped). Rename or remove one.`
-      );
-    }
-    seen.set(shape, entry);
-  }
-  return { entries };
-}
-function matchInTable(table, urlPath) {
-  const normalized = normalizePath(urlPath);
-  const urlSegments = segmentsOf(normalized);
-  const decoded = [];
-  for (const raw of urlSegments) {
-    const value = decodeSegment(raw);
-    if (value === null) return null;
-    decoded.push(value);
-  }
-  let best = null;
-  for (const entry of table.entries) {
-    const params = matchSegments(entry.segments, decoded);
-    if (!params) continue;
-    if (!best || moreSpecific(entry.segments, best.entry.segments)) best = { entry, params };
-  }
-  if (!best) return null;
-  return { filePath: best.entry.filePath, routePath: normalized, params: best.params };
-}
-function matchSegments(route, url) {
-  const params = {};
-  for (let i = 0; i < route.length; i++) {
-    const seg = route[i];
-    if (seg.kind === "catchAll" || seg.kind === "optionalCatchAll") {
-      const rest = url.slice(i);
-      if (seg.kind === "catchAll" && rest.length === 0) return null;
-      params[seg.name] = rest;
-      return params;
-    }
-    const value = url[i];
-    if (value === void 0) return null;
-    if (seg.kind === "static") {
-      if (seg.value !== value) return null;
-    } else {
-      params[seg.name] = value;
-    }
-  }
-  return url.length === route.length ? params : null;
-}
-function moreSpecific(a, b) {
-  const n = Math.max(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    const ra = a[i] ? RANK[a[i].kind] : -1;
-    const rb = b[i] ? RANK[b[i].kind] : -1;
-    if (ra !== rb) return ra > rb;
-  }
-  return false;
-}
-function decodeSegment(raw) {
-  if (raw === "") return null;
-  let value;
-  try {
-    value = decodeURIComponent(raw);
-  } catch {
-    return null;
-  }
-  if (value === "" || value === "." || value === ".." || /[\\/\0]/.test(value)) return null;
-  return value;
-}
-function parseSegment(raw) {
-  let m = /^\[\[\.\.\.([^\[\]]+)\]\]$/.exec(raw);
-  if (m) return { kind: "optionalCatchAll", name: m[1] };
-  m = /^\[\.\.\.([^\[\]]+)\]$/.exec(raw);
-  if (m) return { kind: "catchAll", name: m[1] };
-  if (isDynamicSegment(raw)) return { kind: "param", name: paramName(raw) };
-  return { kind: "static", value: raw };
-}
-function listRoutePaths(routesDir) {
-  return collectRouteFiles(routesDir).map((filePath) => fileToRoutePath(routesDir, filePath));
-}
-function listRouteFiles(routesDir) {
-  return collectRouteFiles(routesDir);
-}
-function routeFileToPath(routesDir, filePath) {
-  return fileToRoutePath(routesDir, filePath);
-}
-function isDynamicRouteFile(routesDir, filePath) {
-  return fileToRouteSegments(routesDir, filePath).some(isDynamicSegment);
-}
-function resolveStaticRoutePath(routesDir, filePath, params) {
-  const out = [];
-  for (const segment of fileToRouteSegments(routesDir, filePath)) {
-    const parsed = parseSegment(segment);
-    if (parsed.kind === "static") {
-      out.push(parsed.value);
-      continue;
-    }
-    const value = params[parsed.name];
-    if (value === void 0) {
-      throw new Error(
-        `[devora] getStaticParams() entry is missing "${parsed.name}" for dynamic route segment "${segment}"`
-      );
-    }
-    const isRest = parsed.kind === "catchAll" || parsed.kind === "optionalCatchAll";
-    if (isRest !== Array.isArray(value)) {
-      throw new Error(
-        `[devora] getStaticParams() "${parsed.name}" for "${segment}" must be ${isRest ? "a string[]" : "a string"}`
-      );
-    }
-    const parts = Array.isArray(value) ? value : [value];
-    if (parsed.kind === "catchAll" && parts.length === 0) {
-      throw new Error(`[devora] getStaticParams() "${parsed.name}" for "${segment}" must have at least one segment`);
-    }
-    for (const part of parts) {
-      if (typeof part !== "string" || part === "" || part === "." || part === ".." || /[\\/\0]/.test(part)) {
-        throw new Error(
-          `[devora] getStaticParams() "${parsed.name}" contains an unusable path segment ${JSON.stringify(part)} (empty, ".", "..", or containing a slash)`
-        );
-      }
-      out.push(encodeURIComponent(part));
-    }
-  }
-  return out.length === 0 ? "/" : "/" + out.join("/");
-}
-function isDynamicSegment(segment) {
-  return segment.startsWith("[") && segment.endsWith("]") && segment.length > 2;
-}
-function paramName(segment) {
-  return segment.replace(/^\[\[?(\.\.\.)?/, "").replace(/\]\]?$/, "");
-}
-function normalizePath(urlPath) {
-  if (urlPath === "" || urlPath === "/") return "/";
-  return urlPath.replace(/\/+$/, "");
-}
-function segmentsOf(normalized) {
-  return normalized === "/" ? [] : normalized.slice(1).split("/");
-}
-function collectRouteFiles(routesDir) {
-  if (!fs.existsSync(routesDir)) return [];
-  const files = [];
-  for (const entry of fs.readdirSync(routesDir, { withFileTypes: true })) {
-    const full = path.join(routesDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...collectRouteFiles(full));
-    } else if (ROUTE_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(full);
-    }
-  }
-  return files;
-}
-function fileToRouteSegments(routesDir, filePath) {
-  const rel2 = path.relative(routesDir, filePath);
-  const noExt = rel2.slice(0, -path.extname(rel2).length);
-  const segments = noExt.split(path.sep);
-  if (segments[segments.length - 1] === "index") segments.pop();
-  return segments;
-}
-function fileToRoutePath(routesDir, filePath) {
-  const segments = fileToRouteSegments(routesDir, filePath);
-  return segments.length === 0 ? "/" : "/" + segments.join("/");
-}
-
-// ../core/src/theme.ts
-var DEVORA_LOGO_URL = "/icons/devorajs-logo-withoutbg.png";
-var THEME_CSS = `
-:root {
-  color-scheme: dark light;
-  --devora-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --devora-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --devora-text-xs: 0.75rem;
-  --devora-text-sm: 0.875rem;
-  --devora-text-base: 1rem;
-  --devora-text-lg: 1.125rem;
-  --devora-text-xl: 1.375rem;
-  --devora-text-2xl: clamp(1.875rem, 1.45rem + 1.6vw, 2.5rem);
-  --devora-space-1: 0.25rem;
-  --devora-space-2: 0.5rem;
-  --devora-space-3: 0.75rem;
-  --devora-space-4: 1rem;
-  --devora-space-6: 1.5rem;
-  --devora-space-8: 2rem;
-  --devora-space-12: 3rem;
-  --devora-radius-sm: 6px;
-  --devora-radius: 10px;
-  --devora-radius-lg: 14px;
-  --devora-content-width: 760px;
-  --devora-wide-width: 1120px;
-  --devora-gutter: clamp(1rem, 0.6rem + 1.8vw, 1.5rem);
-
-  --devora-bg: #0b0b12;
-  --devora-surface: #11111a;
-  --devora-header-bg: rgba(17, 17, 26, 0.85);
-  --devora-card: #15151f;
-  --devora-fg: #f4f4f6;
-  --devora-fg-muted: #a6a6b8;
-  --devora-fg-subtle: #8a8a9e;
-  --devora-border: #262633;
-  --devora-border-strong: #383850;
-  --devora-accent-from: #3b82f6;
-  --devora-accent-to: #a855f7;
-  --devora-button-from: #2563eb;
-  --devora-button-to: #7c3aed;
-  --devora-link: #93b8ff;
-  --devora-ring: rgba(120, 160, 255, 0.55);
-  --devora-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --devora-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
-  --devora-hover: rgba(255, 255, 255, 0.06);
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --devora-bg: #f7f7fa;
-    --devora-surface: #ffffff;
-    --devora-header-bg: rgba(255, 255, 255, 0.88);
-    --devora-card: #ffffff;
-    --devora-fg: #15151e;
-    --devora-fg-muted: #4c4c5c;
-    --devora-fg-subtle: #646475;
-    --devora-border: #e3e3eb;
-    --devora-border-strong: #cdcdd9;
-    --devora-accent-from: #2563eb;
-    --devora-accent-to: #9333ea;
-    --devora-link: #1d4ed8;
-    --devora-ring: rgba(37, 99, 235, 0.45);
-    --devora-shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.06);
-    --devora-shadow: 0 1px 2px rgba(20, 20, 40, 0.05), 0 8px 24px rgba(20, 20, 40, 0.07);
-    --devora-hover: rgba(20, 20, 40, 0.05);
-  }
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--devora-bg);
-  color: var(--devora-fg);
-  font-family: var(--devora-font);
-  font-size: var(--devora-text-base);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-a { color: var(--devora-link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
-a:hover { text-decoration-thickness: 2px; }
-:where(a, button, input, textarea, select, summary):focus-visible {
-  outline: 2px solid var(--devora-ring);
-  outline-offset: 2px;
-  border-radius: var(--devora-radius-sm);
-}
-h1, h2, h3 { line-height: 1.2; color: var(--devora-fg); }
-code {
-  font-family: var(--devora-mono);
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: 5px;
-  padding: 0.1em 0.4em;
-  font-size: 0.875em;
-}
-img { max-width: 100%; }
-
-/* Shell: full-height column; <main> grows, so the footer sits at the
-   bottom of a short page and below the content of a long one. */
-.devora-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Header */
-.devora-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--devora-header-bg);
-  -webkit-backdrop-filter: saturate(180%) blur(10px);
-  backdrop-filter: saturate(180%) blur(10px);
-  border-bottom: 1px solid var(--devora-border);
-}
-.devora-header-inner {
-  max-width: var(--devora-wide-width);
-  margin: 0 auto;
-  min-height: 60px;
-  padding: var(--devora-space-2) var(--devora-gutter);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--devora-space-2) var(--devora-space-4);
-}
-.devora-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--devora-space-2);
-  text-decoration: none;
-  color: var(--devora-fg);
-  font-weight: 700;
-  font-size: var(--devora-text-lg);
-  letter-spacing: -0.01em;
-  flex-shrink: 0;
-}
-.devora-brand img { height: 28px; width: 28px; display: block; }
-.devora-brand .devora-js, .devora-gradient-text {
-  background: linear-gradient(90deg, var(--devora-accent-from), var(--devora-accent-to));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.devora-app-badge {
-  font-size: var(--devora-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--devora-fg-muted);
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: 999px;
-  padding: 0.2rem 0.65rem;
-  flex-shrink: 0;
-}
-.devora-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--devora-space-1);
-  margin-left: auto;
-}
-.devora-nav a {
-  color: var(--devora-fg-muted);
-  text-decoration: none;
-  font-size: var(--devora-text-sm);
-  font-weight: 500;
-  white-space: nowrap;
-  padding: 0.4rem 0.65rem;
-  border-radius: var(--devora-radius-sm);
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-.devora-nav a:hover, .devora-nav a[aria-current="page"] { color: var(--devora-fg); background: var(--devora-hover); }
-@media (max-width: 640px) {
-  /* The nav takes its own row and wraps \u2014 no hidden, sideways-scrolling links. */
-  .devora-nav { order: 3; width: 100%; margin: 0 calc(-1 * var(--devora-space-2)); }
-}
-
-/* Page content: one centered reading column */
-.devora-page {
-  flex: 1 0 auto;
-  width: 100%;
-  max-width: calc(var(--devora-content-width) + 2 * var(--devora-gutter));
-  margin: 0 auto;
-  padding: clamp(2rem, 1.2rem + 3.5vw, 4rem) var(--devora-gutter) clamp(3rem, 2rem + 4vw, 5rem);
-}
-.devora-page > :first-child { margin-top: 0; }
-.devora-page h1 {
-  font-size: var(--devora-text-2xl);
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--devora-space-4);
-}
-.devora-page h2 {
-  font-size: var(--devora-text-xl);
-  letter-spacing: -0.01em;
-  margin: var(--devora-space-12) 0 var(--devora-space-4);
-  padding-bottom: var(--devora-space-2);
-  border-bottom: 1px solid var(--devora-border);
-}
-.devora-page h3 { font-size: var(--devora-text-lg); margin: var(--devora-space-8) 0 var(--devora-space-3); }
-.devora-page p { margin: 0 0 var(--devora-space-4); color: var(--devora-fg-muted); }
-.devora-page p code, .devora-page li code { color: var(--devora-fg); }
-.devora-lead { font-size: var(--devora-text-lg); color: var(--devora-fg-muted); max-width: 60ch; }
-.devora-page strong { color: var(--devora-fg); }
-.devora-page ul, .devora-page ol { color: var(--devora-fg-muted); padding-left: 1.25rem; margin: 0 0 var(--devora-space-4); }
-.devora-page li { margin: var(--devora-space-2) 0; }
-.devora-page li::marker { color: var(--devora-accent-from); }
-.devora-page hr { border: 0; border-top: 1px solid var(--devora-border); margin: var(--devora-space-8) 0; }
-.devora-page pre {
-  margin: 0 0 var(--devora-space-6);
-  padding: var(--devora-space-4) 1.125rem;
-  overflow-x: auto;
-  font-size: var(--devora-text-sm);
-  line-height: 1.65;
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: var(--devora-radius);
-}
-.devora-page pre code { background: transparent; border: none; padding: 0; font-size: 1em; }
-
-/* Cards, and a responsive grid of them */
-.devora-card {
-  padding: var(--devora-space-6);
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: var(--devora-radius-lg);
-  box-shadow: var(--devora-shadow-sm);
-  margin: var(--devora-space-6) 0;
-}
-.devora-card > :first-child { margin-top: 0; }
-.devora-card > :last-child { margin-bottom: 0; }
-.devora-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: var(--devora-space-4);
-  margin: var(--devora-space-8) 0;
-}
-.devora-grid > .devora-card { margin: 0; }
-.devora-card h3 { margin: 0 0 var(--devora-space-2); font-size: var(--devora-text-base); }
-
-/* Forms: a card, labels above full-width fields */
-.devora-page form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--devora-space-4);
-  max-width: 440px;
-  margin: var(--devora-space-6) 0;
-  padding: var(--devora-space-6);
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: var(--devora-radius-lg);
-  box-shadow: var(--devora-shadow);
-}
-.devora-page label {
-  font-size: var(--devora-text-sm);
-  font-weight: 600;
-  color: var(--devora-fg);
-  margin-bottom: calc(-1 * var(--devora-space-2));
-}
-.devora-page input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-.devora-page textarea,
-.devora-page select {
-  width: 100%;
-  min-height: 42px;
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--devora-radius-sm);
-  border: 1px solid var(--devora-border-strong);
-  background: var(--devora-bg);
-  color: var(--devora-fg);
-  font: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.devora-page textarea { min-height: 6rem; resize: vertical; }
-.devora-page input::placeholder, .devora-page textarea::placeholder { color: var(--devora-fg-subtle); }
-.devora-page input:focus, .devora-page textarea:focus, .devora-page select:focus {
-  outline: none;
-  border-color: var(--devora-accent-from);
-  box-shadow: 0 0 0 3px var(--devora-ring);
-}
-.devora-page button, .devora-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--devora-space-2);
-  min-height: 42px;
-  padding: 0.55rem 1.25rem;
-  border-radius: var(--devora-radius-sm);
-  border: none;
-  /* Darker than the brand gradient so white text stays above 4.5:1 contrast. */
-  background: linear-gradient(90deg, var(--devora-button-from), var(--devora-button-to));
-  color: #ffffff;
-  font: inherit;
-  font-weight: 600;
-  font-size: var(--devora-text-sm);
-  text-decoration: none;
-  cursor: pointer;
-  align-self: flex-start;
-  box-shadow: var(--devora-shadow-sm);
-  transition: filter 0.15s ease, transform 0.1s ease;
-}
-.devora-page button:hover, .devora-button:hover { filter: brightness(1.08); }
-.devora-page button:active, .devora-button:active { transform: translateY(1px); }
-.devora-page button:disabled { opacity: 0.55; cursor: not-allowed; }
-
-/* Error and status pages */
-.devora-error, .devora-status { text-align: center; padding-top: clamp(3rem, 2rem + 8vw, 7rem); }
-.devora-error h1, .devora-status h1 {
-  font-size: clamp(3rem, 2rem + 6vw, 5rem);
-  letter-spacing: -0.04em;
-  margin-bottom: var(--devora-space-2);
-  background: linear-gradient(90deg, var(--devora-accent-from), var(--devora-accent-to));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.devora-status h1 { font-size: var(--devora-text-2xl); }
-.devora-error pre { text-align: left; }
-.devora-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--devora-space-2);
-  font-size: var(--devora-text-sm);
-  font-weight: 600;
-  color: var(--devora-fg);
-  background: var(--devora-card);
-  border: 1px solid var(--devora-border);
-  border-radius: 999px;
-  padding: 0.3rem 0.8rem;
-}
-.devora-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
-
-/* Footer */
-.devora-footer {
-  border-top: 1px solid var(--devora-border);
-  background: var(--devora-surface);
-  color: var(--devora-fg-subtle);
-  font-size: var(--devora-text-sm);
-}
-.devora-footer-inner {
-  max-width: var(--devora-wide-width);
-  margin: 0 auto;
-  padding: var(--devora-space-6) var(--devora-gutter);
-  display: flex;
-  flex-direction: column;
-  gap: var(--devora-space-4);
-}
-.devora-footer a { color: var(--devora-fg-muted); }
-.devora-footer a:hover { color: var(--devora-fg); }
-.devora-footer-custom, .devora-footer-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--devora-space-3) var(--devora-space-8);
-}
-.devora-footer-brand { display: inline-flex; align-items: center; gap: var(--devora-space-2); }
-.devora-footer-brand a { text-decoration: none; font-weight: 600; }
-.devora-footer img { height: 18px; width: 18px; display: block; }
-.devora-footer-links { display: flex; flex-wrap: wrap; gap: var(--devora-space-2) var(--devora-space-6); }
-.devora-footer-links a { text-decoration: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
-}
-`;
-
-// ../core/src/html.ts
-function attrs(pairs) {
-  return Object.entries(pairs).filter(([, v]) => v !== void 0 && v !== false).map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${escapeHtml(String(v))}"`).join("");
-}
-function linkTag(link) {
-  return `<link${attrs({
-    rel: link.rel,
-    href: link.href,
-    type: link.type,
-    sizes: link.sizes,
-    as: link.as,
-    media: link.media,
-    crossorigin: link.crossorigin,
-    hreflang: link.hreflang,
-    title: link.title
-  })} />`;
-}
-function headTags(head) {
-  if (!head) return [];
-  return [
-    ...(head.stylesheets ?? []).map((href) => linkTag({ rel: "stylesheet", href })),
-    ...(head.links ?? []).map(linkTag),
-    ...(head.meta ?? []).map(
-      (m) => `<meta${attrs({ name: m.name, property: m.property, "http-equiv": m.httpEquiv, content: m.content })} />`
-    ),
-    ...(head.scripts ?? []).map(
-      (script) => `<script${attrs({
-        type: script.type === "classic" ? void 0 : "module",
-        src: script.src,
-        defer: script.defer,
-        async: script.async,
-        crossorigin: script.crossorigin
-      })}></script>`
-    )
-  ];
-}
-function includesTheme(options) {
-  const theme = options.appHead?.theme ?? "auto";
-  if (theme === true || theme === false) return theme;
-  return options.usedShell === true || options.clientRendered === true;
-}
-function renderHead(meta, options = {}) {
-  const { title, description, og } = meta ?? {};
-  const ogTitle = og?.title ?? title;
-  const ogDescription = og?.description ?? description;
-  const appHead = options.appHead;
-  const extra = [...headTags(appHead), ...headTags(meta?.head)];
-  const declaredMeta = [...appHead?.meta ?? [], ...meta?.head?.meta ?? []];
-  const declaredLinks = [...appHead?.links ?? [], ...meta?.head?.links ?? []];
-  const theme = includesTheme(options);
-  const hasIcon = declaredLinks.some((l) => l.rel.split(/\s+/).includes("icon"));
-  const hasViewport = declaredMeta.some((m) => m.name === "viewport");
-  const lines = [
-    `<meta charset="utf-8" />`,
-    hasViewport ? "" : `<meta name="viewport" content="width=device-width, initial-scale=1" />`,
-    theme && !hasIcon ? `<link rel="icon" href="${DEVORA_LOGO_URL}" />` : "",
-    theme ? `<style>${THEME_CSS}</style>` : "",
-    ...(options.styles ?? []).map((href) => linkTag({ rel: "stylesheet", href })),
-    title ? `<title>${escapeHtml(title)}</title>` : "",
-    description ? `<meta name="description" content="${escapeHtml(description)}" />` : "",
-    ogTitle ? `<meta property="og:title" content="${escapeHtml(ogTitle)}" />` : "",
-    ogDescription ? `<meta property="og:description" content="${escapeHtml(ogDescription)}" />` : "",
-    ogTitle || ogDescription ? `<meta property="og:type" content="${escapeHtml(og?.type ?? "website")}" />` : "",
-    og?.image ? `<meta property="og:image" content="${escapeHtml(og.image)}" />` : "",
-    og?.url ? `<meta property="og:url" content="${escapeHtml(og.url)}" />` : "",
-    ...extra
-  ].filter(Boolean);
-  return `<!doctype html>
-<html${appHead?.lang ? ` lang="${escapeHtml(appHead.lang)}"` : ""}>
-  <head>
-    ${lines.join("\n    ")}
-  </head>
-  <body>
-`;
-}
-function renderTail(opts) {
-  const preambleScript = opts.devPreambleUrl ? `<script type="module" src="${escapeHtml(opts.devPreambleUrl)}"></script>
-    ` : "";
-  return `    ${preambleScript}${opts.islandScriptUrl ? `<script type="module" src="${escapeHtml(opts.islandScriptUrl)}"></script>` : ""}
-    ${opts.csrScriptUrl ? `<script type="module" src="${escapeHtml(opts.csrScriptUrl)}"></script>` : ""}
-  </body>
-</html>
-`;
-}
-function renderHtmlDocument(opts) {
-  return `${renderHead(opts.meta, opts.head)}    <div id="root">${opts.bodyHtml}</div>
-${renderTail(opts)}`;
-}
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function renderShellMarkup(mainHtml, options = {}) {
-  const logo = options.logo === false ? "" : `<img src="${DEVORA_LOGO_URL}" alt="" width="28" height="28" />`;
-  const badge = options.badge ? `<span class="devora-app-badge">${escapeHtml(options.badge)}</span>` : "";
-  return `<div class="devora-shell"><header class="devora-header"><div class="devora-header-inner"><a href="/" class="devora-brand" aria-label="devora.js home">${logo}<span>devora<span class="devora-js">.js</span></span></a>${badge}</div></header><main class="devora-page${options.mainClass ? ` ${escapeHtml(options.mainClass)}` : ""}">${mainHtml}</main><footer class="devora-footer"><div class="devora-footer-inner"><div class="devora-footer-row"><div class="devora-footer-brand"><span>Built with <a href="https://github.com/hassanalsa3aka/devora.js">devora.js</a></span></div></div></div></footer></div>`;
-}
-
-// ../core/src/session.ts
-import { createHmac as createHmac2, randomBytes as randomBytes2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
-
-// ../core/src/configError.ts
-var DevoraConfigError = class extends Error {
-  name = "DevoraConfigError";
-};
-
-// ../core/src/csrf.ts
-var import_react = __toESM(require_react(), 1);
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-var CSRF_COOKIE_NAME = "devora_csrf";
-var CSRF_FORM_FIELD = "_csrf";
-var CSRF_HEADER_NAME = "x-devora-csrf";
-function generateCsrfToken() {
-  return randomBytes(32).toString("base64url");
-}
-function deriveSessionCsrfToken(sessionId, options) {
-  return createHmac("sha256", options.secret).update(`csrf:${options.name}:${sessionId}`).digest("base64url");
-}
-function verifyCsrfToken(cookieValue2, formValue) {
-  if (!cookieValue2 || typeof formValue !== "string" || !formValue) return false;
-  const cookieBuf = Buffer.from(cookieValue2);
-  const formBuf = Buffer.from(formValue);
-  if (cookieBuf.length !== formBuf.length) return false;
-  return timingSafeEqual(cookieBuf, formBuf);
-}
-var CSRF_SAFE_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
-function verifyCsrfByDefault(options) {
-  if (!options.cookieAuthenticated || options.optedOut || CSRF_SAFE_METHODS.has(options.method.toUpperCase())) return;
-  const fromForm = options.formData?.get(CSRF_FORM_FIELD);
-  const fromHeader = Array.isArray(options.headerToken) ? options.headerToken[0] : options.headerToken;
-  options.verifyCsrf(typeof fromForm === "string" && fromForm ? fromForm : fromHeader ?? "");
-}
-
-// ../core/src/httpError.ts
-var HttpError = class extends Error {
-  status;
-  constructor(status2, message) {
-    super(message);
-    this.name = "HttpError";
-    this.status = status2;
-  }
-};
-function getHttpErrorStatus(err) {
-  if (!err || typeof err !== "object") return void 0;
-  const candidate = err.status ?? err.statusCode;
-  if (typeof candidate !== "number" || !Number.isInteger(candidate)) return void 0;
-  return candidate >= 400 && candidate <= 599 ? candidate : void 0;
-}
-function jsonMessageResponse(status2, message, headers) {
-  return {
-    status: status2,
-    headers: { ...headers ?? {}, "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ message })
-  };
-}
-function apiNotFoundResponse() {
-  return jsonMessageResponse(404, "Not found");
-}
-function apiErrorResponse(err) {
-  const status2 = getHttpErrorStatus(err);
-  if (status2 !== void 0) {
-    if (status2 >= 500) console.error("[devora] API route error:", err);
-    return jsonMessageResponse(status2, errorMessage(err) || "Request failed");
-  }
-  console.error("[devora] API route error:", err);
-  const message = process.env.NODE_ENV === "production" ? "Internal Server Error" : errorMessage(err) || "Internal Server Error";
-  return jsonMessageResponse(500, message);
-}
-function errorMessage(err) {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return "";
-}
-function backendStatusResponse(appName) {
-  return {
-    status: 200,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
-    body: JSON.stringify({ app: appName, status: "ok", api: "/api" })
-  };
-}
-function backendStatusPage(appName) {
-  const main = `<span class="devora-pill">API is running</span><h1>${escapeHtml(appName)}</h1><p class="devora-lead">This app serves JSON under <code>/api</code>. Its routes live in the app's API folder.</p>`;
-  return {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-    body: renderHtmlDocument({
-      bodyHtml: renderShellMarkup(main, { mainClass: "devora-status", badge: appName, logo: false }),
-      meta: { title: `${appName} \u2014 API` },
-      head: { appHead: { theme: true } }
-    })
-  };
-}
-function backendStatusFor(appName, accept) {
-  const value = Array.isArray(accept) ? accept.join(",") : accept ?? "";
-  return /\btext\/html\b/i.test(value) ? backendStatusPage(appName) : backendStatusResponse(appName);
-}
-
-// ../core/src/sessionStore.ts
-function getSessionState(record, now = Date.now()) {
-  if (!record || now >= record.expiresAt) return "dead";
-  if (now >= record.activeExpiresAt) return "idle";
-  return "active";
-}
-function isSessionStore(value) {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value;
-  return typeof candidate.get === "function" && typeof candidate.set === "function" && typeof candidate.delete === "function";
-}
-var SWEEP_EVERY_N_WRITES = 1e3;
-function createMemorySessionStore() {
-  const records = /* @__PURE__ */ new Map();
-  let writesSinceSweep = 0;
-  return {
-    get(key) {
-      const record = records.get(key);
-      if (!record) return void 0;
-      if (getSessionState(record) === "dead") {
-        records.delete(key);
-        return void 0;
-      }
-      return structuredClone(record);
-    },
-    set(key, record) {
-      records.set(key, structuredClone(record));
-      if (++writesSinceSweep >= SWEEP_EVERY_N_WRITES) {
-        writesSinceSweep = 0;
-        const now = Date.now();
-        for (const [k, r] of records) {
-          if (getSessionState(r, now) === "dead") records.delete(k);
-        }
-      }
-    },
-    delete(key) {
-      records.delete(key);
-    }
-  };
-}
-var MEMORY_STORE_KEY = /* @__PURE__ */ Symbol.for("devora.sessions.memoryStore");
-function getProcessMemorySessionStore() {
-  const holder = globalThis;
-  holder[MEMORY_STORE_KEY] ??= createMemorySessionStore();
-  return holder[MEMORY_STORE_KEY];
-}
-
-// ../core/src/session.ts
-var DEFAULT_SESSION_ACTIVE_PERIOD_MS = 24 * 60 * 60 * 1e3;
-var DEFAULT_SESSION_IDLE_PERIOD_MS = 14 * 24 * 60 * 60 * 1e3;
-var DEV_INSECURE_SECRET = "dev-insecure-session-secret-do-not-use-in-production";
-var SESSION_SECRET_DOCS = "https://github.com/hassanalsa3aka/devora.js/blob/main/packages/backend/AUTH.md";
-var warnedForKey;
-function resolveSecret(envKey) {
-  const configured = process.env[envKey] ?? process.env.DEVORA_SESSION_SECRET;
-  if (configured) return configured;
-  const label = envKey === "DEVORA_SESSION_SECRET" ? envKey : `${envKey} (or DEVORA_SESSION_SECRET)`;
-  if (process.env.NODE_ENV === "production") {
-    throw new DevoraConfigError(
-      `[devora] no session secret configured: set ${label} before running in production (e.g. \`openssl rand -base64 32\`). See ${SESSION_SECRET_DOCS}`
-    );
-  }
-  if (warnedForKey !== envKey) {
-    console.warn(
-      `[devora] no ${label} set \u2014 using an insecure dev-only default. Set this before deploying \u2014 see ${SESSION_SECRET_DOCS}`
-    );
-    warnedForKey = envKey;
-  }
-  return DEV_INSECURE_SECRET;
-}
-function resolveSessionScope(authMode, appName) {
-  if (authMode === "isolated") {
-    const envKey = `DEVORA_SESSION_SECRET_${appName.toUpperCase()}`;
-    return { name: `devora_session_${appName}`, secret: resolveSecret(envKey) };
-  }
-  return { name: "devora_session", secret: resolveSecret("DEVORA_SESSION_SECRET") };
-}
-function sessionStoreKey(sessionId, opts) {
-  let perSecret = storeKeyMemo.get(opts.secret);
-  if (!perSecret) storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
-  const memoKey = `${opts.name}:${sessionId}`;
-  let key = perSecret.get(memoKey);
-  if (key === void 0) {
-    key = createHmac2("sha256", opts.secret).update(memoKey).digest("base64url");
-    if (storeKeyMemoSize >= STORE_KEY_MEMO_MAX) {
-      storeKeyMemo.clear();
-      storeKeyMemoSize = 0;
-      storeKeyMemo.set(opts.secret, perSecret = /* @__PURE__ */ new Map());
-    }
-    perSecret.set(memoKey, key);
-    storeKeyMemoSize++;
-  }
-  return key;
-}
-var STORE_KEY_MEMO_MAX = 5e3;
-var storeKeyMemo = /* @__PURE__ */ new Map();
-var storeKeyMemoSize = 0;
-function generateSessionId() {
-  return randomBytes2(32).toString("base64url");
-}
-var SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-function buildCookieAttributes(cookie, maxAgeSeconds, withDomain = false) {
-  const attributes = cookie ?? { secure: process.env.NODE_ENV === "production", sameSite: "Lax" };
-  let attrs2 = `Path=/; HttpOnly; SameSite=${attributes.sameSite}`;
-  if (withDomain && attributes.domain) attrs2 += `; Domain=${attributes.domain}`;
-  if (maxAgeSeconds !== void 0) attrs2 += `; Max-Age=${maxAgeSeconds}`;
-  return attributes.secure ? `${attrs2}; Secure` : attrs2;
-}
-var warnedCsrfDisabled = false;
-function parseCookieHeader(header) {
-  const cookies = {};
-  if (!header) return cookies;
-  for (const part of header.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    const key = part.slice(0, eq).trim();
-    if (!key || Object.prototype.hasOwnProperty.call(cookies, key)) continue;
-    const value = part.slice(eq + 1).trim();
-    try {
-      cookies[key] = decodeURIComponent(value);
-    } catch {
-      cookies[key] = value;
-    }
-  }
-  return cookies;
-}
-function readBearerToken(header) {
-  const value = Array.isArray(header) ? header[0] : header;
-  if (!value) return void 0;
-  const match = /^Bearer[ \t]+(\S+)[ \t]*$/i.exec(value);
-  return match ? match[1] : void 0;
-}
-function periodsOf(opts) {
-  return {
-    active: opts.activePeriodMs ?? DEFAULT_SESSION_ACTIVE_PERIOD_MS,
-    idle: opts.idlePeriodMs ?? DEFAULT_SESSION_IDLE_PERIOD_MS
-  };
-}
-async function resolveSession(request, opts, now = Date.now()) {
-  const bearer = readBearerToken(request.authorizationHeader);
-  const presentedTransport = bearer !== void 0 ? "bearer" : parseCookieHeader(request.cookieHeader)[opts.name] ? "cookie" : void 0;
-  const sessionId = bearer ?? parseCookieHeader(request.cookieHeader)[opts.name];
-  if (!presentedTransport || !sessionId) return { presentedTransport, state: "none", renewed: false };
-  if (!SESSION_ID_PATTERN.test(sessionId)) return { presentedTransport, state: "dead", renewed: false };
-  const key = sessionStoreKey(sessionId, opts);
-  const record = await opts.store.get(key);
-  const state = getSessionState(record, now);
-  if (state === "dead" || !record) {
-    if (record) await opts.store.delete(key);
-    return { presentedTransport, state: "dead", renewed: false };
-  }
-  if (state === "idle") {
-    const { active, idle } = periodsOf(opts);
-    const renewedRecord = { data: record.data, activeExpiresAt: now + active, expiresAt: now + active + idle };
-    await opts.store.set(key, renewedRecord);
-    return { presentedTransport, state, sessionId, record: renewedRecord, renewed: true };
-  }
-  return { presentedTransport, state, sessionId, record, renewed: false };
-}
-var warnedSessionWithoutAuth = /* @__PURE__ */ new Set();
-var MAX_WARNED_PATHS = 1e3;
-function warnIfSessionReadWithoutAuth(context, urlOrPath) {
-  const { sessionRead, requireAuthCalled } = context.authUsage();
-  if (!sessionRead || requireAuthCalled) return;
-  if (process.env.NODE_ENV === "production") return;
-  let pathname = urlOrPath ?? "(unknown path)";
-  try {
-    pathname = new URL(pathname, "http://localhost").pathname;
-  } catch {
-  }
-  if (warnedSessionWithoutAuth.has(pathname) || warnedSessionWithoutAuth.size >= MAX_WARNED_PATHS) return;
-  warnedSessionWithoutAuth.add(pathname);
-  console.warn(
-    `[devora] ${pathname} read ctx.session but never called ctx.requireAuth(). If this route is for signed-in users only, call ctx.requireAuth() first (a 401 when there is no session); if it also serves signed-out visitors, check ctx.session for undefined before using it. (Shown once per path, in dev only.)`
-  );
-}
-var PRIVATE_NO_STORE = "private, no-store";
-async function createRequestContext(request, opts, params = {}, meta) {
-  const fields = requestContextFields(meta);
-  const cookies = parseCookieHeader(request.cookieHeader);
-  const resolved = await resolveSession(request, opts);
-  const pendingSetCookies = [];
-  const pendingWrites = [];
-  let currentSessionId = resolved.sessionId;
-  let currentRecord = resolved.record;
-  let transport = currentRecord ? resolved.presentedTransport : void 0;
-  const sessionCookie = (sessionId, record) => `${opts.name}=${sessionId}; ${buildCookieAttributes(opts.cookie, Math.max(0, Math.floor((record.expiresAt - Date.now()) / 1e3)), true)}`;
-  const clearedSessionCookie = () => `${opts.name}=; ${buildCookieAttributes(opts.cookie, 0, true)}`;
-  if (resolved.presentedTransport === "cookie") {
-    if (resolved.state === "dead") pendingSetCookies.push(clearedSessionCookie());
-    else if (resolved.renewed && currentSessionId && currentRecord) {
-      pendingSetCookies.push(sessionCookie(currentSessionId, currentRecord));
-    }
-  }
-  const csrfEnabled = opts.csrfCookie !== false;
-  const incomingCsrfCookie = csrfEnabled ? cookies[CSRF_COOKIE_NAME] : void 0;
-  const anonymousCsrfToken = csrfEnabled ? incomingCsrfCookie ?? generateCsrfToken() : "";
-  if (csrfEnabled && !incomingCsrfCookie && resolved.presentedTransport !== "bearer") {
-    pendingSetCookies.push(`${CSRF_COOKIE_NAME}=${anonymousCsrfToken}; ${buildCookieAttributes(opts.cookie)}`);
-  }
-  const presentedCookieSessionId = csrfEnabled && resolved.presentedTransport === "cookie" && resolved.record !== void 0 ? resolved.sessionId : void 0;
-  const track = (write) => {
-    const promise = (async () => write())();
-    pendingWrites.push(promise);
-    promise.catch(() => {
-    });
-    return promise;
-  };
-  const revokeSession = (sessionId) => {
-    if (sessionId !== void 0 && sessionId !== currentSessionId) {
-      if (!SESSION_ID_PATTERN.test(sessionId)) return Promise.resolve();
-      const otherKey = sessionStoreKey(sessionId, opts);
-      return track(() => opts.store.delete(otherKey));
-    }
-    if (currentSessionId === void 0) return Promise.resolve();
-    const key = sessionStoreKey(currentSessionId, opts);
-    if (transport === "cookie") pendingSetCookies.push(clearedSessionCookie());
-    currentSessionId = void 0;
-    currentRecord = void 0;
-    transport = void 0;
-    return track(() => opts.store.delete(key));
-  };
-  let sessionRead = false;
-  let requireAuthCalled = false;
-  const split2 = splitRouteParams(params);
-  const ctx = {
-    params: split2.params,
-    catchAll: split2.catchAll,
-    get url() {
-      return fields.url;
-    },
-    get headers() {
-      return fields.headers;
-    },
-    method: fields.method,
-    ip: fields.ip,
-    get request() {
-      return fields.request;
-    },
-    get session() {
-      sessionRead = true;
-      return currentRecord?.data;
-    },
-    get sessionTransport() {
-      return transport;
-    },
-    requireAuth: () => {
-      requireAuthCalled = true;
-      if (currentRecord === void 0) {
-        throw new HttpError(401, "Authentication required");
-      }
-    },
-    setSession: (data, options) => {
-      const nextTransport = options?.transport ?? transport ?? "cookie";
-      const previousId = currentSessionId;
-      const sessionId = generateSessionId();
-      const now = Date.now();
-      const { active, idle } = periodsOf(opts);
-      const record = { data, activeExpiresAt: now + active, expiresAt: now + active + idle };
-      currentSessionId = sessionId;
-      currentRecord = record;
-      transport = nextTransport;
-      if (nextTransport === "cookie") pendingSetCookies.push(sessionCookie(sessionId, record));
-      return track(async () => {
-        if (previousId !== void 0) await opts.store.delete(sessionStoreKey(previousId, opts));
-        await opts.store.set(sessionStoreKey(sessionId, opts), record);
-        return sessionId;
-      });
-    },
-    revokeSession,
-    clearSession: () => revokeSession(),
-    verifyCsrf: (submitted) => {
-      if (transport === "bearer" && currentRecord !== void 0) return;
-      if (!csrfEnabled) {
-        if (!warnedCsrfDisabled) {
-          console.warn(
-            `[devora] ctx.verifyCsrf() rejected a request that isn't Bearer-authenticated: this app has csrf: false in app.config.ts, so no CSRF cookie exists to verify against.`
-          );
-          warnedCsrfDisabled = true;
-        }
-        throw new HttpError(403, "Missing or invalid CSRF token");
-      }
-      const value = typeof submitted === "string" ? submitted : submitted.get(CSRF_FORM_FIELD);
-      if (presentedCookieSessionId !== void 0) {
-        if (!verifyCsrfToken(deriveSessionCsrfToken(presentedCookieSessionId, opts), value)) {
-          throw new HttpError(403, "Missing or invalid CSRF token");
-        }
-        return;
-      }
-      if (!verifyCsrfToken(incomingCsrfCookie, value)) {
-        throw new HttpError(403, "Missing or invalid CSRF token");
-      }
-    }
-  };
-  return {
-    ctx,
-    // A getter: an action that logs in (setSession) and then renders must get the token of the new session.
-    get csrfToken() {
-      if (csrfEnabled && currentSessionId !== void 0 && currentRecord !== void 0 && transport === "cookie") {
-        return deriveSessionCsrfToken(currentSessionId, opts);
-      }
-      return anonymousCsrfToken;
-    },
-    getSetCookie: () => pendingSetCookies.length > 0 ? pendingSetCookies : void 0,
-    cookieAuthenticated: resolved.presentedTransport === "cookie" && resolved.record !== void 0,
-    authUsage: () => ({ sessionRead, requireAuthCalled }),
-    touchesSessionCookie: () => resolved.presentedTransport === "cookie" || pendingSetCookies.some((cookie) => cookie.startsWith(`${opts.name}=`)),
-    settle: async () => {
-      for (let i = 0; i < pendingWrites.length; i++) await pendingWrites[i];
-    }
-  };
-}
-function sessionsDisabledError(method) {
-  return new Error(
-    `[devora] ctx.${method}() was called, but this app has sessions disabled (auth: "none" in devora.config.ts). Set auth: "shared" or "isolated" for this app if it needs login.`
-  );
-}
-function createNoAuthContext(params = {}, meta) {
-  const fields = requestContextFields(meta);
-  const split2 = splitRouteParams(params);
-  const ctx = {
-    params: split2.params,
-    catchAll: split2.catchAll,
-    get url() {
-      return fields.url;
-    },
-    get headers() {
-      return fields.headers;
-    },
-    method: fields.method,
-    ip: fields.ip,
-    get request() {
-      return fields.request;
-    },
-    session: void 0,
-    sessionTransport: void 0,
-    requireAuth: () => {
-      throw sessionsDisabledError("requireAuth");
-    },
-    setSession: () => {
-      throw sessionsDisabledError("setSession");
-    },
-    revokeSession: () => {
-      throw sessionsDisabledError("revokeSession");
-    },
-    clearSession: () => {
-      throw sessionsDisabledError("clearSession");
-    },
-    verifyCsrf: () => {
-      throw sessionsDisabledError("verifyCsrf");
-    }
-  };
-  return { ctx, csrfToken: "", getSetCookie: () => void 0, settle: async () => {
-  }, touchesSessionCookie: () => false, cookieAuthenticated: false, authUsage: () => ({ sessionRead: false, requireAuthCalled: false }) };
-}
-
-// ../core/src/sessionConfig.ts
-import { existsSync, readFileSync } from "node:fs";
-import path2 from "node:path";
-var SESSION_MANIFEST_FILE = "session-manifest.json";
-var SESSION_STORE_BUILD_KEY = "session-store";
-function toSessionManifest(sessions) {
-  const store = sessions?.store === void 0 ? null : sessions.store === "memory" ? "memory" : "module";
-  return {
-    store,
-    activePeriodMs: sessions?.activeSeconds !== void 0 ? sessions.activeSeconds * 1e3 : void 0,
-    idlePeriodMs: sessions?.idleSeconds !== void 0 ? sessions.idleSeconds * 1e3 : void 0
-  };
-}
-function resolveSessionManifest(input) {
-  const { appName, authMode, sessions, appSessions } = input;
-  const fail2 = (message) => new Error(`[devora] "${appName}": ${message}`);
-  if (authMode === "none") {
-    if (appSessions !== void 0 || input.csrf !== void 0) {
-      throw fail2(
-        `app.config.ts sets ${appSessions !== void 0 ? "`sessions`" : "`csrf`"}, but this app has auth: "none" (no sessions at all). Remove it, or give the app auth: "shared"/"isolated" in devora.config.ts.`
-      );
-    }
-    return void 0;
-  }
-  for (const [where, config] of [
-    ["shared.sessions", sessions],
-    ["app.config.ts sessions", appSessions]
-  ]) {
-    for (const key of ["activeSeconds", "idleSeconds"]) {
-      const value = config?.[key];
-      if (value !== void 0 && !(typeof value === "number" && Number.isFinite(value) && value > 0)) {
-        throw fail2(`${where}.${key} must be a positive number of seconds (got ${JSON.stringify(value)}).`);
-      }
-    }
-  }
-  if (authMode === "shared") {
-    if (appSessions?.activeSeconds !== void 0 || appSessions?.idleSeconds !== void 0) {
-      throw fail2(
-        `per-app session lifetimes are only for auth: "isolated" apps \u2014 a shared session is one session across every shared app. Set shared.sessions.activeSeconds/idleSeconds in devora.config.ts instead.`
-      );
-    }
-    if (appSessions?.cookie?.domain !== void 0) {
-      throw fail2(
-        `sessions.cookie.domain in app.config.ts is only for auth: "isolated" apps \u2014 shared apps use shared.sessions.cookie.domain in devora.config.ts.`
-      );
-    }
-  }
-  const projectCookie = sessions?.cookie ?? {};
-  const appCookie = appSessions?.cookie ?? {};
-  const domainSource = authMode === "shared" ? projectCookie.domain : appCookie.domain;
-  const domain = domainSource === void 0 ? void 0 : normalizeCookieDomain(domainSource, fail2);
-  if (authMode === "shared" && domain !== void 0) {
-    for (const key of ["secure", "sameSite"]) {
-      if (appCookie[key] !== void 0 && appCookie[key] !== projectCookie[key]) {
-        throw fail2(
-          `sessions.cookie.${key} in app.config.ts differs from shared.sessions.cookie, but shared apps share one cookie across ${domain} \u2014 set it once in devora.config.ts.`
-        );
-      }
-    }
-  }
-  const secure = appCookie.secure ?? projectCookie.secure;
-  if (secure !== void 0 && secure !== true && secure !== false && secure !== "auto") {
-    throw fail2(`sessions.cookie.secure must be true, false or "auto" (got ${JSON.stringify(secure)}).`);
-  }
-  const rawSameSite = appCookie.sameSite ?? projectCookie.sameSite;
-  let sameSite;
-  if (rawSameSite !== void 0) {
-    const lowered = String(rawSameSite).toLowerCase();
-    if (lowered !== "lax" && lowered !== "strict" && lowered !== "none") {
-      throw fail2(`sessions.cookie.sameSite must be "lax", "strict" or "none" (got ${JSON.stringify(rawSameSite)}).`);
-    }
-    sameSite = lowered;
-  }
-  if (sameSite === "none" && secure !== void 0 && secure !== true) {
-    throw fail2(`sessions.cookie.sameSite "none" requires secure: true \u2014 browsers reject SameSite=None without Secure.`);
-  }
-  if (domain !== void 0) {
-    const appDomain = input.appDomain.trim().toLowerCase().replace(/:\d+$/, "");
-    if (appDomain !== domain && !appDomain.endsWith(`.${domain}`)) {
-      throw fail2(
-        `sessions.cookie.domain "${domain}" doesn't cover this app's domain "${input.appDomain}" \u2014 browsers would reject the cookie. Use a domain the app is served from (or a parent of it).`
-      );
-    }
-  }
-  const active = authMode === "isolated" ? appSessions?.activeSeconds ?? sessions?.activeSeconds : sessions?.activeSeconds;
-  const idle = authMode === "isolated" ? appSessions?.idleSeconds ?? sessions?.idleSeconds : sessions?.idleSeconds;
-  const cookie = {};
-  if (secure !== void 0) cookie.secure = secure;
-  if (sameSite !== void 0) cookie.sameSite = sameSite;
-  if (domain !== void 0) cookie.domain = domain;
-  return {
-    store: sessions?.store === void 0 ? null : sessions.store === "memory" ? "memory" : "module",
-    ...active !== void 0 ? { activePeriodMs: active * 1e3 } : {},
-    ...idle !== void 0 ? { idlePeriodMs: idle * 1e3 } : {},
-    ...Object.keys(cookie).length > 0 ? { cookie } : {},
-    ...input.csrf === false ? { csrfCookie: false } : {}
-  };
-}
-function normalizeCookieDomain(raw, fail2) {
-  const domain = String(raw).trim().toLowerCase().replace(/^\./, "");
-  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
-    throw fail2(
-      `sessions.cookie.domain "${raw}" must be a plain domain like "example.com" (no scheme, port or path, and not a single label like "localhost").`
-    );
-  }
-  return domain;
-}
-var SAME_SITE_ATTRIBUTE = {
-  lax: "Lax",
-  strict: "Strict",
-  none: "None"
-};
-var warnedDevSameSiteNone = false;
-function createCookieAttributesResolver(manifest, appName) {
-  const sameSite = manifest.cookie?.sameSite ?? "lax";
-  if (process.env.NODE_ENV !== "production") {
-    if (sameSite === "none" && !warnedDevSameSiteNone) {
-      console.warn(
-        `[devora] "${appName}": sessions.cookie.sameSite "none" needs Secure, which dev never sets \u2014 dev cookies use SameSite=Lax.`
-      );
-      warnedDevSameSiteNone = true;
-    }
-    const devAttributes = { secure: false, sameSite: sameSite === "none" ? "Lax" : SAME_SITE_ATTRIBUTE[sameSite] };
-    return () => devAttributes;
-  }
-  const secure = manifest.cookie?.secure ?? true;
-  const domain = manifest.cookie?.domain;
-  return (isHttps) => ({
-    secure: secure === "auto" ? isHttps : secure,
-    sameSite: SAME_SITE_ATTRIBUTE[sameSite],
-    ...domain !== void 0 ? { domain } : {}
-  });
-}
-function readSessionManifest(serverOutDir) {
-  const manifestPath = path2.join(serverOutDir, SESSION_MANIFEST_FILE);
-  if (!existsSync(manifestPath)) return { store: null };
-  return JSON.parse(readFileSync(manifestPath, "utf-8"));
-}
-var warnedUnconfigured = false;
-function assertSessionStoreConfigured(manifest) {
-  if (manifest.store !== null) return;
-  if (process.env.NODE_ENV === "production") {
-    throw new DevoraConfigError(
-      `[devora] no session store configured: add sessions: { store: "memory" } under shared in devora.config.ts (one long-running server only; for serverless or several instances use a path to a module that default-exports a SessionStore backed by your database), and set DEVORA_SESSION_SECRET (openssl rand -base64 32). See packages/backend/AUTH.md`
-    );
-  }
-  if (!warnedUnconfigured) {
-    console.warn(
-      `[devora] no shared.sessions.store set in devora.config.ts \u2014 using an in-memory session store (sessions are lost on restart). Production will refuse to start until one is set.`
-    );
-    warnedUnconfigured = true;
-  }
-}
-function createSessionOptionsResolver(authMode, appName, manifest, loadModule) {
-  assertSessionStoreConfigured(manifest);
-  const scope = resolveSessionScope(authMode, appName);
-  const periods = { activePeriodMs: manifest.activePeriodMs, idlePeriodMs: manifest.idlePeriodMs };
-  const cookieAttributes = createCookieAttributesResolver(manifest, appName);
-  const csrfCookie = manifest.csrfCookie !== false;
-  const loadStore = async () => {
-    if (manifest.store !== "module") return getProcessMemorySessionStore();
-    let store = (await loadModule()).default;
-    const nested = store?.default;
-    if (!isSessionStore(store) && isSessionStore(nested)) store = nested;
-    if (!isSessionStore(store)) {
-      throw new Error(
-        "[devora] the shared.sessions.store module must default-export a SessionStore ({ get, set, delete }) \u2014 see defineSessionStore()"
-      );
-    }
-    return store;
-  };
-  return async (request) => ({
-    ...scope,
-    ...periods,
-    store: await loadStore(),
-    cookie: cookieAttributes(request?.isHttps === true),
-    csrfCookie
-  });
-}
-
-// ../core/src/securityHeaders.ts
-import { randomBytes as randomBytes3 } from "node:crypto";
-var DEFAULT_CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'";
-var DEFAULT_FRAME_OPTIONS = "DENY";
-var DEFAULT_HSTS_VALUE = "max-age=63072000; includeSubDomains";
-var NOSNIFF_HEADER = { name: "X-Content-Type-Options", value: "nosniff" };
-var SVG_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
-function isSvgPath(pathname) {
-  const q = pathname.indexOf("?");
-  return /\.svg$/i.test(q === -1 ? pathname : pathname.slice(0, q));
-}
-function generateNonce() {
-  return randomBytes3(16).toString("base64");
-}
-function addNonceToCsp(csp, nonce) {
-  const directives = csp.split(";").map((d) => d.trim()).filter(Boolean);
-  const nonceToken = `'nonce-${nonce}'`;
-  let sawScriptSrc = false;
-  let sawScriptSrcElem = false;
-  const updated = directives.map((directive) => {
-    if (directive === "script-src" || directive.startsWith("script-src ")) {
-      sawScriptSrc = true;
-      return `${directive} ${nonceToken}`;
-    }
-    if (directive === "script-src-elem" || directive.startsWith("script-src-elem ")) {
-      sawScriptSrcElem = true;
-      return `${directive} ${nonceToken}`;
-    }
-    return directive;
-  });
-  if (!sawScriptSrc && !sawScriptSrcElem) {
-    updated.push(`script-src 'self' ${nonceToken}`);
-  }
-  return updated.join("; ");
-}
-function resolveSecurityHeaders(security, streamingNonce) {
-  const baseCsp = security?.csp ?? DEFAULT_CSP;
-  const headers = {
-    "Content-Security-Policy": streamingNonce ? addNonceToCsp(baseCsp, streamingNonce) : baseCsp,
-    "X-Frame-Options": security?.frameOptions ?? DEFAULT_FRAME_OPTIONS,
-    [NOSNIFF_HEADER.name]: NOSNIFF_HEADER.value
-  };
-  if (security?.hsts !== false) {
-    headers["Strict-Transport-Security"] = DEFAULT_HSTS_VALUE;
-  }
-  if (security?.noindex === true) {
-    headers["X-Robots-Tag"] = "noindex";
-  }
-  return headers;
-}
-
-// ../core/src/sitemap.ts
-async function collectSitemapPaths(routesDir, loadRoute) {
-  const out = /* @__PURE__ */ new Set();
-  for (const filePath of listRouteFiles(routesDir)) {
-    if (!isDynamicRouteFile(routesDir, filePath)) {
-      out.add(routeFileToPath(routesDir, filePath));
-      continue;
-    }
-    const mod = await loadRoute(filePath);
-    if (!mod?.getStaticParams) continue;
-    for (const params of await mod.getStaticParams()) {
-      out.add(resolveStaticRoutePath(routesDir, filePath, params));
-    }
-  }
-  return [...out].sort();
-}
-function generateSitemapXml(routePaths, domain) {
-  const urls = routePaths.filter((routePath) => !routePath.includes("[")).map((routePath) => `  <url><loc>https://${domain}${routePath === "/" ? "" : routePath}</loc></url>`).join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls}
-</urlset>
-`;
-}
-
-// ../core/src/staticFiles.ts
-import path3 from "node:path";
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { readFile, realpath, stat as statAsync } from "node:fs/promises";
-import { brotliCompress, gzip, constants as zlibConstants } from "node:zlib";
-var CONTENT_TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".htm": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8",
-  ".xml": "application/xml; charset=utf-8",
-  ".txt": "text/plain; charset=utf-8",
-  ".csv": "text/csv; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".avif": "image/avif",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-  ".pdf": "application/pdf",
-  ".wasm": "application/wasm",
-  ".mp4": "video/mp4",
-  ".webm": "video/webm",
-  ".mp3": "audio/mpeg"
-};
-function contentTypeFor(filePath) {
-  return CONTENT_TYPES[path3.extname(filePath).toLowerCase()] ?? "application/octet-stream";
-}
-function isCompressible(type) {
-  return type.startsWith("text/") || type.startsWith("application/javascript") || type.startsWith("application/json") || type.startsWith("application/xml") || type.startsWith("application/manifest+json") || type.startsWith("image/svg+xml");
-}
-var MIN_COMPRESS_BYTES = 1024;
-var MAX_FILE_BYTES = 2 * 1024 * 1024;
-var MAX_CACHE_BYTES = 64 * 1024 * 1024;
-var REVALIDATE_MS = 1e3;
-var ByteBudget = class {
-  constructor(limit = MAX_CACHE_BYTES) {
-    this.limit = limit;
-  }
-  limit;
-  used = 0;
-  reserve(bytes) {
-    if (this.used + bytes > this.limit) return false;
-    this.used += bytes;
-    return true;
-  }
-  release(bytes) {
-    this.used = Math.max(0, this.used - bytes);
-  }
-};
-function makeStaticBody(body, type, cacheControl) {
-  const etag = `"${createHash("sha1").update(body).digest("base64url").slice(0, 22)}"`;
-  return { body, type, etag, cacheControl };
-}
-function acceptsEncoding(header, name) {
-  if (!header) return false;
-  const value = Array.isArray(header) ? header.join(",") : header;
-  for (const part of value.split(",")) {
-    const [token, ...params] = part.trim().split(";");
-    if (token.trim().toLowerCase() !== name) continue;
-    const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
-    return q === void 0 || Number(q.slice(2)) > 0;
-  }
-  return false;
-}
-function matchesEtag(ifNoneMatch, etag) {
-  if (!ifNoneMatch) return false;
-  const value = Array.isArray(ifNoneMatch) ? ifNoneMatch.join(",") : ifNoneMatch;
-  if (value.trim() === "*") return true;
-  const bare = etag.replace(/^W\//, "");
-  return value.split(",").some((candidate) => candidate.trim().replace(/^W\//, "") === bare);
-}
-function compress(entry, kind) {
-  const existing = entry[kind];
-  if (existing) return existing;
-  const made = new Promise((resolve, reject) => {
-    if (kind === "br") {
-      brotliCompress(
-        entry.body,
-        { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5, [zlibConstants.BROTLI_PARAM_SIZE_HINT]: entry.body.length } },
-        (err, out) => err ? reject(err) : resolve(out)
-      );
-    } else {
-      gzip(entry.body, { level: 6 }, (err, out) => err ? reject(err) : resolve(out));
-    }
-  });
-  entry[kind] = made;
-  made.then(
-    (out) => {
-      if (entry.budget && entry.reserved !== void 0) {
-        if (entry.budget.reserve(out.length)) entry.reserved += out.length;
-        else entry[kind] = void 0;
-      }
-    },
-    () => {
-      entry[kind] = void 0;
-    }
-  );
-  return made;
-}
-async function sendStaticBody(req, res, entry) {
-  let body = entry.body;
-  let etag = entry.etag;
-  let encoding;
-  const compressible = isCompressible(entry.type) && entry.body.length >= MIN_COMPRESS_BYTES;
-  if (compressible) {
-    res.setHeader("Vary", "Accept-Encoding");
-    const accept = req.headers["accept-encoding"];
-    if (acceptsEncoding(accept, "br")) {
-      encoding = "br";
-      etag = entry.etag.slice(0, -1) + '-br"';
-    } else if (acceptsEncoding(accept, "gzip")) {
-      encoding = "gzip";
-      etag = entry.etag.slice(0, -1) + '-gz"';
-    }
-  }
-  res.setHeader("Content-Type", entry.type);
-  res.setHeader("Cache-Control", entry.cacheControl);
-  res.setHeader("ETag", etag);
-  if (matchesEtag(req.headers["if-none-match"], etag)) {
-    res.statusCode = 304;
-    res.end();
-    return;
-  }
-  if (encoding) {
-    body = await compress(entry, encoding === "br" ? "br" : "gz");
-    res.setHeader("Content-Encoding", encoding);
-  }
-  res.statusCode = 200;
-  res.setHeader("Content-Length", body.length);
-  if (req.method === "HEAD") {
-    res.end();
-    return;
-  }
-  res.end(body);
-}
-var IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
-var PUBLIC_FILE_CACHE = "public, max-age=3600";
-var HTML_CACHE = "public, max-age=0, must-revalidate";
-function createStaticFileServer(rootDir, budget = new ByteBudget()) {
-  const root = path3.resolve(rootDir);
-  const metas = /* @__PURE__ */ new Map();
-  let realRoot;
-  async function realPathInsideRoot(filePath) {
-    try {
-      realRoot ??= await realpath(root);
-      return (await realpath(filePath)).startsWith(realRoot + path3.sep);
-    } catch {
-      return false;
-    }
-  }
-  function resolveInside(pathname) {
-    let decoded;
-    try {
-      decoded = decodeURIComponent(pathname);
-    } catch {
-      return void 0;
-    }
-    if (decoded.includes("\0") || decoded.includes("\\")) return void 0;
-    const filePath = path3.resolve(root, "." + decoded);
-    if (!filePath.startsWith(root + path3.sep)) return void 0;
-    return filePath;
-  }
-  function forget(filePath) {
-    const old = metas.get(filePath);
-    if (old?.body?.reserved) old.body.budget?.release(old.body.reserved);
-    metas.delete(filePath);
-  }
-  async function lookup(filePath, type, cacheControl, confined = false) {
-    let meta = metas.get(filePath);
-    const now = Date.now();
-    if (meta && now - meta.checkedAt > REVALIDATE_MS) {
-      let stat2;
-      try {
-        stat2 = await statAsync(filePath);
-      } catch {
-        forget(filePath);
-        return void 0;
-      }
-      if (confined && !await realPathInsideRoot(filePath)) {
-        forget(filePath);
-        return void 0;
-      }
-      if (stat2.isFile() && stat2.size === meta.size && stat2.mtimeMs === meta.mtimeMs) {
-        meta.checkedAt = now;
-      } else {
-        forget(filePath);
-        meta = void 0;
-      }
-    }
-    if (meta) return meta;
-    let stat;
-    try {
-      stat = await statAsync(filePath);
-    } catch {
-      return void 0;
-    }
-    if (!stat.isFile()) return void 0;
-    if (confined && !await realPathInsideRoot(filePath)) return void 0;
-    meta = {
-      file: filePath,
-      size: stat.size,
-      mtimeMs: stat.mtimeMs,
-      type,
-      etag: `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
-      cacheControl,
-      checkedAt: now
-    };
-    if (stat.size <= MAX_FILE_BYTES && budget.reserve(stat.size)) {
-      const body = makeStaticBody(await readFile(filePath), type, cacheControl);
-      body.reserved = stat.size;
-      body.budget = budget;
-      meta.body = body;
-    }
-    metas.set(filePath, meta);
-    return meta;
-  }
-  async function serveFile(req, res, filePath, type, cacheControl, confined = false) {
-    const meta = await lookup(filePath, type, cacheControl, confined);
-    if (!meta) return false;
-    if (meta.type.startsWith("image/svg+xml")) res.setHeader("Content-Security-Policy", SVG_CSP);
-    if (req.method !== "GET" && req.method !== "HEAD") {
-      res.statusCode = 405;
-      res.setHeader("Allow", "GET, HEAD");
-      res.end("Method Not Allowed");
-      return true;
-    }
-    if (meta.body) {
-      await sendStaticBody(req, res, meta.body);
-      return true;
-    }
-    res.setHeader("Content-Type", meta.type);
-    res.setHeader("Cache-Control", meta.cacheControl);
-    res.setHeader("ETag", meta.etag);
-    if (matchesEtag(req.headers["if-none-match"], meta.etag)) {
-      res.statusCode = 304;
-      res.end();
-      return true;
-    }
-    res.statusCode = 200;
-    res.setHeader("Content-Length", meta.size);
-    if (req.method === "HEAD") {
-      res.end();
-      return true;
-    }
-    await new Promise((resolve) => {
-      const stream = createReadStream(meta.file);
-      stream.on("error", () => {
-        res.destroy();
-        resolve();
-      });
-      res.on("close", () => {
-        stream.destroy();
-        resolve();
-      });
-      stream.on("end", resolve);
-      stream.pipe(res);
-    });
-    return true;
-  }
-  const serve = async (req, res, pathname, immutable) => {
-    const filePath = resolveInside(pathname);
-    if (!filePath) return false;
-    return serveFile(req, res, filePath, contentTypeFor(filePath), immutable ? IMMUTABLE_CACHE : PUBLIC_FILE_CACHE, true);
-  };
-  return { serve, serveFile, budget };
-}
-
-// ../core/src/islandComponent.tsx
-var import_react2 = __toESM(require_react(), 1);
-var IslandCollectorContext = (0, import_react2.createContext)(null);
-var IslandStreamingContext = (0, import_react2.createContext)(null);
-var streamingModuleCache = /* @__PURE__ */ new Map();
-function clearStreamingModuleCache() {
-  streamingModuleCache.clear();
-}
-
-// ../core/src/buildKey.ts
-import path4 from "node:path";
-function toBuildKey(appRoot, filePath) {
-  const rel2 = path4.relative(appRoot, filePath);
-  const noExt = rel2.slice(0, -path4.extname(rel2).length);
-  return noExt.split(path4.sep).join("/").replace(/[[\]]/g, "_");
-}
-
-// ../core/src/prodRequestHandler.ts
-import path7 from "node:path";
-import { pathToFileURL } from "node:url";
-import { readFile as readFile3 } from "node:fs/promises";
-import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
-
 // ../core/src/branding.tsx
-var import_react3 = __toESM(require_react(), 1);
-var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
-var ShellUsageContext = (0, import_react3.createContext)(null);
+var import_react3, import_jsx_runtime, ShellUsageContext;
+var init_branding = __esm({
+  "../core/src/branding.tsx"() {
+    "use strict";
+    import_react3 = __toESM(require_react(), 1);
+    init_theme();
+    import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
+    ShellUsageContext = (0, import_react3.createContext)(null);
+  }
+});
+
+// ../core/src/actionResult.ts
+var init_actionResult = __esm({
+  "../core/src/actionResult.ts"() {
+    "use strict";
+    init_httpError();
+  }
+});
 
 // ../core/src/rateLimit.ts
 import { isIPv6 } from "node:net";
@@ -4899,52 +5028,6 @@ function ipv6Groups(address) {
   const groups = all.map((g) => /^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN);
   return groups.length === 8 && groups.every((g) => !Number.isNaN(g)) ? groups : void 0;
 }
-var RATE_LIMIT_MAX_KEYS = 1e4;
-var UNCOUNTED_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
-var RateLimitError = class extends HttpError {
-  constructor(retryAfterSeconds) {
-    super(429, "Too many requests, try again later");
-    this.retryAfterSeconds = retryAfterSeconds;
-    this.name = "RateLimitError";
-  }
-  retryAfterSeconds;
-};
-var FixedWindowRateLimiter = class {
-  constructor(config, maxKeys = RATE_LIMIT_MAX_KEYS) {
-    this.config = config;
-    this.maxKeys = maxKeys;
-    if (!Number.isInteger(config.max) || config.max < 1 || !Number.isInteger(config.windowSeconds) || config.windowSeconds < 1) {
-      throw new Error(
-        `[devora] rateLimit needs whole numbers above zero: { max, windowSeconds } (got ${JSON.stringify(config)})`
-      );
-    }
-    this.windowMs = config.windowSeconds * 1e3;
-  }
-  config;
-  maxKeys;
-  windows = /* @__PURE__ */ new Map();
-  windowMs;
-  /** Counts one request for `key`; seconds to wait when it is over the limit, else undefined. */
-  hit(key, now = Date.now()) {
-    let window2 = this.windows.get(key);
-    if (!window2 || window2.resetAt <= now) {
-      if (window2) this.windows.delete(key);
-      else if (this.windows.size >= this.maxKeys) this.makeRoom(now);
-      window2 = { count: 0, resetAt: now + this.windowMs };
-      this.windows.set(key, window2);
-    }
-    window2.count++;
-    return window2.count > this.config.max ? Math.max(1, Math.ceil((window2.resetAt - now) / 1e3)) : void 0;
-  }
-  get size() {
-    return this.windows.size;
-  }
-  makeRoom(now) {
-    for (const [key, window2] of this.windows) if (window2.resetAt <= now) this.windows.delete(key);
-    while (this.windows.size >= this.maxKeys) this.windows.delete(this.windows.keys().next().value);
-  }
-};
-var limiters = /* @__PURE__ */ new WeakMap();
 function enforceRateLimit(config, method, ip) {
   if (!config || UNCOUNTED_METHODS.has(method.toUpperCase())) return;
   let limiter = limiters.get(config);
@@ -4952,11 +5035,87 @@ function enforceRateLimit(config, method, ip) {
   const retryAfter = limiter.hit(rateLimitKey(ip));
   if (retryAfter !== void 0) throw new RateLimitError(retryAfter);
 }
+var RATE_LIMIT_MAX_KEYS, UNCOUNTED_METHODS, RateLimitError, FixedWindowRateLimiter, limiters;
+var init_rateLimit = __esm({
+  "../core/src/rateLimit.ts"() {
+    "use strict";
+    init_httpError();
+    RATE_LIMIT_MAX_KEYS = 1e4;
+    UNCOUNTED_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD", "OPTIONS"]);
+    RateLimitError = class extends HttpError {
+      constructor(retryAfterSeconds) {
+        super(429, "Too many requests, try again later");
+        this.retryAfterSeconds = retryAfterSeconds;
+        this.name = "RateLimitError";
+      }
+      retryAfterSeconds;
+    };
+    FixedWindowRateLimiter = class {
+      constructor(config, maxKeys = RATE_LIMIT_MAX_KEYS) {
+        this.config = config;
+        this.maxKeys = maxKeys;
+        if (!Number.isInteger(config.max) || config.max < 1 || !Number.isInteger(config.windowSeconds) || config.windowSeconds < 1) {
+          throw new Error(
+            `[devora] rateLimit needs whole numbers above zero: { max, windowSeconds } (got ${JSON.stringify(config)})`
+          );
+        }
+        this.windowMs = config.windowSeconds * 1e3;
+      }
+      config;
+      maxKeys;
+      windows = /* @__PURE__ */ new Map();
+      windowMs;
+      /** Counts one request for `key`; seconds to wait when it is over the limit, else undefined. */
+      hit(key, now = Date.now()) {
+        let window2 = this.windows.get(key);
+        if (!window2 || window2.resetAt <= now) {
+          if (window2) this.windows.delete(key);
+          else if (this.windows.size >= this.maxKeys) this.makeRoom(now);
+          window2 = { count: 0, resetAt: now + this.windowMs };
+          this.windows.set(key, window2);
+        }
+        window2.count++;
+        return window2.count > this.config.max ? Math.max(1, Math.ceil((window2.resetAt - now) / 1e3)) : void 0;
+      }
+      get size() {
+        return this.windows.size;
+      }
+      makeRoom(now) {
+        for (const [key, window2] of this.windows) if (window2.resetAt <= now) this.windows.delete(key);
+        while (this.windows.size >= this.maxKeys) this.windows.delete(this.windows.keys().next().value);
+      }
+    };
+    limiters = /* @__PURE__ */ new WeakMap();
+  }
+});
+
+// ../core/src/buildTimeContext.ts
+var init_buildTimeContext = __esm({
+  "../core/src/buildTimeContext.ts"() {
+    "use strict";
+    init_serverFn();
+    init_router();
+  }
+});
 
 // ../core/src/renderRoute.ts
 function resolveRenderMode(routeModule, appDefault) {
   return routeModule.renderMode ?? appDefault ?? "ssr";
 }
+var init_renderRoute = __esm({
+  "../core/src/renderRoute.ts"() {
+    "use strict";
+    init_html();
+    init_session();
+    init_islandComponent();
+    init_branding();
+    init_actionResult();
+    init_csrf();
+    init_rateLimit();
+    init_buildTimeContext();
+    init_httpError();
+  }
+});
 
 // ../core/src/csrRoute.ts
 function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl, head = {}) {
@@ -4972,14 +5131,18 @@ function renderCsrShell(routeModule, entryUrl, csrClientUrl, devPreambleUrl, hea
     head: { ...head, clientRendered: true }
   });
 }
+var init_csrRoute = __esm({
+  "../core/src/csrRoute.ts"() {
+    "use strict";
+    init_html();
+  }
+});
 
 // ../core/src/isrCache.ts
 import path5 from "node:path";
 import { existsSync as existsSync2 } from "node:fs";
 import { mkdir, readFile as readFile2, writeFile, rename, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-var ROUTE_PATHS_MEMO_MAX = 2e3;
-var routePathsMemo = /* @__PURE__ */ new Map();
 function cachedRoutePaths(staticOutDir, routePath) {
   const memoKey = `${staticOutDir}\0${routePath}`;
   const hit = routePathsMemo.get(memoKey);
@@ -5026,6 +5189,14 @@ async function writeCachedRoute(staticOutDir, routePath, html) {
 function isStale(renderedAt, revalidateSeconds) {
   return Date.now() - renderedAt > revalidateSeconds * 1e3;
 }
+var ROUTE_PATHS_MEMO_MAX, routePathsMemo;
+var init_isrCache = __esm({
+  "../core/src/isrCache.ts"() {
+    "use strict";
+    ROUTE_PATHS_MEMO_MAX = 2e3;
+    routePathsMemo = /* @__PURE__ */ new Map();
+  }
+});
 
 // ../core/src/apiDispatch.ts
 async function dispatchApiRoute(routeModule, request) {
@@ -5075,15 +5246,18 @@ async function dispatchApiRoute(routeModule, request) {
   if (authUsage) warnIfSessionReadWithoutAuth(authUsage, request.url);
   return { ...result, setCookie: getSetCookie(), noStore: touchesSessionCookie() };
 }
+var init_apiDispatch = __esm({
+  "../core/src/apiDispatch.ts"() {
+    "use strict";
+    init_session();
+    init_httpError();
+    init_router();
+    init_csrf();
+    init_rateLimit();
+  }
+});
 
 // ../core/src/readBody.ts
-var MAX_BODY_BYTES = 10 * 1024 * 1024;
-var PayloadTooLargeError = class extends Error {
-  constructor(maxBytes) {
-    super(`[devora] request body exceeds the ${maxBytes}-byte limit`);
-    this.name = "PayloadTooLargeError";
-  }
-};
 async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
   const declared = Number(req.headers?.["content-length"]);
   if (Number.isFinite(declared) && declared > maxBytes) throw new PayloadTooLargeError(maxBytes);
@@ -5106,21 +5280,6 @@ async function readBodyWithLimit(req, maxBytes = MAX_BODY_BYTES) {
   if (overflowed) throw new PayloadTooLargeError(maxBytes);
   return Buffer.concat(chunks);
 }
-var MalformedBodyError = class extends Error {
-  constructor(message) {
-    super(`[devora] ${message}`);
-    this.name = "MalformedBodyError";
-  }
-};
-var MAX_FORM_FIELDS = 1e3;
-var MAX_FORM_FILES = 20;
-var FormLimitError = class extends Error {
-  status = 413;
-  constructor(what, limit) {
-    super(`Too many form ${what} (the limit is ${limit})`);
-    this.name = "FormLimitError";
-  }
-};
 function checkMultipartParts(body, contentType, maxFields, maxFiles) {
   const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
   const value = boundary?.[1] ?? boundary?.[2]?.trim();
@@ -5165,15 +5324,47 @@ async function parseFormBody(body, contentType, limits = {}) {
   new URLSearchParams(text).forEach((value, key) => formData.append(key, value));
   return formData;
 }
+var MAX_BODY_BYTES, PayloadTooLargeError, MalformedBodyError, MAX_FORM_FIELDS, MAX_FORM_FILES, FormLimitError;
+var init_readBody = __esm({
+  "../core/src/readBody.ts"() {
+    "use strict";
+    MAX_BODY_BYTES = 10 * 1024 * 1024;
+    PayloadTooLargeError = class extends Error {
+      constructor(maxBytes) {
+        super(`[devora] request body exceeds the ${maxBytes}-byte limit`);
+        this.name = "PayloadTooLargeError";
+      }
+    };
+    MalformedBodyError = class extends Error {
+      constructor(message) {
+        super(`[devora] ${message}`);
+        this.name = "MalformedBodyError";
+      }
+    };
+    MAX_FORM_FIELDS = 1e3;
+    MAX_FORM_FILES = 20;
+    FormLimitError = class extends Error {
+      status = 413;
+      constructor(what, limit) {
+        super(`Too many form ${what} (the limit is ${limit})`);
+        this.name = "FormLimitError";
+      }
+    };
+  }
+});
 
 // ../core/src/apiRoute.ts
 function isApiPath(pathname) {
   return pathname === "/api" || pathname.startsWith("/api/");
 }
+var init_apiRoute = __esm({
+  "../core/src/apiRoute.ts"() {
+    "use strict";
+    init_httpError();
+  }
+});
 
 // ../core/src/fastPathname.ts
-var PLAIN_TARGET = /^\/[A-Za-z0-9_\-./]*(?:\?[^#]*)?$/;
-var DOT_SEGMENT = /(?:^|\/)\.\.?(?:\/|$)/;
 function requestPathname(target) {
   if (PLAIN_TARGET.test(target)) {
     const q = target.indexOf("?");
@@ -5182,6 +5373,14 @@ function requestPathname(target) {
   }
   return new URL(target, "http://localhost").pathname;
 }
+var PLAIN_TARGET, DOT_SEGMENT;
+var init_fastPathname = __esm({
+  "../core/src/fastPathname.ts"() {
+    "use strict";
+    PLAIN_TARGET = /^\/[A-Za-z0-9_\-./]*(?:\?[^#]*)?$/;
+    DOT_SEGMENT = /(?:^|\/)\.\.?(?:\/|$)/;
+  }
+});
 
 // ../core/src/ttlMemo.ts
 function ttlMemo(load, ttlMs, now = Date.now) {
@@ -5200,10 +5399,14 @@ function ttlMemo(load, ttlMs, now = Date.now) {
     return value;
   };
 }
+var init_ttlMemo = __esm({
+  "../core/src/ttlMemo.ts"() {
+    "use strict";
+  }
+});
 
 // ../core/src/apiDir.ts
 import path6 from "node:path";
-var DEFAULT_API_DIR = "api";
 function normalizeApiDir(apiDir) {
   if (apiDir === void 0) return DEFAULT_API_DIR;
   const normalized = path6.posix.normalize(apiDir.replace(/\\/g, "/")).replace(/^\.\/+/, "").replace(/\/+$/, "");
@@ -5219,6 +5422,13 @@ function normalizeApiDir(apiDir) {
 function resolveApiDir(appRoot, apiDir) {
   return path6.join(appRoot, normalizeApiDir(apiDir));
 }
+var DEFAULT_API_DIR;
+var init_apiDir = __esm({
+  "../core/src/apiDir.ts"() {
+    "use strict";
+    DEFAULT_API_DIR = "api";
+  }
+});
 
 // ../core/src/trustProxy.ts
 function trustedProxyHops(setting) {
@@ -5242,9 +5452,9 @@ function clientIp(req, trustProxy) {
   if (hops === 0) return peer;
   const raw = req.headers["x-forwarded-for"];
   const forwarded = (Array.isArray(raw) ? raw.join(",") : raw ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
-  const chain = peer === void 0 ? forwarded : [...forwarded, peer];
-  if (chain.length === 0) return void 0;
-  return normalizeIp(chain[Math.max(0, chain.length - 1 - hops)]);
+  const chain2 = peer === void 0 ? forwarded : [...forwarded, peer];
+  if (chain2.length === 0) return void 0;
+  return normalizeIp(chain2[Math.max(0, chain2.length - 1 - hops)]);
 }
 function normalizeIp(value) {
   if (typeof value !== "string" || value === "") return void 0;
@@ -5293,9 +5503,13 @@ function targetPathAndQuery(target) {
   }
   return pathAndQuery.startsWith("//") ? `/${pathAndQuery.replace(/^\/+/, "")}` : pathAndQuery;
 }
+var init_trustProxy = __esm({
+  "../core/src/trustProxy.ts"() {
+    "use strict";
+  }
+});
 
 // ../core/src/allowedHosts.ts
-var LOOPBACK = ["localhost", "127.0.0.1", "::1"];
 function normalizeHost(value) {
   if (!value) return void 0;
   let host = value.trim().toLowerCase();
@@ -5340,10 +5554,15 @@ function sendUnknownHost(res) {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.end("Bad Request: unknown host");
 }
+var LOOPBACK;
+var init_allowedHosts = __esm({
+  "../core/src/allowedHosts.ts"() {
+    "use strict";
+    LOOPBACK = ["localhost", "127.0.0.1", "::1"];
+  }
+});
 
 // ../core/src/cors.ts
-var DEFAULT_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
-var ORIGIN_RE = /^https?:\/\/(\*\.)?[a-z0-9.-]+(:\d+)?$/i;
 function validateCorsConfig(appName, cors) {
   if (cors === void 0) return;
   const fail2 = (message) => new Error(`[devora] "${appName}": cors.${message}`);
@@ -5390,8 +5609,20 @@ function corsResponse(cors, method, headers) {
   }
   return { headers: out, preflight: isPreflight };
 }
+var DEFAULT_METHODS, ORIGIN_RE;
+var init_cors = __esm({
+  "../core/src/cors.ts"() {
+    "use strict";
+    DEFAULT_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
+    ORIGIN_RE = /^https?:\/\/(\*\.)?[a-z0-9.-]+(:\d+)?$/i;
+  }
+});
 
 // ../core/src/prodRequestHandler.ts
+import path7 from "node:path";
+import { pathToFileURL } from "node:url";
+import { readFile as readFile3 } from "node:fs/promises";
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
 function createProdRequestHandler(appRoot, appName, authMode, domain, security, sitemapEnabled, appDefaultRenderMode, options = {}) {
   const routesDir = path7.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
@@ -5714,7 +5945,6 @@ async function readCsrManifest(manifestPath) {
     return { routes: {} };
   }
 }
-var builtModules = /* @__PURE__ */ new Map();
 function importBuilt(serverOutDir, key) {
   let perDir = builtModules.get(serverOutDir);
   if (!perDir) builtModules.set(serverOutDir, perDir = /* @__PURE__ */ new Map());
@@ -5741,8 +5971,6 @@ function unwrapCjsDefaultInterop(mod) {
   }
   return mod;
 }
-var ROUTE_CSS_MANIFEST_FILE = "route-css-manifest.json";
-var ERROR_PAGE_BUILD_KEY = "error-page";
 function readRouteCssManifest(manifestPath) {
   if (!existsSync3(manifestPath)) return {};
   try {
@@ -5751,6 +5979,66 @@ function readRouteCssManifest(manifestPath) {
     return {};
   }
 }
+var builtModules, ROUTE_CSS_MANIFEST_FILE, ERROR_PAGE_BUILD_KEY;
+var init_prodRequestHandler = __esm({
+  "../core/src/prodRequestHandler.ts"() {
+    "use strict";
+    init_router();
+    init_staticFiles();
+    init_sitemap();
+    init_session();
+    init_sessionConfig();
+    init_securityHeaders();
+    init_renderRoute();
+    init_httpError();
+    init_csrRoute();
+    init_isrCache();
+    init_apiDispatch();
+    init_readBody();
+    init_httpError();
+    init_apiRoute();
+    init_buildKey();
+    init_fastPathname();
+    init_ttlMemo();
+    init_apiDir();
+    init_trustProxy();
+    init_allowedHosts();
+    init_cors();
+    builtModules = /* @__PURE__ */ new Map();
+    ROUTE_CSS_MANIFEST_FILE = "route-css-manifest.json";
+    ERROR_PAGE_BUILD_KEY = "error-page";
+  }
+});
+
+// ../core/src/islandCallPattern.ts
+var init_islandCallPattern = __esm({
+  "../core/src/islandCallPattern.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/module.ts
+var init_module = __esm({
+  "../core/src/module.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/middleware.ts
+var init_middleware = __esm({
+  "../core/src/middleware.ts"() {
+    "use strict";
+  }
+});
+
+// ../core/src/fastifyAdapter.ts
+var init_fastifyAdapter = __esm({
+  "../core/src/fastifyAdapter.ts"() {
+    "use strict";
+    init_apiRoute();
+    init_module();
+  }
+});
 
 // ../core/src/disposeRegistry.ts
 function registry() {
@@ -5769,45 +6057,71 @@ function runAndClearDisposable(filePath) {
   registry().delete(key);
   dispose();
 }
-
-// ../core/src/loadProjectConfig.ts
-import path8 from "node:path";
-import { existsSync as existsSync4 } from "node:fs";
-import { createJiti } from "jiti";
-async function loadProjectConfig(root = process.cwd()) {
-  const configPath = path8.join(root, "devora.config.ts");
-  if (!existsSync4(configPath)) {
-    throw new Error(
-      `[devora] no devora.config.ts found at ${configPath}. Every Devora.js project must declare its apps here \u2014 see architecture doc \xA73.`
-    );
+var init_disposeRegistry = __esm({
+  "../core/src/disposeRegistry.ts"() {
+    "use strict";
   }
-  const jiti = createJiti(import.meta.url, { interopDefault: true, moduleCache: false });
-  const mod = await jiti.import(configPath);
-  const config = mod.default;
-  if (!config?.apps?.length) {
-    throw new Error(`[devora] devora.config.ts must declare at least one app.`);
+});
+
+// ../core/src/renderStreaming.ts
+var init_renderStreaming = __esm({
+  "../core/src/renderStreaming.ts"() {
+    "use strict";
+    init_session();
+    init_islandComponent();
+    init_html();
+    init_branding();
+    init_actionResult();
+    init_httpError();
+    init_renderRoute();
   }
-  return config;
-}
-function resolveAppDir(root, appDir) {
-  return path8.join(root, appDir);
-}
+});
 
-// ../core/src/loadAppConfig.ts
-import path9 from "node:path";
-import { existsSync as existsSync5 } from "node:fs";
-import { createJiti as createJiti2 } from "jiti";
-async function loadAppConfig(appRoot) {
-  const configPath = path9.join(appRoot, "app.config.ts");
-  if (!existsSync5(configPath)) return {};
-  const jiti = createJiti2(import.meta.url, { interopDefault: true, moduleCache: false });
-  const mod = await jiti.import(configPath);
-  return mod.default ?? {};
-}
-
-// src/server/ssrMiddleware.ts
-import path11 from "node:path";
-import fs2, { existsSync as existsSync6 } from "node:fs";
+// ../core/src/index.ts
+var init_src = __esm({
+  "../core/src/index.ts"() {
+    "use strict";
+    init_config();
+    init_serverFn();
+    init_route();
+    init_router();
+    init_html();
+    init_session();
+    init_sessionStore();
+    init_sessionConfig();
+    init_securityHeaders();
+    init_sitemap();
+    init_configError();
+    init_staticFiles();
+    init_island();
+    init_islandComponent();
+    init_buildKey();
+    init_prodRequestHandler();
+    init_islandCallPattern();
+    init_renderRoute();
+    init_actionResult();
+    init_rateLimit();
+    init_allowedHosts();
+    init_csrf();
+    init_buildTimeContext();
+    init_isrCache();
+    init_csrRoute();
+    init_theme();
+    init_branding();
+    init_module();
+    init_apiRoute();
+    init_apiDir();
+    init_trustProxy();
+    init_cors();
+    init_apiDispatch();
+    init_httpError();
+    init_middleware();
+    init_fastifyAdapter();
+    init_disposeRegistry();
+    init_renderStreaming();
+    init_readBody();
+  }
+});
 
 // src/server/devSessionOptions.ts
 import path10 from "node:path";
@@ -5817,11 +6131,15 @@ function createDevSessionOptionsResolver(vite, projectRoot, sessions, authMode, 
   const resolve = createSessionOptionsResolver(authMode, appName, manifest, () => vite.ssrLoadModule(storeModule));
   return () => resolve();
 }
+var init_devSessionOptions = __esm({
+  "src/server/devSessionOptions.ts"() {
+    "use strict";
+    init_src();
+  }
+});
 
 // src/server/reactRefreshPreamblePlugin.ts
 import viteReact from "@vitejs/plugin-react";
-var VIRTUAL_ID = "virtual:devora-react-refresh-preamble";
-var RESOLVED_ID = "\0" + VIRTUAL_ID;
 function reactRefreshPreamblePlugin() {
   return {
     name: "devora-react-refresh-preamble",
@@ -5836,11 +6154,20 @@ function reactRefreshPreamblePlugin() {
     }
   };
 }
-var REACT_REFRESH_PREAMBLE_VIRTUAL_ID = VIRTUAL_ID;
+var VIRTUAL_ID, RESOLVED_ID, REACT_REFRESH_PREAMBLE_VIRTUAL_ID;
+var init_reactRefreshPreamblePlugin = __esm({
+  "src/server/reactRefreshPreamblePlugin.ts"() {
+    "use strict";
+    VIRTUAL_ID = "virtual:devora-react-refresh-preamble";
+    RESOLVED_ID = "\0" + VIRTUAL_ID;
+    REACT_REFRESH_PREAMBLE_VIRTUAL_ID = VIRTUAL_ID;
+  }
+});
 
 // src/server/ssrMiddleware.ts
-var DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
-function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode, security, sessions, page = {}) {
+import path11 from "node:path";
+import fs2, { existsSync as existsSync6 } from "node:fs";
+function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEnabled, appDefaultRenderMode, security, sessions, page = {}, urls = VITE_ASSET_URLS) {
   const routesDir = path11.join(appRoot, "routes");
   const entryServerPath = path11.join(appRoot, "entry-server.tsx");
   const errorPagePath = ERROR_PAGE_FILES.map((f) => path11.join(appRoot, f)).find((f) => existsSync6(f));
@@ -5906,7 +6233,7 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
       const styles = collectCssUrls(vite, match.filePath);
       const meta = describeRequest(req, trustProxy);
       if (renderMode === "csr") {
-        const html = renderCsrShell(routeModule, `/@fs/${match.filePath}`, "/csr-client.tsx", DEV_PREAMBLE_URL, {
+        const html = renderCsrShell(routeModule, urls.moduleUrl(match.filePath), urls.csrClient, urls.preamble, {
           appHead: head,
           styles
         });
@@ -5930,8 +6257,8 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
           authorizationHeader: req.headers.authorization,
           params: match.params,
           sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : void 0,
-          islandClientUrl: "/island-client.tsx",
-          devPreambleUrl: DEV_PREAMBLE_URL,
+          islandClientUrl: urls.islandClient,
+          devPreambleUrl: urls.preamble,
           nonce,
           meta,
           head,
@@ -5969,9 +6296,9 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
           );
         }
         const { html } = await entryServer.renderStatic(routeModule, {
-          islandClientUrl: "/island-client.tsx",
+          islandClientUrl: urls.islandClient,
           params: match.params,
-          devPreambleUrl: DEV_PREAMBLE_URL,
+          devPreambleUrl: urls.preamble,
           url: new URL(url.pathname, meta.url).href,
           head,
           styles
@@ -6002,9 +6329,9 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
         sessionCookieOptions: resolveSessionOptions ? await resolveSessionOptions() : void 0,
         // Dev serves any app-root file by path (Vite's own dev middleware) —
         // production resolves a real hashed URL instead, see docs/history/BUILD-LOG.md #4.
-        islandClientUrl: "/island-client.tsx",
+        islandClientUrl: urls.islandClient,
         appDefaultRenderMode,
-        devPreambleUrl: DEV_PREAMBLE_URL,
+        devPreambleUrl: urls.preamble,
         meta,
         head,
         styles,
@@ -6034,8 +6361,6 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
     }
   };
 }
-var ERROR_PAGE_FILES = ["error.tsx", "error.jsx", "error.ts", "error.js"];
-var CSS_FILE_RE = /\.(css|scss|sass|less|styl|stylus|pcss|postcss)$/;
 function collectCssUrls(vite, file) {
   const urls = [];
   const seen = /* @__PURE__ */ new Set();
@@ -6071,6 +6396,24 @@ function isStaticFileRequest(vite, pathname) {
     }
   });
 }
+var DEV_PREAMBLE_URL, VITE_ASSET_URLS, ERROR_PAGE_FILES, CSS_FILE_RE;
+var init_ssrMiddleware = __esm({
+  "src/server/ssrMiddleware.ts"() {
+    "use strict";
+    init_src();
+    init_devSessionOptions();
+    init_reactRefreshPreamblePlugin();
+    DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
+    VITE_ASSET_URLS = {
+      islandClient: "/island-client.tsx",
+      csrClient: "/csr-client.tsx",
+      preamble: DEV_PREAMBLE_URL,
+      moduleUrl: (file) => `/@fs/${file}`
+    };
+    ERROR_PAGE_FILES = ["error.tsx", "error.jsx", "error.ts", "error.js"];
+    CSS_FILE_RE = /\.(css|scss|sass|less|styl|stylus|pcss|postcss)$/;
+  }
+});
 
 // src/server/apiMiddleware.ts
 function createHostCheckPlugin(allowedHosts, trustProxy) {
@@ -6190,6 +6533,13 @@ function sendApiResponse2(res, result, noStore = false) {
   res.statusCode = result.status;
   res.end(result.body ?? "");
 }
+var init_apiMiddleware = __esm({
+  "src/server/apiMiddleware.ts"() {
+    "use strict";
+    init_src();
+    init_devSessionOptions();
+  }
+});
 
 // src/server/securityHeadersMiddleware.ts
 function createSvgHeadersPlugin() {
@@ -6216,6 +6566,235 @@ function createSecurityHeadersMiddleware(security) {
     next();
   };
 }
+var init_securityHeadersMiddleware = __esm({
+  "src/server/securityHeadersMiddleware.ts"() {
+    "use strict";
+    init_src();
+  }
+});
+
+// src/commands/devExperimental.ts
+var devExperimental_exports = {};
+__export(devExperimental_exports, {
+  createExperimentalAppDevServer: () => createExperimentalAppDevServer
+});
+import path16 from "node:path";
+import { existsSync as existsSync8, readFileSync as readFileSync3, realpathSync } from "node:fs";
+function chain(handlers, finish) {
+  return async (req, res) => {
+    let i = 0;
+    const next = (error) => {
+      if (error !== void 0) return finish(req, res, error);
+      const handler = handlers[i++];
+      if (!handler) return finish(req, res);
+      Promise.resolve(handler(req, res, next)).catch((e) => finish(req, res, e));
+    };
+    next();
+  };
+}
+function resolvePublicDir(appRoot) {
+  const config = path16.join(appRoot, "vite.config.ts");
+  if (existsSync8(config)) {
+    const m = /publicDir:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/.exec(readFileSync3(config, "utf8"));
+    if (m) return path16.resolve(appRoot, m[1]);
+  }
+  const fallback = path16.join(appRoot, "public");
+  return existsSync8(fallback) ? fallback : void 0;
+}
+async function createExperimentalAppDevServer(options) {
+  const opts = { ...options, appRoot: realpathSync(options.appRoot), projectRoot: realpathSync(options.projectRoot) };
+  const { app, appRoot, authMode, appConfig } = opts;
+  const sessionManifest = resolveSessionManifest({
+    appName: app.name,
+    appDomain: app.domain,
+    authMode,
+    sessions: opts.sessions,
+    appSessions: appConfig.sessions,
+    csrf: appConfig.csrf
+  });
+  validateCorsConfig(app.name, appConfig.cors);
+  if (opts.host) throw new Error("[devora] --host is not available with --experimental-dev-server: it binds 127.0.0.1 only");
+  let devServer;
+  try {
+    devServer = await import("@devorajs/dev-server");
+  } catch (error) {
+    throw new Error(
+      `[devora] the experimental dev server is not part of the published CLI. Run it from a checkout of the repository: pnpm exec tsx packages/cli/src/index.ts dev --experimental-dev-server (${error.message})`
+    );
+  }
+  process.setSourceMapsEnabled(true);
+  const roots = [{ prefix: "/_devora/m/app/", dir: appRoot }];
+  const packagesDir = path16.join(opts.projectRoot, "packages");
+  if (existsSync8(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots });
+  const cssGraph = devServer.createCssGraph(roots);
+  const publicDir = resolvePublicDir(appRoot);
+  const host = {
+    ssrLoadModule: (id) => modules.ssrLoadModule(id),
+    ssrFixStacktrace: (error) => modules.ssrFixStacktrace(error),
+    moduleGraph: cssGraph,
+    config: { publicDir: publicDir ?? "", root: appRoot }
+  };
+  let handler;
+  const server = await devServer.startExperimentalDevServer({
+    roots,
+    port: opts.port,
+    allowedHosts: appConfig.allowedHosts ? [...appConfig.allowedHosts] : void 0,
+    fallback: (req, res) => handler ? handler(req, res) : void res.end(),
+    app: {
+      appRoot,
+      publicDir,
+      backendOnly: appConfig.backendOnly === true,
+      svgCsp: SVG_CSP,
+      onChange(file) {
+        for (const f of modules.invalidate(file)) runAndClearDisposable(f);
+        clearStreamingModuleCache();
+      }
+    }
+  });
+  const urls = {
+    islandClient: "/_devora/m/app/island-client.tsx",
+    csrClient: "/_devora/m/app/csr-client.tsx",
+    preamble: server.preambleUrl,
+    moduleUrl: (file) => server.clientModules?.urlOf(file) ?? "/_devora/m/outside-the-served-folders"
+  };
+  const handlers = [createSecurityHeadersMiddleware(appConfig.security)];
+  handlers.push(
+    createApiMiddleware(host, {
+      appRoot,
+      appName: app.name,
+      authMode,
+      security: appConfig.security,
+      projectRoot: opts.projectRoot,
+      sessions: opts.sessions,
+      apiDir: appConfig.apiDir,
+      sessionManifest,
+      maxBodyBytes: appConfig.maxBodyBytes,
+      trustProxy: appConfig.trustProxy,
+      cors: appConfig.cors
+    })
+  );
+  if (appConfig.backendOnly === true) {
+    handlers.push((req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD" || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      const status2 = backendStatusFor(app.name, req.headers.accept);
+      res.statusCode = status2.status;
+      for (const [name, value] of Object.entries(status2.headers ?? {})) res.setHeader(name, value);
+      res.end(status2.body);
+    });
+  } else {
+    handlers.push(
+      createSsrMiddleware(
+        host,
+        appRoot,
+        app.name,
+        authMode,
+        app.domain,
+        appConfig.sitemap === true,
+        appConfig.defaultRenderMode,
+        appConfig.security,
+        { projectRoot: opts.projectRoot, config: opts.sessions, manifest: sessionManifest },
+        {
+          head: appConfig.head,
+          maxBodyBytes: appConfig.maxBodyBytes,
+          maxFormFields: appConfig.maxFormFields,
+          maxFormFiles: appConfig.maxFormFiles,
+          trustProxy: appConfig.trustProxy
+        },
+        urls
+      )
+    );
+  }
+  const escapeHtml2 = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const finalPage = (res, status2, text) => {
+    res.statusCode = status2;
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>${escapeHtml2(text)}</pre>
+</body>
+</html>
+`);
+  };
+  handler = chain(handlers, (req, res, error) => {
+    if (res.headersSent) return void res.end();
+    if (error !== void 0) {
+      console.error(`[devora] "${app.name}" request error:`, error);
+      return finalPage(res, 500, error instanceof Error ? error.stack ?? `${error.name}: ${error.message}` : String(error));
+    }
+    finalPage(res, 404, `Cannot ${req.method} ${req.url}`);
+  });
+  return {
+    close: () => server.close(),
+    httpServer: server.server,
+    config: { server: { port: server.port } }
+  };
+}
+var init_devExperimental = __esm({
+  "src/commands/devExperimental.ts"() {
+    "use strict";
+    init_src();
+    init_apiMiddleware();
+    init_securityHeadersMiddleware();
+    init_ssrMiddleware();
+  }
+});
+
+// src/index.ts
+import { Command } from "commander";
+
+// src/commands/dev.ts
+init_src();
+import path17 from "node:path";
+import { createRequire } from "node:module";
+import { createServer } from "vite";
+
+// ../core/src/loadProjectConfig.ts
+import path8 from "node:path";
+import { existsSync as existsSync4 } from "node:fs";
+import { createJiti } from "jiti";
+async function loadProjectConfig(root = process.cwd()) {
+  const configPath = path8.join(root, "devora.config.ts");
+  if (!existsSync4(configPath)) {
+    throw new Error(
+      `[devora] no devora.config.ts found at ${configPath}. Every Devora.js project must declare its apps here \u2014 see architecture doc \xA73.`
+    );
+  }
+  const jiti = createJiti(import.meta.url, { interopDefault: true, moduleCache: false });
+  const mod = await jiti.import(configPath);
+  const config = mod.default;
+  if (!config?.apps?.length) {
+    throw new Error(`[devora] devora.config.ts must declare at least one app.`);
+  }
+  return config;
+}
+function resolveAppDir(root, appDir) {
+  return path8.join(root, appDir);
+}
+
+// ../core/src/loadAppConfig.ts
+import path9 from "node:path";
+import { existsSync as existsSync5 } from "node:fs";
+import { createJiti as createJiti2 } from "jiti";
+async function loadAppConfig(appRoot) {
+  const configPath = path9.join(appRoot, "app.config.ts");
+  if (!existsSync5(configPath)) return {};
+  const jiti = createJiti2(import.meta.url, { interopDefault: true, moduleCache: false });
+  const mod = await jiti.import(configPath);
+  return mod.default ?? {};
+}
+
+// src/commands/dev.ts
+init_ssrMiddleware();
+init_apiMiddleware();
+init_securityHeadersMiddleware();
 
 // src/build/islandCalls.ts
 var CORE_MODULES = /* @__PURE__ */ new Set(["@devorajs/core", "@devorajs/core/client"]);
@@ -6364,6 +6943,7 @@ function islandsPlugin() {
 }
 
 // src/server/moduleDisposePlugin.ts
+init_src();
 function moduleDisposePlugin() {
   return {
     name: "devora-module-dispose",
@@ -6376,6 +6956,9 @@ function moduleDisposePlugin() {
     }
   };
 }
+
+// src/commands/dev.ts
+init_reactRefreshPreamblePlugin();
 
 // src/build/checkNoAuthUsage.ts
 import fs3 from "node:fs";
@@ -7323,7 +7906,7 @@ async function createAppDevServer(opts) {
     // A backend-only app has no browser code: noDiscovery skips the scan
     // that otherwise warns "Could not auto-determine entry point" at boot.
     ...appConfig.backendOnly === true ? { optimizeDeps: { noDiscovery: true } } : { optimizeDeps: { include: resolvableClientDeps(appRoot), esbuildOptions: { supported: { destructuring: true } } } },
-    configFile: path16.join(appRoot, "vite.config.ts"),
+    configFile: path17.join(appRoot, "vite.config.ts"),
     // Injected here rather than requiring every app's vite.config.ts to
     // import framework internals — Vite merges this with the app's own
     // plugins array (see docs/history/BUILD-LOG.md #3).
@@ -7411,10 +7994,10 @@ async function startDevSession(root, opts) {
       const appRoot = resolveAppDir(root, app.dir);
       const appConfig = await loadAppConfig(appRoot);
       targets.appRoots.push(appRoot);
-      targets.routeDirs.push(path16.join(appRoot, "routes"), resolveApiDir(appRoot, appConfig.apiDir));
+      targets.routeDirs.push(path17.join(appRoot, "routes"), resolveApiDir(appRoot, appConfig.apiDir));
       if (authMode === "none") {
         assertNoAuthUsage(app.name, [
-          ...listRouteFiles(path16.join(appRoot, "routes")),
+          ...listRouteFiles(path17.join(appRoot, "routes")),
           ...listRouteFiles(resolveApiDir(appRoot, appConfig.apiDir))
         ]);
       }
@@ -7425,7 +8008,7 @@ async function startDevSession(root, opts) {
         console.log(`[devora] port ${preferred} ${reason} \u2014 "${app.name}" moved to ${port}`);
       }
       claimed.add(port);
-      const server = await createAppDevServer({
+      const serverOptions = {
         projectRoot: root,
         app,
         appRoot,
@@ -7434,14 +8017,15 @@ async function startDevSession(root, opts) {
         sessions: project.shared.sessions,
         port,
         host: opts.host
-      });
+      };
+      const server = opts.experimentalDevServer ? await (await Promise.resolve().then(() => (init_devExperimental(), devExperimental_exports))).createExperimentalAppDevServer(serverOptions) : await createAppDevServer(serverOptions);
       booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
     }
   } catch (err) {
     await close();
     throw err;
   }
-  targets.prismaDirs.push(...[path16.join(root, "prisma"), path16.join(root, "packages", "backend", "prisma")]);
+  targets.prismaDirs.push(...[path17.join(root, "prisma"), path17.join(root, "packages", "backend", "prisma")]);
   return { booted, targets, close };
 }
 function printStartupError(err) {
@@ -7449,6 +8033,8 @@ function printStartupError(err) {
 }
 async function dev(opts) {
   const root = process.cwd();
+  if (process.env.DEVORA_EXPERIMENTAL_DEV_SERVER === "1") opts = { ...opts, experimentalDevServer: true };
+  if (opts.experimentalDevServer) console.log("[devora] experimental dev server (not Vite): see the roadmap before relying on it");
   const expandRoutes = opts.routes === true || process.env.DEVORA_ROUTES === "all";
   let session;
   try {
@@ -7527,7 +8113,7 @@ function printBootSummary(booted, expandRoutes, since = 0) {
       networkUrls: networkUrls.map((url) => `${url}/`),
       networkNote: isWildcardAddress(boundHost) ? "(all interfaces, but no LAN address detected)" : "use --host to expose",
       apiUrl: apis.length > 0 ? `${networkUrls[0] ?? `http://localhost:${port}`}/api` : void 0,
-      pages: listRoutePaths(path16.join(appRoot, "routes")).sort(),
+      pages: listRoutePaths(path17.join(appRoot, "routes")).sort(),
       apis,
       apiDir: normalizeApiDir(apiDir)
     });
@@ -7538,7 +8124,7 @@ function printBootSummary(booted, expandRoutes, since = 0) {
 var DEV_WATCH_IGNORED = ["**/dist/**", "**/.vercel/**", "**/.netlify/**", "**/netlify/functions/**"];
 var CLIENT_DEPS = ["@devorajs/core/client", "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"];
 function resolvableClientDeps(appRoot) {
-  const require4 = createRequire(path16.join(appRoot, "package.json"));
+  const require4 = createRequire(path17.join(appRoot, "package.json"));
   return CLIENT_DEPS.filter((dep) => {
     try {
       require4.resolve(dep);
@@ -7550,18 +8136,22 @@ function resolvableClientDeps(appRoot) {
 }
 
 // src/build/buildForAdapter.ts
-import path29 from "node:path";
+init_src();
+import path30 from "node:path";
 
 // src/build/buildAppServer.ts
-import path18 from "node:path";
-import { existsSync as existsSync9 } from "node:fs";
+init_src();
+init_ssrMiddleware();
+import path19 from "node:path";
+import { existsSync as existsSync10 } from "node:fs";
 import { copyFile, mkdir as mkdir3, readdir, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
 import { build as viteBuild2 } from "vite";
 
 // src/build/buildAppClient.ts
-import path17 from "node:path";
+init_src();
+import path18 from "node:path";
 import { readFile as readFile4, cp } from "node:fs/promises";
-import { existsSync as existsSync8 } from "node:fs";
+import { existsSync as existsSync9 } from "node:fs";
 import { build as viteBuild, resolveConfig } from "vite";
 import { createHash as createHash2 } from "node:crypto";
 
@@ -7574,22 +8164,22 @@ function discoverCsrRouteFiles(sourceFiles) {
 
 // src/build/buildAppClient.ts
 async function buildAppClient(appRoot, islandFiles) {
-  const routesDir = path17.join(appRoot, "routes");
+  const routesDir = path18.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
   if (islandFiles.length === 0 && csrFiles.length === 0) {
     const resolved = await resolveConfig(
-      { root: appRoot, configFile: path17.join(appRoot, "vite.config.ts") },
+      { root: appRoot, configFile: path18.join(appRoot, "vite.config.ts") },
       "build"
     );
-    if (resolved.publicDir && existsSync8(resolved.publicDir)) {
-      await cp(resolved.publicDir, path17.join(appRoot, "dist", "client"), { recursive: true });
+    if (resolved.publicDir && existsSync9(resolved.publicDir)) {
+      await cp(resolved.publicDir, path18.join(appRoot, "dist", "client"), { recursive: true });
     }
     return { islandUrls: /* @__PURE__ */ new Map(), csrUrls: /* @__PURE__ */ new Map() };
   }
-  const islandClientPath = path17.join(appRoot, "island-client.tsx");
-  const csrClientPath = path17.join(appRoot, "csr-client.tsx");
-  const clientOutDir = path17.join(appRoot, "dist", "client");
+  const islandClientPath = path18.join(appRoot, "island-client.tsx");
+  const csrClientPath = path18.join(appRoot, "csr-client.tsx");
+  const clientOutDir = path18.join(appRoot, "dist", "client");
   const input = {};
   if (islandFiles.length > 0) input["island-client"] = islandClientPath;
   if (csrFiles.length > 0) input["csr-client"] = csrClientPath;
@@ -7602,7 +8192,7 @@ async function buildAppClient(appRoot, islandFiles) {
   await viteBuild({
     root: appRoot,
     logLevel: viteLogLevel(),
-    configFile: path17.join(appRoot, "vite.config.ts"),
+    configFile: path18.join(appRoot, "vite.config.ts"),
     build: {
       outDir: clientOutDir,
       emptyOutDir: true,
@@ -7628,8 +8218,8 @@ async function buildAppClient(appRoot, islandFiles) {
       }
     }
   });
-  const manifestPath = path17.join(clientOutDir, ".vite", "manifest.json");
-  if (!existsSync8(manifestPath)) {
+  const manifestPath = path18.join(clientOutDir, ".vite", "manifest.json");
+  if (!existsSync9(manifestPath)) {
     throw new Error(`[devora] client build for islands/csr produced no manifest at ${manifestPath}`);
   }
   const manifest = JSON.parse(await readFile4(manifestPath, "utf-8"));
@@ -7639,7 +8229,7 @@ async function buildAppClient(appRoot, islandFiles) {
   let csrClientUrl;
   for (const entry of Object.values(manifest)) {
     if (!entry.isEntry || !entry.src) continue;
-    const absoluteSrc = path17.resolve(appRoot, entry.src);
+    const absoluteSrc = path18.resolve(appRoot, entry.src);
     if (absoluteSrc === islandClientPath) {
       islandClientUrl = `/${entry.file}`;
     } else if (absoluteSrc === csrClientPath) {
@@ -7653,10 +8243,10 @@ async function buildAppClient(appRoot, islandFiles) {
   return { islandUrls, islandClientUrl, csrUrls, csrClientUrl };
 }
 function clientEntryName(appRoot, file) {
-  const relative = path17.relative(appRoot, file);
-  if (!relative.startsWith("..") && !path17.isAbsolute(relative)) return toBuildKey(appRoot, file);
+  const relative = path18.relative(appRoot, file);
+  if (!relative.startsWith("..") && !path18.isAbsolute(relative)) return toBuildKey(appRoot, file);
   const hash = createHash2("sha256").update(file).digest("hex").slice(0, 8);
-  return `shared/${path17.basename(file, path17.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
+  return `shared/${path18.basename(file, path18.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
 }
 
 // src/build/islandsBuildPlugin.ts
@@ -7695,16 +8285,16 @@ function islandsBuildPlugin(collected) {
 
 // src/build/buildAppServer.ts
 async function buildAppServer(appRoot, options = {}) {
-  const routesDir = path18.join(appRoot, "routes");
+  const routesDir = path19.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
-  const entryServerPath = path18.join(appRoot, "entry-server.tsx");
-  const serverOutDir = path18.join(appRoot, "dist", "server");
-  const clientOutDir = path18.join(appRoot, "dist", "client");
+  const entryServerPath = path19.join(appRoot, "entry-server.tsx");
+  const serverOutDir = path19.join(appRoot, "dist", "server");
+  const clientOutDir = path19.join(appRoot, "dist", "client");
   const input = options.backendOnly ? {} : { "entry-server": entryServerPath };
   for (const filePath of listRouteFiles(routesDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
   }
-  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path18.join(appRoot, f)).find((f) => existsSync9(f));
+  const errorPagePath = options.backendOnly ? void 0 : ERROR_PAGE_FILES.map((f) => path19.join(appRoot, f)).find((f) => existsSync10(f));
   if (errorPagePath) input[ERROR_PAGE_BUILD_KEY] = errorPagePath;
   for (const filePath of listRouteFiles(apiDir)) {
     input[toBuildKey(appRoot, filePath)] = filePath;
@@ -7717,7 +8307,7 @@ async function buildAppServer(appRoot, options = {}) {
   await viteBuild2({
     root: appRoot,
     logLevel: viteLogLevel(),
-    configFile: path18.join(appRoot, "vite.config.ts"),
+    configFile: path19.join(appRoot, "vite.config.ts"),
     plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
     build: {
       ssr: true,
@@ -7733,12 +8323,12 @@ async function buildAppServer(appRoot, options = {}) {
     await replaceIslandPlaceholders(serverOutDir, islandPlaceholders, islandUrls);
   }
   await publishSsrAssets(serverOutDir, clientOutDir);
-  await writeFile3(path18.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
+  await writeFile3(path19.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
   if (options.sessions) {
-    await writeFile3(path18.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
+    await writeFile3(path19.join(serverOutDir, SESSION_MANIFEST_FILE), JSON.stringify(options.sessions.manifest, null, 2));
   }
   await writeFile3(
-    path18.join(serverOutDir, "island-manifest.json"),
+    path19.join(serverOutDir, "island-manifest.json"),
     JSON.stringify({ islandClientUrl: islandClientUrl ?? null }, null, 2)
   );
   const csrRoutes = {};
@@ -7746,7 +8336,7 @@ async function buildAppServer(appRoot, options = {}) {
     csrRoutes[toBuildKey(appRoot, absPath)] = url;
   }
   await writeFile3(
-    path18.join(serverOutDir, "csr-route-manifest.json"),
+    path19.join(serverOutDir, "csr-route-manifest.json"),
     JSON.stringify({ csrClientUrl: csrClientUrl ?? null, routes: csrRoutes }, null, 2)
   );
   return { serverOutDir };
@@ -7792,19 +8382,19 @@ async function replaceIslandPlaceholders(serverOutDir, placeholders, islandUrls)
   }
 }
 async function publishSsrAssets(serverOutDir, clientOutDir) {
-  const assetsDir = path18.join(serverOutDir, "assets");
-  if (!existsSync9(assetsDir)) return;
+  const assetsDir = path19.join(serverOutDir, "assets");
+  if (!existsSync10(assetsDir)) return;
   for (const file of await listFiles2(assetsDir)) {
     if (/\.(m?js|map)$/.test(file)) continue;
-    const dest = path18.join(clientOutDir, "assets", path18.relative(assetsDir, file));
-    await mkdir3(path18.dirname(dest), { recursive: true });
+    const dest = path19.join(clientOutDir, "assets", path19.relative(assetsDir, file));
+    await mkdir3(path19.dirname(dest), { recursive: true });
     await copyFile(file, dest);
   }
 }
 async function listFiles2(dir, extension) {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path18.join(dir, entry.name);
+    const full = path19.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...await listFiles2(full, extension));
     else if (!extension || entry.name.endsWith(extension)) out.push(full);
   }
@@ -7812,14 +8402,15 @@ async function listFiles2(dir, extension) {
 }
 
 // src/build/buildAppStatic.ts
-import path19 from "node:path";
+init_src();
+import path20 from "node:path";
 import fs6 from "node:fs";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, options = {}) {
   if (options.backendOnly) return { staticRoutes: [] };
-  const routesDir = path19.join(appRoot, "routes");
-  const staticOutDir = path19.join(appRoot, "dist", "static");
-  const islandManifestPath = path19.join(serverOutDir, "island-manifest.json");
+  const routesDir = path20.join(appRoot, "routes");
+  const staticOutDir = path20.join(appRoot, "dist", "static");
+  const islandManifestPath = path20.join(serverOutDir, "island-manifest.json");
   const islandClientUrl = await readIslandClientUrl(islandManifestPath);
   const staticRoutes = [];
   const candidates = listRouteFiles(routesDir).filter((filePath) => {
@@ -7830,7 +8421,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   });
   if (candidates.length === 0) return { staticRoutes };
   const entryServer = await importBuilt2(serverOutDir, "entry-server");
-  const routeCss = readJson(path19.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
+  const routeCss = readJson(path20.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE)) ?? {};
   const origin = options.domain ? `https://${options.domain}` : "http://localhost";
   for (const filePath of candidates) {
     const key = toBuildKey(appRoot, filePath);
@@ -7866,7 +8457,7 @@ async function buildAppStatic(appRoot, serverOutDir, appDefaultRenderMode, optio
   return { staticRoutes };
 }
 async function importBuilt2(serverOutDir, key) {
-  const filePath = path19.join(serverOutDir, `${key}.js`);
+  const filePath = path20.join(serverOutDir, `${key}.js`);
   return import(pathToFileURL2(filePath).href);
 }
 var LITERAL_RENDER_MODE_RE = /export\s+(?:const|let|var)\s+renderMode\s*(?::\s*[\w.<>"' |]+)?=\s*["'](ssr|ssg|csr|streaming|isr)["']/;
@@ -7885,7 +8476,7 @@ function readJson(file) {
 }
 
 // src/build/runPrebuild.ts
-import path20 from "node:path";
+import path21 from "node:path";
 import { spawnSync } from "node:child_process";
 function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
   const commands = prebuild === void 0 ? [] : Array.isArray(prebuild) ? prebuild : [prebuild];
@@ -7894,8 +8485,8 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
       throw new Error(`[devora] "${appName}": prebuild entries must be non-empty strings`);
     }
     info(`[devora] "${appName}" prebuild: ${command}`);
-    const binDirs = [.../* @__PURE__ */ new Set([path20.join(appRoot, "node_modules", ".bin"), path20.join(projectRoot, "node_modules", ".bin")])];
-    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path20.delimiter) };
+    const binDirs = [.../* @__PURE__ */ new Set([path21.join(appRoot, "node_modules", ".bin"), path21.join(projectRoot, "node_modules", ".bin")])];
+    const env = { ...process.env, PATH: [...binDirs, process.env.PATH ?? ""].join(path21.delimiter) };
     const result = spawnSync(command, { cwd: appRoot, shell: true, stdio: "inherit", env });
     if (result.error) {
       throw new Error(`[devora] "${appName}": prebuild "${command}" couldn't start: ${result.error.message}`);
@@ -7908,8 +8499,8 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
 }
 
 // src/build/preflight.ts
-import path21 from "node:path";
-import { existsSync as existsSync10, readFileSync as readFileSync3, statSync } from "node:fs";
+import path22 from "node:path";
+import { existsSync as existsSync11, readFileSync as readFileSync4, statSync } from "node:fs";
 var PreflightError = class extends Error {
   constructor(appName) {
     super(`[devora] "${appName}": preflight checks failed \u2014 nothing was built.`);
@@ -7952,7 +8543,7 @@ function preflightSessions(input) {
 function preflightVercelLayout(input) {
   const { appRoot, outputDir, apiDir } = input;
   const issues = [];
-  const endsInVercelOutput = path21.basename(outputDir) === "output" && path21.basename(path21.dirname(outputDir)) === ".vercel";
+  const endsInVercelOutput = path22.basename(outputDir) === "output" && path22.basename(path22.dirname(outputDir)) === ".vercel";
   if (!endsInVercelOutput) {
     issues.push({
       level: "warning",
@@ -7960,9 +8551,9 @@ function preflightVercelLayout(input) {
     });
     return issues;
   }
-  const vercelRoot = path21.dirname(path21.dirname(outputDir));
-  const reservedApi = path21.join(vercelRoot, "api");
-  if (existsSync10(reservedApi) && statSync(reservedApi).isDirectory()) {
+  const vercelRoot = path22.dirname(path22.dirname(outputDir));
+  const reservedApi = path22.join(vercelRoot, "api");
+  if (existsSync11(reservedApi) && statSync(reservedApi).isDirectory()) {
     const isThisAppsApiDir = vercelRoot === appRoot && apiDir === "api";
     issues.push({
       level: "warning",
@@ -7972,10 +8563,10 @@ function preflightVercelLayout(input) {
   return issues;
 }
 function preflightNetlifyToml(input) {
-  const tomlPath = path21.join(input.appRoot, "netlify.toml");
-  if (input.apiDir === "api" || !existsSync10(tomlPath)) return [];
+  const tomlPath = path22.join(input.appRoot, "netlify.toml");
+  if (input.apiDir === "api" || !existsSync11(tomlPath)) return [];
   const expected = `netlify/functions/ssr/${input.apiDir}/**`;
-  if (readFileSync3(tomlPath, "utf-8").includes(expected)) return [];
+  if (readFileSync4(tomlPath, "utf-8").includes(expected)) return [];
   return [
     {
       level: "warning",
@@ -7993,15 +8584,15 @@ function reportPreflight(appName, issues) {
 }
 
 // ../../adapters/adapter-vercel/src/index.ts
-import path25 from "node:path";
-import { existsSync as existsSync14, readFileSync as readFileSync5 } from "node:fs";
+import path26 from "node:path";
+import { existsSync as existsSync15, readFileSync as readFileSync6 } from "node:fs";
 import { mkdir as mkdir4, writeFile as writeFile4, cp as cp2, readFile as readFile6, rm as rm2 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 
 // ../../adapters/adapter-vercel/src/bundleForDeploy.ts
-import path22 from "node:path";
+import path23 from "node:path";
 import { readdir as readdir2 } from "node:fs/promises";
-import { existsSync as existsSync11 } from "node:fs";
+import { existsSync as existsSync12 } from "node:fs";
 import * as esbuild from "esbuild";
 var CJS_REQUIRE_BANNER = 'import { createRequire as __devoraCreateRequire } from "node:module"; globalThis.require ??= __devoraCreateRequire(import.meta.url);';
 async function bundleForDeploy(wrapperPath, serverOutDir, options = {}) {
@@ -8015,16 +8606,16 @@ async function bundleForDeploy(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER },
     logLevel: "silent"
   });
-  const routesOutDir = path22.join(serverOutDir, "routes");
-  const routeFiles = existsSync11(routesOutDir) ? await findJsFiles(routesOutDir) : [];
-  const apiOutDir = path22.join(serverOutDir, options.apiDir ?? "api");
-  const apiFiles = existsSync11(apiOutDir) ? await findJsFiles(apiOutDir) : [];
-  const entryServerPath = path22.join(serverOutDir, "entry-server.js");
-  const entryPoints = existsSync11(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path22.join(serverOutDir, "session-store.js");
-  if (existsSync11(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path22.join(serverOutDir, "error-page.js");
-  if (existsSync11(errorPagePath)) entryPoints.push(errorPagePath);
+  const routesOutDir = path23.join(serverOutDir, "routes");
+  const routeFiles = existsSync12(routesOutDir) ? await findJsFiles(routesOutDir) : [];
+  const apiOutDir = path23.join(serverOutDir, options.apiDir ?? "api");
+  const apiFiles = existsSync12(apiOutDir) ? await findJsFiles(apiOutDir) : [];
+  const entryServerPath = path23.join(serverOutDir, "entry-server.js");
+  const entryPoints = existsSync12(entryServerPath) ? [entryServerPath] : [];
+  const sessionStorePath = path23.join(serverOutDir, "session-store.js");
+  if (existsSync12(sessionStorePath)) entryPoints.push(sessionStorePath);
+  const errorPagePath = path23.join(serverOutDir, "error-page.js");
+  if (existsSync12(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,
@@ -8043,7 +8634,7 @@ async function findJsFiles(dir) {
   const entries = await readdir2(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path22.join(dir, entry.name);
+    const full = path23.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles(full));
     } else if (entry.name.endsWith(".js")) {
@@ -8054,8 +8645,8 @@ async function findJsFiles(dir) {
 }
 
 // ../../adapters/adapter-vercel/src/runtime.ts
-import path23 from "node:path";
-import { existsSync as existsSync12, readFileSync as readFileSync4 } from "node:fs";
+import path24 from "node:path";
+import { existsSync as existsSync13, readFileSync as readFileSync5 } from "node:fs";
 var VERCEL_SUPPORTED_NODE_MAJORS = [24, 22];
 var VERCEL_DEFAULT_NODE_MAJOR = 24;
 function resolveVercelRuntime(input) {
@@ -8118,10 +8709,10 @@ function pickWithoutEngines(runningNodeVersion) {
 }
 function readEnginesNode(appRoot, projectRoot) {
   for (const dir of [appRoot, projectRoot]) {
-    const pkgPath = path23.join(dir, "package.json");
-    if (!existsSync12(pkgPath)) continue;
+    const pkgPath = path24.join(dir, "package.json");
+    if (!existsSync13(pkgPath)) continue;
     try {
-      const engines = JSON.parse(readFileSync4(pkgPath, "utf-8")).engines;
+      const engines = JSON.parse(readFileSync5(pkgPath, "utf-8")).engines;
       if (typeof engines?.node === "string") return engines.node;
     } catch {
     }
@@ -8226,11 +8817,11 @@ function rangeAllowsMajor(range, major) {
 }
 
 // ../../adapters/adapter-vercel/src/deploy.ts
-import path24 from "node:path";
-import { existsSync as existsSync13 } from "node:fs";
+import path25 from "node:path";
+import { existsSync as existsSync14 } from "node:fs";
 import { spawn } from "node:child_process";
 function isVercelLinked(appRoot) {
-  return existsSync13(path24.join(appRoot, ".vercel", "project.json"));
+  return existsSync14(path25.join(appRoot, ".vercel", "project.json"));
 }
 function deployToVercel(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -8250,8 +8841,8 @@ async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, se
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require2.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path25.dirname(pkgJsonPath);
-  await cp2(pkgDir, path25.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgDir = path26.dirname(pkgJsonPath);
+  await cp2(pkgDir, path26.join(destNodeModules, pkgName), { recursive: true, dereference: true });
   const pkgJson = JSON.parse(await readFile6(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency(pkgDir, dep, destNodeModules, seen);
@@ -8259,34 +8850,34 @@ async function vendorRuntimeDependency(resolveFrom, pkgName, destNodeModules, se
 }
 async function writeVercelOutput(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
-  const outputDir = options.outputDir ?? path25.join(appRoot, ".vercel", "output");
+  const outputDir = options.outputDir ?? path26.join(appRoot, ".vercel", "output");
   const runtime = options.runtime ?? resolveDefaultRuntime(appRoot);
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path25.join(outputDir, "functions", "index.func");
-  const clientOutDir = path25.join(appRoot, "dist", "client");
-  const staticOutDir = path25.join(appRoot, "dist", "static");
-  if (path25.basename(outputDir) === "output" && path25.basename(path25.dirname(outputDir)) === ".vercel") {
+  const funcDir = path26.join(outputDir, "functions", "index.func");
+  const clientOutDir = path26.join(appRoot, "dist", "client");
+  const staticOutDir = path26.join(appRoot, "dist", "static");
+  if (path26.basename(outputDir) === "output" && path26.basename(path26.dirname(outputDir)) === ".vercel") {
     await rm2(outputDir, { recursive: true, force: true });
   }
-  await mkdir4(path25.join(outputDir, "static"), { recursive: true });
+  await mkdir4(path26.join(outputDir, "static"), { recursive: true });
   await mkdir4(funcDir, { recursive: true });
-  if (existsSync14(path25.join(appRoot, "routes"))) {
-    await cp2(path25.join(appRoot, "routes"), path25.join(funcDir, "routes"), { recursive: true });
+  if (existsSync15(path26.join(appRoot, "routes"))) {
+    await cp2(path26.join(appRoot, "routes"), path26.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync14(path25.join(appRoot, apiDir))) {
-    await cp2(path25.join(appRoot, apiDir), path25.join(funcDir, apiDir), { recursive: true });
+  if (existsSync15(path26.join(appRoot, apiDir))) {
+    await cp2(path26.join(appRoot, apiDir), path26.join(funcDir, apiDir), { recursive: true });
   }
-  await cp2(path25.join(appRoot, "dist", "server"), path25.join(funcDir, "dist", "server"), { recursive: true });
-  if (existsSync14(clientOutDir)) {
-    await cp2(clientOutDir, path25.join(outputDir, "static"), { recursive: true });
+  await cp2(path26.join(appRoot, "dist", "server"), path26.join(funcDir, "dist", "server"), { recursive: true });
+  if (existsSync15(clientOutDir)) {
+    await cp2(clientOutDir, path26.join(outputDir, "static"), { recursive: true });
   }
-  if (existsSync14(staticOutDir)) {
-    await cp2(staticOutDir, path25.join(outputDir, "static"), { recursive: true });
-    await cp2(staticOutDir, path25.join(funcDir, "dist", "static"), { recursive: true });
+  if (existsSync15(staticOutDir)) {
+    await cp2(staticOutDir, path26.join(outputDir, "static"), { recursive: true });
+    await cp2(staticOutDir, path26.join(funcDir, "dist", "static"), { recursive: true });
   }
-  await writeFile4(path25.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile4(path26.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile4(
-    path25.join(funcDir, "index.mjs"),
+    path26.join(funcDir, "index.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 
 // appRoot is this function's own directory \u2014 routes/ and dist/server
@@ -8317,15 +8908,15 @@ export default async function handler(req, res) {
 }
 `
   );
-  await bundleForDeploy(path25.join(funcDir, "index.mjs"), path25.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path25.join(funcDir, "node_modules");
+  await bundleForDeploy(path26.join(funcDir, "index.mjs"), path26.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path26.join(funcDir, "node_modules");
   await mkdir4(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency(reactResolveBase(appRoot), "react", funcNodeModules);
-  if (existsSync14(path25.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync15(path26.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency(appRoot, "react-dom", funcNodeModules);
   }
   await writeFile4(
-    path25.join(funcDir, ".vc-config.json"),
+    path26.join(funcDir, ".vc-config.json"),
     JSON.stringify({ runtime, handler: "index.mjs", launcherType: "Nodejs" }, null, 2)
   );
   const staticHeaders = { "X-Content-Type-Options": "nosniff" };
@@ -8340,7 +8931,7 @@ export default async function handler(req, res) {
       { src: "/(.*)", dest: "/index" }
     ]
   };
-  await writeFile4(path25.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
+  await writeFile4(path26.join(outputDir, "config.json"), JSON.stringify(config, null, 2));
   console.log(
     `[adapter-vercel] wrote ${outputDir} for "${app.name}" (${runtime}). Deploy it with your Vercel project or \`vercel deploy --prebuilt\` \u2014 guide: ${VERCEL_DOCS_URL}`
   );
@@ -8358,28 +8949,28 @@ function reactResolveBase(appRoot) {
     require2.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path25.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path25.dirname(dir)) {
-      const pkgPath = path25.join(dir, "package.json");
-      if (existsSync14(pkgPath) && JSON.parse(readFileSync5(pkgPath, "utf-8")).name === "@devorajs/core") {
+    let dir = path26.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path26.dirname(dir)) {
+      const pkgPath = path26.join(dir, "package.json");
+      if (existsSync15(pkgPath) && JSON.parse(readFileSync6(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path25.dirname(dir);
+      dir = path26.dirname(dir);
     }
     return appRoot;
   }
 }
 
 // ../../adapters/adapter-netlify/src/index.ts
-import path28 from "node:path";
-import { existsSync as existsSync17, readFileSync as readFileSync6 } from "node:fs";
+import path29 from "node:path";
+import { existsSync as existsSync18, readFileSync as readFileSync7 } from "node:fs";
 import { mkdir as mkdir5, writeFile as writeFile5, cp as cp3, readFile as readFile7 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
 
 // ../../adapters/adapter-netlify/src/bundleForDeploy.ts
-import path26 from "node:path";
+import path27 from "node:path";
 import { readdir as readdir3 } from "node:fs/promises";
-import { existsSync as existsSync15 } from "node:fs";
+import { existsSync as existsSync16 } from "node:fs";
 import * as esbuild2 from "esbuild";
 var CJS_REQUIRE_BANNER2 = 'import { createRequire as __devoraCreateRequire } from "node:module"; globalThis.require ??= __devoraCreateRequire(import.meta.url);';
 async function bundleForDeploy2(wrapperPath, serverOutDir, options = {}) {
@@ -8393,16 +8984,16 @@ async function bundleForDeploy2(wrapperPath, serverOutDir, options = {}) {
     banner: { js: CJS_REQUIRE_BANNER2 },
     logLevel: "silent"
   });
-  const routesOutDir = path26.join(serverOutDir, "routes");
-  const routeFiles = existsSync15(routesOutDir) ? await findJsFiles2(routesOutDir) : [];
-  const apiOutDir = path26.join(serverOutDir, options.apiDir ?? "api");
-  const apiFiles = existsSync15(apiOutDir) ? await findJsFiles2(apiOutDir) : [];
-  const entryServerPath = path26.join(serverOutDir, "entry-server.js");
-  const entryPoints = existsSync15(entryServerPath) ? [entryServerPath] : [];
-  const sessionStorePath = path26.join(serverOutDir, "session-store.js");
-  if (existsSync15(sessionStorePath)) entryPoints.push(sessionStorePath);
-  const errorPagePath = path26.join(serverOutDir, "error-page.js");
-  if (existsSync15(errorPagePath)) entryPoints.push(errorPagePath);
+  const routesOutDir = path27.join(serverOutDir, "routes");
+  const routeFiles = existsSync16(routesOutDir) ? await findJsFiles2(routesOutDir) : [];
+  const apiOutDir = path27.join(serverOutDir, options.apiDir ?? "api");
+  const apiFiles = existsSync16(apiOutDir) ? await findJsFiles2(apiOutDir) : [];
+  const entryServerPath = path27.join(serverOutDir, "entry-server.js");
+  const entryPoints = existsSync16(entryServerPath) ? [entryServerPath] : [];
+  const sessionStorePath = path27.join(serverOutDir, "session-store.js");
+  if (existsSync16(sessionStorePath)) entryPoints.push(sessionStorePath);
+  const errorPagePath = path27.join(serverOutDir, "error-page.js");
+  if (existsSync16(errorPagePath)) entryPoints.push(errorPagePath);
   await esbuild2.build({
     entryPoints: [...entryPoints, ...routeFiles, ...apiFiles],
     bundle: true,
@@ -8421,7 +9012,7 @@ async function findJsFiles2(dir) {
   const entries = await readdir3(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    const full = path26.join(dir, entry.name);
+    const full = path27.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsFiles2(full));
     } else if (entry.name.endsWith(".js")) {
@@ -8432,11 +9023,11 @@ async function findJsFiles2(dir) {
 }
 
 // ../../adapters/adapter-netlify/src/deploy.ts
-import path27 from "node:path";
-import { existsSync as existsSync16 } from "node:fs";
+import path28 from "node:path";
+import { existsSync as existsSync17 } from "node:fs";
 import { spawn as spawn2 } from "node:child_process";
 function isNetlifyLinked(appRoot) {
-  return existsSync16(path27.join(appRoot, ".netlify", "state.json"));
+  return existsSync17(path28.join(appRoot, ".netlify", "state.json"));
 }
 function deployToNetlify(appRoot, opts = {}) {
   return new Promise((resolve) => {
@@ -8456,8 +9047,8 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
   if (seen.has(pkgName)) return;
   seen.add(pkgName);
   const pkgJsonPath = require3.resolve(`${pkgName}/package.json`, { paths: [resolveFrom] });
-  const pkgDir = path28.dirname(pkgJsonPath);
-  await cp3(pkgDir, path28.join(destNodeModules, pkgName), { recursive: true, dereference: true });
+  const pkgDir = path29.dirname(pkgJsonPath);
+  await cp3(pkgDir, path29.join(destNodeModules, pkgName), { recursive: true, dereference: true });
   const pkgJson = JSON.parse(await readFile7(pkgJsonPath, "utf-8"));
   for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
     await vendorRuntimeDependency2(pkgDir, dep, destNodeModules, seen);
@@ -8466,23 +9057,23 @@ async function vendorRuntimeDependency2(resolveFrom, pkgName, destNodeModules, s
 async function writeNetlifyConfig(app, appRoot, authMode, security, sitemapEnabled, defaultRenderMode, options = {}) {
   const apiDir = options.apiDir ?? "api";
   const trustProxy = options.trustProxy ?? true;
-  const funcDir = path28.join(appRoot, "netlify", "functions", "ssr");
-  const staticOutDir = path28.join(appRoot, "dist", "static");
+  const funcDir = path29.join(appRoot, "netlify", "functions", "ssr");
+  const staticOutDir = path29.join(appRoot, "dist", "static");
   await mkdir5(funcDir, { recursive: true });
-  if (existsSync17(path28.join(appRoot, "routes"))) {
-    await cp3(path28.join(appRoot, "routes"), path28.join(funcDir, "routes"), { recursive: true });
+  if (existsSync18(path29.join(appRoot, "routes"))) {
+    await cp3(path29.join(appRoot, "routes"), path29.join(funcDir, "routes"), { recursive: true });
   }
-  if (existsSync17(path28.join(appRoot, apiDir))) {
-    await cp3(path28.join(appRoot, apiDir), path28.join(funcDir, apiDir), { recursive: true });
+  if (existsSync18(path29.join(appRoot, apiDir))) {
+    await cp3(path29.join(appRoot, apiDir), path29.join(funcDir, apiDir), { recursive: true });
   }
-  await cp3(path28.join(appRoot, "dist", "server"), path28.join(funcDir, "dist", "server"), { recursive: true });
-  if (existsSync17(staticOutDir)) {
-    await cp3(staticOutDir, path28.join(funcDir, "dist", "static"), { recursive: true });
-    await cp3(staticOutDir, path28.join(appRoot, "dist", "client"), { recursive: true });
+  await cp3(path29.join(appRoot, "dist", "server"), path29.join(funcDir, "dist", "server"), { recursive: true });
+  if (existsSync18(staticOutDir)) {
+    await cp3(staticOutDir, path29.join(funcDir, "dist", "static"), { recursive: true });
+    await cp3(staticOutDir, path29.join(appRoot, "dist", "client"), { recursive: true });
   }
-  await writeFile5(path28.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
+  await writeFile5(path29.join(funcDir, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile5(
-    path28.join(funcDir, "ssr.mjs"),
+    path29.join(funcDir, "ssr.mjs"),
     `import { createProdRequestHandler } from "@devorajs/core";
 import { Readable } from "node:stream";
 import { EventEmitter } from "node:events";
@@ -8537,18 +9128,18 @@ export default async (request, context) => {
 };
 `
   );
-  await bundleForDeploy2(path28.join(funcDir, "ssr.mjs"), path28.join(funcDir, "dist", "server"), { apiDir });
-  const funcNodeModules = path28.join(funcDir, "node_modules");
+  await bundleForDeploy2(path29.join(funcDir, "ssr.mjs"), path29.join(funcDir, "dist", "server"), { apiDir });
+  const funcNodeModules = path29.join(funcDir, "node_modules");
   await mkdir5(funcNodeModules, { recursive: true });
   await vendorRuntimeDependency2(reactResolveBase2(appRoot), "react", funcNodeModules);
-  if (existsSync17(path28.join(funcDir, "dist", "server", "entry-server.js"))) {
+  if (existsSync18(path29.join(funcDir, "dist", "server", "entry-server.js"))) {
     await vendorRuntimeDependency2(appRoot, "react-dom", funcNodeModules);
   }
   {
-    const clientOutDir = path28.join(appRoot, "dist", "client");
+    const clientOutDir = path29.join(appRoot, "dist", "client");
     await mkdir5(clientOutDir, { recursive: true });
-    const headersPath = path28.join(clientOutDir, "_headers");
-    let contents = existsSync17(headersPath) ? await readFile7(headersPath, "utf-8") : "";
+    const headersPath = path29.join(clientOutDir, "_headers");
+    let contents = existsSync18(headersPath) ? await readFile7(headersPath, "utf-8") : "";
     const addRule = (line, rule) => {
       if (!contents.includes(line)) contents = contents ? `${contents.replace(/\n*$/, "\n")}
 ${rule}` : rule;
@@ -8569,13 +9160,13 @@ function reactResolveBase2(appRoot) {
     require3.resolve("react/package.json", { paths: [appRoot] });
     return appRoot;
   } catch {
-    let dir = path28.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
-    while (dir !== path28.dirname(dir)) {
-      const pkgPath = path28.join(dir, "package.json");
-      if (existsSync17(pkgPath) && JSON.parse(readFileSync6(pkgPath, "utf-8")).name === "@devorajs/core") {
+    let dir = path29.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
+    while (dir !== path29.dirname(dir)) {
+      const pkgPath = path29.join(dir, "package.json");
+      if (existsSync18(pkgPath) && JSON.parse(readFileSync7(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
-      dir = path28.dirname(dir);
+      dir = path29.dirname(dir);
     }
     return appRoot;
   }
@@ -8589,8 +9180,8 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const authMode = resolveAuthMode(project, app.name);
   if (authMode === "none") {
     assertNoAuthUsage(app.name, [
-      ...listRouteFiles(path29.join(appRoot, "routes")),
-      ...listRouteFiles(path29.join(appRoot, apiDir))
+      ...listRouteFiles(path30.join(appRoot, "routes")),
+      ...listRouteFiles(path30.join(appRoot, apiDir))
     ]);
   }
   const sessionManifest = resolveSessionManifest({
@@ -8604,7 +9195,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   validateCorsConfig(app.name, appConfig.cors);
   const issues = [];
   let vercelRuntime;
-  const vercelOutputDir = options.out ? path29.resolve(root, options.out) : path29.join(appRoot, ".vercel", "output");
+  const vercelOutputDir = options.out ? path30.resolve(root, options.out) : path30.join(appRoot, ".vercel", "output");
   if (adapter === "vercel" || adapter === "netlify") {
     issues.push(...preflightSessions({ appName: app.name, authMode, sessions: project.shared.sessions, adapter, env: process.env }));
   }
@@ -8631,7 +9222,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
   const sessionsConfig = project.shared.sessions;
   const sessions = sessionManifest === void 0 ? void 0 : {
     manifest: sessionManifest,
-    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path29.resolve(root, sessionsConfig.store) : void 0
+    storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path30.resolve(root, sessionsConfig.store) : void 0
   };
   const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
   info(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
@@ -8739,8 +9330,9 @@ async function build3(opts) {
 }
 
 // src/commands/desktop.ts
-import { existsSync as existsSync18, mkdirSync, readFileSync as readFileSync7, writeFileSync } from "node:fs";
-import path30 from "node:path";
+init_src();
+import { existsSync as existsSync19, mkdirSync, readFileSync as readFileSync8, writeFileSync } from "node:fs";
+import path31 from "node:path";
 
 // ../desktop/src/token.ts
 import { randomBytes as randomBytes4, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
@@ -9003,8 +9595,8 @@ async function resolveApp(opts) {
   return { root, project, app, appRoot };
 }
 function readSettings(appRoot, appName) {
-  const file = path30.join(appRoot, "desktop.json");
-  const raw = existsSync18(file) ? JSON.parse(readFileSync7(file, "utf8")) : {};
+  const file = path31.join(appRoot, "desktop.json");
+  const raw = existsSync19(file) ? JSON.parse(readFileSync8(file, "utf8")) : {};
   return {
     productName: typeof raw.productName === "string" ? raw.productName : appName,
     identifier: typeof raw.identifier === "string" ? raw.identifier : `com.example.${appName.replace(/_/g, "-")}`,
@@ -9075,23 +9667,27 @@ async function desktopBuild(opts) {
   await build3({ app: app.name });
   const version = (() => {
     try {
-      return JSON.parse(readFileSync7(path30.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
+      return JSON.parse(readFileSync8(path31.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
     } catch {
       return "0.1.0";
     }
   })();
   const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
-  const out = path30.join(appRoot, "desktop", "src-tauri");
+  const out = path31.join(appRoot, "desktop", "src-tauri");
   for (const [name, content] of Object.entries(files)) {
-    const file = path30.join(out, name);
-    mkdirSync(path30.dirname(file), { recursive: true });
+    const file = path31.join(out, name);
+    mkdirSync(path31.dirname(file), { recursive: true });
     writeFileSync(file, content);
   }
-  console.log(`[devora desktop] wrote ${path30.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
+  console.log(`[devora desktop] wrote ${path31.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
   console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder");
 }
 
+// src/commands/start.ts
+init_src();
+
 // ../../adapters/adapter-node/src/index.ts
+init_src();
 import http2 from "node:http";
 var DEFAULT_SERVER_LIMITS = {
   headersTimeoutMs: 15e3,
@@ -9300,17 +9896,17 @@ async function deploy(opts) {
 }
 
 // src/commands/new.ts
-import path31 from "node:path";
-import { existsSync as existsSync19 } from "node:fs";
+import path32 from "node:path";
+import { existsSync as existsSync20 } from "node:fs";
 import { writeFile as writeFile6, readFile as readFile8 } from "node:fs/promises";
 async function detectScaffoldContext(root) {
-  if (existsSync19(path31.join(root, "packages", "cli", "dist", "index.js"))) {
+  if (existsSync20(path32.join(root, "packages", "cli", "dist", "index.js"))) {
     return { cliInvocation: "monorepo", coreVersion: "*" };
   }
   let coreVersion = "*";
   let cliVersion;
-  const rootPkgPath = path31.join(root, "package.json");
-  if (existsSync19(rootPkgPath)) {
+  const rootPkgPath = path32.join(root, "package.json");
+  if (existsSync20(rootPkgPath)) {
     try {
       const rootPkg = JSON.parse(await readFile8(rootPkgPath, "utf-8"));
       coreVersion = rootPkg.dependencies?.["@devorajs/core"] ?? rootPkg.devDependencies?.["@devorajs/core"] ?? coreVersion;
@@ -9327,8 +9923,8 @@ async function scaffoldApp(appName, opts) {
     console.error(`[devora] ${nameProblem}`);
     process.exit(1);
   }
-  const appDir = path31.join(root, "apps", appName);
-  if (existsSync19(appDir)) {
+  const appDir = path32.join(root, "apps", appName);
+  if (existsSync20(appDir)) {
     console.error(`[devora] apps/${appName} already exists`);
     process.exit(1);
   }
@@ -9346,11 +9942,11 @@ async function scaffoldApp(appName, opts) {
     cliVersion: context.cliVersion,
     // A create-devora "frontend only" project has no packages/backend —
     // depending on @devorajs/backend there would break every install.
-    withBackend: existsSync19(path31.join(root, "packages", "backend", "package.json")),
+    withBackend: existsSync20(path32.join(root, "packages", "backend", "package.json")),
     kind
   });
-  const configPath = path31.join(root, "devora.config.ts");
-  if (existsSync19(configPath)) {
+  const configPath = path32.join(root, "devora.config.ts");
+  if (existsSync20(configPath)) {
     const original = await readFile8(configPath, "utf-8");
     const domain = opts.domain ?? `${appName}.example.com`;
     const insertion = `    { name: "${appName}", dir: "apps/${appName}", domain: "${domain}", auth: "${authMode}" },
@@ -9373,7 +9969,7 @@ ${insertion}`);
 }
 var newApp = scaffoldApp;
 async function defaultAppKind(root) {
-  if (!existsSync19(path31.join(root, "devora.config.ts"))) return "pages";
+  if (!existsSync20(path32.join(root, "devora.config.ts"))) return "pages";
   try {
     const project = await loadProjectConfig(root);
     const configs = await Promise.all(project.apps.map((a) => loadAppConfig(resolveAppDir(root, a.dir)).catch(() => ({}))));
@@ -9384,15 +9980,15 @@ async function defaultAppKind(root) {
 }
 
 // src/commands/remove.ts
-import path32 from "node:path";
-import { existsSync as existsSync20 } from "node:fs";
+import path33 from "node:path";
+import { existsSync as existsSync21 } from "node:fs";
 import { readFile as readFile9, writeFile as writeFile7, rm as rm3 } from "node:fs/promises";
 async function removeApp(appName) {
   const root = process.cwd();
-  const appDir = path32.join(root, "apps", appName);
-  const configPath = path32.join(root, "devora.config.ts");
+  const appDir = path33.join(root, "apps", appName);
+  const configPath = path33.join(root, "devora.config.ts");
   let removedFromConfig = false;
-  if (existsSync20(configPath)) {
+  if (existsSync21(configPath)) {
     const original = await readFile9(configPath, "utf-8");
     const entryRe = new RegExp(`[ \\t]*\\{ name: "${appName}"[^\\n]*\\},\\n`);
     const updated = original.replace(entryRe, "");
@@ -9401,7 +9997,7 @@ async function removeApp(appName) {
       removedFromConfig = true;
     }
   }
-  const dirExisted = existsSync20(appDir);
+  const dirExisted = existsSync21(appDir);
   if (dirExisted) {
     await rm3(appDir, { recursive: true, force: true });
   }
@@ -9418,6 +10014,7 @@ async function removeApp(appName) {
 }
 
 // src/commands/list.ts
+init_src();
 async function list() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -9437,7 +10034,7 @@ async function list() {
 }
 
 // src/commands/generate-proxy.ts
-import path33 from "node:path";
+import path34 from "node:path";
 import { writeFile as writeFile8 } from "node:fs/promises";
 var VALID_HOSTNAME = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 function assertValidDomain(app) {
@@ -9493,23 +10090,23 @@ async function generateProxy(opts) {
     return opts.target === "nginx" ? nginxBlock(app, appPort) : caddyBlock(app, appPort);
   });
   const output = blocks.join("\n");
-  const outPath = opts.out ?? path33.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
+  const outPath = opts.out ?? path34.join(root, opts.target === "nginx" ? "nginx.conf" : "Caddyfile");
   await writeFile8(outPath, output);
   console.log(`[devora] generated ${opts.target} config for ${project.apps.length} app(s) \u2192 ${outPath}`);
   console.log(`[devora] no hand-editing needed \u2014 domains came straight from devora.config.ts`);
 }
 
 // src/commands/split.ts
-import path36 from "node:path";
-import { existsSync as existsSync21 } from "node:fs";
+import path37 from "node:path";
+import { existsSync as existsSync22 } from "node:fs";
 import { rm as rm4 } from "node:fs/promises";
 
 // src/build/resolveSplitTarget.ts
-import path35 from "node:path";
+import path36 from "node:path";
 
 // src/build/gitHelpers.ts
 import { execFileSync } from "node:child_process";
-import path34 from "node:path";
+import path35 from "node:path";
 function git(args, cwd) {
   try {
     const stdout = execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
@@ -9537,10 +10134,10 @@ function listSubmodules(repoRoot) {
   const entries = [];
   for (const line of result.stdout.trim().split("\n")) {
     const [key, ...rest] = line.split(" ");
-    const path39 = rest.join(" ");
+    const path40 = rest.join(" ");
     const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
     const urlResult = git(["config", "--file", ".gitmodules", "--get", `submodule.${name}.url`], repoRoot);
-    entries.push({ name, path: path39, url: urlResult.stdout.trim() });
+    entries.push({ name, path: path40, url: urlResult.stdout.trim() });
   }
   return entries;
 }
@@ -9551,9 +10148,9 @@ function revListCounts(cwd, theirRef, ourRef = "HEAD") {
   return { behind: behind ?? 0, ahead: ahead ?? 0 };
 }
 function assertInsideRoot(root, targetPath, label) {
-  const resolvedRoot = path34.resolve(root);
-  const resolvedTarget = path34.resolve(targetPath);
-  if (!resolvedTarget.startsWith(resolvedRoot + path34.sep)) {
+  const resolvedRoot = path35.resolve(root);
+  const resolvedTarget = path35.resolve(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path35.sep)) {
     throw new Error(
       `[devora] refusing to operate on "${label}" \u2014 it resolves to "${resolvedTarget}", outside the project root ("${resolvedRoot}"). Check devora.config.ts / .gitmodules for a path escaping the project.`
     );
@@ -9570,7 +10167,7 @@ function resolveSplitTarget(root, project, name) {
     if (!project.shared.backend) {
       throw new Error(`[devora] this project has no shared backend (no shared.backend in devora.config.ts)`);
     }
-    const target2 = path35.join(root, project.shared.backend);
+    const target2 = path36.join(root, project.shared.backend);
     assertInsideRoot(root, target2, "shared.backend");
     return target2;
   }
@@ -9578,15 +10175,15 @@ function resolveSplitTarget(root, project, name) {
   if (!app) {
     throw new Error(`[devora] no app named "${name}" in devora.config.ts (and it isn't "backend" either)`);
   }
-  const target = path35.join(root, app.dir);
+  const target = path36.join(root, app.dir);
   assertInsideRoot(root, target, `apps.${name}.dir`);
   return target;
 }
 function nameForSplitTarget(root, project, relativePath) {
-  if (project.shared.backend && path35.normalize(project.shared.backend) === path35.normalize(relativePath)) {
+  if (project.shared.backend && path36.normalize(project.shared.backend) === path36.normalize(relativePath)) {
     return "backend";
   }
-  const app = project.apps.find((a) => path35.normalize(a.dir) === path35.normalize(relativePath));
+  const app = project.apps.find((a) => path36.normalize(a.dir) === path36.normalize(relativePath));
   return app?.name ?? relativePath;
 }
 
@@ -9616,8 +10213,8 @@ async function split(name, opts) {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
   const targetPath = resolveSplitTarget(root, project, name);
-  const relPath = path36.relative(root, targetPath);
-  if (!existsSync21(targetPath)) {
+  const relPath = path37.relative(root, targetPath);
+  if (!existsSync22(targetPath)) {
     console.error(`[devora] ${relPath} doesn't exist`);
     process.exit(1);
   }
@@ -9676,7 +10273,7 @@ Your real content (with its real history) is safely pushed to ${opts.repo} \u201
 }
 
 // src/commands/sync.ts
-import path37 from "node:path";
+import path38 from "node:path";
 async function sync(names, opts) {
   if (opts.fromMain === opts.toMain) {
     console.error(`[devora] specify exactly one of --from-main or --to-main.`);
@@ -9689,7 +10286,7 @@ async function sync(names, opts) {
   if (opts.all) {
     targets = [];
     for (const s of listSubmodules(root)) {
-      const targetPath = path37.join(root, s.path);
+      const targetPath = path38.join(root, s.path);
       try {
         assertInsideRoot(root, targetPath, s.path);
         targets.push({ name: s.path, path: targetPath });
@@ -9707,7 +10304,7 @@ async function sync(names, opts) {
     return;
   }
   for (const target of targets) {
-    const relPath = path37.relative(root, target.path);
+    const relPath = path38.relative(root, target.path);
     console.log(`
 [devora] ${relPath}:`);
     const fetch = git(["fetch", "origin"], target.path);
@@ -9783,7 +10380,7 @@ async function syncToMain(targetPath, relPath, opts) {
 }
 
 // src/commands/status.ts
-import path38 from "node:path";
+import path39 from "node:path";
 async function status() {
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -9795,7 +10392,7 @@ async function status() {
   console.log(`[devora] sync status:
 `);
   for (const sub of submodules) {
-    const targetPath = path38.join(root, sub.path);
+    const targetPath = path39.join(root, sub.path);
     try {
       assertInsideRoot(root, targetPath, sub.path);
     } catch (err) {
@@ -9843,7 +10440,7 @@ var QUIET_HELP = "only warnings, errors and the app URLs \u2014 no header, route
 program.command("dev").description("Run all apps in dev mode (or one with --app)").option("--app <name>", "run only this app").option(
   "--host",
   "listen on all network interfaces (so a phone/other device on your LAN can reach it) \u2014 off by default"
-).option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)").option("--quiet", QUIET_HELP).action(async (opts) => dev(opts));
+).option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)").option("--quiet", QUIET_HELP).option("--experimental-dev-server", "run the experimental dev server of Devora's own instead of Vite (repository checkout only; also DEVORA_EXPERIMENTAL_DEV_SERVER=1)").action(async (opts) => dev(opts));
 program.command("build").description("Build all apps (or one with --app)").option("--app <name>", "build only this app").option("--adapter <target>", "also write output for this adapter: vercel or netlify").option(
   "--out <dir>",
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"

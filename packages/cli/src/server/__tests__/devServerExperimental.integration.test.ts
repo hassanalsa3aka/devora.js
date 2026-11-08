@@ -1,0 +1,110 @@
+/**
+ * The experimental dev server (`devora dev --experimental-dev-server`) in a child process, serving a real app folder: what its
+ * module loader does that Vite did for `devora dev` — extensionless and `.js`-for-`.ts` imports, stylesheet and asset imports,
+ * island URLs, `import.meta.url`, re-executing the app's modules after an edit, readable stack traces. The assertions every
+ * dev server must satisfy run against both servers in the other integration tests (DEVORA_TEST_DEV_SERVER=experimental).
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import path from "node:path";
+import type { AddressInfo } from "node:net";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
+import { createFixtureProject, write, bootDevServer, type FixtureProject } from "./fixtureApp.js";
+
+const ORIGINAL_ENV = { ...process.env };
+let fixture: FixtureProject;
+let dev: DevServerHandle;
+let base = "";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+beforeAll(async () => {
+  process.env.NODE_ENV = "development";
+  fixture = createFixtureProject();
+  const app = fixture.appRoot;
+  write(path.join(app, "helpers", "greeting.ts"), 'export const greeting = "hello from a helper";\n');
+  write(path.join(app, "helpers", "style.css"), "h1 { color: teal; }\n");
+  write(path.join(app, "helpers", "logo.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+  write(path.join(app, "helpers", "where.ts"), 'export const here = import.meta.url;\n');
+  write(path.join(app, "components", "Counter.tsx"), 'import { useState } from "react";\nexport default function Counter() { const [n, setN] = useState(0); return <button onClick={() => setN(n + 1)}>n={n}</button>; }\n');
+  write(
+    path.join(app, "routes", "rich.tsx"),
+    `import { island, Island } from "@devorajs/core";
+import { greeting } from "../helpers/greeting";        // extensionless
+import { here } from "../helpers/where.js";             // .js import of a .ts file
+import "../helpers/style.css";
+import logo from "../helpers/logo.svg";
+const CounterIsland = island(() => import("../components/Counter"));
+export const renderMode = "ssr";
+export default function Rich() {
+  return <main><h1>{greeting}</h1><p id="here">{here}</p><img id="logo" src={logo} alt="" /><Island component={CounterIsland} props={{}} /></main>;
+}
+`
+  );
+  write(path.join(app, "routes", "throws.tsx"), 'export const renderMode = "ssr";\nexport default function Throws() { throw new Error("boom in throws.tsx"); }\n');
+  write(path.join(app, "island-client.tsx"), 'import { hydrateIslands } from "@devorajs/core/client";\nhydrateIslands();\n');
+  dev = await bootDevServer(
+    {
+      projectRoot: fixture.projectRoot,
+      app: { name: "fixture", dir: "app", domain: "fixture.example.com" },
+      appRoot: fixture.appRoot,
+      authMode: "none",
+      appConfig: {},
+      sessions: undefined,
+      port: 0,
+    },
+    "experimental"
+  );
+  base = `http://127.0.0.1:${(dev.httpServer!.address() as AddressInfo).port}`;
+}, 60_000);
+
+afterAll(async () => {
+  await dev?.close();
+  fixture?.cleanup();
+  process.env = { ...ORIGINAL_ENV };
+});
+
+describe("experimental dev server — what its module loader does", () => {
+  it("renders a page whose imports are extensionless, `.js` for a `.ts` file, a stylesheet and an image", async () => {
+    const res = await fetch(`${base}/rich`);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("hello from a helper");
+    expect(html).toContain('id="logo" src="/_devora/m/app/helpers/logo.svg"');
+    expect(html).toContain('<link rel="stylesheet" href="/_devora/m/app/helpers/style.css"');
+  });
+
+  it("import.meta.url in an app module is its real file URL, not the loader's internal one", async () => {
+    const html = await (await fetch(`${base}/rich`)).text();
+    const here = /id="here">([^<]*)</.exec(html)?.[1] ?? "";
+    expect(here).toMatch(/^file:\/\/.*helpers\/where\.ts$/);
+    expect(here).not.toContain("devora-src");
+  });
+
+  it("an island's browser URL is a served module URL; the page loads the preamble (token) and the island client from the same server", async () => {
+    const html = await (await fetch(`${base}/rich`)).text();
+    expect(html).toContain('data-island-url="/_devora/m/app/components/Counter.tsx"');
+    expect(html).toMatch(/<script type="module" src="\/_devora\/preamble\.js\?token=[\w-]+"/);
+    expect(html).toContain('src="/_devora/m/app/island-client.tsx"');
+    expect(html).not.toContain("/@fs/");
+    const module = await fetch(`${base}/_devora/m/app/components/Counter.tsx`);
+    expect(module.status).toBe(200);
+  });
+
+  it("an error thrown while rendering is a 500 page that names the error and the file", async () => {
+    const res = await fetch(`${base}/throws`);
+    const text = await res.text();
+    expect(res.status).toBe(500);
+    expect(text).toContain("boom in throws.tsx");
+    expect(text).toContain("routes/throws.tsx");
+  });
+
+  it("an edit to an app module is picked up by the next request (the module graph is re-executed)", async () => {
+    write(path.join(fixture.appRoot, "helpers", "greeting.ts"), 'export const greeting = "changed greeting";\n');
+    let html = "";
+    for (let i = 0; i < 40 && !html.includes("changed greeting"); i++) {
+      await sleep(100);
+      html = await (await fetch(`${base}/rich`)).text();
+    }
+    expect(html).toContain("changed greeting");
+  });
+});

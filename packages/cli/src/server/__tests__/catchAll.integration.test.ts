@@ -9,11 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
 import { createProdRequestHandler, writeCachedRoute } from "@devorajs/core";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, write, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, write, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 const PAGE_SOURCE = (marker: string) => `
 import { createElement } from "react";
@@ -88,11 +87,11 @@ beforeAll(() => {
 afterAll(() => fixture?.cleanup());
 
 describe("catch-all routes — dev server", () => {
-  let server: ViteDevServer;
+  let server: DevServerHandle;
   let base: string;
 
   beforeAll(async () => {
-    server = await createAppDevServer({
+    server = await bootDevServer({
       projectRoot: fixture.projectRoot,
       app: { name: "fixture", dir: "app", domain: "fixture.example.com" },
       appRoot: fixture.appRoot,

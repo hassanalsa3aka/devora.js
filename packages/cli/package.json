@@ -12,7 +12,15 @@
   "bugs": {
     "url": "https://github.com/hassanalsa3aka/devora.js/issues"
   },
-  "keywords": ["devora", "cli", "framework", "ssr", "vite", "multi-app", "typescript"],
+  "keywords": [
+    "devora",
+    "cli",
+    "framework",
+    "ssr",
+    "vite",
+    "multi-app",
+    "typescript"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -40,6 +48,7 @@
     "@devorajs/adapter-vercel": "*",
     "@devorajs/adapter-netlify": "*",
     "@devorajs/scaffold": "*",
-    "@devorajs/desktop": "*"
+    "@devorajs/desktop": "*",
+    "@devorajs/dev-server": "*"
   }
 }

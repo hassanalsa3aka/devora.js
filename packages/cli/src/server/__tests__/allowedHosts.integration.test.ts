@@ -8,11 +8,10 @@ import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import type { ViteDevServer } from "vite";
 import { createProdRequestHandler, type ProdRequestHandlerOptions } from "@devorajs/core";
-import { createAppDevServer } from "../../commands/dev.js";
+import type { DevServerHandle } from "../../commands/devExperimental.js";
 import { findFreePort } from "../devNetwork.js";
-import { createFixtureProject, PAGE_ROUTES, write, type FixtureProject } from "./fixtureApp.js";
+import { createFixtureProject, PAGE_ROUTES, write, type FixtureProject, bootDevServer } from "./fixtureApp.js";
 
 const ORIGINAL_ENV = { ...process.env };
 const BUILT_ENTRY_SERVER = `
@@ -26,7 +25,7 @@ const HOSTS = ["app.example.com", ".example.org"];
 
 let fixture: FixtureProject;
 const servers: http.Server[] = [];
-let dev: ViteDevServer | undefined;
+let dev: DevServerHandle | undefined;
 
 beforeAll(() => {
   process.env.NODE_ENV = "production";
@@ -114,7 +113,7 @@ describe("production handler", () => {
 describe("dev server", () => {
   it("the same 400 for an unknown host, API routes included; localhost still works", async () => {
     process.env.NODE_ENV = "development";
-    dev = await createAppDevServer({
+    dev = await bootDevServer({
       projectRoot: fixture.projectRoot,
       app: { name: "fixture", dir: "app", domain: "app.example.com" },
       appRoot: fixture.appRoot,

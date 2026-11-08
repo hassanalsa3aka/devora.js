@@ -118,3 +118,46 @@ export function setCookieValue(res: Response, name: string): string | undefined 
   }
   return undefined;
 }
+
+/**
+ * Boots one app's dev server for a test. By default the real `devora dev` server (Vite); with
+ * DEVORA_TEST_DEV_SERVER=experimental, the experimental dev server in a child process (its module loader hooks are
+ * process-wide, so it does not share this test runner's process). Same shape either way.
+ */
+export async function bootDevServer(options: import("../../commands/dev.js").AppDevServerOptions, force?: "experimental"): Promise<import("../../commands/devExperimental.js").DevServerHandle> {
+  if (force !== "experimental" && process.env.DEVORA_TEST_DEV_SERVER !== "experimental") {
+    const { createAppDevServer } = await import("../../commands/dev.js");
+    return createAppDevServer(options);
+  }
+  const { spawn } = await import("node:child_process");
+  const { findFreePort } = await import("../devNetwork.js");
+  const port = await findFreePort(11010 + Math.floor(Math.random() * 70), new Set(), "127.0.0.1");
+  const child = spawn(path.join(REPO_ROOT, "node_modules", ".bin", "tsx"), [path.join(REPO_ROOT, "packages/cli/src/server/__tests__/experimentalHarness.ts"), JSON.stringify({ ...options, port })], {
+    env: { ...process.env, NODE_ENV: "development" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`experimental dev server did not start:\n${output}`)), 25_000);
+    const onData = (chunk: Buffer) => {
+      output += chunk.toString();
+      if (output.includes("READY")) {
+        clearTimeout(timer);
+        resolve();
+      }
+    };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", (c) => (output += c.toString()));
+    child.on("exit", (code) => reject(new Error(`experimental dev server exited (${code}):\n${output}`)));
+  });
+  child.removeAllListeners("exit");
+  return {
+    httpServer: { address: () => ({ address: "127.0.0.1", family: "IPv4", port }) },
+    config: { server: { port } },
+    close: () =>
+      new Promise<void>((resolve) => {
+        child.once("exit", () => resolve());
+        child.kill("SIGTERM");
+      }),
+  };
+}

@@ -8,9 +8,18 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
-    "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs"
+    "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs",
+    "compare:dev-parity": "node scripts/dev-server-compare/parity.mjs",
+    "compare:dev-security": "node scripts/dev-server-compare/attack-compare.mjs",
+    "check:dev-browser": "node scripts/dev-server-compare/browser-checks.mjs",
+    "measure:dev-reexec": "node scripts/dev-server-compare/reexec.mjs"
   },
-  "workspaces": ["packages/*", "apps/*", "adapters/*", "create-devora"],
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "adapters/*",
+    "create-devora"
+  ],
   "dependencies": {
     "@devorajs/core": "*"
   },
@@ -18,7 +27,8 @@
     "typescript": "^5.6.0",
     "tsx": "^4.19.0",
     "@devorajs/cli": "*",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "playwright-core": "^1.49.0"
   },
   "engines": {
     "node": ">=20"
