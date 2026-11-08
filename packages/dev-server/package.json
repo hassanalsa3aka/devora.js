@@ -2,7 +2,7 @@
   "name": "@devorajs/dev-server",
   "version": "0.0.0",
   "private": true,
-  "description": "Experimental: the security core of a Devora.js dev server of its own (work-notes/dev-server/DESIGN.md). Not wired into the CLI yet; Vite stays the dev server. Not published.",
+  "description": "Experimental: the security core of a Devora.js dev server of its own. Not wired into the CLI yet; Vite stays the dev server. Not published.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

@@ -73,7 +73,9 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
 - It has not been audited by anyone outside the project.
 - It is not a WAF. The rate limit is per process and opt-in; there is no account lockout.
 - The Vite dev server is for development. This work did not change how it serves files (symlinks
-  included), and it does not apply the production header set to everything.
+  included), and it does not apply the production header set to everything. Two gaps need a local process on
+  the developer's machine: Vite's hot-reload socket accepts a client that sends no `Origin` header, and the
+  open-in-editor guard stops web pages, not local tools.
 - Nothing here has been checked on a live Vercel or Netlify deployment: the generated header rules are
   tested as generated output only.
 - Sessions are stored where you put them. A compromised store is a compromised login.

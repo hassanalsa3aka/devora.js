@@ -2,7 +2,7 @@
  * The experimental dev server's shell: loopback only, refuses production, the host check on every request and
  * upgrade, request limits, the confined module route with esbuild transforms, the HMR channel, and a file watcher
  * that tells clients to reload. Page and API rendering are not part of it yet: requests it does not own go to
- * `fallback` (default: 404). See work-notes/dev-server/DESIGN.md and ACCEPTANCE.md.
+ * `fallback` (default: 404).
  */
 import http from "node:http";
 import { watch, type FSWatcher } from "node:fs";

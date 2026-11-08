@@ -1,5 +1,5 @@
 /**
- * The per-launch token (work-notes/desktop/DESIGN.md). The desktop shell creates one token each time it starts
+ * The per-launch token. The desktop shell creates one token each time it starts
  * the app's server and hands it to the server through the environment, never on the command line (other local
  * users can read a process's arguments). Every request must carry it, so a browser tab or another program on the
  * same machine that finds the port gets a 403.

@@ -8993,7 +8993,7 @@ function fail(message) {
 }
 async function resolveApp(opts) {
   if (!opts.experimental) {
-    fail("the desktop target is experimental and off by default: run it with --experimental (see work-notes/desktop/DESIGN.md)");
+    fail("the desktop target is experimental and off by default: run it with --experimental (see ROADMAP.md)");
   }
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -9088,7 +9088,7 @@ async function desktopBuild(opts) {
     writeFileSync(file, content);
   }
   console.log(`[devora desktop] wrote ${path30.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
-  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder (work-notes/desktop/MANUAL-CHECK.md).");
+  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder");
 }
 
 // ../../adapters/adapter-node/src/index.ts

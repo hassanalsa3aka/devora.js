@@ -30,6 +30,5 @@ node ../../packages/cli/dist/index.js desktop build --experimental --app web
 ```
 
 writes `apps/web/desktop/src-tauri/` (Tauri config, a capabilities file that allows no command, a Rust shell
-template). Building and checking the window is a manual step: see `work-notes/desktop/MANUAL-CHECK.md` in the
-repository. The settings are in `apps/web/desktop.json` (`ipc` is the list of commands the window may call;
+template). Building and checking the window is a manual step that needs Rust and the Tauri CLI; it has not been done yet. The settings are in `apps/web/desktop.json` (`ipc` is the list of commands the window may call;
 empty by default).

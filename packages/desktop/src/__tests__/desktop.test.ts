@@ -1,4 +1,4 @@
-/** The desktop sidecar rules that can run without a display (work-notes/desktop/DESIGN.md). */
+/** The desktop sidecar rules that can run without a display. */
 import { afterEach, describe, expect, it } from "vitest";
 import http from "node:http";
 import net from "node:net";

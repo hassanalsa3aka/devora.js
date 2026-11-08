@@ -1,10 +1,10 @@
 /**
  * `devora desktop dev|build|serve --experimental --app <name>`: the experimental, opt-in desktop target
- * (work-notes/desktop/DESIGN.md). Nothing here runs unless the command is typed with --experimental.
+ * (see ROADMAP.md). Nothing here runs unless the command is typed with --experimental.
  *
  *   build   devora build for the app, then write apps/<app>/desktop/src-tauri/ (Tauri 2 config, capabilities
  *           with the IPC allowlist, a Rust shell template). Building the window itself needs Rust and the
- *           Tauri CLI on your machine (work-notes/desktop/MANUAL-CHECK.md).
+ *           Tauri CLI on your machine (the window is a manual check).
  *   serve   the sidecar: serves the built app behind the desktop rules. Reads the token from
  *           DEVORA_DESKTOP_TOKEN and the port from PORT (both set by the shell); 127.0.0.1 only.
  *   dev     build, then serve with a fresh token and a random port, and print the launch URL, so the app can be
@@ -49,7 +49,7 @@ function fail(message: string): never {
 
 async function resolveApp(opts: DesktopOptions) {
   if (!opts.experimental) {
-    fail("the desktop target is experimental and off by default: run it with --experimental (see work-notes/desktop/DESIGN.md)");
+    fail("the desktop target is experimental and off by default: run it with --experimental (see ROADMAP.md)");
   }
   const root = process.cwd();
   const project = await loadProjectConfig(root);
@@ -149,5 +149,5 @@ export async function desktopBuild(opts: DesktopOptions) {
     writeFileSync(file, content);
   }
   console.log(`[devora desktop] wrote ${path.relative(process.cwd(), out)} (${Object.keys(files).length} files; IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
-  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder (work-notes/desktop/MANUAL-CHECK.md).");
+  console.log("[devora desktop] next, on a machine with Rust and the Tauri CLI: build the server sidecar binary and run `cargo tauri build` in that folder");
 }

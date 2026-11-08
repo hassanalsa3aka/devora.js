@@ -1,5 +1,5 @@
 /**
- * Request rules of the experimental dev server (work-notes/dev-server/DESIGN.md, "Security rules"): loopback
+ * Request rules of the experimental dev server: loopback
  * binding, the host check against DNS rebinding, refusing production, and the per-launch token.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";

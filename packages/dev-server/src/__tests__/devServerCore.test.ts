@@ -1,4 +1,4 @@
-/** Security rules of the experimental dev server core (work-notes/dev-server/DESIGN.md). */
+/** Security rules of the experimental dev server core. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import http from "node:http";

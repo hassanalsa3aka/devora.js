@@ -1,6 +1,6 @@
 /**
  * The window's navigation and IPC policy as data, so the generated shell configuration and the tests read the
- * same rules (work-notes/desktop/DESIGN.md).
+ * same rules.
  */
 
 /** The window may show only the sidecar's own origin. */

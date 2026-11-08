@@ -1,8 +1,8 @@
 /**
  * The Tauri 2 project `devora desktop build` writes next to an app (`desktop/src-tauri/`). Generated from data, so
  * no app code goes into Rust and the security settings cannot drift from the policy in policy.ts. The Rust shell is
- * a template: it is not compiled in the cloud container that wrote this (no display, no desktop toolchain); see
- * work-notes/desktop/MANUAL-CHECK.md for the build and the click-through.
+ * a template: it is not compiled by the tests (they need no display or desktop toolchain), so the build and the
+ * click-through are a manual check.
  */
 import { parseIpcAllowlist } from "./policy.js";
 

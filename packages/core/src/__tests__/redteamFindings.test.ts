@@ -1,5 +1,5 @@
 /**
- * Regression tests for the red-team findings of 2026-11-05 (work-notes/redteam/REDTEAM.md, ROADMAP findings H24 to
+ * Regression tests for the red-team findings of 2026-11-05 (ROADMAP findings H24 to
  * H26). Each test failed before its fix.
  */
 import { describe, it, expect } from "vitest";
@@ -109,7 +109,7 @@ describe("H27: ctx.url takes its host from the checked Host header, never from t
 
 describe("H27 (fuzz): an absolute-form target whose path starts with // gives a single leading slash", async () => {
   const { targetPathAndQuery } = await import("../trustProxy.js");
-  it("found by work-notes/redteam/scripts/fuzz.mts", () => {
+  it("found by the random fuzzer", () => {
     expect(targetPathAndQuery("https://comh//")).toBe("/");
     expect(targetPathAndQuery("http://a//b//c?x")).toBe("/b//c?x");
   });
