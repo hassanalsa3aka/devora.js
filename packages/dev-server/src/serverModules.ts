@@ -89,8 +89,9 @@ export async function createServerModuleHost(options: { appId: string; projectRo
     },
     ssrFixStacktrace(error) {
       // Frames name `devora-src://<file>.devora-module?devora=…:line:col` (generated code); show the file and line written.
-      if (typeof error.stack !== "string") return;
-      error.stack = error.stack.replace(/devora-src:\/\/(\S+?)\.devora-module(\?devora=[^:)\s]+):(\d+):(\d+)/g, (whole, file: string, query: string, line: string, col: string) => {
+      if (typeof error?.stack !== "string") return;
+      try {
+        error.stack = error.stack.replace(/devora-src:\/\/(\S+?)\.devora-module(\?devora=[^:)\s]+):(\d+):(\d+)/g, (whole, file: string, query: string, line: string, col: string) => {
         let plain = file;
         try {
           plain = decodeURIComponent(file);
@@ -100,7 +101,10 @@ export async function createServerModuleHost(options: { appId: string; projectRo
         const entry = findSourceMap(whole.split(":").slice(0, -2).join(":"))?.findEntry(Number(line) - 1, Number(col) - 1);
         void query;
         return entry && "originalLine" in entry ? `${plain}:${entry.originalLine + 1}:${entry.originalColumn + 1}` : `${plain}:${line}:${col}`;
-      });
+        });
+      } catch {
+        // an error whose stack cannot be rewritten (a frozen or internal error) is reported as it is
+      }
     },
   };
 }
