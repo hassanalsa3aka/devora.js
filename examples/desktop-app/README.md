@@ -13,7 +13,7 @@ npm install            # after 0.4.0 is on npm; until then link the local packag
 npm run build && npm run start
 ```
 
-## In a window (experimental; the Rust shell has not been compiled or run by its author)
+## In a window (experimental; on macOS the Rust shell is built and its window opened by `pnpm run check:desktop-window`; Windows and Linux are not tested)
 
 `devora desktop dev` builds the app, writes a Tauri 2 project to `apps/web/desktop/src-tauri/`, and runs it with
 `cargo run`. The shell picks a free port on `127.0.0.1`, makes a per-launch token, starts this CLI's `desktop serve`
