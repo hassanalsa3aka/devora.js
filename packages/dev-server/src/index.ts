@@ -9,3 +9,4 @@ export { createDepsManager, type DepsManager } from "./deps.js";
 export { resolveCacheRoot, CACHE_FORMAT } from "./depsCache.js";
 export { createCssGraph } from "./cssGraph.js";
 export { resolveFile, urlForFile, scanImports } from "./core.mjs";
+export { loadPathAliases, resolveAlias, matchGlob, expandGlobs, globToRegExp, parseJsonc, compileCssModule } from "./core.mjs";

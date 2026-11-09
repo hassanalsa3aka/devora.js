@@ -6576,7 +6576,8 @@ var init_securityHeadersMiddleware = __esm({
 // src/commands/devExperimental.ts
 var devExperimental_exports = {};
 __export(devExperimental_exports, {
-  createExperimentalAppDevServer: () => createExperimentalAppDevServer
+  createExperimentalAppDevServer: () => createExperimentalAppDevServer,
+  findUnsupportedSettings: () => findUnsupportedSettings
 });
 import path16 from "node:path";
 import { existsSync as existsSync8, readFileSync as readFileSync3, realpathSync } from "node:fs";
@@ -6591,6 +6592,26 @@ function chain(handlers, finish) {
     };
     next();
   };
+}
+function findUnsupportedSettings(appRoot, projectRoot) {
+  const found = [];
+  for (const dir of /* @__PURE__ */ new Set([appRoot, projectRoot])) {
+    for (const base of ["postcss.config", "tailwind.config"]) {
+      for (const ext of ["js", "cjs", "mjs", "ts"]) {
+        if (existsSync8(path16.join(dir, `${base}.${ext}`))) found.push(`${base}.${ext} (PostCSS and Tailwind are not run)`);
+      }
+    }
+  }
+  const config = path16.join(appRoot, "vite.config.ts");
+  if (existsSync8(config)) {
+    const text = readFileSync3(config, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const plugins = /\bplugins\s*:\s*\[([\s\S]*?)\]/.exec(text)?.[1]?.replace(/\breact\(\s*\)/g, "").replace(/[,\s]/g, "");
+    if (plugins) found.push("vite.config.ts plugins other than react() (Vite plugins are not run)");
+    for (const [key, what] of [["alias", "resolve.alias"], ["define", "define"], ["proxy", "server.proxy"], ["css", "css options (preprocessors, PostCSS)"]]) {
+      if (new RegExp(`\\b${key}\\s*:`).test(text)) found.push(`vite.config.ts ${what} (not read)`);
+    }
+  }
+  return found;
 }
 function resolvePublicDir(appRoot) {
   const config = path16.join(appRoot, "vite.config.ts");
@@ -6623,12 +6644,16 @@ async function createExperimentalAppDevServer(options) {
     );
   }
   process.setSourceMapsEnabled(true);
+  for (const item of findUnsupportedSettings(appRoot, opts.projectRoot)) {
+    console.warn(`[devora] "${app.name}": the experimental dev server does not support ${item}. Use plain devora dev (Vite) if the app needs it.`);
+  }
   const roots = [{ prefix: "/_devora/m/app/", dir: appRoot }];
   const packagesDir = path16.join(opts.projectRoot, "packages");
   if (existsSync8(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
   devServer.trace("cli: dev-server module loaded");
+  const aliases = devServer.loadPathAliases(appRoot);
   const cacheRoot = await devServer.resolveCacheRoot(appRoot);
-  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path16.join(cacheRoot, "compiled-v1") : void 0 });
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path16.join(cacheRoot, "compiled-v1") : void 0, aliases });
   void devServer.listAppScripts(appRoot).then((files) => modules.prewarm(files)).catch(() => {
   });
   const cssGraph = devServer.createCssGraph(roots);
@@ -6649,6 +6674,7 @@ async function createExperimentalAppDevServer(options) {
     app: {
       appRoot,
       publicDir,
+      aliases,
       backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {

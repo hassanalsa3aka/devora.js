@@ -41,9 +41,9 @@ export interface ServerModuleHost {
   ssrFixStacktrace(error: Error): void;
 }
 
-export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[]; compileCacheDir?: string }): Promise<ServerModuleHost> {
+export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[]; compileCacheDir?: string; aliases?: unknown }): Promise<ServerModuleHost> {
   const hooks = ensureRegistered(path.resolve(options.projectRoot));
-  hooks.addApp(options.appId, options.roots, options.compileCacheDir);
+  hooks.addApp(options.appId, options.roots, options.compileCacheDir, options.aliases);
   return {
     // `devora-src:` is the scheme the hooks own (see hooks.mjs): nothing else compiles these files.
     ssrLoadModule: (file) => import(hooks.entryUrl(options.appId, file)) as Promise<Record<string, unknown>>,

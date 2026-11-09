@@ -14,7 +14,8 @@ import { assertDevOnly, createDevHostCheck, generateDevToken, tokenMatches } fro
 import { resolveServedFile, type ServedRoot } from "./files.js";
 import { createTransformCache, isTransformable } from "./transform.js";
 import { createHmrChannel, HMR_PATH } from "./hmr.js";
-import { CSS_EXT, resolveFile, scanImports } from "./core.mjs";
+import { CSS_EXT, CSS_MODULE_EXT, compileCssModule, resolveAlias, resolveFile, scanImports } from "./core.mjs";
+import type { PathAliases } from "./core.mjs";
 import { createDepsManager, DEPS_PREFIX, depKey, type DepsManager } from "./deps.js";
 import { createClientModules, type ClientModules } from "./clientModules.js";
 import { HMR_CLIENT, preambleScript } from "./clientScripts.js";
@@ -43,6 +44,8 @@ export interface DevServerOptions {
     appRoot: string;
     /** Folder served at the site root, as in production (default: none). */
     publicDir?: string;
+    /** tsconfig `paths` and `baseUrl` of the app (loadPathAliases). */
+    aliases?: PathAliases;
     /** Cache the bundled dependencies on disk (default true). */
     depsCache?: boolean;
     /** A backend-only app has no browser code: no dependency bundling, no client modules. */
@@ -125,7 +128,7 @@ async function walkScripts(dir: string, out: string[], depth = 0): Promise<void>
 }
 
 /** The bare imports browser code of this app needs: from the framework's client scripts, island targets and csr routes. */
-async function discoverClientDeps(appRoot: string, extra: string[]): Promise<{ deps: string[]; files: string[] }> {
+async function discoverClientDeps(appRoot: string, extra: string[], aliases?: PathAliases): Promise<{ deps: string[]; files: string[] }> {
   const files: string[] = [];
   await walkScripts(appRoot, files);
   const entries = new Set<string>();
@@ -163,6 +166,8 @@ async function discoverClientDeps(appRoot: string, extra: string[]): Promise<{ d
       if (spec.startsWith(".")) {
         const resolved = await resolveFile(path.resolve(path.dirname(file), spec.split("?")[0]!));
         if (resolved && /\.(tsx|ts|jsx|js|mjs)$/.test(resolved)) queue.push(resolved);
+      } else if (resolveAlias(spec, aliases)) {
+        queue.push(resolveAlias(spec, aliases)!); // an alias is a file of the app, not a dependency
       } else if (!spec.startsWith("/") && !spec.startsWith("node:") && !spec.startsWith("data:") && !/^https?:/.test(spec)) {
         deps.add(spec);
       }
@@ -193,7 +198,7 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
   if (app && !app.backendOnly) {
     // Files are looked up by real path (symlinks followed), so the URL table is keyed by real paths too.
     const realRoots = await Promise.all(options.roots.map(async (r) => ({ ...r, dir: await realpath(r.dir).catch(() => r.dir) })));
-    clientModules = createClientModules({ roots: realRoots, deps: () => deps });
+    clientModules = createClientModules({ roots: realRoots, deps: () => deps, aliases: app.aliases });
     realDirs.push(...realRoots.map((r) => r.dir));
     depsReady = (async () => {
       const resolvable: string[] = [];
@@ -212,7 +217,7 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
         }
       }
       trace("dependency scan starts");
-      const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
+      const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])], app.aliases);
       trace(`dependency scan done (${found.deps.length} dependencies, ${found.files.length} browser modules)`);
       deps = await createDepsManager(app.appRoot, found.deps, { cache: app.depsCache });
       trace(`dependency bundle ready (${deps.fromCache ? "from the cache" : "built"})`);
@@ -253,12 +258,35 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
     await run;
   };
 
+  const cssModules = new Map<string, { key: string; value: { css: string; mapping: Record<string, string> } }>();
+  const cssModuleFor = async (file: string) => {
+    const info = await stat(file);
+    const key = `${info.size}:${info.mtimeMs}`;
+    const hit = cssModules.get(file);
+    if (hit?.key === key) return hit.value;
+    const value = await compileCssModule(file);
+    cssModules.set(file, { key, value });
+    return value;
+  };
+
   const serveModule = async (req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> => {
     if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "Method Not Allowed");
     const resolved = await resolveServedFile(url.pathname, options.roots);
     if (!("file" in resolved)) return send(res, resolved.refused === "missing" ? 404 : 403, resolved.refused === "missing" ? "Not Found" : "Forbidden");
     const file = resolved.file;
     const wantsModule = url.searchParams.has("import");
+    if (CSS_MODULE_EXT.test(file)) {
+      // x.module.css: the page gets the stylesheet with unique class names; a script importing it gets the name map
+      const compiled = await cssModuleFor(file);
+      if (!wantsModule) return send(res, 200, compiled.css, "text/css; charset=utf-8", { "Content-Security-Policy": FILE_CSP });
+      const served = url.pathname;
+      const code = `const url = ${JSON.stringify(served)};
+if (!Array.from(document.querySelectorAll("link[rel=stylesheet]")).some((l) => new URL(l.href, location.href).pathname === url)) {
+  const link = document.createElement("link"); link.rel = "stylesheet"; link.href = url; document.head.appendChild(link);
+}
+export default ${JSON.stringify(compiled.mapping)};`;
+      return send(res, 200, code, "text/javascript; charset=utf-8");
+    }
     if (wantsModule && (CSS_EXT.test(file) || TYPES[path.extname(file)] !== undefined)) {
       const served = url.pathname;
       if (CSS_EXT.test(file)) {

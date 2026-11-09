@@ -39,6 +39,31 @@ function chain(handlers: Middleware[], finish: (req: IncomingMessage, res: Serve
   };
 }
 
+/**
+ * What the app's setup asks for that the experimental dev server does not do. It never reads vite.config.ts, so these would
+ * otherwise be ignored without a word: each is reported at start-up (see PLUGINS-DECISION: no plugins, PostCSS or Sass in 0.4).
+ */
+export function findUnsupportedSettings(appRoot: string, projectRoot: string): string[] {
+  const found: string[] = [];
+  for (const dir of new Set([appRoot, projectRoot])) {
+    for (const base of ["postcss.config", "tailwind.config"]) {
+      for (const ext of ["js", "cjs", "mjs", "ts"]) {
+        if (existsSync(path.join(dir, `${base}.${ext}`))) found.push(`${base}.${ext} (PostCSS and Tailwind are not run)`);
+      }
+    }
+  }
+  const config = path.join(appRoot, "vite.config.ts");
+  if (existsSync(config)) {
+    const text = readFileSync(config, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const plugins = /\bplugins\s*:\s*\[([\s\S]*?)\]/.exec(text)?.[1]?.replace(/\breact\(\s*\)/g, "").replace(/[,\s]/g, "");
+    if (plugins) found.push("vite.config.ts plugins other than react() (Vite plugins are not run)");
+    for (const [key, what] of [["alias", "resolve.alias"], ["define", "define"], ["proxy", "server.proxy"], ["css", "css options (preprocessors, PostCSS)"]] as const) {
+      if (new RegExp(`\\b${key}\\s*:`).test(text)) found.push(`vite.config.ts ${what} (not read)`);
+    }
+  }
+  return found;
+}
+
 /** `publicDir` from the app's vite.config.ts when it is the literal form the repo's apps use; else `<app>/public`. */
 function resolvePublicDir(appRoot: string): string | undefined {
   const config = path.join(appRoot, "vite.config.ts");
@@ -79,14 +104,18 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
     );
   }
   process.setSourceMapsEnabled(true);
+  for (const item of findUnsupportedSettings(appRoot, opts.projectRoot)) {
+    console.warn(`[devora] "${app.name}": the experimental dev server does not support ${item}. Use plain devora dev (Vite) if the app needs it.`);
+  }
 
   const roots = [{ prefix: "/_devora/m/app/", dir: appRoot }];
   const packagesDir = path.join(opts.projectRoot, "packages");
   if (existsSync(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
 
   devServer.trace("cli: dev-server module loaded");
+  const aliases = devServer.loadPathAliases(appRoot);
   const cacheRoot = await devServer.resolveCacheRoot(appRoot);
-  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path.join(cacheRoot, "compiled-v1") : undefined });
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path.join(cacheRoot, "compiled-v1") : undefined, aliases });
   // Compile the app's files in parallel while the first request has not arrived yet (best effort).
   void devServer.listAppScripts(appRoot).then((files) => modules.prewarm(files)).catch(() => {});
   const cssGraph = devServer.createCssGraph(roots);
@@ -108,6 +137,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
     app: {
       appRoot,
       publicDir,
+      aliases,
       backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {

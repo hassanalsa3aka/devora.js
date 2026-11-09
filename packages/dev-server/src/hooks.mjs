@@ -17,7 +17,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { transform, transformSync } from "esbuild";
-import { ASSET_EXT, CSS_EXT, applyEdits, islandEditsSync, parseModule, resolveFileSync, splitSourceMap, urlForFile } from "./core.mjs";
+import { ASSET_EXT, CSS_EXT, CSS_MODULE_EXT, applyEdits, compileCssModuleSync, expandGlobs, islandEditsSync, parseModule, resolveAlias, resolveFileSync, splitSourceMap, urlForFile } from "./core.mjs";
 
 const SCHEME = "devora-src:";
 // A name no other loader recognises as TypeScript or JSX, so that none of them tries to compile the file first.
@@ -155,6 +155,7 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
         const relative = specifier.startsWith("./") || specifier.startsWith("../") || specifier.startsWith("/");
         let file;
         if (relative) file = resolveFileSync(path.resolve(path.dirname(parentFile), specifier.split("?")[0]));
+        if (file === undefined && !relative && app?.aliases) file = resolveAlias(specifier, app.aliases); // tsconfig paths and baseUrl
         if (relative && file === undefined) app?.unresolved.add(parentFile); // cleared again when the module runs and everything resolves
         if (file === undefined) {
           // A bare specifier, a `node:` builtin or a `file:` URL: the default resolver, as seen from a real file.
@@ -192,6 +193,10 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
           app.loaded.add(file);
           app.unresolved.delete(file);
         }
+        if (CSS_MODULE_EXT.test(file)) {
+          // the page links the stylesheet; the server only needs the class name map
+          return { format: "module", source: `export default ${JSON.stringify(compileCssModuleSync(file).mapping)};\n`, shortCircuit: true };
+        }
         if (CSS_EXT.test(file)) return { format: "module", source: "export default undefined;\n", shortCircuit: true };
         if (ASSET_EXT.test(file)) return { format: "module", source: `export default ${JSON.stringify(urlForFile(file, rootsOf(url)) ?? "")};\n`, shortCircuit: true };
         if (ext === ".json") return { format: "module", source: `export default ${readFileSync(file, "utf8")};\n`, shortCircuit: true };
@@ -209,7 +214,8 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
           } catch (error) {
             throw new Error(`[devora dev-server] cannot transform ${file}: ${error.message}`);
           }
-          if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
+          if (code.includes("import.meta.glob")) code = expandGlobs(code, file); // depends on the folder's contents: never cached on disk
+          else if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
         }
         if (versioned) code = withIslandUrls(code, file, rootsOf(url));
         compiled.set(file, { key, code });
@@ -241,7 +247,8 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
             let code = readDisk(cacheDir, diskKey);
             if (code === undefined) {
               code = (await transform(source, transformOptions(file, ext))).code;
-              if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
+              if (code.includes("import.meta.glob")) code = expandGlobs(code, file);
+              else if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
             }
             if (versioned) code = withIslandUrls(code, file, app.roots);
             compiled.set(file, { key, code });
@@ -253,9 +260,9 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
       await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
     },
 
-    addApp(id, roots, compileCacheDir) {
+    addApp(id, roots, compileCacheDir, aliases) {
       defaultCacheDir ??= compileCacheDir;
-      apps.set(id, { compileCacheDir, roots, versions: new Map(), outgoing: new Map(), importers: new Map(), loaded: new Set(), unresolved: new Set() });
+      apps.set(id, { compileCacheDir, aliases, roots, versions: new Map(), outgoing: new Map(), importers: new Map(), loaded: new Set(), unresolved: new Set() });
     },
 
     /** The URL to import to get this file's current version, for an app. */

@@ -45,6 +45,22 @@ export default function Rich() {
   write(path.join(app, "helpers", "db.ts"), 'import { registerDisposable } from "@devorajs/core";\n(globalThis as any).__log ??= [];\n(globalThis as any).__log.push("db opened");\nregisterDisposable(import.meta.url, () => (globalThis as any).__log.push("db disposed"));\nexport const handle = "db-v1";\n');
   write(path.join(app, "helpers", "unrelated.ts"), 'export const noise = "n1";\n');
   write(path.join(app, "routes", "disposal.tsx"), 'import { handle } from "../helpers/db";\nimport { noise } from "../helpers/unrelated";\nexport const renderMode = "ssr";\nexport default function Disposal() { return <p id="d">{handle}|{noise}|{((globalThis as any).__log as string[]).join(",")}</p>; }\n');
+  // tsconfig paths, CSS modules, import.meta.glob
+  write(path.join(app, "tsconfig.json"), '{ // comments are allowed\n "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./*"] }, }, }\n');
+  write(path.join(app, "helpers", "box.module.css"), ".box { color: green; }\n");
+  write(path.join(app, "helpers", "g-one.ts"), 'export const name = "one";\n');
+  write(path.join(app, "helpers", "g-two.ts"), 'export const name = "two";\n');
+  write(
+    path.join(app, "routes", "features.tsx"),
+    `import { greeting } from "@/helpers/greeting";
+import styles from "../helpers/box.module.css";
+const found = import.meta.glob("../helpers/g-*.ts", { eager: true, import: "name" });
+export const renderMode = "ssr";
+export default function Features() {
+  return <p id="f" className={styles.box}>{greeting}|{Object.values(found).join(",")}|{styles.box}</p>;
+}
+`
+  );
   write(path.join(app, "island-client.tsx"), 'import { hydrateIslands } from "@devorajs/core/client";\nhydrateIslands();\n');
   dev = await bootDevServer(
     {
@@ -128,5 +144,26 @@ describe("experimental dev server — what its module loader does", () => {
       seen = await read();
     }
     expect(seen).toBe("db-v2|n2|db opened,db disposed,db opened"); // disposed once, then opened once more
+  });
+
+  it("tsconfig path aliases, CSS modules and import.meta.glob work on the server and in the page", async () => {
+    const html = (await (await fetch(`${base}/features`)).text()).replaceAll("<!-- -->", "");
+    const text = /id="f"[^>]*>([^<]*)</.exec(html)?.[1] ?? "";
+    const [greetingText, globbed, cls] = text.split("|");
+    expect(greetingText).toBeTruthy(); // "@/helpers/greeting" resolved through the tsconfig path
+    expect(globbed).toBe("one,two"); // import.meta.glob matched both files
+    expect(cls).toMatch(/box/);
+    expect(cls).not.toBe("box"); // the class name was made unique
+    expect(html).toContain(`class="${cls}"`);
+    expect(html).toContain('<link rel="stylesheet" href="/_devora/m/app/helpers/box.module.css"');
+    const css = await (await fetch(`${base}/_devora/m/app/helpers/box.module.css`)).text();
+    expect(css).toContain(`.${cls}`);
+    expect(css).not.toMatch(/\.box\b/);
+    const asModule = await (await fetch(`${base}/_devora/m/app/helpers/box.module.css?import`)).text();
+    expect(asModule).toContain(`"box":"${cls}"`);
+    const clientRoute = await (await fetch(`${base}/_devora/m/app/routes/features.tsx`)).text();
+    expect(clientRoute).toContain('"/_devora/m/app/helpers/greeting.ts"'); // the alias became a served URL
+    expect(clientRoute).toContain('"/_devora/m/app/helpers/g-one.ts"'); // the glob became imports of served URLs
+    expect(clientRoute).not.toContain("import.meta.glob");
   });
 });

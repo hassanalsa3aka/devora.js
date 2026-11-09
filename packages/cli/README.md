@@ -27,7 +27,7 @@ unusual (e.g. scripting against a project without going through `create-devora` 
 | `devora sync [names...] --from-main\|--to-main` | Pull or push a split-off app/backend against its own remote; `--all` targets every split-off piece. |
 | `devora status` | One view across every split-off app/backend: up to date, unpushed, unpulled, or diverged. |
 
-`devora dev` uses Vite. `--experimental-dev-server` (also `DEVORA_EXPERIMENTAL_DEV_SERVER=1`) runs a dev server of Devora's own instead of Vite. It is experimental, runs only from a checkout of this repository (it is not in the published CLI), and is not the default: plain `devora dev` is Vite and is unchanged. It does not read `vite.config.ts`, so there are no Vite plugins, no PostCSS, Sass or CSS modules, no `import.meta.glob`, no tsconfig path aliases, no `--host` and no HTTPS. No performance numbers are published.
+`devora dev` uses Vite. `--experimental-dev-server` (also `DEVORA_EXPERIMENTAL_DEV_SERVER=1`) runs a dev server of Devora's own instead of Vite. It is experimental, runs only from a checkout of this repository (it is not in the published CLI), needs Node 22.15 or later, and is not the default: plain `devora dev` is Vite and is unchanged. It does not read `vite.config.ts`, so there are no Vite plugins, no PostCSS or Sass, no `--host` and no HTTPS (tsconfig path aliases, CSS modules and `import.meta.glob` are supported). No performance numbers are published.
 
 All of `dev`, `build`, `start` and `deploy` load the project root's `.env` files first (Vite's
 precedence; variables already set in the environment win).
