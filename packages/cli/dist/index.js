@@ -5013,6 +5013,7 @@ var init_branding = __esm({
   "../core/src/branding.tsx"() {
     "use strict";
     import_react3 = __toESM(require_react(), 1);
+    init_theme();
     import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
     ShellUsageContext = (0, import_react3.createContext)(null);
   }
@@ -5022,6 +5023,7 @@ var init_branding = __esm({
 var init_actionResult = __esm({
   "../core/src/actionResult.ts"() {
     "use strict";
+    init_httpError();
   }
 });
 
@@ -5124,6 +5126,8 @@ var init_rateLimit = __esm({
 var init_buildTimeContext = __esm({
   "../core/src/buildTimeContext.ts"() {
     "use strict";
+    init_serverFn();
+    init_router();
   }
 });
 
@@ -5134,6 +5138,15 @@ function resolveRenderMode(routeModule, appDefault) {
 var init_renderRoute = __esm({
   "../core/src/renderRoute.ts"() {
     "use strict";
+    init_html();
+    init_session();
+    init_islandComponent();
+    init_branding();
+    init_actionResult();
+    init_csrf();
+    init_rateLimit();
+    init_buildTimeContext();
+    init_httpError();
   }
 });
 
@@ -5380,6 +5393,7 @@ function isApiPath(pathname) {
 var init_apiRoute = __esm({
   "../core/src/apiRoute.ts"() {
     "use strict";
+    init_httpError();
   }
 });
 
@@ -6054,6 +6068,8 @@ var init_middleware = __esm({
 var init_fastifyAdapter = __esm({
   "../core/src/fastifyAdapter.ts"() {
     "use strict";
+    init_apiRoute();
+    init_module();
   }
 });
 
@@ -6084,6 +6100,13 @@ var init_disposeRegistry = __esm({
 var init_renderStreaming = __esm({
   "../core/src/renderStreaming.ts"() {
     "use strict";
+    init_session();
+    init_islandComponent();
+    init_html();
+    init_branding();
+    init_actionResult();
+    init_httpError();
+    init_renderRoute();
   }
 });
 
@@ -7200,8 +7223,8 @@ async function scaffoldAppFiles(appDir, appName, opts) {
           ...withBackend ? { "@devorajs/backend": "*" } : {},
           // A backend-only app renders no pages, so it needs no React at
           // all; it still needs vite, which runs its dev server and build.
-          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", ...ownEngine ? {} : { "@vitejs/plugin-react": "^4.3.0" } } : {},
-          ...ownEngine ? {} : { vite: "^6.4.4" },
+          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", ...ownEngine ? {} : { "@vitejs/plugin-react": "^6.3.0" } } : {},
+          ...ownEngine ? {} : { vite: "^8.3.7" },
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
