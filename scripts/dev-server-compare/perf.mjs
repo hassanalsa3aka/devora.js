@@ -15,6 +15,8 @@ const arg = (n, d) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split("
 const RUNS = Number(arg("runs", 5));
 const SCENARIOS = arg("scenarios", "small,200,1000").split(",");
 const SERVERS = arg("servers", "own,vite,vite-tuned").split(",");
+// vite7 / vite8 (and -tuned): the same CLI with another Vite, from DEVORA_VITE7_DIR / DEVORA_VITE8_DIR (a folder with node_modules/vite)
+const viteDirFor = (server) => (server.startsWith("vite7") ? process.env.DEVORA_VITE7_DIR : server.startsWith("vite8") ? process.env.DEVORA_VITE8_DIR : undefined);
 const IDLE = Number(arg("idle", 20));
 const OUT = arg("out", "");
 const TUNED = '{"usePolling":false,"useFsEvents":false}';
@@ -32,9 +34,12 @@ async function run(project, server, { cold, edits, idle }) {
     fs.rmSync(path.join(app, "node_modules", ".vite"), { recursive: true, force: true });
     fs.rmSync(path.join(app, "node_modules", ".devora"), { recursive: true, force: true });
   }
-  const env = { ...process.env, NODE_ENV: "development", NO_COLOR: "1", DEVORA_SESSION_SECRET: "0123456789abcdef0123456789abcdef", COMPARE_VITE_WATCH: server === "vite-tuned" ? TUNED : "{}" };
+  const env = { ...process.env, NODE_ENV: "development", NO_COLOR: "1", DEVORA_SESSION_SECRET: "0123456789abcdef0123456789abcdef", COMPARE_VITE_WATCH: server.endsWith("-tuned") ? TUNED : "{}", ...(viteDirFor(server) ? { DEVORA_VITE_DIR: viteDirFor(server) } : {}) };
   const t0 = now();
-  const child = spawn(path.join(REPO, "node_modules/.bin/tsx"), [path.join(REPO, "packages/cli/src/index.ts"), "dev", ...(server === "own" ? ["--experimental-dev-server"] : [])], { cwd: project.root, env, stdio: ["ignore", "pipe", "pipe"] });
+  const cliArgs = [path.join(REPO, "packages/cli/src/index.ts"), "dev", ...(server === "own" ? ["--experimental-dev-server"] : [])];
+  const child = viteDirFor(server)
+    ? spawn(process.execPath, ["--import", "tsx", "--import", path.join(REPO, "scripts/dev-server-compare/vite-override.mjs"), ...cliArgs], { cwd: project.root, env, stdio: ["ignore", "pipe", "pipe"] })
+    : spawn(path.join(REPO, "node_modules/.bin/tsx"), cliArgs, { cwd: project.root, env, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   child.stdout.on("data", (c) => (out += c));
   child.stderr.on("data", (c) => (out += c));
