@@ -7063,6 +7063,15 @@ function isDevoraError(err) {
   return err instanceof Error && err.message.startsWith("[devora]");
 }
 
+// src/build/engineNode.ts
+var OWN_ENGINE_MIN_NODE = [22, 15];
+function ownEngineNodeProblem(version = process.versions.node, engineName = "Sekhem") {
+  const [major = 0, minor = 0] = version.split(".").map((n) => Number.parseInt(n, 10));
+  const [wantMajor, wantMinor] = OWN_ENGINE_MIN_NODE;
+  if (major > wantMajor || major === wantMajor && minor >= wantMinor) return void 0;
+  return `[devora] ${engineName} needs Node ${wantMajor}.${wantMinor} or later (this is Node ${version}); use a newer Node, or run with --engine=vite`;
+}
+
 // src/build/loadEnvFiles.ts
 import path14 from "node:path";
 import { existsSync as existsSync7 } from "node:fs";
@@ -8101,6 +8110,10 @@ async function startDevSession(root, opts) {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
   const engine = resolveEngine(opts.engine ?? (opts.experimentalDevServer ? "own" : void 0), project);
+  if (engine === "own") {
+    const problem = ownEngineNodeProblem();
+    if (problem) throw new Error(problem);
+  }
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
   if (opts.app && apps.length === 0) {
     throw new Error(`[devora] no app named "${opts.app}" in devora.config.ts`);
@@ -9488,6 +9501,13 @@ async function build3(opts) {
   } catch (err) {
     console.error(err.message);
     process.exit(1);
+  }
+  if (engine === "own") {
+    const problem = ownEngineNodeProblem();
+    if (problem) {
+      console.error(problem);
+      process.exit(1);
+    }
   }
   if (engine === "own") info(`[devora] building with ${ENGINE_NAME} (experimental, not Vite)`);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
