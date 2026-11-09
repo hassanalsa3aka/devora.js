@@ -29,9 +29,11 @@ import {
   describeMissing,
   generateTauriBinaryFiles,
   generateTauriProject,
+  ICON_MARKER,
   isWellFormedToken,
   parseIpcAllowlist,
   parseParentPid,
+  planIconWrites,
   startDesktopServer,
   watchParent,
 } from "@devorajs/desktop";
@@ -74,7 +76,7 @@ function readSettings(appRoot: string, appName: string): DesktopSettings {
   const file = path.join(appRoot, "desktop.json");
   const raw = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<DesktopSettings>) : {};
   return {
-    productName: typeof raw.productName === "string" ? raw.productName : appName,
+    productName: typeof raw.productName === "string" ? raw.productName : "Devora.js",
     identifier: typeof raw.identifier === "string" ? raw.identifier : `com.example.${appName.replace(/_/g, "-")}`,
     ipc: parseIpcAllowlist(raw.ipc),
   };
@@ -161,20 +163,31 @@ export async function desktopDev(opts: DesktopOptions) {
 }
 
 /** Writes (or refreshes) the Tauri project next to the app. The icon is only written when there is none, so yours stays. */
-function writeTauriProject(appRoot: string, settings: DesktopSettings, version: string): string {
-  const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc });
+function writeTauriProject(appRoot: string, settings: DesktopSettings, version: string, forBuild: boolean): string {
+  // Only `desktop build` declares the server binary the bundle ships; the dev shell starts the server through this CLI.
+  const files = generateTauriProject({ productName: settings.productName, identifier: settings.identifier, version, ipc: settings.ipc, bundleSidecar: forBuild });
   const out = path.join(appRoot, "desktop", "src-tauri");
   for (const [name, content] of Object.entries(files)) {
     const file = path.join(out, name);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, content);
   }
-  for (const [name, content] of Object.entries(generateTauriBinaryFiles())) {
-    const file = path.join(out, name);
-    if (existsSync(file)) continue;
-    mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, content);
+  // The icon set: written when missing or still ours (unchanged since an earlier run); never over an icon the app replaced.
+  const icons = generateTauriBinaryFiles();
+  const existing: Record<string, Buffer | undefined> = {};
+  for (const name of Object.keys(icons)) existing[name] = existsSync(path.join(out, name)) ? readFileSync(path.join(out, name)) : undefined;
+  let marker: Record<string, string> | undefined;
+  try {
+    marker = existsSync(path.join(out, ICON_MARKER)) ? (JSON.parse(readFileSync(path.join(out, ICON_MARKER), "utf8")) as Record<string, string>) : undefined;
+  } catch {
+    marker = undefined;
   }
+  const plan = planIconWrites(existing, marker);
+  for (const name of plan.write) {
+    mkdirSync(path.dirname(path.join(out, name)), { recursive: true });
+    writeFileSync(path.join(out, name), icons[name]!);
+  }
+  writeFileSync(path.join(out, ICON_MARKER), JSON.stringify(plan.marker, null, 2) + "\n");
   return out;
 }
 
@@ -192,7 +205,7 @@ function appVersion(appRoot: string): string {
  */
 async function openWindow(appName: string, appRoot: string, root: string) {
   const settings = readSettings(appRoot, appName);
-  const out = writeTauriProject(appRoot, settings, appVersion(appRoot));
+  const out = writeTauriProject(appRoot, settings, appVersion(appRoot), false);
   const entry = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
   if (!entry) fail("cannot tell which script started this command, so the window cannot start the server");
   const serverArgv = [...process.execArgv, entry, "desktop", "serve", "--experimental", "--app", appName];
@@ -227,7 +240,7 @@ export async function desktopBuild(opts: DesktopOptions) {
   const { app, appRoot } = await resolveApp(opts);
   const settings = readSettings(appRoot, app.name);
   await build({ app: app.name });
-  const out = writeTauriProject(appRoot, settings, appVersion(appRoot));
+  const out = writeTauriProject(appRoot, settings, appVersion(appRoot), true);
   console.log(`[devora desktop] wrote ${path.relative(process.cwd(), out)} (IPC commands allowed: ${settings.ipc.length ? settings.ipc.join(", ") : "none"})`);
   const report = checkDesktopPrerequisites(undefined, { forBuild: true });
   if (!report.ready) {

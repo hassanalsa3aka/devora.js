@@ -12,6 +12,10 @@ import {
   DESKTOP_TOKEN_HEADER,
   generateLaunchToken,
   HARDEN_SCRIPT,
+  buildIcns,
+  buildIco,
+  buildIconSet,
+  planIconWrites,
   checkDesktopPrerequisites,
   describeMissing,
   generateTauriBinaryFiles,
@@ -156,6 +160,8 @@ describe("generated Tauri project", () => {
     expect(rs).toMatch(/wait_for_server\(port, &mut child\)/);
     expect(rs).toMatch(/RunEvent::Exit/);
     expect(rs).toMatch(/impl Drop for Server/);
+    expect(rs).toMatch(/child\.try_wait\(\)\.ok\(\)\.flatten\(\)/); // the app closes if its server stops
+    expect(rs).toMatch(/window\.set_focus\(\)/);
     expect(rs).toMatch(/DEVORA_DESKTOP_PARENT_PID/);
     expect(rs).toMatch(/\.env\("HOST", "127\.0\.0\.1"\)/);
     expect(rs).not.toMatch(/0\.0\.0\.0|"::"/);
@@ -198,8 +204,64 @@ describe("generated Tauri project", () => {
     expect(files[".gitignore"]).toMatch(/target\//);
     const icon = generateTauriBinaryFiles()["icons/icon.png"]!;
     expect([...icon.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    expect(icon.readUInt32BE(16)).toBe(128); // width
+    expect(icon.readUInt32BE(16)).toBe(512); // width
     expect(icon[25]).toBe(6); // RGBA
+  });
+
+  it("dev does not declare the server binary (it does not exist); only `desktop build` does", () => {
+    const dev = JSON.parse(generateTauriProject({ productName: "Devora.js", identifier: "com.example.web", version: "0.1.0" })["tauri.conf.json"]!);
+    expect(dev.bundle.externalBin).toBeUndefined();
+    expect(JSON.stringify(dev)).not.toMatch(/binaries\//);
+    const built = JSON.parse(generateTauriProject({ productName: "Devora.js", identifier: "com.example.web", version: "0.1.0", bundleSidecar: true })["tauri.conf.json"]!);
+    expect(built.bundle.externalBin).toEqual(["binaries/devora-server"]);
+  });
+
+  it("the window is titled with the product name, and every icon the config lists is generated", () => {
+    const files = generateTauriProject({ productName: "Devora.js", identifier: "com.example.web", version: "0.1.0" });
+    expect(files["src/main.rs"]).toMatch(/\.title\("Devora\.js"\)/);
+    const conf = JSON.parse(files["tauri.conf.json"]!);
+    const generated = Object.keys(generateTauriBinaryFiles());
+    for (const f of conf.bundle.icon) expect(generated, f).toContain(f);
+  });
+
+  it("icon.icns and icon.ico are well-formed containers of the logo PNGs", () => {
+    const icns = buildIcns();
+    expect(icns.subarray(0, 4).toString("ascii")).toBe("icns");
+    expect(icns.readUInt32BE(4)).toBe(icns.length);
+    let at = 8;
+    const types: string[] = [];
+    while (at < icns.length) {
+      types.push(icns.subarray(at, at + 4).toString("ascii"));
+      const len = icns.readUInt32BE(at + 4);
+      expect([...icns.subarray(at + 8, at + 12)]).toEqual([0x89, 0x50, 0x4e, 0x47]); // each chunk is a PNG
+      at += len;
+    }
+    expect(at).toBe(icns.length);
+    expect(types).toEqual(["ic07", "ic08", "ic09", "ic11", "ic13", "ic14"]);
+    const ico = buildIco();
+    expect([...ico.subarray(0, 6)]).toEqual([0, 0, 1, 0, 3, 0]);
+    for (let i = 0; i < 3; i++) {
+      const size = ico.readUInt32LE(6 + i * 16 + 8);
+      const offset = ico.readUInt32LE(6 + i * 16 + 12);
+      expect([...ico.subarray(offset, offset + 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+      expect(offset + size).toBeLessThanOrEqual(ico.length);
+    }
+  });
+
+  it("an icon the app replaced is never overwritten; an untouched or missing one is refreshed", () => {
+    const set = buildIconSet();
+    const fresh = planIconWrites({}, undefined);
+    expect(fresh.write.sort()).toEqual(Object.keys(set).sort());
+    // unchanged since our last run: refreshed; replaced by the app: left alone
+    const onDisk: Record<string, Buffer | undefined> = { ...set };
+    const marker = fresh.marker;
+    onDisk["icons/icon.icns"] = Buffer.from("the app's own icns");
+    const second = planIconWrites(onDisk, marker);
+    expect(second.write).not.toContain("icons/icon.icns");
+    expect(second.write).toContain("icons/icon.png");
+    // the tiny placeholder an early version wrote is replaced; a big icon without a marker is not
+    expect(planIconWrites({ "icons/icon.png": Buffer.alloc(300) }, undefined).write).toContain("icons/icon.png");
+    expect(planIconWrites({ "icons/icon.png": Buffer.alloc(5000) }, undefined).write).not.toContain("icons/icon.png");
   });
 
   it("lists allowlisted commands only, and refuses an unsigned or plain-http updater", () => {

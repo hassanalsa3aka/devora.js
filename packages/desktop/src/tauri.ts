@@ -5,7 +5,7 @@
  * manual check (examples/desktop-app/README.md).
  */
 import { parseIpcAllowlist } from "./policy.js";
-import { placeholderIconPng } from "./icon.js";
+import { buildIconSet } from "./icon.js";
 
 export interface TauriProjectOptions {
   /** Window title and bundle name. */
@@ -15,12 +15,21 @@ export interface TauriProjectOptions {
   version: string;
   /** `desktop.ipc` from app.config.ts; default none. */
   ipc?: unknown;
-  /** Path of the bundled Node + app server binary, relative to src-tauri (Tauri's externalBin). */
+  /**
+   * `desktop build`: declare the server binary the bundle ships (Tauri's externalBin) and require it to exist. `desktop dev`
+   * leaves this out: the dev shell starts the server through the CLI, so there is no binary and no declaration (a declared
+   * binary that does not exist stops the build: "resource path binaries/devora-server-<triple> doesn't exist").
+   */
+  bundleSidecar?: boolean;
+  /** Path of the bundled Node + app server binary, relative to src-tauri (only with `bundleSidecar`). */
   sidecar?: string;
   /** Public key for signed updates; without it the updater is not configured at all. */
   updaterPublicKey?: string;
   updaterEndpoint?: string;
 }
+
+/** The icon set of the generated project (see icons.ts). */
+export const ICON_FILES = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"];
 
 const IDENTIFIER = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+){2,}$/i;
 
@@ -53,7 +62,7 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
         capabilities: ["main"],
       },
     },
-    bundle: { active: true, icon: ["icons/icon.png"], externalBin: [sidecar] },
+    bundle: { active: true, icon: ICON_FILES, ...(options.bundleSidecar ? { externalBin: [sidecar] } : {}) },
     plugins: options.updaterPublicKey && options.updaterEndpoint ? { updater: { pubkey: options.updaterPublicKey, endpoints: [options.updaterEndpoint] } } : {},
   };
 
@@ -69,7 +78,7 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
   return {
     "tauri.conf.json": JSON.stringify(conf, null, 2) + "\n",
     "capabilities/main.json": JSON.stringify(capability, null, 2) + "\n",
-    "src/main.rs": mainRs(sidecar),
+    "src/main.rs": mainRs(sidecar, options.productName),
     "Cargo.toml": cargoToml(options),
     "build.rs": "fn main() {\n    tauri_build::build()\n}\n",
     "frontend/index.html": '<!doctype html><meta charset="utf-8"><title>devora</title><p>Starting the app server\u2026</p>\n',
@@ -77,9 +86,9 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
   };
 }
 
-/** Binary files of the project (the placeholder icon). */
+/** Binary files of the project (the icon set). */
 export function generateTauriBinaryFiles(): Record<string, Buffer> {
-  return { "icons/icon.png": placeholderIconPng(128) };
+  return buildIconSet();
 }
 
 function cargoToml(options: TauriProjectOptions): string {
@@ -111,9 +120,37 @@ const HARDEN_SCRIPT = `(function () {
   }, true);
 })();`;
 
+/**
+ * DEVORA_DESKTOP_DEBUG=1 (debug builds only): the page tells the server what it sees, and the server prints it, so what the window
+ * really did can be read in the terminal without looking at it: the document's states, scripts and stylesheets that loaded (the
+ * browser may serve them from its cache, so the server's own request log can look empty), errors, a click on the first island's
+ * button, and what window.open returns.
+ */
+export const DIAGNOSTIC_SCRIPT = `(function () {
+  function say(m) { try { new Image().src = "/__devora_desktop/debug/" + encodeURIComponent(String(m).slice(0, 200)) + "?t=" + Date.now(); } catch (e) {} }
+  say("start " + document.readyState + " " + location.origin);
+  document.addEventListener("readystatechange", function () { say("document " + document.readyState + ", " + document.scripts.length + " script(s), " + document.querySelectorAll("link").length + " link(s)"); });
+  document.addEventListener("securitypolicyviolation", function (e) { say("CSP blocked " + e.blockedURI + " (" + e.violatedDirective + ")"); });
+  window.addEventListener("error", function (e) { say("error: " + (e.message || "a resource failed to load") + " " + (e.filename || (e.target && e.target.src) || "")); }, true);
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      var res = performance.getEntriesByType("resource").map(function (r) { return r.name.split("/").pop().split("?")[0]; }).filter(function (n) { return n.indexOf("devora_desktop") === -1 && n !== "debug"; });
+      say("loaded: " + res.join(", ") + " | title: " + document.title + " | h1: " + ((document.querySelector("h1") || {}).textContent || "(none)"));
+      var b = document.querySelector("[data-island] button");
+      var before = b && b.textContent;
+      if (b) b.click();
+      setTimeout(function () { say("island button: " + (b ? before + " -> " + b.textContent : "(no island on this page)") + " | window.open returns " + String(window.open("https://example.com")));
+        var a = document.createElement("a"); a.href = "https://example.com/"; a.target = "_blank"; document.body.appendChild(a); a.click();
+        location.assign("https://example.com/");
+        setTimeout(function () { say("tried a _blank link and location.assign to https://example.com: the window is still on " + location.origin); }, 1500);
+      }, 400);
+    }, 1200);
+  });
+})();`;
+
 export { HARDEN_SCRIPT };
 
-function mainRs(sidecar: string): string {
+function mainRs(sidecar: string, productName: string): string {
   const binary = sidecar.split("/").pop();
   return `// Generated by devora desktop. Review it before shipping; what the window does is a manual check
 // (examples/desktop-app/README.md).
@@ -224,6 +261,10 @@ fn stop_server(app: &tauri::AppHandle) {
 
 const HARDEN: &str = r#"${HARDEN_SCRIPT}"#;
 
+/// DEVORA_DESKTOP_DEBUG=1, debug builds: the page reports what it sees to the server's log.
+#[cfg(debug_assertions)]
+const DIAGNOSTIC: &str = r#"${DIAGNOSTIC_SCRIPT}"#;
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -236,16 +277,55 @@ fn main() {
                 return Err(error);
             }
             app.manage(Server(Mutex::new(Some(child))));
+            // If the app server stops (a crash, or the end of a check run), a window that still shows its last page would be
+            // misleading: close the app too.
+            let watcher = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_millis(500));
+                let stopped = match watcher.try_state::<Server>() {
+                    Some(state) => match state.0.lock() {
+                        Ok(mut guard) => match guard.as_mut() {
+                            Some(child) => child.try_wait().ok().flatten().map(|status| status.code().unwrap_or(1)),
+                            None => return, // already stopped on purpose
+                        },
+                        Err(_) => return,
+                    },
+                    None => return,
+                };
+                if let Some(code) = stopped {
+                    eprintln!("[devora desktop] the app server stopped (exit code {code}): closing the window");
+                    watcher.exit(if code == 0 { 0 } else { 1 });
+                    return;
+                }
+            });
             let origin = format!("http://127.0.0.1:{port}");
             let launch: tauri::Url = format!("{origin}/__devora_desktop/launch?token={token}").parse()?;
             let allowed = tauri::Url::parse(&origin)?.origin();
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch))
-                .title(app.package_info().name.clone())
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch))
+                .title("${productName}")
                 .inner_size(1100.0, 760.0)
                 .initialization_script(HARDEN)
                 // Any URL whose origin is not the server's own is refused: no other site is ever shown in this window.
-                .on_navigation(move |url| url.origin() == allowed)
-                .build()?;
+                .on_navigation(move |url| url.origin() == allowed);
+            #[cfg(debug_assertions)]
+            let builder = if std::env::var("DEVORA_DESKTOP_DEBUG").is_ok() { builder.initialization_script(DIAGNOSTIC) } else { builder };
+            let window = builder.build()?;
+            // Started from a terminal, the app is not the active one: without this, macOS creates the window but keeps it
+            // off screen until something activates the app. Show it and take focus.
+            let _ = window.show();
+            let _ = window.set_focus();
+            // "devora desktop dev" starts this from a terminal: macOS does not let such an app take over the screen, so the
+            // window can open behind other windows, and the web view then pauses loading ("occluded"). Float it on top for a
+            // moment so it is seen and starts loading; a debug build only.
+            #[cfg(debug_assertions)]
+            {
+                let _ = window.set_always_on_top(true);
+                let raised = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    let _ = raised.set_always_on_top(false);
+                });
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
