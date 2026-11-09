@@ -18,8 +18,9 @@ The idea: **a project is more than one app.** A marketing site, a product app an
 backend, and build and deploy independently. Each app gets its own render mode, its own auth mode
 and its own deploy target, without duplicating the plumbing between them.
 
-**How it works.** Devora.js currently uses Vite for the dev server (one per app, which also loads and reloads
-your server modules) and for the client build. Routing, the render modes, sessions, the shared backend and the
+**How it works.** By default Devora.js uses Vite for the dev server (one per app, which also loads and reloads
+your server modules) and for the client build; an experimental engine of our own, Sekhem, replaces Vite when you
+choose it (`engine: "own"`, Node 22.15 or later, from a checkout of this repository for now). Routing, the render modes, sessions, the shared backend and the
 production server (`devora start`, which runs without a Vite dev server) are Devora.js's own code.
 
 ```ts

@@ -4,8 +4,8 @@
 
 The installer for [devora.js](https://github.com/hassanalsa3aka/devora.js) — a security-first
 React framework whose headline feature is native multi-app support (one project, several
-independently-deployable apps sharing a core and a backend). It currently uses Vite for the dev
-server and the client build; the production server is the framework's own.
+independently-deployable apps sharing a core and a backend). By default it uses Vite for the dev
+server and the client build (you can choose the experimental Sekhem engine when you create a project); the production server is the framework's own.
 
 ## Quickstart
 
