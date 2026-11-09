@@ -7,6 +7,7 @@ import {
   appNameProblem,
   resolveAuthChoice,
   resolveScopeChoice,
+  resolveEngineChoice,
   scaffoldAppFiles,
   scaffoldProjectFiles,
   MULTI_BACKEND_DOCS_URL,
@@ -121,6 +122,7 @@ async function main() {
   }
 
   const scope = await resolveScopeChoice(flags.scope);
+  const engine = await resolveEngineChoice(flags.engine);
 
   const appNamesRaw = flags.apps ?? (await prompt("App names (comma-separated)?", DEFAULT_APPS[scope]));
   const appNames = appNamesRaw
@@ -168,6 +170,7 @@ async function main() {
     cliVersion: CLI_VERSION,
     scope,
     packageManager: pm,
+    engine,
   });
 
   for (const app of apps) {
@@ -178,6 +181,7 @@ async function main() {
       cliVersion: CLI_VERSION,
       kind: scope === "backend" ? "api" : "pages",
       withBackend: scope !== "frontend",
+      engine,
     });
   }
 

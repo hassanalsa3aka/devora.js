@@ -165,6 +165,15 @@ describe("what a change means for open browsers", () => {
     expect(last()).toMatchObject({ type: "update", urls: ["/_devora/m/app/components/Page.tsx"] });
   });
 
+  it("a change under a link that points out of the served folders is never read: no error message can quote that file", async () => {
+    fs.writeFileSync(path.join(tmp, "outside-broken.tsx"), 'export default function ( { /* SECRET_OUTSIDE_SOURCE */');
+    fs.symlinkSync(path.join(tmp, "outside-broken.tsx"), path.join(app, "components", "linked-out.tsx"));
+    await dev.changed(path.join(app, "components", "linked-out.tsx"));
+    const message = JSON.stringify(last());
+    expect(message).not.toContain("SECRET_OUTSIDE_SOURCE");
+    expect(last()).toMatchObject({ type: "full-reload" });
+  });
+
   it("a stylesheet change is a css-update, a file the browser never loaded is a full reload, a syntax error goes to the overlay", async () => {
     await dev.changed(path.join(app, "components", "page.css"));
     expect(last()).toMatchObject({ type: "css-update", url: "/_devora/m/app/components/page.css" });

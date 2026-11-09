@@ -16,3 +16,15 @@ export function listImports(program: any): ImportRef[];
 export function instrumentRefresh(code: string, program: any): { edits: { start: number; end: number; text: string }[]; head: string; tail: string; components: string[]; isBoundary: boolean };
 export function splitSourceMap(code: string): { code: string; map: string };
 export function scanImports(source: string): string[];
+export function resolveFileSync(abs: string): string | undefined;
+export function islandEditsSync(program: any, resolveSpecifier: (spec: string) => string | undefined, urlOf: (file: string) => string | undefined): { start: number; end: number; text: string }[];
+export const CSS_MODULE_EXT: RegExp;
+export interface PathAliases { baseUrl?: string; paths: { prefix: string; suffix: string; wildcard: boolean; targets: string[] }[] }
+export function parseJsonc(text: string): any;
+export function loadPathAliases(appRoot: string): PathAliases | undefined;
+export function resolveAlias(spec: string, aliases: PathAliases | undefined): string | undefined;
+export function globToRegExp(glob: string): RegExp;
+export function matchGlob(patterns: string[], fromDir: string): string[];
+export function expandGlobs(code: string, file: string): string;
+export function compileCssModule(file: string): Promise<{ css: string; mapping: Record<string, string> }>;
+export function compileCssModuleSync(file: string): { css: string; mapping: Record<string, string> };

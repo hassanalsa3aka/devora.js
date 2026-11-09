@@ -1,4 +1,5 @@
 import path from "node:path";
+import { parseRequestUrl } from "../server/requestUrl.js";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { createServer, type ViteDevServer } from "vite";
@@ -18,6 +19,7 @@ import {
   type SessionsConfig,
 } from "@devorajs/core";
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
+import { ENGINE_NAME, isEngine, resolveEngine } from "@devorajs/core/config";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
 import { createApiMiddlewarePlugin, createHostCheckPlugin, createOpenInEditorGuardPlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware, createSvgHeadersPlugin } from "../server/securityHeadersMiddleware.js";
@@ -57,6 +59,8 @@ export interface DevCommandOptions {
   routes?: boolean;
   /** `--experimental-dev-server` (or DEVORA_EXPERIMENTAL_DEV_SERVER=1): the dev server of Devora's own instead of Vite. */
   experimentalDevServer?: boolean;
+  /** `--engine=vite|own`; beats `devora.config.ts`'s `engine`. */
+  engine?: string;
 }
 
 /**
@@ -160,7 +164,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
   if (appConfig.backendOnly === true) {
     // No pages: GET / gets the same small JSON status as in production.
     server.middlewares.use((req, res, next) => {
-      if ((req.method !== "GET" && req.method !== "HEAD") || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if ((req.method !== "GET" && req.method !== "HEAD") || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status.status;
       for (const [name, value] of Object.entries(status.headers ?? {})) res.setHeader(name, value);
@@ -214,9 +218,11 @@ export interface DevSession {
  * app.config.ts) can report it and keep watching; servers already booted
  * when a later one fails are closed first.
  */
-export async function startDevSession(root: string, opts: { app?: string; host?: boolean; experimentalDevServer?: boolean }): Promise<DevSession> {
+export async function startDevSession(root: string, opts: { app?: string; host?: boolean; experimentalDevServer?: boolean; engine?: string }): Promise<DevSession> {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
+  // The flag (or the old --experimental-dev-server / env switch) beats the config; the default is Vite.
+  const engine = resolveEngine(opts.engine ?? (opts.experimentalDevServer ? "own" : undefined), project);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 
@@ -268,7 +274,7 @@ export async function startDevSession(root: string, opts: { app?: string; host?:
         host: opts.host,
       };
       // The experimental server is loaded only when asked for, so the default path never imports it.
-      const server: DevServerHandle = opts.experimentalDevServer
+      const server: DevServerHandle = engine === "own"
         ? await (await import("./devExperimental.js")).createExperimentalAppDevServer(serverOptions)
         : await createAppDevServer(serverOptions);
       booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
@@ -289,7 +295,13 @@ function printStartupError(err: unknown): void {
 export async function dev(opts: DevCommandOptions) {
   const root = process.cwd();
   if (process.env.DEVORA_EXPERIMENTAL_DEV_SERVER === "1") opts = { ...opts, experimentalDevServer: true };
-  if (opts.experimentalDevServer) console.log("[devora] experimental dev server (not Vite): see the roadmap before relying on it");
+  if (opts.engine !== undefined && !isEngine(opts.engine)) {
+    console.error(`[devora] unknown --engine "${opts.engine}": use vite (default) or own (${ENGINE_NAME}, experimental)`);
+    process.exit(1);
+  }
+  if (opts.engine === "own" || opts.experimentalDevServer) {
+    console.log(`[devora] ${ENGINE_NAME} dev server (experimental, not Vite): see the roadmap before relying on it`);
+  }
   const expandRoutes = opts.routes === true || process.env.DEVORA_ROUTES === "all";
 
   let session: DevSession;

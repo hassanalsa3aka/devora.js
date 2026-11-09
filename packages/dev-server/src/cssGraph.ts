@@ -33,26 +33,24 @@ interface Node {
 }
 
 export function createCssGraph(roots: UrlRoot[]) {
-  // The import lines of a file, read again only when the file changed (size and modification time).
-  const scanned = new Map<string, { key: string; specifiers: string[] }>();
+  // What each file imports (already resolved to files), read once and kept until the host says the file changed. The host
+  // learns of every change from the file watcher, so nothing is re-checked per request.
+  const scanned = new Map<string, string[]>();
   const importsOf = (file: string): string[] => {
-    let key: string;
+    const known = scanned.get(file);
+    if (known) return known;
+    const resolved: string[] = [];
     try {
-      const info = statSync(file);
-      key = `${info.size}:${info.mtimeMs}`;
-    } catch {
-      return [];
-    }
-    const hit = scanned.get(file);
-    if (hit?.key === key) return hit.specifiers;
-    let specifiers: string[] = [];
-    try {
-      specifiers = scanImports(readFileSync(file, "utf8"));
+      for (const spec of scanImports(readFileSync(file, "utf8"))) {
+        if (!spec.startsWith(".") || spec.includes("?")) continue; // ?inline, ?raw, ?url are values, not stylesheets
+        const target = resolveSync(path.resolve(path.dirname(file), spec));
+        if (target) resolved.push(target);
+      }
     } catch {
       // unreadable: no imports
     }
-    scanned.set(file, { key, specifiers });
-    return specifiers;
+    scanned.set(file, resolved);
+    return resolved;
   };
   const nodeFor = (file: string, seen: Map<string, Node>): Node => {
     const known = seen.get(file);
@@ -60,24 +58,39 @@ export function createCssGraph(roots: UrlRoot[]) {
     const node: Node = { id: file, url: urlForFile(file, roots) ?? file, importedModules: new Set() };
     seen.set(file, node);
     if (CSS_EXT.test(file) || !/\.(tsx|ts|jsx|js|mjs)$/.test(file)) return node;
-    for (const spec of importsOf(file)) {
-      if (!spec.startsWith(".")) continue;
-      const clean = spec.split("?")[0]!;
-      if (spec.includes("?")) continue; // ?inline, ?raw, ?url are values, not stylesheets
-      const target = resolveSync(path.resolve(path.dirname(file), clean));
-      if (target) node.importedModules.add(nodeFor(target, seen));
-    }
+    for (const target of importsOf(file)) node.importedModules.add(nodeFor(target, seen));
     return node;
   };
+  const graphs = new Map<string, Set<Node>>();
   return {
     getModulesByFile(file: string): Set<Node> | undefined {
+      const known = graphs.get(file);
+      if (known) return known;
       try {
         statSync(file);
       } catch {
         return undefined;
       }
-      // Imports of imports can change without this file changing, so the graph is read per request (small, and dev only).
-      return new Set([nodeFor(file, new Map())]);
+      const graph = new Set([nodeFor(file, new Map())]);
+      graphs.set(file, graph);
+      return graph;
+    },
+    /**
+     * A file changed. If it is one this graph has read and it still exists, only its own imports are read again; a file
+     * that appeared or went away can change what any import resolves to, so everything is read again.
+     */
+    clear(file?: string): void {
+      graphs.clear();
+      let exists = true;
+      if (file) {
+        try {
+          statSync(file);
+        } catch {
+          exists = false;
+        }
+      }
+      if (file && exists && scanned.has(file)) scanned.delete(file);
+      else scanned.clear();
     },
   };
 }

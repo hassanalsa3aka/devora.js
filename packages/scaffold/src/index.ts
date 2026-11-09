@@ -1,4 +1,5 @@
 export { resolveAuthChoice, type AuthChoice } from "./resolveAuthChoice.js";
+export { resolveEngineChoice, parseEngine, ENGINE_NAME, type EngineChoice } from "./resolveEngineChoice.js";
 export { resolveScopeChoice, parseScope, type ProjectScope } from "./resolveScopeChoice.js";
 export { appNameProblem, domainProblem, assertScaffoldNames } from "./names.js";
 export { scaffoldAppFiles, SCAFFOLD_API_DIR, type ScaffoldAppOptions } from "./scaffoldAppFiles.js";

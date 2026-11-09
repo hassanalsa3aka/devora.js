@@ -37,6 +37,7 @@ import type { SessionManifest, SessionsConfig } from "@devorajs/core";
 import { createDevSessionOptionsResolver } from "./devSessionOptions.js";
 import { REACT_REFRESH_PREAMBLE_VIRTUAL_ID } from "./reactRefreshPreamblePlugin.js";
 import type { DevAssetUrls, DevPageHost } from "./devModuleHost.js";
+import { parseRequestUrl, sendBadRequest } from "./requestUrl.js";
 
 // See reactRefreshPreamblePlugin.ts's doc comment — "/@id/" is Vite's own
 // documented convention for requesting an arbitrary resolved module id
@@ -127,7 +128,8 @@ export function createSsrMiddleware(
 
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
 
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return next(); // opt-in — see docs/history/BUILD-LOG.md #7.

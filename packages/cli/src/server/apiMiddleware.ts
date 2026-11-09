@@ -1,6 +1,7 @@
 import type { ServerResponse } from "node:http";
 import type { Connect, Plugin } from "vite";
 import type { DevModuleHost } from "./devModuleHost.js";
+import { parseRequestUrl, sendBadRequest } from "./requestUrl.js";
 import {
   matchRoute,
   dispatchApiRoute,
@@ -160,7 +161,8 @@ export function createApiMiddleware(vite: DevModuleHost, options: ApiMiddlewareO
 
   return async function apiMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
     if (!isApiPath(url.pathname)) return next();
 
     for (const [name, value] of Object.entries(securityHeaders)) {

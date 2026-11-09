@@ -5,6 +5,7 @@
  * is rewritten to take them from the default export (clientModules.ts), as Vite's optimizer does.
  */
 import { createRequire } from "node:module";
+import { computeCacheKey, readCache, resolveCacheRoot, writeCache } from "./depsCache.js";
 import { builtinModules } from "node:module";
 import { build, type Plugin } from "esbuild";
 
@@ -21,6 +22,8 @@ export interface DepsManager {
   /** Adds dependencies and rebuilds when any is new; true when the set changed (clients must reload). */
   add(specifiers: string[]): Promise<boolean>;
   readonly specifiers: string[];
+  /** Whether the first set came from the on-disk cache (for the trace and the tests). */
+  readonly fromCache: boolean;
 }
 
 /**
@@ -73,10 +76,29 @@ async function bundle(specifiers: string[], appRoot: string) {
   return { files, cjs };
 }
 
-export async function createDepsManager(appRoot: string, initial: string[]): Promise<DepsManager> {
+export async function createDepsManager(appRoot: string, initial: string[], options: { cache?: boolean } = {}): Promise<DepsManager> {
   let specifiers = [...new Set(initial)];
   let state = { files: new Map<string, string>(), cjs: new Set<string>() };
-  const rebuild = async () => {
+  let fromCache = false;
+  const cacheRoot = options.cache === false ? undefined : await resolveCacheRoot(appRoot);
+  const rebuild = async (useCache: boolean) => {
+    let key: string | undefined;
+    if (cacheRoot) {
+      try {
+        key = await computeCacheKey(appRoot, specifiers);
+        if (useCache) {
+          const hit = await readCache(cacheRoot, key, specifiers);
+          if (hit) {
+            state = hit;
+            fromCache = true;
+            return;
+          }
+        }
+      } catch {
+        key = undefined; // an unreadable tree is not cached
+      }
+    }
+    fromCache = false;
     try {
       state = await bundle(specifiers, appRoot);
     } catch (error) {
@@ -90,8 +112,9 @@ export async function createDepsManager(appRoot: string, initial: string[]): Pro
       }
       throw error;
     }
+    if (cacheRoot && key) await writeCache(cacheRoot, key, specifiers, state);
   };
-  await rebuild();
+  await rebuild(true);
   return {
     has: (s) => specifiers.includes(s),
     isCjs: (s) => state.cjs.has(s),
@@ -100,11 +123,14 @@ export async function createDepsManager(appRoot: string, initial: string[]): Pro
       const fresh = more.filter((s) => !specifiers.includes(s));
       if (fresh.length === 0) return false;
       specifiers = [...specifiers, ...fresh];
-      await rebuild();
+      await rebuild(true);
       return true;
     },
     get specifiers() {
       return specifiers;
+    },
+    get fromCache() {
+      return fromCache;
     },
   };
 }

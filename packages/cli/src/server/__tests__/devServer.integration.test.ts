@@ -280,3 +280,26 @@ describe("session states over real time — real dev server", () => {
     expect((await fetch(`${shortBase}/api/me`, { headers: { Cookie: `devora_session=${token}` } })).status).toBe(401);
   }, 10_000);
 });
+
+describe("odd request targets (finding H36)", () => {
+  it("`GET //` and `GET /\\` are answered and do not stop the server (a protocol-relative target made new URL() throw in an async middleware, an unhandled rejection that ended the process)", async () => {
+    const net = await import("node:net");
+    const port = Number(new URL(base).port);
+    const raw = (target: string) =>
+      new Promise<string>((resolve) => {
+        let out = "";
+        const socket = net.connect(port, "localhost", () => socket.write(`GET ${target} HTTP/1.1\r\nHost: localhost:${port}\r\nConnection: close\r\n\r\n`));
+        socket.on("data", (c) => (out += c));
+        socket.on("close", () => resolve(out));
+        socket.on("error", () => resolve(out));
+        setTimeout(() => resolve(out), 5000);
+      });
+    for (const target of ["//", "/\\", "///x", "//etc/passwd"]) {
+      const text = await raw(target);
+      // Vite answers 500 itself for a backslash target (its own middleware); what matters is an answer and a server that lives
+      const experimental = process.env.DEVORA_TEST_DEV_SERVER === "experimental";
+      expect(text.split("\r\n")[0], target).toMatch(experimental ? /^HTTP\/1\.1 (200|400|403|404) / : /^HTTP\/1\.1 (200|400|403|404|500) /);
+    }
+    expect((await fetch(`${base}/`)).status).toBe(200); // still alive
+  });
+});

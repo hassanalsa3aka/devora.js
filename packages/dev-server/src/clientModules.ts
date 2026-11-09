@@ -7,8 +7,8 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { transform } from "esbuild";
-import { CSS_EXT, ASSET_EXT, applyEdits, instrumentRefresh, islandEdits, listImports, parseModule, resolveFile, splitSourceMap, urlForFile } from "./core.mjs";
-import type { UrlRoot } from "./core.mjs";
+import { CSS_EXT, ASSET_EXT, applyEdits, expandGlobs, instrumentRefresh, islandEdits, listImports, parseModule, resolveAlias, resolveFile, splitSourceMap, urlForFile } from "./core.mjs";
+import type { PathAliases, UrlRoot } from "./core.mjs";
 import { DEPS_PREFIX, depKey, type DepsManager } from "./deps.js";
 
 const LOADERS: Record<string, "tsx" | "ts" | "jsx" | "js"> = { ".tsx": "tsx", ".ts": "ts", ".jsx": "jsx", ".js": "js", ".mjs": "js" };
@@ -36,7 +36,7 @@ export interface ClientModules {
   readonly bareImports: Set<string>;
 }
 
-export function createClientModules(options: { roots: UrlRoot[]; deps: () => DepsManager | undefined; onNewDependency?: (specifier: string) => void }): ClientModules {
+export function createClientModules(options: { roots: UrlRoot[]; deps: () => DepsManager | undefined; aliases?: PathAliases; onNewDependency?: (specifier: string) => void }): ClientModules {
   const cache = new Map<string, { key: string; module: ClientModule }>();
   const served = new Set<string>();
   const importers = new Map<string, Set<string>>();
@@ -61,7 +61,8 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
       sourcefile: url,
       define: { "process.env.NODE_ENV": '"development"', "import.meta.env": ENV },
     });
-    const { code: body, map } = splitSourceMap(out.code);
+    // import.meta.glob becomes plain imports first, so everything below sees (and rewrites) the real import list
+    const { code: body, map } = splitSourceMap(expandGlobs(out.code, file));
     const program = parseModule(body);
     const edits: { start: number; end: number; text: string }[] = [];
     const imports: string[] = [];
@@ -75,6 +76,12 @@ export function createClientModules(options: { roots: UrlRoot[]; deps: () => Dep
       if (spec.startsWith("./") || spec.startsWith("../")) {
         const resolved = await resolveFile(path.resolve(dir, spec.split("?")[0]!));
         if (!resolved) continue; // the browser reports the missing file itself
+        imports.push(resolved);
+        const u = urlOf(resolved);
+        target = u === undefined ? "/_devora/m/outside-the-served-folders" : CSS_EXT.test(resolved) || ASSET_EXT.test(resolved) || resolved.endsWith(".json") ? `${u}?import` : u;
+      } else if (resolveAlias(spec, options.aliases)) {
+        // a tsconfig path alias: a file of the app, served like a relative import
+        const resolved = resolveAlias(spec, options.aliases)!;
         imports.push(resolved);
         const u = urlOf(resolved);
         target = u === undefined ? "/_devora/m/outside-the-served-folders" : CSS_EXT.test(resolved) || ASSET_EXT.test(resolved) || resolved.endsWith(".json") ? `${u}?import` : u;

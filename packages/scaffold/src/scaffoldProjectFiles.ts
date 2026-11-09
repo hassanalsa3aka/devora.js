@@ -42,6 +42,8 @@ export interface ScaffoldProjectOptions {
    * linker does not run the CLI (it requires esbuild without declaring it). npm, Yarn 1 and pnpm get no extra file.
    */
   packageManager?: "npm" | "yarn" | "pnpm";
+  /** `"own"` writes `engine: "own"` into devora.config.ts. Default `"vite"` (nothing written). */
+  engine?: "vite" | "own";
 }
 
 /**
@@ -210,6 +212,7 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
     path.join(projectRoot, "devora.config.ts"),
     `import { defineProject } from "@devorajs/core/config";\n\n` +
       `export default defineProject({\n` +
+      (opts.engine === "own" ? `  // Dev and build engine: "vite" (default, stable) or "own" (Devora Engine, experimental).\n  engine: "own",\n` : "") +
       `  apps: [\n${appEntries}\n  ],\n` +
       `  shared: {\n` +
       `    core: "packages/core",\n` +
