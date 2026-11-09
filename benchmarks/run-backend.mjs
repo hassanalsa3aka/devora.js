@@ -95,7 +95,11 @@ async function startServer(dir, env) {
   stopServer(child);
   throw new Error(`${dir}: server never answered`);
 }
-function stopServer(child) { try { process.kill(-child.pid, "SIGTERM"); } catch {} }
+function stopServer(child) {
+  try { process.kill(-child.pid, "SIGTERM"); } catch {}
+  // a server that has not let go of its port after 3 s is killed (Next.js on the small Linux machine kept it for more than a minute)
+  setTimeout(() => { try { process.kill(-child.pid, "SIGKILL"); } catch {} }, 3000).unref();
+}
 async function waitPortFree() {
   // 60 s: Next.js on a small Linux machine needed more than the former 10 s to let go of the port
   for (let i = 0; i < 1200; i++) {
