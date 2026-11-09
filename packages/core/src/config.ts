@@ -137,7 +137,7 @@ export interface SharedConfig {
 }
 
 /** The name of Devora's own dev and build engine, shown wherever the engine is offered. One constant so a rename is one line. */
-export const ENGINE_NAME = "Devora Engine";
+export const ENGINE_NAME = "Sekhem";
 
 /** `"vite"` (stable, the default) or `"own"` (experimental: ENGINE_NAME). */
 export type Engine = "vite" | "own";

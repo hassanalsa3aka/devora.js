@@ -1,7 +1,8 @@
 import path from "node:path";
 import { readFile, cp } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
-import { build as viteBuild, resolveConfig } from "vite";
+import type { Engine } from "@devorajs/core/config";
 import { createHash } from "node:crypto";
 import { listRouteFiles, toBuildKey } from "@devorajs/core";
 import { discoverCsrRouteFiles } from "./discoverCsrRouteFiles.js";
@@ -38,7 +39,8 @@ export interface ClientBuildResult {
  * `islandFiles` comes from the SSR build (islandsBuildPlugin.ts), which saw
  * every module the app's routes import — not just the route files.
  */
-export async function buildAppClient(appRoot: string, islandFiles: string[]): Promise<ClientBuildResult> {
+export async function buildAppClient(appRoot: string, islandFiles: string[], engine: Engine = "vite"): Promise<ClientBuildResult> {
+  if (engine === "own") return buildAppClientOwn(appRoot, islandFiles);
   const routesDir = path.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
@@ -52,6 +54,7 @@ export async function buildAppClient(appRoot: string, islandFiles: string[]): Pr
     // production for exactly this reason on marketing (no islands/csr).
     // Copy publicDir directly, skipping the (real, still avoided) cost of
     // a full JS bundling pass for an app that doesn't need one.
+    const { resolveConfig } = await import("vite");
     const resolved = await resolveConfig(
       { root: appRoot, configFile: path.join(appRoot, "vite.config.ts") },
       "build"
@@ -76,6 +79,7 @@ export async function buildAppClient(appRoot: string, islandFiles: string[]): Pr
     input[toBuildKey(appRoot, file)] = file;
   }
 
+  const { build: viteBuild } = await import("vite");
   await viteBuild({
     root: appRoot,
     logLevel: viteLogLevel(),
@@ -143,4 +147,51 @@ function clientEntryName(appRoot: string, file: string): string {
   if (!relative.startsWith("..") && !path.isAbsolute(relative)) return toBuildKey(appRoot, file);
   const hash = createHash("sha256").update(file).digest("hex").slice(0, 8);
   return `shared/${path.basename(file, path.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
+}
+
+/**
+ * The same client build with the own engine (esbuild, no Vite): the same entries, named the same way, with the browser URLs
+ * read from esbuild's metafile instead of Vite's manifest. The public folder is copied to dist/client first, always (the
+ * Vite path copies it in both branches too).
+ */
+async function buildAppClientOwn(appRoot: string, islandFiles: string[]): Promise<ClientBuildResult> {
+  const routeFiles = listRouteFiles(path.join(appRoot, "routes"));
+  const csrFiles = discoverCsrRouteFiles(routeFiles);
+  const islandClientPath = path.join(appRoot, "island-client.tsx");
+  const csrClientPath = path.join(appRoot, "csr-client.tsx");
+  const clientOutDir = path.join(appRoot, "dist", "client");
+  const publicDir = resolveOwnPublicDir(appRoot);
+
+  const entries: Record<string, string> = {};
+  if (islandFiles.length > 0) entries["island-client"] = islandClientPath;
+  if (csrFiles.length > 0) entries["csr-client"] = csrClientPath;
+  for (const file of islandFiles) entries[clientEntryName(appRoot, file)] = file;
+  for (const file of csrFiles) entries[toBuildKey(appRoot, file)] = file;
+
+  const { buildClientBundle } = await import("@devorajs/sekhem");
+  const { urls } = await buildClientBundle({ appRoot, entries, outDir: clientOutDir, publicDir, logLevel: "warning" });
+  const islandUrls = new Map<string, string>();
+  const csrUrls = new Map<string, string>();
+  for (const file of islandFiles) {
+    const url = urls.get(clientEntryName(appRoot, file));
+    if (url) islandUrls.set(file, url);
+  }
+  for (const file of csrFiles) {
+    const url = urls.get(toBuildKey(appRoot, file));
+    if (url) csrUrls.set(file, url);
+  }
+  return { islandUrls, islandClientUrl: urls.get("island-client"), csrUrls, csrClientUrl: urls.get("csr-client") };
+}
+
+/** `publicDir` the way the own dev server finds it: the literal form in vite.config.ts if there is one, else `<app>/public`, else the project's `assets/`. */
+export function resolveOwnPublicDir(appRoot: string): string | undefined {
+  const config = path.join(appRoot, "vite.config.ts");
+  if (existsSync(config)) {
+    const m = /publicDir:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/.exec(readFileSync(config, "utf8"));
+    if (m) return path.resolve(appRoot, m[1]!);
+  }
+  const own = path.join(appRoot, "public");
+  if (existsSync(own)) return own;
+  const shared = path.resolve(appRoot, "..", "..", "assets");
+  return !existsSync(config) && existsSync(shared) ? shared : undefined;
 }

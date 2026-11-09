@@ -1,0 +1,13 @@
+node v20.20.2 npm 10.8.2
+FAIL  full suite
+FAIL  vite6 build parity (vite vs own)
+FAIL  vite6 dev parity (vite vs own)
+FAIL  dev attack comparison
+FAIL  fuzz dev server
+FAIL  no-vite proof (own engine)
+FAIL  browser checks
+FAIL  vite7 build parity
+FAIL  vite7 dev parity
+FAIL  vite8 build parity
+FAIL  vite8 dev parity
+DONE

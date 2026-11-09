@@ -212,7 +212,7 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
     path.join(projectRoot, "devora.config.ts"),
     `import { defineProject } from "@devorajs/core/config";\n\n` +
       `export default defineProject({\n` +
-      (opts.engine === "own" ? `  // Dev and build engine: "vite" (default, stable) or "own" (Devora Engine, experimental).\n  engine: "own",\n` : "") +
+      (opts.engine === "own" ? `  // Dev and build engine: "vite" (default, stable) or "own" (Sekhem, experimental).\n  engine: "own",\n` : "") +
       `  apps: [\n${appEntries}\n  ],\n` +
       `  shared: {\n` +
       `    core: "packages/core",\n` +

@@ -61,7 +61,7 @@ var ENGINE_NAME, ENGINES;
 var init_config = __esm({
   "../core/src/config.ts"() {
     "use strict";
-    ENGINE_NAME = "Devora Engine";
+    ENGINE_NAME = "Sekhem";
     ENGINES = ["vite", "own"];
   }
 });
@@ -6172,7 +6172,6 @@ var init_devSessionOptions = __esm({
 });
 
 // src/server/reactRefreshPreamblePlugin.ts
-import viteReact from "@vitejs/plugin-react";
 function reactRefreshPreamblePlugin() {
   return {
     name: "devora-react-refresh-preamble",
@@ -6180,8 +6179,9 @@ function reactRefreshPreamblePlugin() {
       if (id === VIRTUAL_ID) return RESOLVED_ID;
       return null;
     },
-    load(id) {
+    async load(id) {
       if (id !== RESOLVED_ID) return null;
+      const { default: viteReact } = await import("@vitejs/plugin-react");
       const code = viteReact.preambleCode.replace("__BASE__", "/");
       return { code, map: null };
     }
@@ -6617,7 +6617,7 @@ __export(devExperimental_exports, {
   findUnsupportedSettings: () => findUnsupportedSettings
 });
 import path16 from "node:path";
-import { existsSync as existsSync8, readFileSync as readFileSync3, realpathSync } from "node:fs";
+import { existsSync as existsSync8, readFileSync as readFileSync4, realpathSync } from "node:fs";
 function chain(handlers, finish) {
   return async (req, res) => {
     let i = 0;
@@ -6641,7 +6641,7 @@ function findUnsupportedSettings(appRoot, projectRoot) {
   }
   const config = path16.join(appRoot, "vite.config.ts");
   if (existsSync8(config)) {
-    const text = readFileSync3(config, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const text = readFileSync4(config, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     const plugins = /\bplugins\s*:\s*\[([\s\S]*?)\]/.exec(text)?.[1]?.replace(/\breact\(\s*\)/g, "").replace(/[,\s]/g, "");
     if (plugins) found.push("vite.config.ts plugins other than react() (Vite plugins are not run)");
     for (const [key, what] of [["alias", "resolve.alias"], ["define", "define"], ["proxy", "server.proxy"], ["css", "css options (preprocessors, PostCSS)"]]) {
@@ -6653,7 +6653,7 @@ function findUnsupportedSettings(appRoot, projectRoot) {
 function resolvePublicDir(appRoot) {
   const config = path16.join(appRoot, "vite.config.ts");
   if (existsSync8(config)) {
-    const m = /publicDir:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/.exec(readFileSync3(config, "utf8"));
+    const m = /publicDir:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/.exec(readFileSync4(config, "utf8"));
     if (m) return path16.resolve(appRoot, m[1]);
   }
   const fallback = path16.join(appRoot, "public");
@@ -6676,7 +6676,7 @@ async function createExperimentalAppDevServer(options) {
   if (opts.host) throw new Error("[devora] --host is not available with --experimental-dev-server: it binds 127.0.0.1 only");
   let devServer;
   try {
-    devServer = await import("@devorajs/dev-server");
+    devServer = await import("@devorajs/sekhem");
   } catch (error) {
     throw new Error(
       `[devora] the experimental dev server is not part of the published CLI. Run it from a checkout of the repository: pnpm exec tsx packages/cli/src/index.ts dev --experimental-dev-server (${error.message})`
@@ -6828,7 +6828,6 @@ init_requestUrl();
 init_src();
 import path17 from "node:path";
 import { createRequire } from "node:module";
-import { createServer } from "vite";
 
 // ../core/src/loadProjectConfig.ts
 import path8 from "node:path";
@@ -7064,10 +7063,63 @@ function isDevoraError(err) {
   return err instanceof Error && err.message.startsWith("[devora]");
 }
 
+// src/build/engineNode.ts
+var OWN_ENGINE_MIN_NODE = [22, 15];
+function ownEngineNodeProblem(version = process.versions.node, engineName = "Sekhem") {
+  const [major = 0, minor = 0] = version.split(".").map((n) => Number.parseInt(n, 10));
+  const [wantMajor, wantMinor] = OWN_ENGINE_MIN_NODE;
+  if (major > wantMajor || major === wantMajor && minor >= wantMinor) return void 0;
+  return `[devora] ${engineName} needs Node ${wantMajor}.${wantMinor} or later (this is Node ${version}); use a newer Node, or run with --engine=vite`;
+}
+
 // src/build/loadEnvFiles.ts
 import path14 from "node:path";
 import { existsSync as existsSync7 } from "node:fs";
-import { loadEnv } from "vite";
+
+// src/build/envFiles.ts
+import { readFileSync as readFileSync3 } from "node:fs";
+function parseEnv(text) {
+  const out = {};
+  const lines = text.replace(/\r\n?/g, "\n");
+  const pattern = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/gm;
+  for (const match of lines.matchAll(pattern)) {
+    const key = match[1];
+    let value = (match[2] ?? "").trim();
+    const quote = value[0];
+    value = value.replace(/^(['"`])([\s\S]*)\1$/gm, "$2");
+    if (quote === '"') value = value.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
+    out[key] = value;
+  }
+  return out;
+}
+function expandEnv(values, environment) {
+  const result = {};
+  const resolve = (key, seen) => {
+    if (key in result) return result[key];
+    if (key in values && !seen.has(key)) {
+      seen.add(key);
+      return result[key] = expand(values[key], seen);
+    }
+    return environment[key] ?? "";
+  };
+  const expand = (value, seen) => value.replace(/(.?)\$(?:\{([\w.-]+)\}|([\w]+))/g, (whole, before, braced, bare) => {
+    if (before === "\\") return whole.slice(1);
+    return before + resolve(braced ?? bare, new Set(seen));
+  }).replace(/\\\$/g, "$");
+  for (const key of Object.keys(values)) result[key] = resolve(key, /* @__PURE__ */ new Set());
+  return result;
+}
+function readEnvFiles(root, mode, files, environment) {
+  const merged = {};
+  for (const file of files) {
+    try {
+      Object.assign(merged, parseEnv(readFileSync3(`${root}/${file}`, "utf8")));
+    } catch {
+    }
+  }
+  void mode;
+  return expandEnv(merged, environment);
+}
 
 // ../scaffold/src/resolveAuthChoice.ts
 import { createInterface } from "node:readline/promises";
@@ -7728,7 +7780,7 @@ function loadProjectEnv(root, mode) {
   const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync7(path14.join(root, f)));
   if (files.length === 0) return [];
   const before = new Set(Object.keys(process.env));
-  const loaded = loadEnv(mode, root, "");
+  const loaded = readEnvFiles(root, mode, files, process.env);
   for (const [key, value] of Object.entries(loaded)) {
     if (!before.has(key)) {
       process.env[key] = value;
@@ -7948,6 +8000,7 @@ async function createAppDevServer(opts) {
     csrf: appConfig.csrf
   });
   validateCorsConfig(app.name, appConfig.cors);
+  const { createServer } = await import("vite");
   const server = await createServer({
     root: appRoot,
     appType: "custom",
@@ -8057,6 +8110,10 @@ async function startDevSession(root, opts) {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
   const engine = resolveEngine(opts.engine ?? (opts.experimentalDevServer ? "own" : void 0), project);
+  if (engine === "own") {
+    const problem = ownEngineNodeProblem();
+    if (problem) throw new Error(problem);
+  }
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
   if (opts.app && apps.length === 0) {
     throw new Error(`[devora] no app named "${opts.app}" in devora.config.ts`);
@@ -8234,14 +8291,13 @@ init_ssrMiddleware();
 import path19 from "node:path";
 import { existsSync as existsSync10 } from "node:fs";
 import { copyFile, mkdir as mkdir3, readdir, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
-import { build as viteBuild2 } from "vite";
 
 // src/build/buildAppClient.ts
 init_src();
 import path18 from "node:path";
 import { readFile as readFile4, cp } from "node:fs/promises";
+import { readFileSync as readFileSync5 } from "node:fs";
 import { existsSync as existsSync9 } from "node:fs";
-import { build as viteBuild, resolveConfig } from "vite";
 import { createHash as createHash2 } from "node:crypto";
 
 // src/build/discoverCsrRouteFiles.ts
@@ -8252,11 +8308,13 @@ function discoverCsrRouteFiles(sourceFiles) {
 }
 
 // src/build/buildAppClient.ts
-async function buildAppClient(appRoot, islandFiles) {
+async function buildAppClient(appRoot, islandFiles, engine = "vite") {
+  if (engine === "own") return buildAppClientOwn(appRoot, islandFiles);
   const routesDir = path18.join(appRoot, "routes");
   const routeFiles = listRouteFiles(routesDir);
   const csrFiles = discoverCsrRouteFiles(routeFiles);
   if (islandFiles.length === 0 && csrFiles.length === 0) {
+    const { resolveConfig } = await import("vite");
     const resolved = await resolveConfig(
       { root: appRoot, configFile: path18.join(appRoot, "vite.config.ts") },
       "build"
@@ -8278,6 +8336,7 @@ async function buildAppClient(appRoot, islandFiles) {
   for (const file of csrFiles) {
     input[toBuildKey(appRoot, file)] = file;
   }
+  const { build: viteBuild } = await import("vite");
   await viteBuild({
     root: appRoot,
     logLevel: viteLogLevel(),
@@ -8337,6 +8396,43 @@ function clientEntryName(appRoot, file) {
   const hash = createHash2("sha256").update(file).digest("hex").slice(0, 8);
   return `shared/${path18.basename(file, path18.extname(file))}-${hash}`.replace(/[[\]]/g, "_");
 }
+async function buildAppClientOwn(appRoot, islandFiles) {
+  const routeFiles = listRouteFiles(path18.join(appRoot, "routes"));
+  const csrFiles = discoverCsrRouteFiles(routeFiles);
+  const islandClientPath = path18.join(appRoot, "island-client.tsx");
+  const csrClientPath = path18.join(appRoot, "csr-client.tsx");
+  const clientOutDir = path18.join(appRoot, "dist", "client");
+  const publicDir = resolveOwnPublicDir(appRoot);
+  const entries = {};
+  if (islandFiles.length > 0) entries["island-client"] = islandClientPath;
+  if (csrFiles.length > 0) entries["csr-client"] = csrClientPath;
+  for (const file of islandFiles) entries[clientEntryName(appRoot, file)] = file;
+  for (const file of csrFiles) entries[toBuildKey(appRoot, file)] = file;
+  const { buildClientBundle } = await import("@devorajs/sekhem");
+  const { urls } = await buildClientBundle({ appRoot, entries, outDir: clientOutDir, publicDir, logLevel: "warning" });
+  const islandUrls = /* @__PURE__ */ new Map();
+  const csrUrls = /* @__PURE__ */ new Map();
+  for (const file of islandFiles) {
+    const url = urls.get(clientEntryName(appRoot, file));
+    if (url) islandUrls.set(file, url);
+  }
+  for (const file of csrFiles) {
+    const url = urls.get(toBuildKey(appRoot, file));
+    if (url) csrUrls.set(file, url);
+  }
+  return { islandUrls, islandClientUrl: urls.get("island-client"), csrUrls, csrClientUrl: urls.get("csr-client") };
+}
+function resolveOwnPublicDir(appRoot) {
+  const config = path18.join(appRoot, "vite.config.ts");
+  if (existsSync9(config)) {
+    const m = /publicDir:\s*path\.resolve\(\s*__dirname\s*,\s*["']([^"']+)["']\s*\)/.exec(readFileSync5(config, "utf8"));
+    if (m) return path18.resolve(appRoot, m[1]);
+  }
+  const own = path18.join(appRoot, "public");
+  if (existsSync9(own)) return own;
+  const shared = path18.resolve(appRoot, "..", "..", "assets");
+  return !existsSync9(config) && existsSync9(shared) ? shared : void 0;
+}
 
 // src/build/islandsBuildPlugin.ts
 import { createHash as createHash3 } from "node:crypto";
@@ -8374,6 +8470,7 @@ function islandsBuildPlugin(collected) {
 
 // src/build/buildAppServer.ts
 async function buildAppServer(appRoot, options = {}) {
+  const engine = options.engine ?? "vite";
   const routesDir = path19.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
   const entryServerPath = path19.join(appRoot, "entry-server.tsx");
@@ -8393,21 +8490,29 @@ async function buildAppServer(appRoot, options = {}) {
   }
   const islandPlaceholders = /* @__PURE__ */ new Map();
   const routeCss = {};
-  await viteBuild2({
-    root: appRoot,
-    logLevel: viteLogLevel(),
-    configFile: path19.join(appRoot, "vite.config.ts"),
-    plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
-    build: {
-      ssr: true,
-      ssrEmitAssets: true,
-      outDir: serverOutDir,
-      emptyOutDir: true,
-      rollupOptions: { input }
-    }
-  });
+  if (engine === "own") {
+    const { buildServerBundle } = await import("@devorajs/sekhem");
+    const built = await buildServerBundle({ appRoot, entries: input, outDir: serverOutDir, logLevel: "warning" });
+    for (const [placeholder, file] of built.islands) islandPlaceholders.set(placeholder, file);
+    Object.assign(routeCss, built.routeCss);
+  } else {
+    const { build: viteBuild } = await import("vite");
+    await viteBuild({
+      root: appRoot,
+      logLevel: viteLogLevel(),
+      configFile: path19.join(appRoot, "vite.config.ts"),
+      plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
+      build: {
+        ssr: true,
+        ssrEmitAssets: true,
+        outDir: serverOutDir,
+        emptyOutDir: true,
+        rollupOptions: { input }
+      }
+    });
+  }
   const islandFiles = [...new Set(islandPlaceholders.values())];
-  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly ? { islandUrls: /* @__PURE__ */ new Map(), islandClientUrl: void 0, csrUrls: /* @__PURE__ */ new Map(), csrClientUrl: void 0 } : await buildAppClient(appRoot, islandFiles);
+  const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly ? { islandUrls: /* @__PURE__ */ new Map(), islandClientUrl: void 0, csrUrls: /* @__PURE__ */ new Map(), csrClientUrl: void 0 } : await buildAppClient(appRoot, islandFiles, engine);
   if (islandPlaceholders.size > 0) {
     await replaceIslandPlaceholders(serverOutDir, islandPlaceholders, islandUrls);
   }
@@ -8589,7 +8694,7 @@ function runPrebuild(appName, appRoot, prebuild, projectRoot = appRoot) {
 
 // src/build/preflight.ts
 import path22 from "node:path";
-import { existsSync as existsSync11, readFileSync as readFileSync4, statSync } from "node:fs";
+import { existsSync as existsSync11, readFileSync as readFileSync6, statSync } from "node:fs";
 var PreflightError = class extends Error {
   constructor(appName) {
     super(`[devora] "${appName}": preflight checks failed \u2014 nothing was built.`);
@@ -8655,7 +8760,7 @@ function preflightNetlifyToml(input) {
   const tomlPath = path22.join(input.appRoot, "netlify.toml");
   if (input.apiDir === "api" || !existsSync11(tomlPath)) return [];
   const expected = `netlify/functions/ssr/${input.apiDir}/**`;
-  if (readFileSync4(tomlPath, "utf-8").includes(expected)) return [];
+  if (readFileSync6(tomlPath, "utf-8").includes(expected)) return [];
   return [
     {
       level: "warning",
@@ -8674,7 +8779,7 @@ function reportPreflight(appName, issues) {
 
 // ../../adapters/adapter-vercel/src/index.ts
 import path26 from "node:path";
-import { existsSync as existsSync15, readFileSync as readFileSync6 } from "node:fs";
+import { existsSync as existsSync15, readFileSync as readFileSync8 } from "node:fs";
 import { mkdir as mkdir4, writeFile as writeFile4, cp as cp2, readFile as readFile6, rm as rm2 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 
@@ -8735,7 +8840,7 @@ async function findJsFiles(dir) {
 
 // ../../adapters/adapter-vercel/src/runtime.ts
 import path24 from "node:path";
-import { existsSync as existsSync13, readFileSync as readFileSync5 } from "node:fs";
+import { existsSync as existsSync13, readFileSync as readFileSync7 } from "node:fs";
 var VERCEL_SUPPORTED_NODE_MAJORS = [24, 22];
 var VERCEL_DEFAULT_NODE_MAJOR = 24;
 function resolveVercelRuntime(input) {
@@ -8801,7 +8906,7 @@ function readEnginesNode(appRoot, projectRoot) {
     const pkgPath = path24.join(dir, "package.json");
     if (!existsSync13(pkgPath)) continue;
     try {
-      const engines = JSON.parse(readFileSync5(pkgPath, "utf-8")).engines;
+      const engines = JSON.parse(readFileSync7(pkgPath, "utf-8")).engines;
       if (typeof engines?.node === "string") return engines.node;
     } catch {
     }
@@ -9041,7 +9146,7 @@ function reactResolveBase(appRoot) {
     let dir = path26.dirname(require2.resolve("@devorajs/core", { paths: [appRoot] }));
     while (dir !== path26.dirname(dir)) {
       const pkgPath = path26.join(dir, "package.json");
-      if (existsSync15(pkgPath) && JSON.parse(readFileSync6(pkgPath, "utf-8")).name === "@devorajs/core") {
+      if (existsSync15(pkgPath) && JSON.parse(readFileSync8(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
       dir = path26.dirname(dir);
@@ -9052,7 +9157,7 @@ function reactResolveBase(appRoot) {
 
 // ../../adapters/adapter-netlify/src/index.ts
 import path29 from "node:path";
-import { existsSync as existsSync18, readFileSync as readFileSync7 } from "node:fs";
+import { existsSync as existsSync18, readFileSync as readFileSync9 } from "node:fs";
 import { mkdir as mkdir5, writeFile as writeFile5, cp as cp3, readFile as readFile7 } from "node:fs/promises";
 import { createRequire as createRequire3 } from "node:module";
 
@@ -9252,7 +9357,7 @@ function reactResolveBase2(appRoot) {
     let dir = path29.dirname(require3.resolve("@devorajs/core", { paths: [appRoot] }));
     while (dir !== path29.dirname(dir)) {
       const pkgPath = path29.join(dir, "package.json");
-      if (existsSync18(pkgPath) && JSON.parse(readFileSync7(pkgPath, "utf-8")).name === "@devorajs/core") {
+      if (existsSync18(pkgPath) && JSON.parse(readFileSync9(pkgPath, "utf-8")).name === "@devorajs/core") {
         return dir;
       }
       dir = path29.dirname(dir);
@@ -9313,7 +9418,7 @@ async function buildAppForAdapter(root, project, app, adapter, options = {}) {
     manifest: sessionManifest,
     storeModulePath: sessionsConfig?.store && sessionsConfig.store !== "memory" ? path30.resolve(root, sessionsConfig.store) : void 0
   };
-  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir, engine: options.engine });
   info(`[devora] "${app.name}" built \u2192 ${serverOutDir}`);
   const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, {
     backendOnly,
@@ -9398,9 +9503,13 @@ async function build3(opts) {
     process.exit(1);
   }
   if (engine === "own") {
-    console.error(`[devora] the ${ENGINE_NAME} build is not available yet (only its dev server is); run \`devora build --engine=vite\` or remove \`engine: "own"\` from devora.config.ts for the build`);
-    process.exit(1);
+    const problem = ownEngineNodeProblem();
+    if (problem) {
+      console.error(problem);
+      process.exit(1);
+    }
   }
+  if (engine === "own") info(`[devora] building with ${ENGINE_NAME} (experimental, not Vite)`);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
   if (opts.app && apps.length === 0) {
     console.error(`[devora] no app named "${opts.app}" in devora.config.ts`);
@@ -9418,7 +9527,7 @@ async function build3(opts) {
   }
   for (const app of apps) {
     try {
-      await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out });
+      await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out, engine });
     } catch (err) {
       console.error(err instanceof PreflightError || isDevoraError(err) ? err.message : err);
       process.exit(1);
@@ -9432,7 +9541,7 @@ async function build3(opts) {
 // src/commands/desktop.ts
 init_src();
 import { spawn as spawn3 } from "node:child_process";
-import { existsSync as existsSync20, mkdirSync, readFileSync as readFileSync8, writeFileSync } from "node:fs";
+import { existsSync as existsSync20, mkdirSync, readFileSync as readFileSync10, writeFileSync } from "node:fs";
 import path32 from "node:path";
 
 // ../desktop/src/token.ts
@@ -10057,7 +10166,7 @@ async function resolveApp(opts) {
 }
 function readSettings(appRoot, appName) {
   const file = path32.join(appRoot, "desktop.json");
-  const raw = existsSync20(file) ? JSON.parse(readFileSync8(file, "utf8")) : {};
+  const raw = existsSync20(file) ? JSON.parse(readFileSync10(file, "utf8")) : {};
   return {
     productName: typeof raw.productName === "string" ? raw.productName : "Devora.js",
     identifier: typeof raw.identifier === "string" ? raw.identifier : `com.example.${appName.replace(/_/g, "-")}`,
@@ -10149,10 +10258,10 @@ function writeTauriProject(appRoot, settings, version, forBuild) {
   }
   const icons = generateTauriBinaryFiles();
   const existing = {};
-  for (const name of Object.keys(icons)) existing[name] = existsSync20(path32.join(out, name)) ? readFileSync8(path32.join(out, name)) : void 0;
+  for (const name of Object.keys(icons)) existing[name] = existsSync20(path32.join(out, name)) ? readFileSync10(path32.join(out, name)) : void 0;
   let marker;
   try {
-    marker = existsSync20(path32.join(out, ICON_MARKER)) ? JSON.parse(readFileSync8(path32.join(out, ICON_MARKER), "utf8")) : void 0;
+    marker = existsSync20(path32.join(out, ICON_MARKER)) ? JSON.parse(readFileSync10(path32.join(out, ICON_MARKER), "utf8")) : void 0;
   } catch {
     marker = void 0;
   }
@@ -10166,7 +10275,7 @@ function writeTauriProject(appRoot, settings, version, forBuild) {
 }
 function appVersion(appRoot) {
   try {
-    return JSON.parse(readFileSync8(path32.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
+    return JSON.parse(readFileSync10(path32.join(appRoot, "package.json"), "utf8")).version ?? "0.1.0";
   } catch {
     return "0.1.0";
   }

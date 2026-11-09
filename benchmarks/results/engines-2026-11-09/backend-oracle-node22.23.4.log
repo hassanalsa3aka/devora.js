@@ -1,0 +1,76 @@
+
+== Devora.js (Vite engine, this commit)
+build cold 1312 ms, warm 1291 ms
+start 368 ms, idle 148 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Devora.js (Sekhem engine, this commit)
+build cold 871 ms, warm 911 ms
+start 365 ms, idle 148 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Express 5
+build cold 211 ms, warm 210 ms
+start 331 ms, idle 129 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Fastify 5
+build cold 225 ms, warm 219 ms
+start 425 ms, idle 136 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Hono
+build cold 212 ms, warm 212 ms
+start 302 ms, idle 132 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== NestJS (Express platform)
+build cold 1920 ms, warm 1923 ms
+start 776 ms, idle 174 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== NestJS (Fastify platform)
+build cold 3026 ms, warm 2968 ms
+start 849 ms, idle 178 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Next.js
+build cold 7768 ms, warm 2144 ms
+start 718 ms, idle 158 MB
+file:///home/ubuntu/bench/devora.js/benchmarks/run-backend.mjs:103
+  throw new Error(`port ${PORT} is still in use`);
+        ^
+
+Error: port 4310 is still in use
+    at waitPortFree (file:///home/ubuntu/bench/devora.js/benchmarks/run-backend.mjs:103:9)
+    at async file:///home/ubuntu/bench/devora.js/benchmarks/run-backend.mjs:191:3
+
+Node.js v22.23.4

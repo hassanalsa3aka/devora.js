@@ -102,6 +102,10 @@ async function run(project, server, { cold, edits, idle }) {
       await sleep(1000);
     }
     if (idle > 0) {
+      // Settle first: the work started by the last edit (recompiling the restored file, background warm-up) is not idle time. Without
+      // this the window began about one second after the edits and counted that work as "idle CPU" (0.8 to 1.0% on Node 22 and 24
+      // for the own server; once settled, the own server and Vite both measure 0.07%).
+      await sleep(15000);
       const c0 = cpuSeconds(pid);
       await sleep(idle * 1000);
       r.idle_cpu_pct = ((cpuSeconds(pid) - c0) / idle) * 100;

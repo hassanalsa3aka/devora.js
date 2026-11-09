@@ -1,8 +1,8 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { build as viteBuild, type Plugin } from "vite";
-import type { Rollup } from "vite";
+import type { Plugin, Rollup } from "vite";
+import type { Engine } from "@devorajs/core/config";
 type OutputChunk = Rollup.OutputChunk;
 import {
   listRouteFiles,
@@ -65,8 +65,11 @@ export async function buildAppServer(
     sessions?: { manifest: SessionManifest; storeModulePath?: string };
     /** app.config.ts `apiDir`, normalized (default "api"). */
     apiDir?: string;
+    /** `"own"`: the esbuild-based build of the own engine (no Vite is imported). Default `"vite"`. */
+    engine?: Engine;
   } = {}
 ): Promise<{ serverOutDir: string }> {
+  const engine = options.engine ?? "vite";
   const routesDir = path.join(appRoot, "routes");
   const apiDir = resolveApiDir(appRoot, options.apiDir);
   const entryServerPath = path.join(appRoot, "entry-server.tsx");
@@ -105,26 +108,34 @@ export async function buildAppServer(
   //    emit that CSS, and imported images/fonts, instead of dropping them).
   const islandPlaceholders = new Map<string, string>();
   const routeCss: Record<string, string[]> = {};
-  await viteBuild({
-    root: appRoot,
-    logLevel: viteLogLevel(),
-    configFile: path.join(appRoot, "vite.config.ts"),
-    plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
-    build: {
-      ssr: true,
-      ssrEmitAssets: true,
-      outDir: serverOutDir,
-      emptyOutDir: true,
-      rollupOptions: { input },
-    },
-  });
+  if (engine === "own") {
+    const { buildServerBundle } = await import("@devorajs/sekhem");
+    const built = await buildServerBundle({ appRoot, entries: input, outDir: serverOutDir, logLevel: "warning" });
+    for (const [placeholder, file] of built.islands) islandPlaceholders.set(placeholder, file);
+    Object.assign(routeCss, built.routeCss);
+  } else {
+    const { build: viteBuild } = await import("vite");
+    await viteBuild({
+      root: appRoot,
+      logLevel: viteLogLevel(),
+      configFile: path.join(appRoot, "vite.config.ts"),
+      plugins: [islandsBuildPlugin(islandPlaceholders), routeCssPlugin(routeCss)],
+      build: {
+        ssr: true,
+        ssrEmitAssets: true,
+        outDir: serverOutDir,
+        emptyOutDir: true,
+        rollupOptions: { input },
+      },
+    });
+  }
 
   // 2. Client build for exactly the islands the SSR build found (plus csr
   //    routes). Backend-only apps have neither (architecture-v2.md §3.4).
   const islandFiles = [...new Set(islandPlaceholders.values())];
   const { islandUrls, islandClientUrl, csrUrls, csrClientUrl } = options.backendOnly
     ? { islandUrls: new Map<string, string>(), islandClientUrl: undefined, csrUrls: new Map<string, string>(), csrClientUrl: undefined }
-    : await buildAppClient(appRoot, islandFiles);
+    : await buildAppClient(appRoot, islandFiles, engine);
 
   // 3. Swap each island placeholder in the SSR output for its real URL.
   if (islandPlaceholders.size > 0) {

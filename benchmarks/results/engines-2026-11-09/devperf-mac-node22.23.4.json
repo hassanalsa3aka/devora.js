@@ -1,0 +1,346 @@
+{
+  "when": "2026-11-09T12:10:24.134Z",
+  "runs": 5,
+  "node": "v22.23.4",
+  "results": {
+    "small/own": {
+      "cold": [
+        {
+          "ready_ms": 299.5273750000001,
+          "firstHtml_ms": 136.4437910000006,
+          "interactive_ms": 168.7432920000001,
+          "rss_mb": 127.328125
+        },
+        {
+          "ready_ms": 314.00183299999935,
+          "firstHtml_ms": 135.27645799999937,
+          "interactive_ms": 167.23554200000035,
+          "rss_mb": 128.078125
+        },
+        {
+          "ready_ms": 301.33358299999963,
+          "firstHtml_ms": 133.1324169999989,
+          "interactive_ms": 168.41200000000026,
+          "rss_mb": 127.90625
+        },
+        {
+          "ready_ms": 304.61712499999885,
+          "firstHtml_ms": 132.98141700000087,
+          "interactive_ms": 168.03158299999996,
+          "rss_mb": 127.328125
+        },
+        {
+          "ready_ms": 317.3825420000012,
+          "firstHtml_ms": 132.59012500000063,
+          "interactive_ms": 171.34108299999934,
+          "rss_mb": 128.578125
+        }
+      ],
+      "warm": [
+        {
+          "ready_ms": 326.6383339999993,
+          "firstHtml_ms": 101.47362499999872,
+          "interactive_ms": 173.15416600000026,
+          "rss_mb": 122.296875
+        },
+        {
+          "ready_ms": 306.4545419999995,
+          "firstHtml_ms": 97.90312499999709,
+          "interactive_ms": 162.14695800000118,
+          "rss_mb": 120.78125
+        },
+        {
+          "ready_ms": 309.9990829999988,
+          "firstHtml_ms": 101.94691600000078,
+          "interactive_ms": 167.3695000000007,
+          "rss_mb": 121.34375
+        },
+        {
+          "ready_ms": 311.6725839999999,
+          "firstHtml_ms": 97.68520799999897,
+          "interactive_ms": 168.17854199999783,
+          "rss_mb": 122.40625
+        },
+        {
+          "ready_ms": 315.10520800000086,
+          "firstHtml_ms": 98.46700000000055,
+          "interactive_ms": 173.3428329999988,
+          "rss_mb": 120.234375
+        }
+      ],
+      "edit": [
+        {
+          "ready_ms": 291.5335410000007,
+          "firstHtml_ms": 100.83783399999811,
+          "interactive_ms": 159.87166699999943,
+          "rss_mb": 120.609375,
+          "hmr_ms": 33,
+          "serverEdit_ms": 5.875749999999243,
+          "idle_cpu_pct": 0.6999999999999995
+        },
+        {
+          "ready_ms": 309.2236249999987,
+          "firstHtml_ms": 103.68845800000418,
+          "interactive_ms": 150.09470800000418,
+          "rss_mb": 120.5,
+          "hmr_ms": 32,
+          "serverEdit_ms": 7.350665999998455,
+          "idle_cpu_pct": 0.9000000000000008
+        },
+        {
+          "ready_ms": 317.45308300000033,
+          "firstHtml_ms": 101.71641600000294,
+          "interactive_ms": 163.5244590000002,
+          "rss_mb": 121.421875,
+          "hmr_ms": 32,
+          "serverEdit_ms": 5.738040999996883,
+          "idle_cpu_pct": 1.0000000000000009
+        },
+        {
+          "ready_ms": 351.8723339999997,
+          "firstHtml_ms": 109.35550000000512,
+          "interactive_ms": 146.90437499999825,
+          "rss_mb": 121.515625,
+          "hmr_ms": 33,
+          "serverEdit_ms": 6.920958000002429,
+          "idle_cpu_pct": 1.2
+        },
+        {
+          "ready_ms": 305.54824999999255,
+          "firstHtml_ms": 100.07612500000687,
+          "interactive_ms": 164.4547079999902,
+          "rss_mb": 123.0625,
+          "hmr_ms": 32,
+          "serverEdit_ms": 6.43641700000444,
+          "idle_cpu_pct": 1.2
+        }
+      ]
+    },
+    "small/vite": {
+      "cold": [
+        {
+          "ready_ms": 696.8500419999909,
+          "firstHtml_ms": 221.52224999999453,
+          "interactive_ms": 390.65029199999117,
+          "rss_mb": 273.5625
+        },
+        {
+          "ready_ms": 651.0992080000142,
+          "firstHtml_ms": 212.8467920000112,
+          "interactive_ms": 395.45554199999606,
+          "rss_mb": 164.28125
+        },
+        {
+          "ready_ms": 727.6786250000005,
+          "firstHtml_ms": 220.13524999999208,
+          "interactive_ms": 404.337875000012,
+          "rss_mb": 200.109375
+        },
+        {
+          "ready_ms": 762.9000000000087,
+          "firstHtml_ms": 265.97595800001,
+          "interactive_ms": 466.3517090000096,
+          "rss_mb": 198.546875
+        },
+        {
+          "ready_ms": 615.913625000001,
+          "firstHtml_ms": 224.52912500000093,
+          "interactive_ms": 432.6462909999973,
+          "rss_mb": 292.140625
+        }
+      ],
+      "warm": [
+        {
+          "ready_ms": 618.4013340000092,
+          "firstHtml_ms": 205.51362500000687,
+          "interactive_ms": 370.5019590000011,
+          "rss_mb": 297.984375
+        },
+        {
+          "ready_ms": 597.401165999996,
+          "firstHtml_ms": 212.9706249999872,
+          "interactive_ms": 372.69825000001583,
+          "rss_mb": 296.453125
+        },
+        {
+          "ready_ms": 612.1752080000006,
+          "firstHtml_ms": 205.05379199999152,
+          "interactive_ms": 381.81883400000515,
+          "rss_mb": 297.6875
+        },
+        {
+          "ready_ms": 618.7730409999785,
+          "firstHtml_ms": 208.8674170000013,
+          "interactive_ms": 381.175957999978,
+          "rss_mb": 298
+        },
+        {
+          "ready_ms": 601.7983329999843,
+          "firstHtml_ms": 206.50875000000815,
+          "interactive_ms": 372.9532079999917,
+          "rss_mb": 296.375
+        }
+      ],
+      "edit": [
+        {
+          "ready_ms": 612.2569999999832,
+          "firstHtml_ms": 205.91091700000106,
+          "interactive_ms": 371.0037500000035,
+          "rss_mb": 297.21875,
+          "hmr_ms": 166,
+          "serverEdit_ms": 8.873041999991983,
+          "idle_cpu_pct": 1.3000000000000012
+        },
+        {
+          "ready_ms": 620.9566249999916,
+          "firstHtml_ms": 204.3686250000028,
+          "interactive_ms": 455.30208299998776,
+          "rss_mb": 291.1875,
+          "hmr_ms": 165,
+          "serverEdit_ms": 8.31020800000988,
+          "idle_cpu_pct": 0
+        },
+        {
+          "ready_ms": 619.5958749999991,
+          "firstHtml_ms": 205.9100829999952,
+          "interactive_ms": 449.38649999999325,
+          "rss_mb": 291.09375,
+          "hmr_ms": 103,
+          "serverEdit_ms": 8.637791999994079,
+          "idle_cpu_pct": 0.10000000000000009
+        },
+        {
+          "ready_ms": 667.6339579999913,
+          "firstHtml_ms": 214.47141699999338,
+          "interactive_ms": 452.95508400001563,
+          "rss_mb": 291.25,
+          "hmr_ms": 135,
+          "serverEdit_ms": 8.759583000006387,
+          "idle_cpu_pct": 0
+        },
+        {
+          "ready_ms": 609.2653750000172,
+          "firstHtml_ms": 207.50412500000675,
+          "interactive_ms": 447.37904199998593,
+          "rss_mb": 297.3125,
+          "hmr_ms": 156,
+          "serverEdit_ms": 8.675041000009514,
+          "idle_cpu_pct": 0
+        }
+      ]
+    },
+    "small/vite-tuned": {
+      "cold": [
+        {
+          "ready_ms": 615.4803749999846,
+          "firstHtml_ms": 213.49137500001234,
+          "interactive_ms": 388.4977080000099,
+          "rss_mb": 291.03125
+        },
+        {
+          "ready_ms": 619.5624580000003,
+          "firstHtml_ms": 263.5672499999928,
+          "interactive_ms": 416.1797920000099,
+          "rss_mb": 158.90625
+        },
+        {
+          "ready_ms": 634.3257499999891,
+          "firstHtml_ms": 227.20270799999707,
+          "interactive_ms": 383.7529590000049,
+          "rss_mb": 157.140625
+        },
+        {
+          "ready_ms": 613.6342909999948,
+          "firstHtml_ms": 220.52383299998473,
+          "interactive_ms": 388.24245799999335,
+          "rss_mb": 299.03125
+        },
+        {
+          "ready_ms": 623.6135829999985,
+          "firstHtml_ms": 217.39354099999764,
+          "interactive_ms": 382.4891249999928,
+          "rss_mb": 300.40625
+        }
+      ],
+      "warm": [
+        {
+          "ready_ms": 611.5977910000074,
+          "firstHtml_ms": 213.72133400000166,
+          "interactive_ms": 387.1900409999944,
+          "rss_mb": 292.234375
+        },
+        {
+          "ready_ms": 618.8329169999924,
+          "firstHtml_ms": 214.54495899999165,
+          "interactive_ms": 382.4515839999949,
+          "rss_mb": 290.953125
+        },
+        {
+          "ready_ms": 608.309791000007,
+          "firstHtml_ms": 214.78616699998383,
+          "interactive_ms": 366.83533400000306,
+          "rss_mb": 289.0625
+        },
+        {
+          "ready_ms": 615.5633340000059,
+          "firstHtml_ms": 212.45624999998836,
+          "interactive_ms": 383.0641250000044,
+          "rss_mb": 287.171875
+        },
+        {
+          "ready_ms": 610.3416250000009,
+          "firstHtml_ms": 216.79529199999524,
+          "interactive_ms": 382.23816700000316,
+          "rss_mb": 300.15625
+        }
+      ],
+      "edit": [
+        {
+          "ready_ms": 633.5891249999986,
+          "firstHtml_ms": 226.3731250000419,
+          "interactive_ms": 393.5352910000365,
+          "rss_mb": 193.75,
+          "hmr_ms": 33,
+          "serverEdit_ms": 14.45337499998277,
+          "idle_cpu_pct": 1.4000000000000012
+        },
+        {
+          "ready_ms": 669.320458000002,
+          "firstHtml_ms": 228.17158399999607,
+          "interactive_ms": 464.20758400001796,
+          "rss_mb": 298.140625,
+          "hmr_ms": 33,
+          "serverEdit_ms": 12.173208000021987,
+          "idle_cpu_pct": 0.10000000000000009
+        },
+        {
+          "ready_ms": 672.163125000021,
+          "firstHtml_ms": 216.12166599999182,
+          "interactive_ms": 463.3405830000411,
+          "rss_mb": 293,
+          "hmr_ms": 33,
+          "serverEdit_ms": 10.532209000026342,
+          "idle_cpu_pct": 0.10000000000000009
+        },
+        {
+          "ready_ms": 654.536999999953,
+          "firstHtml_ms": 217.71591700002318,
+          "interactive_ms": 452.7298329999903,
+          "rss_mb": 290.265625,
+          "hmr_ms": 33,
+          "serverEdit_ms": 13.25370900001144,
+          "idle_cpu_pct": 0.10000000000000009
+        },
+        {
+          "ready_ms": 681.0730000000331,
+          "firstHtml_ms": 241.21641700004693,
+          "interactive_ms": 464.28362500004005,
+          "rss_mb": 239.5625,
+          "hmr_ms": 33,
+          "serverEdit_ms": 12.703584000002593,
+          "idle_cpu_pct": 1.3000000000000012
+        }
+      ]
+    }
+  }
+}

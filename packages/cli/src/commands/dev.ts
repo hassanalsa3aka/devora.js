@@ -2,7 +2,7 @@ import path from "node:path";
 import { parseRequestUrl } from "../server/requestUrl.js";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
-import { createServer, type ViteDevServer } from "vite";
+import type { ViteDevServer } from "vite";
 import type { DevServerHandle } from "./devExperimental.js";
 import {
   listRouteFiles,
@@ -28,6 +28,7 @@ import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
 import { reactRefreshPreamblePlugin } from "../server/reactRefreshPreamblePlugin.js";
 import { assertNoAuthUsage } from "../build/checkNoAuthUsage.js";
 import { isDevoraError } from "../build/devoraError.js";
+import { ownEngineNodeProblem } from "../build/engineNode.js";
 import { loadProjectEnv, unloadProjectEnv } from "../build/loadEnvFiles.js";
 import { watchDevChanges, type DevWatcher, type DevWatchTargets } from "../server/devRestart.js";
 import { formatBootSummary, type BootSummaryApp } from "../terminal/bootSummary.js";
@@ -81,6 +82,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     csrf: appConfig.csrf,
   });
   validateCorsConfig(app.name, appConfig.cors);
+  const { createServer } = await import("vite");
   const server = await createServer({
     root: appRoot,
     appType: "custom", // we own the HTML response — see ../server/ssrMiddleware.ts
@@ -223,6 +225,10 @@ export async function startDevSession(root: string, opts: { app?: string; host?:
   const project = await loadProjectConfig(root);
   // The flag (or the old --experimental-dev-server / env switch) beats the config; the default is Vite.
   const engine = resolveEngine(opts.engine ?? (opts.experimentalDevServer ? "own" : undefined), project);
+  if (engine === "own") {
+    const problem = ownEngineNodeProblem();
+    if (problem) throw new Error(problem);
+  }
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 

@@ -42,6 +42,8 @@ const ITEMS = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `Item ${
 
 const FRAMEWORKS = [
   { key: "devora-api", name: "Devora.js", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
+  { key: "devora-vite", name: "Devora.js (Vite engine, this commit)", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
+  { key: "devora-sekhem", name: "Devora.js (Sekhem engine, this commit)", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
   { key: "express", name: "Express 5", pkg: "express", kind: "backend", clean: [] },
   { key: "fastify", name: "Fastify 5", pkg: "fastify", kind: "backend", clean: [] },
   { key: "hono", name: "Hono", pkg: "hono", kind: "backend", clean: [] },
@@ -93,9 +95,14 @@ async function startServer(dir, env) {
   stopServer(child);
   throw new Error(`${dir}: server never answered`);
 }
-function stopServer(child) { try { process.kill(-child.pid, "SIGTERM"); } catch {} }
+function stopServer(child) {
+  try { process.kill(-child.pid, "SIGTERM"); } catch {}
+  // a server that has not let go of its port after 3 s is killed (Next.js on the small Linux machine kept it for more than a minute)
+  setTimeout(() => { try { process.kill(-child.pid, "SIGKILL"); } catch {} }, 3000).unref();
+}
 async function waitPortFree() {
-  for (let i = 0; i < 200; i++) {
+  // 60 s: Next.js on a small Linux machine needed more than the former 10 s to let go of the port
+  for (let i = 0; i < 1200; i++) {
     try { await fetch(`${BASE}/`); await sleep(50); } catch { return; }
   }
   throw new Error(`port ${PORT} is still in use`);

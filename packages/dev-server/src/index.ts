@@ -10,3 +10,4 @@ export { resolveCacheRoot, CACHE_FORMAT } from "./depsCache.js";
 export { createCssGraph } from "./cssGraph.js";
 export { resolveFile, urlForFile, scanImports } from "./core.mjs";
 export { loadPathAliases, resolveAlias, matchGlob, expandGlobs, globToRegExp, parseJsonc, compileCssModule } from "./core.mjs";
+export { buildServerBundle, buildClientBundle, replaceIslandPlaceholders, ISLAND_PLACEHOLDER_PATTERN, type ServerBundleResult, type ClientBundleResult } from "./build.js";

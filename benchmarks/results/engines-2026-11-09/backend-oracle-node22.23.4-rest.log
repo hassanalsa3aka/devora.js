@@ -1,0 +1,222 @@
+
+== NestJS (Express platform)
+build cold 1870 ms, warm 1894 ms
+start 779 ms, idle 172 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== NestJS (Fastify platform)
+build cold 3010 ms, warm 3050 ms
+start 833 ms, idle 176 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Next.js
+build cold 7997 ms, warm 2178 ms
+start 741 ms, idle 158 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== SvelteKit
+build cold 4286 ms, warm 4308 ms
+start 314 ms, idle 132 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== React Router
+build cold 1705 ms, warm 1675 ms
+start 492 ms, idle 152 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Astro
+build cold 2084 ms, warm 1976 ms
+start 481 ms, idle 163 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== load round 1 of 5: nest-express, nest-fastify, next, sveltekit, react-router, astro
+nest-express items: 2847 req/s
+nest-express me: 3165 req/s
+nest-express postValid: 2679 req/s
+nest-express postInvalid: 2461 req/s
+nest-express slow: 3497 req/s
+nest-fastify items: 7361 req/s
+nest-fastify me: 9141 req/s
+nest-fastify postValid: 6883 req/s
+nest-fastify postInvalid: 5399 req/s
+nest-fastify slow: 11291 req/s
+next items: 1045 req/s
+next me: 1182 req/s
+next postValid: 1053 req/s
+next postInvalid: 1045 req/s
+next slow: 1120 req/s
+sveltekit items: 2937 req/s
+sveltekit me: 3347 req/s
+sveltekit postValid: 2641 req/s
+sveltekit postInvalid: 2708 req/s
+sveltekit slow: 3773 req/s
+react-router items: 1259 req/s
+react-router me: 1372 req/s
+react-router postValid: 1372 req/s
+react-router postInvalid: 1380 req/s
+react-router slow: 1400 req/s
+astro items: 1999 req/s
+astro me: 2100 req/s
+astro postValid: 1671 req/s
+astro postInvalid: 1699 req/s
+astro slow: 2463 req/s
+
+== load round 2 of 5: nest-fastify, next, sveltekit, react-router, astro, nest-express
+nest-fastify items: 7765 req/s
+nest-fastify me: 9643 req/s
+nest-fastify postValid: 6846 req/s
+nest-fastify postInvalid: 5444 req/s
+nest-fastify slow: 10859 req/s
+next items: 1049 req/s
+next me: 1186 req/s
+next postValid: 1045 req/s
+next postInvalid: 1054 req/s
+next slow: 1112 req/s
+sveltekit items: 2941 req/s
+sveltekit me: 3290 req/s
+sveltekit postValid: 2644 req/s
+sveltekit postInvalid: 2531 req/s
+sveltekit slow: 3718 req/s
+react-router items: 1258 req/s
+react-router me: 1359 req/s
+react-router postValid: 1382 req/s
+react-router postInvalid: 1378 req/s
+react-router slow: 1388 req/s
+astro items: 1939 req/s
+astro me: 2091 req/s
+astro postValid: 1717 req/s
+astro postInvalid: 1681 req/s
+astro slow: 2514 req/s
+nest-express items: 2828 req/s
+nest-express me: 3127 req/s
+nest-express postValid: 2621 req/s
+nest-express postInvalid: 2432 req/s
+nest-express slow: 3457 req/s
+
+== load round 3 of 5: next, sveltekit, react-router, astro, nest-express, nest-fastify
+next items: 1030 req/s
+next me: 1193 req/s
+next postValid: 1035 req/s
+next postInvalid: 1054 req/s
+next slow: 1114 req/s
+sveltekit items: 2982 req/s
+sveltekit me: 3344 req/s
+sveltekit postValid: 2642 req/s
+sveltekit postInvalid: 2624 req/s
+sveltekit slow: 3700 req/s
+react-router items: 1266 req/s
+react-router me: 1366 req/s
+react-router postValid: 1386 req/s
+react-router postInvalid: 1400 req/s
+react-router slow: 1410 req/s
+astro items: 1980 req/s
+astro me: 2066 req/s
+astro postValid: 1711 req/s
+astro postInvalid: 1681 req/s
+astro slow: 2443 req/s
+nest-express items: 2817 req/s
+nest-express me: 3132 req/s
+nest-express postValid: 2602 req/s
+nest-express postInvalid: 2421 req/s
+nest-express slow: 3463 req/s
+nest-fastify items: 7789 req/s
+nest-fastify me: 9451 req/s
+nest-fastify postValid: 6868 req/s
+nest-fastify postInvalid: 5498 req/s
+nest-fastify slow: 10720 req/s
+
+== load round 4 of 5: sveltekit, react-router, astro, nest-express, nest-fastify, next
+sveltekit items: 2958 req/s
+sveltekit me: 3315 req/s
+sveltekit postValid: 2643 req/s
+sveltekit postInvalid: 2670 req/s
+sveltekit slow: 3763 req/s
+react-router items: 1269 req/s
+react-router me: 1374 req/s
+react-router postValid: 1389 req/s
+react-router postInvalid: 1400 req/s
+react-router slow: 1394 req/s
+astro items: 1969 req/s
+astro me: 2134 req/s
+astro postValid: 1674 req/s
+astro postInvalid: 1673 req/s
+astro slow: 2452 req/s
+nest-express items: 2909 req/s
+nest-express me: 3116 req/s
+nest-express postValid: 2564 req/s
+nest-express postInvalid: 2401 req/s
+nest-express slow: 3472 req/s
+nest-fastify items: 7554 req/s
+nest-fastify me: 9449 req/s
+nest-fastify postValid: 7058 req/s
+nest-fastify postInvalid: 5590 req/s
+nest-fastify slow: 10371 req/s
+next items: 1037 req/s
+next me: 1188 req/s
+next postValid: 1055 req/s
+next postInvalid: 1058 req/s
+next slow: 1133 req/s
+
+== load round 5 of 5: react-router, astro, nest-express, nest-fastify, next, sveltekit
+react-router items: 1280 req/s
+react-router me: 1374 req/s
+react-router postValid: 1385 req/s
+react-router postInvalid: 1391 req/s
+react-router slow: 1403 req/s
+astro items: 1942 req/s
+astro me: 2090 req/s
+astro postValid: 1705 req/s
+astro postInvalid: 1704 req/s
+astro slow: 2485 req/s
+nest-express items: 2869 req/s
+nest-express me: 3200 req/s
+nest-express postValid: 2624 req/s
+nest-express postInvalid: 2389 req/s
+nest-express slow: 3445 req/s
+nest-fastify items: 7861 req/s
+nest-fastify me: 9703 req/s
+nest-fastify postValid: 7081 req/s
+nest-fastify postInvalid: 5556 req/s
+nest-fastify slow: 10438 req/s
+next items: 1024 req/s
+next me: 1173 req/s
+next postValid: 1039 req/s
+next postInvalid: 1042 req/s
+next slow: 1121 req/s
+sveltekit items: 2963 req/s
+sveltekit me: 3331 req/s
+sveltekit postValid: 2621 req/s
+sveltekit postInvalid: 2638 req/s
+sveltekit slow: 3785 req/s
+nest-express: memory after load 257 MB; items 2847, me 3132, postValid 2621, postInvalid 2421, slow 3463
+nest-fastify: memory after load 198 MB; items 7765, me 9451, postValid 6883, postInvalid 5498, slow 10720
+next: memory after load 349 MB; items 1037, me 1186, postValid 1045, postInvalid 1054, slow 1120
+sveltekit: memory after load 277 MB; items 2958, me 3331, postValid 2642, postInvalid 2638, slow 3763
+react-router: memory after load 257 MB; items 1266, me 1372, postValid 1385, postInvalid 1391, slow 1400
+astro: memory after load 283 MB; items 1969, me 2091, postValid 1705, postInvalid 1681, slow 2463
+
+wrote results/backend-raw-2026-11-09-rest.json

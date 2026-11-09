@@ -1,0 +1,187 @@
+
+== Devora.js (Vite engine, this commit)
+build cold 1326 ms, warm 1324 ms
+start 367 ms, idle 149 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Devora.js (Sekhem engine, this commit)
+build cold 888 ms, warm 891 ms
+start 392 ms, idle 148 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Express 5
+build cold 214 ms, warm 215 ms
+start 333 ms, idle 129 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Fastify 5
+build cold 214 ms, warm 213 ms
+start 411 ms, idle 136 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Hono
+build cold 216 ms, warm 218 ms
+start 306 ms, idle 131 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== load round 1 of 5: devora-vite, devora-sekhem, express, fastify, hono
+devora-vite items: 5821 req/s
+devora-vite me: 6397 req/s
+devora-vite postValid: 5788 req/s
+devora-vite postInvalid: 5932 req/s
+devora-vite slow: 9389 req/s
+devora-sekhem items: 6123 req/s
+devora-sekhem me: 6362 req/s
+devora-sekhem postValid: 5809 req/s
+devora-sekhem postInvalid: 5779 req/s
+devora-sekhem slow: 9261 req/s
+express items: 3232 req/s
+express me: 3713 req/s
+express postValid: 2921 req/s
+express postInvalid: 3013 req/s
+express slow: 3991 req/s
+fastify items: 7958 req/s
+fastify me: 12158 req/s
+fastify postValid: 8747 req/s
+fastify postInvalid: 8871 req/s
+fastify slow: 11984 req/s
+hono items: 8810 req/s
+hono me: 12627 req/s
+hono postValid: 8738 req/s
+hono postInvalid: 8941 req/s
+hono slow: 10699 req/s
+
+== load round 2 of 5: devora-sekhem, express, fastify, hono, devora-vite
+devora-sekhem items: 6030 req/s
+devora-sekhem me: 6193 req/s
+devora-sekhem postValid: 5737 req/s
+devora-sekhem postInvalid: 5916 req/s
+devora-sekhem slow: 9146 req/s
+express items: 3163 req/s
+express me: 3801 req/s
+express postValid: 3028 req/s
+express postInvalid: 3039 req/s
+express slow: 4148 req/s
+fastify items: 8915 req/s
+fastify me: 12276 req/s
+fastify postValid: 8688 req/s
+fastify postInvalid: 8969 req/s
+fastify slow: 12594 req/s
+hono items: 8667 req/s
+hono me: 12027 req/s
+hono postValid: 8656 req/s
+hono postInvalid: 8819 req/s
+hono slow: 11746 req/s
+devora-vite items: 6137 req/s
+devora-vite me: 6434 req/s
+devora-vite postValid: 5786 req/s
+devora-vite postInvalid: 5805 req/s
+devora-vite slow: 9613 req/s
+
+== load round 3 of 5: express, fastify, hono, devora-vite, devora-sekhem
+express items: 3294 req/s
+express me: 3713 req/s
+express postValid: 3001 req/s
+express postInvalid: 2982 req/s
+express slow: 4114 req/s
+fastify items: 8771 req/s
+fastify me: 12456 req/s
+fastify postValid: 9192 req/s
+fastify postInvalid: 9480 req/s
+fastify slow: 11192 req/s
+hono items: 8839 req/s
+hono me: 12443 req/s
+hono postValid: 8654 req/s
+hono postInvalid: 8618 req/s
+hono slow: 10856 req/s
+devora-vite items: 6166 req/s
+devora-vite me: 6367 req/s
+devora-vite postValid: 5654 req/s
+devora-vite postInvalid: 5997 req/s
+devora-vite slow: 9507 req/s
+devora-sekhem items: 6152 req/s
+devora-sekhem me: 6219 req/s
+devora-sekhem postValid: 5321 req/s
+devora-sekhem postInvalid: 5818 req/s
+devora-sekhem slow: 9648 req/s
+
+== load round 4 of 5: fastify, hono, devora-vite, devora-sekhem, express
+fastify items: 8697 req/s
+fastify me: 12920 req/s
+fastify postValid: 8792 req/s
+fastify postInvalid: 9221 req/s
+fastify slow: 11298 req/s
+hono items: 8818 req/s
+hono me: 12431 req/s
+hono postValid: 9003 req/s
+hono postInvalid: 9131 req/s
+hono slow: 11914 req/s
+devora-vite items: 6091 req/s
+devora-vite me: 6323 req/s
+devora-vite postValid: 5881 req/s
+devora-vite postInvalid: 5835 req/s
+devora-vite slow: 9481 req/s
+devora-sekhem items: 6280 req/s
+devora-sekhem me: 6627 req/s
+devora-sekhem postValid: 5852 req/s
+devora-sekhem postInvalid: 5955 req/s
+devora-sekhem slow: 9469 req/s
+express items: 3264 req/s
+express me: 3663 req/s
+express postValid: 3028 req/s
+express postInvalid: 3051 req/s
+express slow: 4091 req/s
+
+== load round 5 of 5: hono, devora-vite, devora-sekhem, express, fastify
+hono items: 8693 req/s
+hono me: 12085 req/s
+hono postValid: 8882 req/s
+hono postInvalid: 8974 req/s
+hono slow: 11023 req/s
+devora-vite items: 6051 req/s
+devora-vite me: 6534 req/s
+devora-vite postValid: 5814 req/s
+devora-vite postInvalid: 5829 req/s
+devora-vite slow: 9391 req/s
+devora-sekhem items: 6135 req/s
+devora-sekhem me: 6325 req/s
+devora-sekhem postValid: 5868 req/s
+devora-sekhem postInvalid: 5955 req/s
+devora-sekhem slow: 9624 req/s
+express items: 3180 req/s
+express me: 3706 req/s
+express postValid: 3044 req/s
+express postInvalid: 3064 req/s
+express slow: 4003 req/s
+fastify items: 8822 req/s
+fastify me: 12956 req/s
+fastify postValid: 8829 req/s
+fastify postInvalid: 9141 req/s
+fastify slow: 11941 req/s
+devora-vite: memory after load 223 MB; items 6091, me 6397, postValid 5788, postInvalid 5835, slow 9481
+devora-sekhem: memory after load 223 MB; items 6135, me 6325, postValid 5809, postInvalid 5916, slow 9469
+express: memory after load 197 MB; items 3232, me 3713, postValid 3028, postInvalid 3039, slow 4091
+fastify: memory after load 163 MB; items 8771, me 12456, postValid 8792, postInvalid 9141, slow 11941
+hono: memory after load 163 MB; items 8810, me 12431, postValid 8738, postInvalid 8941, slow 11023
+
+wrote results/backend-raw-2026-11-09-core.json

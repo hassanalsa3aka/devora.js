@@ -1,11 +1,47 @@
 {
-  "name": "@devorajs/dev-server",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Experimental: a Devora.js dev server of its own (esbuild transforms, React Fast Refresh, HMR over a WebSocket, a confined module route). Reached only through `devora dev --experimental-dev-server`; Vite stays the default. Not published.",
+  "name": "@devorajs/sekhem",
+  "version": "0.1.0",
+  "description": "Sekhem: the experimental dev and build engine of Devora.js (esbuild, React Fast Refresh, HMR over a WebSocket, a confined module route, a production build). It does not use Vite. Used through `devora dev --engine=own` and `devora build --engine=own`.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassanalsa3aka/devora.js.git",
+    "directory": "packages/dev-server"
+  },
+  "homepage": "https://github.com/hassanalsa3aka/devora.js#readme",
+  "bugs": {
+    "url": "https://github.com/hassanalsa3aka/devora.js/issues"
+  },
+  "keywords": [
+    "devora",
+    "sekhem",
+    "esbuild",
+    "dev-server",
+    "react",
+    "build"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   },
   "dependencies": {
     "esbuild": "^0.28.2",

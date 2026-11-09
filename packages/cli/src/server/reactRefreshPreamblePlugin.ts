@@ -1,5 +1,4 @@
 import type { Plugin } from "vite";
-import viteReact from "@vitejs/plugin-react";
 
 const VIRTUAL_ID = "virtual:devora-react-refresh-preamble";
 const RESOLVED_ID = "\0" + VIRTUAL_ID;
@@ -36,7 +35,7 @@ export function reactRefreshPreamblePlugin(): Plugin {
       if (id === VIRTUAL_ID) return RESOLVED_ID;
       return null;
     },
-    load(id) {
+    async load(id) {
       if (id !== RESOLVED_ID) return null;
       // "__BASE__" + preambleCode's own already-slash-stripped
       // "@react-refresh" needs the base's own trailing slash to form a
@@ -45,6 +44,8 @@ export function reactRefreshPreamblePlugin(): Plugin {
       // apps' vite.config.ts, so this is hardcoded rather than threaded
       // through from Vite's resolved config for one extra plumbing step
       // this framework doesn't need yet.
+      // Loaded here, not at the top of the file: the own engine imports this file (for the id) and must never load Vite or its plugins.
+      const { default: viteReact } = await import("@vitejs/plugin-react");
       const code = (viteReact.preambleCode as string).replace("__BASE__", "/");
       return { code, map: null };
     },

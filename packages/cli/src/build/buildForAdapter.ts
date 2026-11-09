@@ -9,6 +9,7 @@ import {
   type ProjectConfig,
 } from "@devorajs/core";
 import { loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
+import type { Engine } from "@devorajs/core/config";
 import { buildAppServer } from "./buildAppServer.js";
 import { buildAppStatic } from "./buildAppStatic.js";
 import { assertNoAuthUsage } from "./checkNoAuthUsage.js";
@@ -24,6 +25,8 @@ export interface BuildForAdapterOptions {
    * of `<app>/.vercel/output`. Absolute, or relative to the project root.
    */
   out?: string;
+  /** `"own"`: build with the own engine (Sekhem) instead of Vite. Default `"vite"`. */
+  engine?: Engine;
 }
 
 /**
@@ -111,7 +114,7 @@ export async function buildAppForAdapter(
               ? path.resolve(root, sessionsConfig.store)
               : undefined,
         };
-  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir });
+  const { serverOutDir } = await buildAppServer(appRoot, { backendOnly, sessions, apiDir, engine: options.engine });
   info(`[devora] "${app.name}" built → ${serverOutDir}`);
 
   const { staticRoutes } = await buildAppStatic(appRoot, serverOutDir, appConfig.defaultRenderMode, {

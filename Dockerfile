@@ -21,7 +21,10 @@
 # libc is a common source of exactly that class of native-addon breakage,
 # not worth the smaller image for an unproven benefit here.
 
-FROM node:20-slim AS build
+# Node 24: the full test suite, the four apps built and served in production and both engines passed on Node 24.22.2.
+# Node 26.13 passed the same checks, but its download does not include corepack (checked after installing it with nvm),
+# which the lines below use to pin pnpm, and no image could be built where this was changed, so 24 is used here.
+FROM node:24-slim AS build
 WORKDIR /repo
 # Pinned here, in the image only — NOT via root package.json's
 # "packageManager" field, which was deliberately removed project-wide for
@@ -44,7 +47,7 @@ RUN test -n "$APP_NAME" || (echo "Pass --build-arg APP_NAME=<marketing|dashboard
 # fighting it either.
 RUN node packages/cli/dist/index.js build --app=${APP_NAME}
 
-FROM node:20-slim AS runtime
+FROM node:24-slim AS runtime
 WORKDIR /repo
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
