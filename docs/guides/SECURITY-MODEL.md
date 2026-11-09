@@ -54,7 +54,7 @@ On Vercel and Netlify, a file the CDN serves straight from disk never reaches th
    for one process.
 8. **Validate redirect targets you build from input.** `redirect(next)` refuses a foreign origin, but
    path-only targets are still yours to choose.
-9. **Keep dependencies current.** The CLI requires vite 6.4.4 or later (0.4.0).
+9. **Keep dependencies current.** The CLI requires vite 8.3.7 or later within Vite 8 (0.4.0).
 10. **Do not share the app's domain with sites you do not control.** Cookies can be set across
     subdomains of one domain; host apps for other people, user content and previews on a separate domain.
 

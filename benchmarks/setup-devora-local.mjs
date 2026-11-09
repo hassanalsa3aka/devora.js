@@ -13,6 +13,7 @@ const source = path.join(here, "apps", "devora-api");
 const TSX = path.join(repo, "node_modules", ".bin", "tsx");
 const CLI_SRC = path.join(repo, "packages", "cli", "src", "index.ts");
 const CLI_DIST = path.join(repo, "packages", "cli", "dist", "index.js");
+const CLI_LAUNCHER = path.join(repo, "packages", "cli", "dist", "devora.js");
 for (const [key, engine] of [["devora-vite", "vite"], ["devora-sekhem", "own"]]) {
   const dest = path.join(here, "apps", key);
   fs.rmSync(dest, { recursive: true, force: true });
@@ -21,7 +22,7 @@ for (const [key, engine] of [["devora-vite", "vite"], ["devora-sekhem", "own"]])
   const run = engine === "own" ? `${TSX} ${CLI_SRC}` : `node ${CLI_DIST}`;
   fs.writeFileSync(
     path.join(dest, "package.json"),
-    JSON.stringify({ name: `bench-${key}`, private: true, version: "0.1.0", scripts: { build: `${run} build --engine=${engine}`, start: `node ${CLI_DIST} start` } }, null, 2) + "\n"
+    JSON.stringify({ name: `bench-${key}`, private: true, version: "0.1.0", scripts: { build: `${run} build --engine=${engine}`, start: `node ${CLI_LAUNCHER} start` } }, null, 2) + "\n"
   );
   fs.symlinkSync(path.join(repo, "node_modules"), path.join(dest, "node_modules"));
   const appModules = path.join(dest, "apps", "api", "node_modules", "@devorajs");

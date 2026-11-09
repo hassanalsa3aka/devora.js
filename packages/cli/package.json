@@ -26,7 +26,7 @@
     "node": ">=20"
   },
   "bin": {
-    "devora": "dist/index.js"
+    "devora": "dist/devora.js"
   },
   "files": [
     "dist"
@@ -37,9 +37,9 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
-    "vite": "^6.4.4",
+    "vite": "^8.3.7",
     "jiti": "^2.3.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "esbuild": "^0.28.2"
   },
   "devDependencies": {

@@ -5013,7 +5013,6 @@ var init_branding = __esm({
   "../core/src/branding.tsx"() {
     "use strict";
     import_react3 = __toESM(require_react(), 1);
-    init_theme();
     import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
     ShellUsageContext = (0, import_react3.createContext)(null);
   }
@@ -5023,7 +5022,6 @@ var init_branding = __esm({
 var init_actionResult = __esm({
   "../core/src/actionResult.ts"() {
     "use strict";
-    init_httpError();
   }
 });
 
@@ -5126,8 +5124,6 @@ var init_rateLimit = __esm({
 var init_buildTimeContext = __esm({
   "../core/src/buildTimeContext.ts"() {
     "use strict";
-    init_serverFn();
-    init_router();
   }
 });
 
@@ -5138,15 +5134,6 @@ function resolveRenderMode(routeModule, appDefault) {
 var init_renderRoute = __esm({
   "../core/src/renderRoute.ts"() {
     "use strict";
-    init_html();
-    init_session();
-    init_islandComponent();
-    init_branding();
-    init_actionResult();
-    init_csrf();
-    init_rateLimit();
-    init_buildTimeContext();
-    init_httpError();
   }
 });
 
@@ -5393,7 +5380,6 @@ function isApiPath(pathname) {
 var init_apiRoute = __esm({
   "../core/src/apiRoute.ts"() {
     "use strict";
-    init_httpError();
   }
 });
 
@@ -6068,8 +6054,6 @@ var init_middleware = __esm({
 var init_fastifyAdapter = __esm({
   "../core/src/fastifyAdapter.ts"() {
     "use strict";
-    init_apiRoute();
-    init_module();
   }
 });
 
@@ -6100,13 +6084,6 @@ var init_disposeRegistry = __esm({
 var init_renderStreaming = __esm({
   "../core/src/renderStreaming.ts"() {
     "use strict";
-    init_session();
-    init_islandComponent();
-    init_html();
-    init_branding();
-    init_actionResult();
-    init_httpError();
-    init_renderRoute();
   }
 });
 
@@ -6479,6 +6456,24 @@ function createOpenInEditorGuardPlugin() {
       });
     }
   };
+}
+function createHmrOriginGuardPlugin() {
+  return {
+    name: "devora-hmr-origin-guard",
+    configureServer(server) {
+      server.httpServer?.prependListener("upgrade", (req, socket) => {
+        if (isHmrUpgradeWithoutOrigin(req.headers)) {
+          socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+          socket.destroy();
+        }
+      });
+    }
+  };
+}
+function isHmrUpgradeWithoutOrigin(headers) {
+  const protocol = headers["sec-websocket-protocol"];
+  const speaksHmr = typeof protocol === "string" && protocol.split(",").some((p) => p.trim().startsWith("vite-"));
+  return speaksHmr && (typeof headers.origin !== "string" || headers.origin === "");
 }
 function isCrossSiteDevRequest(headers) {
   const site = headers["sec-fetch-site"];
@@ -8049,6 +8044,7 @@ async function createAppDevServer(opts) {
     plugins: [
       // First, so a request for an unknown host never reaches another middleware.
       createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      createHmrOriginGuardPlugin(),
       // Before Vite's own /__open-in-editor middleware (finding H28).
       createOpenInEditorGuardPlugin(),
       // Also before Vite's own static-file handling (which serves public/ .svg files).
@@ -10482,6 +10478,12 @@ async function start(opts) {
   }
 }
 
+// src/startCommand.ts
+var QUIET_HELP = "only warnings, errors and the app URLs \u2014 no header, route tables or progress lines";
+function addStartCommand(program2) {
+  program2.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
+}
+
 // src/commands/deploy.ts
 async function deploy(opts) {
   forceProductionNodeEnv("deploy");
@@ -11079,7 +11081,6 @@ function reportFatal(err) {
 var program = new Command();
 program.name("devora").description("Devora.js CLI \u2014 the multi-app, security-first framework").version(CLI_VERSION);
 program.hook("preAction", (_program, command) => setQuiet(command.opts().quiet));
-var QUIET_HELP = "only warnings, errors and the app URLs \u2014 no header, route tables or progress lines";
 program.command("dev").description("Run all apps in dev mode (or one with --app)").option("--app <name>", "run only this app").option(
   "--host",
   "listen on all network interfaces (so a phone/other device on your LAN can reach it) \u2014 off by default"
@@ -11088,7 +11089,7 @@ program.command("build").description("Build all apps (or one with --app)").optio
   "--out <dir>",
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
 ).option("--engine <engine>", `build engine: vite (default) or own (${ENGINE_NAME}, experimental); overrides devora.config.ts`).option("--quiet", QUIET_HELP).action(async (opts) => build3(opts));
-program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
+addStartCommand(program);
 var desktop = program.command("desktop").description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
 for (const [name, description, action] of [
   ["dev", "build the app and open it in a window (Tauri 2 shell; needs Rust), or serve it behind the desktop rules on 127.0.0.1 with a per-launch token when the window cannot open", desktopDev],

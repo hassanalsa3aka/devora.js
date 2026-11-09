@@ -21,10 +21,11 @@
 # libc is a common source of exactly that class of native-addon breakage,
 # not worth the smaller image for an unproven benefit here.
 
-# Node 24: the full test suite, the four apps built and served in production and both engines passed on Node 24.22.2.
-# Node 26.13 passed the same checks, but its download does not include corepack (checked after installing it with nvm),
-# which the lines below use to pin pnpm, and no image could be built where this was changed, so 24 is used here.
-FROM node:24-slim AS build
+# Node 26.13 (current LTS): the full test suite, the four apps built and served in production and both engines passed on Node 26.13.0,
+# and builds were 12 to 14% faster than on Node 22 in the measurements on the Performance page. Node 26's download does not include
+# corepack, so pnpm is installed with npm below. No image could be built where this was changed (Docker was not installed): run
+# `docker build` once before relying on it.
+FROM node:26-slim AS build
 WORKDIR /repo
 # Pinned here, in the image only — NOT via root package.json's
 # "packageManager" field, which was deliberately removed project-wide for
@@ -34,7 +35,7 @@ WORKDIR /repo
 # default-deny on install scripts, e.g. esbuild's, that 9.9.0 — what this
 # project has actually been developed and verified against everywhere else
 # — doesn't have) confirmed this isn't hypothetical.
-RUN corepack enable && corepack prepare pnpm@9.9.0 --activate
+RUN npm install --global pnpm@9.9.0
 
 COPY . .
 RUN pnpm install --frozen-lockfile
@@ -47,7 +48,7 @@ RUN test -n "$APP_NAME" || (echo "Pass --build-arg APP_NAME=<marketing|dashboard
 # fighting it either.
 RUN node packages/cli/dist/index.js build --app=${APP_NAME}
 
-FROM node:24-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /repo
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}

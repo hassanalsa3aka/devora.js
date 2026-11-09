@@ -1,4 +1,4 @@
-import { chmod, readFile } from "node:fs/promises";
+import { chmod, readFile, writeFile } from "node:fs/promises";
 import * as esbuild from "esbuild";
 
 /**
@@ -80,6 +80,27 @@ const result = await esbuild.build({
 // esbuild doesn't set the executable bit on its output, and pnpm's `.bin`
 // symlink needs it set on the target for direct invocation to work.
 await chmod("dist/index.js", 0o755);
+
+// `devora start` gets its own, smaller bundle and a launcher that picks between it and the full CLI (see src/startEntry.ts).
+await esbuild.build({
+  entryPoints: ["src/startEntry.ts"],
+  define: { __DEVORA_CLI_VERSION__: JSON.stringify(version) },
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile: "dist/start.js",
+  external: ["commander", "vite", "esbuild", "jiti", "@vitejs/plugin-react", "@devorajs/sekhem"],
+  logLevel: "warning",
+});
+await writeFile(
+  "dist/devora.js",
+  `#!/usr/bin/env node
+// Launcher: \`devora start\` loads the small start bundle, every other command the full CLI.
+const command = process.argv.slice(2).filter((arg) => arg !== "--")[0];
+await import(command === "start" ? "./start.js" : "./index.js");
+`
+);
+await chmod("dist/devora.js", 0o755);
 
 const reactPulledIn = Object.keys(result.metafile.inputs).some((file) =>
   file.includes("/react/") || file.includes("\\react\\")
