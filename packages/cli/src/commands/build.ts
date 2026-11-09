@@ -4,6 +4,7 @@ import { buildAppForAdapter } from "../build/buildForAdapter.js";
 import { PreflightError } from "../build/preflight.js";
 import { forceProductionNodeEnv } from "../build/productionEnv.js";
 import { isDevoraError } from "../build/devoraError.js";
+import { ownEngineNodeProblem } from "../build/engineNode.js";
 import { loadProjectEnv } from "../build/loadEnvFiles.js";
 import { formatDuration, info, plural, printHeader, stdoutPaint } from "../terminal/output.js";
 
@@ -49,6 +50,13 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
     process.exit(1);
   }
 
+  if (engine === "own") {
+    const problem = ownEngineNodeProblem();
+    if (problem) {
+      console.error(problem);
+      process.exit(1);
+    }
+  }
   if (engine === "own") info(`[devora] building with ${ENGINE_NAME} (experimental, not Vite)`);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
