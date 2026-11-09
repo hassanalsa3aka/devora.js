@@ -46,6 +46,16 @@ jobs:
       fail-fast: false
       matrix:
         package-manager: [pnpm, npm, yarn]
+        node: [20]
+        # The pnpm leg also runs on the newer Node lines (tested by hand on 22.23, 24.22 and 26.13: the full suite, the
+        # four apps in dev and production, both engines). Sekhem's tests are skipped below Node 22.15 (vitest.config.ts).
+        include:
+          - package-manager: pnpm
+            node: 22
+          - package-manager: pnpm
+            node: 24
+          - package-manager: pnpm
+            node: 26
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -67,7 +77,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           # No cache: key — this repo has no single lockfile all three
           # managers share (see README.md's cross-package-manager notes),
           # and this workflow's whole point is exercising a real install

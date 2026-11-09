@@ -3,7 +3,7 @@
 // own engine (Sekhem). Same CLI source and the same apps every time; each run is a fresh process after a clean dist/.
 // Vite 7/8 come from DEVORA_VITE7_DIR / DEVORA_VITE8_DIR (folders with node_modules/vite), loaded through vite-override.mjs.
 //   node scripts/measure-build.mjs [--runs=5] [--json=out.json]
-import { spawnSync } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,12 +11,14 @@ import { REPO, makeRepoAppsProject } from "./dev-server-compare/lib.mjs";
 
 const runs = Number((process.argv.find((a) => a.startsWith("--runs=")) ?? "--runs=5").slice(7));
 const jsonOut = process.argv.find((a) => a.startsWith("--json="))?.slice(7);
-const variants = [
+const nodeOk = (() => { const [a, b] = process.versions.node.split(".").map(Number); return a > 22 || (a === 22 && b >= 15); })();
+const allVariants = [
   { name: "vite6", engine: "vite" },
   ...(process.env.DEVORA_VITE7_DIR ? [{ name: "vite7", engine: "vite", vite: process.env.DEVORA_VITE7_DIR }] : []),
   ...(process.env.DEVORA_VITE8_DIR ? [{ name: "vite8", engine: "vite", vite: process.env.DEVORA_VITE8_DIR }] : []),
-  { name: "sekhem", engine: "own" },
+  ...(nodeOk ? [{ name: "sekhem", engine: "own" }] : []), // Sekhem refuses Node older than 22.15
 ];
+const variants = allVariants;
 const size = (dir) => {
   let total = 0;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -39,10 +41,29 @@ try {
         env.NODE_OPTIONS = `--import ${path.join(REPO, "scripts/dev-server-compare/vite-override.mjs")}`;
       }
       const started = performance.now();
-      const r = spawnSync("/usr/bin/time", ["-l", path.join(REPO, "node_modules/.bin/tsx"), path.join(REPO, "packages/cli/src/index.ts"), "build", `--engine=${v.engine}`, "--quiet"], { cwd: project.root, env, encoding: "utf8" });
+      // Peak memory of the whole process tree (the build's own process plus esbuild's helper), sampled every 20 ms: the child
+      // process group is the unit, so a native helper is counted the same for every variant.
+      const child = spawn(path.join(REPO, "node_modules/.bin/tsx"), [path.join(REPO, "packages/cli/src/index.ts"), "build", `--engine=${v.engine}`, "--quiet"], { cwd: project.root, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+      let output = "";
+      child.stdout.on("data", (c) => (output += c));
+      child.stderr.on("data", (c) => (output += c));
+      let peakKb = 0;
+      const sample = setInterval(() => {
+        try {
+          const rows = execFileSync("ps", ["-axo", "pgid=,rss="], { encoding: "utf8" }).split("\n");
+          let sum = 0;
+          for (const row of rows) {
+            const [g, r] = row.trim().split(/\s+/);
+            if (Number(g) === child.pid) sum += Number(r);
+          }
+          peakKb = Math.max(peakKb, sum);
+        } catch {}
+      }, 20);
+      const status = await new Promise((resolve) => child.on("exit", resolve));
+      clearInterval(sample);
       const ms = performance.now() - started;
-      if (r.status !== 0) throw new Error(`${v.name} build failed:\n${(r.stdout + r.stderr).slice(-1200)}`);
-      const rss = Number(/(\d+)\s+maximum resident set size/.exec(r.stderr)?.[1] ?? 0) / 1048576;
+      if (status !== 0) throw new Error(`${v.name} build failed:\n${output.slice(-1200)}`);
+      const rss = peakKb / 1024;
       results[v.name].ms.push(Math.round(ms));
       results[v.name].rssMb.push(Math.round(rss));
       results[v.name].bytes = apps.reduce((n, a) => n + size(path.join(project.root, "apps", a, "dist")), 0);

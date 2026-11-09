@@ -10,6 +10,12 @@ import { defineConfig } from "vitest/config";
  * here exercises server-side rendering (`react-dom/server`'s
  * `renderToString`, real HTML strings), never a browser DOM.
  */
+// Sekhem (the own engine) needs Node 22.15 or later (module.registerHooks): on older Node its module-loader tests are not run,
+// and the CLI refuses the engine with a message (tested in engineNode.test.ts). Every other test runs on every Node line.
+const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split(".").map(Number);
+const ownEngineNodeOk = nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 15);
+const needsOwnEngineNode = ["**/dev-server/src/__tests__/graph.test.ts", "**/server/__tests__/devServerExperimental.integration.test.ts", "**/dev-server/src/__tests__/devServerApp.test.ts"];
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -19,6 +25,6 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     include: ["packages/**/*.test.ts", "packages/**/*.test.tsx", "adapters/**/*.test.ts", "scripts/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", ...(ownEngineNodeOk ? [] : needsOwnEngineNode)],
   },
 });

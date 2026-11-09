@@ -158,7 +158,7 @@ What differs, as seen when these commands were run:
 **What is covered.** CI installs this repository's workspace under npm 10, Yarn 1 and pnpm 9.9 on every push; the tests and every app build run under pnpm only. A new project from the 0.4.0 `create-devora` was installed, run in dev, built, served, given a package and a script and the one-off command, by hand, on Node 20 and Node 22 with npm 10 and 11, Yarn 1.22 and 4.18 (through corepack, default settings) and pnpm 9.15, 10.34 and 12.10: all passed. Bun and Deno were not tested, so they are not listed as supported.
 
 
-**Requirements:** Node 20 or newer, React 18.3 or 19, Vite 6.4.4 or later (new projects start on
+**Requirements:** Node 20 or newer (checked on 20.20, 22.23, 24.22 and 26.13; Sekhem needs 22.15 or newer), React 18.3 or 19, Vite 6.4.4 or later (new projects start on
 React 18 and whichever Vite 6 the install resolves).
 
 Or start from one of the runnable [examples](examples/): a multi-app project, a backend-only

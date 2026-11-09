@@ -104,10 +104,11 @@ async function snapshot(port: number, paths: string[]): Promise<Snap> {
   return out;
 }
 
+const ENGINES = process.env.ONLY_VITE === "1" ? ["vite"] : ["vite", "own"]; // ONLY_VITE=1: Node older than the own engine allows
 const times: Record<string, number> = {};
 const snaps: Record<string, Record<string, Snap>> = { vite: {}, own: {} };
 try {
-  for (const engine of ["vite", "own"]) {
+  for (const engine of ENGINES) {
     times[engine] = build(engine);
     for (const [app, port] of Object.entries(APP_PORTS)) {
       const server = await serve(app, port);
@@ -128,6 +129,15 @@ let identical = 0;
 for (const app of Object.keys(APP_PORTS)) {
   const a = snaps.vite![app];
   const b = snaps.own![app];
+  if (a && ENGINES.length === 1) {
+    for (const [p, x] of Object.entries(a)) {
+      if (p === "<assets>") {
+        if (x.bad.length > 0) failures.push(`${app} assets (vite): ${x.bad.slice(0, 5).join(", ")}`);
+      } else if (x.failed || (x.status >= 500)) failures.push(`${app} ${p}: ${x.failed ?? `status ${x.status}`}`);
+      else compared++, identical++;
+    }
+    continue;
+  }
   if (!a || !b) continue;
   for (const p of Object.keys(a)) {
     if (p === "<assets>") {
@@ -158,7 +168,7 @@ for (const app of Object.keys(APP_PORTS)) {
 }
 if (!process.argv.includes("--keep-output")) project.cleanup();
 else console.log(`kept: ${project.root}`);
-console.log(`build parity: ${identical} of ${compared} routes identical (vite ${(times.vite! / 1000).toFixed(1)} s, own ${(times.own! / 1000).toFixed(1)} s for the four apps, including process start)`);
+console.log(`build parity: ${identical} of ${compared} routes identical (vite ${(times.vite! / 1000).toFixed(1)} s, own ${((times.own ?? 0) / 1000).toFixed(1)} s for the four apps, including process start)`);
 if (failures.length > 0) {
   console.log(`\nFAILED (${failures.length}):`);
   for (const f of failures) console.log(`  - ${f}`);
