@@ -11,7 +11,7 @@
 //  - record who imports whom, for the invalidation above and for the dispose callbacks.
 // Nothing from a request reaches this file: it only sees the specifiers the app's own code imports.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -64,6 +64,8 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
     const p = diskPath(dir, key);
     if (!p) return undefined;
     try {
+      const info = lstatSync(p);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 64 * 1024 * 1024) return undefined; // a link is never followed
       const text = readFileSync(p, "utf8");
       const nl = text.indexOf("\n");
       if (nl === -1 || !text.startsWith("//devora:")) return undefined;

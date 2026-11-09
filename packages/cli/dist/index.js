@@ -41,6 +41,26 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// src/server/requestUrl.ts
+function parseRequestUrl(target) {
+  const raw = target ?? "/";
+  try {
+    return raw.startsWith("/") ? new URL(`http://localhost${raw}`) : new URL(raw, "http://localhost");
+  } catch {
+    return void 0;
+  }
+}
+function sendBadRequest(res) {
+  res.statusCode = 400;
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.end("Bad Request");
+}
+var init_requestUrl = __esm({
+  "src/server/requestUrl.ts"() {
+    "use strict";
+  }
+});
+
 // ../core/src/config.ts
 function resolveAuthMode(project, appName) {
   const app = project.apps.find((a) => a.name === appName);
@@ -6201,7 +6221,8 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
   };
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return next();
       const xml = generateSitemapXml(
@@ -6403,6 +6424,7 @@ var init_ssrMiddleware = __esm({
     init_src();
     init_devSessionOptions();
     init_reactRefreshPreamblePlugin();
+    init_requestUrl();
     DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
     VITE_ASSET_URLS = {
       islandClient: "/island-client.tsx",
@@ -6482,7 +6504,8 @@ function createApiMiddleware(vite, options) {
   const securityHeaders = resolveSecurityHeaders(security);
   return async function apiMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
     if (!isApiPath(url.pathname)) return next();
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
@@ -6536,6 +6559,7 @@ function sendApiResponse2(res, result, noStore = false) {
 var init_apiMiddleware = __esm({
   "src/server/apiMiddleware.ts"() {
     "use strict";
+    init_requestUrl();
     init_src();
     init_devSessionOptions();
   }
@@ -6708,7 +6732,7 @@ async function createExperimentalAppDevServer(options) {
   );
   if (appConfig.backendOnly === true) {
     handlers.push((req, res, next) => {
-      if (req.method !== "GET" && req.method !== "HEAD" || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if (req.method !== "GET" && req.method !== "HEAD" || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status2 = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status2.status;
       for (const [name, value] of Object.entries(status2.headers ?? {})) res.setHeader(name, value);
@@ -6772,6 +6796,7 @@ async function createExperimentalAppDevServer(options) {
 var init_devExperimental = __esm({
   "src/commands/devExperimental.ts"() {
     "use strict";
+    init_requestUrl();
     init_src();
     init_apiMiddleware();
     init_securityHeadersMiddleware();
@@ -6783,6 +6808,7 @@ var init_devExperimental = __esm({
 import { Command } from "commander";
 
 // src/commands/dev.ts
+init_requestUrl();
 init_src();
 import path17 from "node:path";
 import { createRequire } from "node:module";
@@ -7974,7 +8000,7 @@ async function createAppDevServer(opts) {
   server.middlewares.use(createSecurityHeadersMiddleware(appConfig.security));
   if (appConfig.backendOnly === true) {
     server.middlewares.use((req, res, next) => {
-      if (req.method !== "GET" && req.method !== "HEAD" || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if (req.method !== "GET" && req.method !== "HEAD" || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status2 = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status2.status;
       for (const [name, value] of Object.entries(status2.headers ?? {})) res.setHeader(name, value);

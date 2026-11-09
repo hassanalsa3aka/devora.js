@@ -37,7 +37,8 @@ export function createHmrChannel(options: { token: string; hostAllowed: (host: s
   const sockets = new Set<Duplex>();
   return {
     handleUpgrade(req, socket) {
-      const url = new URL(req.url ?? "/", "http://localhost");
+      const target = req.url ?? "/";
+      const url = new URL(target.startsWith("/") ? `http://localhost${target}` : "http://localhost/", "http://localhost");
       if (url.pathname !== HMR_PATH) return refuse(socket, 404, "Not Found");
       if (!options.hostAllowed(req.headers.host)) return refuse(socket, 400, "Bad Request");
       const origin = req.headers.origin;

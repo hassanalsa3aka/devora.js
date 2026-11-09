@@ -4,6 +4,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,14 +17,14 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-function scenario(files: Record<string, string>, steps: Record<string, unknown>[]) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "devora-graph-"));
-  dirs.push(dir);
+function scenario(files: Record<string, string>, steps: Record<string, unknown>[], existing?: { dir: string; cacheDir?: string }) {
+  const dir = existing?.dir ?? fs.mkdtempSync(path.join(os.tmpdir(), "devora-graph-"));
+  if (!existing) dirs.push(dir);
   for (const [name, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
     fs.writeFileSync(path.join(dir, name), content);
   }
-  const out = spawnSync(TSX, [path.join(here, "graphHarness.mts"), JSON.stringify({ dir, steps })], { encoding: "utf8", timeout: 60000 });
+  const out = spawnSync(TSX, [path.join(here, "graphHarness.mts"), JSON.stringify({ dir, cacheDir: existing?.cacheDir, steps })], { encoding: "utf8", timeout: 60000 });
   const line = out.stdout.split("\n").find((l) => l.startsWith("RESULT "));
   if (!line) throw new Error(`harness failed:\n${out.stdout}\n${out.stderr}`);
   return JSON.parse(line.slice(7)) as any[];
@@ -193,5 +194,70 @@ describe("server module invalidation", () => {
     ]);
     expect(r[2].exports.out).toBe(7);
     expect(r[3].invalidated).toEqual(["dep.ts"]); // user.ts no longer imports it: nothing else is invalidated
+  });
+});
+
+describe("compile cache on disk (the next start's shortcut)", () => {
+  const files = { "mod.ts": 'export const value = "one"; export const marker = () => (globalThis as any).__poisoned ?? "clean";', "entry.ts": 'import { value, marker } from "./mod"; export const out = () => `${value}:${marker()}`;' };
+  const setup = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "devora-cachetest-"));
+    dirs.push(dir);
+    const cacheDir = path.join(dir, ".cache");
+    return { dir, cacheDir };
+  };
+  const cacheFiles = (cacheDir: string) => {
+    const out: string[] = [];
+    const walk = (d: string) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : out.push(path.join(d, e.name))));
+    if (fs.existsSync(cacheDir)) walk(cacheDir);
+    return out;
+  };
+
+  it("the second start reads the cache and serves the same result", () => {
+    const { dir, cacheDir } = setup();
+    expect(scenario(files, [{ load: "entry.ts" }], { dir, cacheDir })[0].exports.out).toBe("one:clean");
+    expect(cacheFiles(cacheDir).length).toBeGreaterThan(0);
+    expect(scenario({}, [{ load: "entry.ts" }], { dir, cacheDir })[0].exports.out).toBe("one:clean");
+  });
+
+  it("a source edited while the server was stopped is never served from an old cache entry", () => {
+    const { dir, cacheDir } = setup();
+    scenario(files, [{ load: "entry.ts" }], { dir, cacheDir });
+    const r = scenario({ "mod.ts": 'export const value = "two"; export const marker = () => (globalThis as any).__poisoned ?? "clean";' }, [{ load: "entry.ts" }], { dir, cacheDir });
+    expect(r[0].exports.out).toBe("two:clean");
+  });
+
+  it("a cache entry that was altered on disk is not run", () => {
+    const { dir, cacheDir } = setup();
+    scenario(files, [{ load: "entry.ts" }], { dir, cacheDir });
+    for (const f of cacheFiles(cacheDir)) fs.appendFileSync(f, "\nglobalThis.__poisoned = 'POISONED';\n");
+    const r = scenario({}, [{ load: "entry.ts" }], { dir, cacheDir });
+    expect(r[0].exports.out).toBe("one:clean");
+  });
+
+  it("a cache entry replaced by a link to a self-consistent file elsewhere is not followed", () => {
+    const { dir, cacheDir } = setup();
+    scenario(files, [{ load: "entry.ts" }], { dir, cacheDir });
+    const outside = path.join(dir, "outside");
+    fs.mkdirSync(outside);
+    for (const [i, f] of cacheFiles(cacheDir).entries()) {
+      const text = fs.readFileSync(f, "utf8");
+      const body = text.slice(text.indexOf("\n") + 1) + "\nglobalThis.__poisoned = 'LINKED';\n";
+      const planted = path.join(outside, `p${i}.js`);
+      fs.writeFileSync(planted, `//devora:${createHash("sha256").update(body).digest("hex")}\n${body}`); // valid header and hash
+      fs.rmSync(f);
+      fs.symlinkSync(planted, f);
+    }
+    const r = scenario({}, [{ load: "entry.ts" }], { dir, cacheDir });
+    expect(r[0].exports.out).toBe("one:clean");
+  });
+
+  it("an entry with a wrong or missing header is ignored", () => {
+    const { dir, cacheDir } = setup();
+    scenario(files, [{ load: "entry.ts" }], { dir, cacheDir });
+    const [a, b] = cacheFiles(cacheDir);
+    fs.writeFileSync(a!, "globalThis.__poisoned = 'NOHEADER';");
+    if (b) fs.writeFileSync(b, `//devora:${"0".repeat(64)}\nglobalThis.__poisoned = 'BADHASH';`);
+    const r = scenario({}, [{ load: "entry.ts" }], { dir, cacheDir });
+    expect(r[0].exports.out).toBe("one:clean");
   });
 });

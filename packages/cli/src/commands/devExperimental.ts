@@ -1,4 +1,5 @@
 import path from "node:path";
+import { parseRequestUrl } from "../server/requestUrl.js";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
@@ -173,7 +174,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
   );
   if (appConfig.backendOnly === true) {
     handlers.push((req, res, next) => {
-      if ((req.method !== "GET" && req.method !== "HEAD") || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if ((req.method !== "GET" && req.method !== "HEAD") || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status.status;
       for (const [name, value] of Object.entries(status.headers ?? {})) res.setHeader(name, value);

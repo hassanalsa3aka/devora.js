@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { createServerModuleHost } from "../serverModules.js";
 
-const spec = JSON.parse(process.argv[2]!) as { dir: string; steps: Record<string, any>[] };
+const spec = JSON.parse(process.argv[2]!) as { dir: string; cacheDir?: string; steps: Record<string, any>[] };
 const dir = fs.realpathSync(spec.dir);
-const host = await createServerModuleHost({ appId: "t", projectRoot: dir, roots: [{ prefix: "/_devora/m/app/", dir }] });
+const host = await createServerModuleHost({ appId: "t", projectRoot: dir, roots: [{ prefix: "/_devora/m/app/", dir }], compileCacheDir: spec.cacheDir });
 const abs = (f: string) => path.join(dir, f);
 const rel = (files: string[]) => files.map((f) => path.relative(dir, f)).sort();
 const results: unknown[] = [];

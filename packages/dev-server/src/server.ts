@@ -350,7 +350,9 @@ export default undefined;`;
     }
     try {
       if (!hostAllowed(req.headers.host)) return send(res, 400, "Bad Request: unknown host");
-      const url = new URL(req.url ?? "/", "http://localhost");
+      const target = req.url ?? "/";
+      // Origin-form targets are attached to a fixed origin: "//" and "/\\" are paths, not protocol-relative references (which throw).
+      const url = new URL(target.startsWith("/") ? `http://localhost${target}` : target, "http://localhost");
       const pathname = url.pathname;
       if (pathname.startsWith(MODULE_PREFIX)) return await serveModule(req, res, url);
       if (app && pathname.startsWith(DEPS_PREFIX)) {
@@ -379,7 +381,7 @@ export default undefined;`;
   server.headersTimeout = 15_000;
   server.requestTimeout = 60_000;
   server.on("upgrade", (req, socket) => {
-    if (new URL(req.url ?? "/", "http://localhost").pathname === HMR_PATH) hmr.handleUpgrade(req, socket);
+    if (new URL(req.url?.startsWith("/") ? `http://localhost${req.url}` : "http://localhost/", "http://localhost").pathname === HMR_PATH) hmr.handleUpgrade(req, socket);
     else socket.destroy();
   });
 
@@ -399,6 +401,7 @@ export default undefined;`;
     await depsReady; // what a change means depends on which dependencies are CommonJS
     // A file the watcher reports is already under a real root; anything else (a test, a link) is resolved.
     const file = realDirs.some((d) => changedFile.startsWith(d + path.sep)) ? changedFile : await realPathOf(changedFile);
+    const inside = realDirs.length === 0 || realDirs.some((d) => file.startsWith(d + path.sep));
     transforms.invalidate(file);
     clientModules?.invalidate(file);
     const t = Date.now();
@@ -411,6 +414,9 @@ export default undefined;`;
       trace(`change ${path.relative(options.roots[0]?.dir ?? "", file)} -> ${message.type} sent after ${(performance.now() - began).toFixed(1)} ms`);
     };
     if (!clientModules) return send({ type: "full-reload" });
+    // A change reported under a watched folder whose real path is elsewhere (a link out of the app) is never read: a syntax
+    // error message would otherwise quote a file the server is not allowed to serve.
+    if (!inside) return send({ type: "full-reload" });
     const urlOf = clientModules.urlOf;
     if (CSS_EXT.test(file)) {
       const u = urlOf(file);

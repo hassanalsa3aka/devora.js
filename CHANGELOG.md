@@ -12,6 +12,7 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 
 ## Unreleased
 
+- `devora dev` no longer stops when it receives a request target that starts with two slashes (`GET //` from the local machine ended the process: finding H36 in `ROADMAP.md`). A request target that cannot be read at all gets a 400.
 - `devora dev --experimental-dev-server` (and `DEVORA_EXPERIMENTAL_DEV_SERVER=1`): a dev server of Devora's own (`packages/dev-server`) instead of Vite. It is experimental, runs only from a checkout of this repository (it is not in the published CLI), needs Node 22.15 or later, and is not the default; plain `devora dev` is unchanged. It does not read `vite.config.ts`, so there are no Vite plugins, no PostCSS or Sass, no `--host` and no HTTPS (tsconfig path aliases, CSS modules and `import.meta.glob` are supported). No performance numbers are published. The page, API and session handlers now take a small host interface that Vite satisfies, so both servers run the same code; the integration tests for the dev server run against both (`DEVORA_TEST_DEV_SERVER=experimental`), and `pnpm run compare:dev-parity`, `compare:dev-security`, `check:dev-browser` and `measure:dev-reexec` rerun the comparisons (they start their own servers on ports 11000-11099).
 
 ## 0.4.0 — DATE-TO-FILL

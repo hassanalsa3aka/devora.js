@@ -22,8 +22,10 @@ function makeFixture() {
   const outside = path.join(path.dirname(project.root), `${path.basename(project.root)}-outside`);
   write(path.join(outside, "secret.txt"), "TEST_SECRET_SHOULD_NOT_LEAK=outside-file\n");
   write(path.join(outside, "secret.ts"), "export const secret = 'TEST_SECRET_SHOULD_NOT_LEAK';\n");
+  write(path.join(outside, "secret.module.css"), ".TEST_SECRET_SHOULD_NOT_LEAK { color: red; }\n");
   const app = project.appDir;
   fs.symlinkSync(path.join(outside, "secret.ts"), path.join(app, "link-out.ts"));
+  fs.symlinkSync(path.join(outside, "secret.module.css"), path.join(app, "link-out.module.css"));
   write(path.join(app, "public", "hello.txt"), "hello\n");
   fs.symlinkSync(outside, path.join(app, "public", "link-dir"));
   write(path.join(app, ".env"), "TEST_SECRET_SHOULD_NOT_LEAK=app-env\n");
@@ -146,7 +148,7 @@ async function runChecks(experimental, fixture) {
     [`/@fs/etc/passwd?raw??`, "vite"], [`/@fs/etc/passwd?import&?raw`, "vite"], [`/node_modules/.vite/../../../../../etc/passwd`, "vite"],
     [`/_devora/m/app/.env`, "own"], [`/_devora/m/app/link-out.ts`, "own"], [`/_devora/m/app/link-out.ts?import`, "own"], [`/_devora/m/app/../../../outside/secret.txt`, "own"], [`/_devora/m/app/%2e%2e/%2e%2e/%2e%2e/outside/secret.txt`, "own"],
     [`/_devora/m/app/%252e%252e/%252e%252e/outside/secret.txt`, "own"], [`/_devora/m/app/..%5c..%5coutside%5csecret.txt`, "own"], [`/_devora/m/app/components/Widget.tsx%00.png`, "own"], [`/_devora/m/packages/../../outside/secret.txt`, "own"],
-    [`/_devora/m/${OUT}`, "own"], [`/_devora/deps/../../outside/secret.txt`, "own"], [`/_devora/deps/%2e%2e%2f%2e%2e%2foutside%2fsecret.txt`, "own"], [`/_devora/m/app/.git/config`, "own"], [`/_devora/m/app/package.json`, "own"], [`/_devora/m/app/node_modules/react/package.json`, "own"],
+    [`/_devora/m/${OUT}`, "own"], [`/_devora/deps/../../outside/secret.txt`, "own"], [`/_devora/deps/%2e%2e%2f%2e%2e%2foutside%2fsecret.txt`, "own"], [`/_devora/m/app/link-out.module.css`, "own"], [`/_devora/m/app/link-out.module.css?import`, "own"], [`/_devora/m/app/.git/config`, "own"], [`/_devora/m/app/package.json`, "own"], [`/_devora/m/app/node_modules/react/package.json`, "own"],
     [`/.env`, "both"], [`/hello.txt/../.env`, "both"], [`/link-dir/secret.txt`, "both"], [`/link-dir/secret.ts`, "both"], [`/../../../../etc/passwd`, "both"], [`/%2e%2e/%2e%2e/%2e%2e/etc/passwd`, "both"], [`/..%2f..%2f..%2fetc/passwd`, "both"], [`//etc/passwd`, "both"],
     [`/api/..%2f..%2f..%2fetc/passwd`, "both"], [`/\\..\\..\\etc\\passwd`, "both"], [`/%00/etc/passwd`, "both"], [`/hello.txt%00.png`, "both"], [`/hello.txt?/../.env`, "both"], [`/apps/web/.env`, "both"], [`/apps/web/link-out.ts`, "both"], [`/apps/web/routes/index.tsx`, "both"], [`/vite.config.ts`, "both"], [`/devora.config.ts`, "both"], [`/@fs/`, "both"], [`/.git/config`, "both"],
   ];
@@ -206,6 +208,11 @@ async function runChecks(experimental, fixture) {
   add("Parsing", "Content-Length together with Transfer-Encoding refused (400, or the server closes the connection)", te.status === 400 || (te.status === 0 && te.closed && !te.timedOut), te.timedOut ? "REQUEST FAILED: timeout" : `status ${te.status}`);
   const crlf = await raw(`GET /%0d%0aX-Injected:1 HTTP/1.1\r\nHost: localhost:${PORT}\r\nConnection: close\r\n\r\n`);
   add("Parsing", "encoded CRLF in the path does not split the response (answered, no injected header)", crlf.status > 0 && !/X-Injected/i.test(crlf.text.split("\r\n\r\n")[0] ?? ""), crlf.timedOut ? "REQUEST FAILED: timeout" : `status ${crlf.status}`);
+
+  for (const target of ["//", "/\\", "///x", "//etc/passwd"]) {
+    const odd = await raw(`GET ${target} HTTP/1.1\r\nHost: localhost:${PORT}\r\nConnection: close\r\n\r\n`);
+    add("Parsing", `request target ${JSON.stringify(target)} is answered (a protocol-relative target must not end the server)`, odd.status > 0 && !odd.timedOut && !MARK.test(odd.text), odd.timedOut ? "REQUEST FAILED: timeout" : `status ${odd.status}`);
+  }
 
   // ---- token on scripts
   if (experimental) {
