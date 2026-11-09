@@ -97,7 +97,8 @@ async function startServer(dir, env) {
 }
 function stopServer(child) { try { process.kill(-child.pid, "SIGTERM"); } catch {} }
 async function waitPortFree() {
-  for (let i = 0; i < 200; i++) {
+  // 60 s: Next.js on a small Linux machine needed more than the former 10 s to let go of the port
+  for (let i = 0; i < 1200; i++) {
     try { await fetch(`${BASE}/`); await sleep(50); } catch { return; }
   }
   throw new Error(`port ${PORT} is still in use`);

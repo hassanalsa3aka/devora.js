@@ -1,0 +1,1644 @@
+{
+  "date": "2026-11-09T16:19:12.032Z",
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "memoryGb": 16,
+    "os": "Darwin 27.2.0 (darwin arm64)",
+    "node": "v24.22.2"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 3,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "order": "interleaved (rounds; the start of the list rotates by one each round)",
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora-vite": {
+      "name": "Devora.js (Vite engine, this commit)",
+      "kind": "backend+pages",
+      "version": "0.4.0",
+      "loadAvgAtStart": 2.8681640625,
+      "coreVersion": "0.4.0",
+      "build": {
+        "coldMs": {
+          "median": 605.66875,
+          "min": 597.0472909999999,
+          "max": 721.911167,
+          "runs": [
+            721.911167,
+            605.66875,
+            597.0472909999999
+          ]
+        },
+        "warmMs": {
+          "median": 588.8802089999999,
+          "min": 588.6376660000001,
+          "max": 593.7379999999999,
+          "runs": [
+            593.7379999999999,
+            588.6376660000001,
+            588.8802089999999
+          ]
+        }
+      },
+      "startMs": {
+        "median": 251.77012500000092,
+        "min": 251.45179199999984,
+        "max": 257.9490839999994,
+        "runs": [
+          257.9490839999994,
+          251.45179199999984,
+          251.74324999999953,
+          251.77012500000092,
+          252.15237499999967
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 145.6875,
+        "min": 145.5,
+        "max": 145.9375,
+        "runs": [
+          145.71875,
+          145.6875,
+          145.5,
+          145.9375,
+          145.6875
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 28652.37,
+            "min": 24933.6,
+            "max": 30527.28,
+            "runs": [
+              24933.6,
+              28652.37,
+              30527.28
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 4,
+            "runs": [
+              4,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 44900.37,
+            "min": 42477.1,
+            "max": 45572.37,
+            "runs": [
+              45572.37,
+              42477.1,
+              44900.37
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 43370.19,
+            "min": 43070.55,
+            "max": 43629.1,
+            "runs": [
+              43629.1,
+              43070.55,
+              43370.19
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 43725.1,
+            "min": 43684.37,
+            "max": 43829.82,
+            "runs": [
+              43725.1,
+              43684.37,
+              43829.82
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 16685.2,
+            "min": 16525.46,
+            "max": 16697.1,
+            "runs": [
+              16525.46,
+              16685.2,
+              16697.1
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              6,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 301.75,
+      "loadPositions": [
+        1,
+        5,
+        4
+      ]
+    },
+    "devora-sekhem": {
+      "name": "Devora.js (Sekhem engine, this commit)",
+      "kind": "backend+pages",
+      "version": "0.4.0",
+      "loadAvgAtStart": 2.87841796875,
+      "coreVersion": "0.4.0",
+      "build": {
+        "coldMs": {
+          "median": 476.9713330000013,
+          "min": 475.6658749999988,
+          "max": 565.7519170000014,
+          "runs": [
+            565.7519170000014,
+            476.9713330000013,
+            475.6658749999988
+          ]
+        },
+        "warmMs": {
+          "median": 469.3687499999978,
+          "min": 469.22820800000227,
+          "max": 469.53254200000083,
+          "runs": [
+            469.22820800000227,
+            469.3687499999978,
+            469.53254200000083
+          ]
+        }
+      },
+      "startMs": {
+        "median": 250.76279200000135,
+        "min": 250.50212499999907,
+        "max": 251.10199999999895,
+        "runs": [
+          250.76279200000135,
+          251.10199999999895,
+          250.50212499999907,
+          251.07333300000028,
+          250.7120419999992
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 145.828125,
+        "min": 145.40625,
+        "max": 145.984375,
+        "runs": [
+          145.40625,
+          145.828125,
+          145.84375,
+          145.734375,
+          145.984375
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 30684.37,
+            "min": 30316.37,
+            "max": 30690.19,
+            "runs": [
+              30690.19,
+              30684.37,
+              30316.37
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 45607.28,
+            "min": 45188.37,
+            "max": 45770.19,
+            "runs": [
+              45770.19,
+              45607.28,
+              45188.37
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 43515.64,
+            "min": 43282.91,
+            "max": 43917.1,
+            "runs": [
+              43917.1,
+              43515.64,
+              43282.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 43474.91,
+            "min": 43387.64,
+            "max": 43484.8,
+            "runs": [
+              43387.64,
+              43484.8,
+              43474.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 16433.82,
+            "min": 16296.37,
+            "max": 17737.2,
+            "runs": [
+              16433.82,
+              16296.37,
+              17737.2
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 6,
+            "runs": [
+              5,
+              6,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 373
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 371
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 371
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 371
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 371
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 298.0625,
+      "loadPositions": [
+        2,
+        1,
+        5
+      ]
+    },
+    "express": {
+      "name": "Express 5",
+      "kind": "backend",
+      "version": "5.3.0",
+      "loadAvgAtStart": 2.3076171875,
+      "build": {
+        "coldMs": {
+          "median": 188.38787500000035,
+          "min": 187.7065419999999,
+          "max": 188.3910419999993,
+          "runs": [
+            187.7065419999999,
+            188.38787500000035,
+            188.3910419999993
+          ]
+        },
+        "warmMs": {
+          "median": 189.33949999999822,
+          "min": 188.01358299999993,
+          "max": 189.4752499999995,
+          "runs": [
+            188.01358299999993,
+            189.33949999999822,
+            189.4752499999995
+          ]
+        }
+      },
+      "startMs": {
+        "median": 248.84941699999763,
+        "min": 247.05041699999856,
+        "max": 278.5904589999991,
+        "runs": [
+          278.5904589999991,
+          248.84941699999763,
+          247.45954200000415,
+          247.05041699999856,
+          250.66879199999676
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 138.640625,
+        "min": 138.578125,
+        "max": 138.796875,
+        "runs": [
+          138.609375,
+          138.578125,
+          138.796875,
+          138.640625,
+          138.78125
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 28499.64,
+            "min": 26045.82,
+            "max": 28531.64,
+            "runs": [
+              28531.64,
+              26045.82,
+              28499.64
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 51431.28,
+            "min": 49924.37,
+            "max": 52490.19,
+            "runs": [
+              49924.37,
+              51431.28,
+              52490.19
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 2,
+            "runs": [
+              2,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 42884.37,
+            "min": 42232.73,
+            "max": 43227.64,
+            "runs": [
+              42884.37,
+              42232.73,
+              43227.64
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 43111.28,
+            "min": 41773.1,
+            "max": 43666.91,
+            "runs": [
+              43111.28,
+              41773.1,
+              43666.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 15406.4,
+            "min": 15278.19,
+            "max": 15721.82,
+            "runs": [
+              15278.19,
+              15721.82,
+              15406.4
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 219
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 216
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 216
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 216
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 216
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 183.078125,
+      "loadPositions": [
+        3,
+        2,
+        1
+      ]
+    },
+    "fastify": {
+      "name": "Fastify 5",
+      "kind": "backend",
+      "version": "5.12.7",
+      "loadAvgAtStart": 2.0322265625,
+      "build": {
+        "coldMs": {
+          "median": 189.2963330000057,
+          "min": 188.70154200000252,
+          "max": 189.9390840000051,
+          "runs": [
+            188.70154200000252,
+            189.2963330000057,
+            189.9390840000051
+          ]
+        },
+        "warmMs": {
+          "median": 188.55883400000312,
+          "min": 187.6924169999984,
+          "max": 190.24925000000076,
+          "runs": [
+            187.6924169999984,
+            188.55883400000312,
+            190.24925000000076
+          ]
+        }
+      },
+      "startMs": {
+        "median": 274.8397079999995,
+        "min": 274.5944579999996,
+        "max": 328.5760829999999,
+        "runs": [
+          328.5760829999999,
+          274.62829199999396,
+          274.8397079999995,
+          276.10845800000243,
+          274.5944579999996
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 144.421875,
+        "min": 144.265625,
+        "max": 144.640625,
+        "runs": [
+          144.53125,
+          144.328125,
+          144.421875,
+          144.640625,
+          144.265625
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 39329.46,
+            "min": 39064.73,
+            "max": 39419.64,
+            "runs": [
+              39419.64,
+              39329.46,
+              39064.73
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 81341.1,
+            "min": 80974.55,
+            "max": 81573.82,
+            "runs": [
+              80974.55,
+              81341.1,
+              81573.82
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 69134.55,
+            "min": 66941.1,
+            "max": 70013.1,
+            "runs": [
+              69134.55,
+              66941.1,
+              70013.1
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 69867.64,
+            "min": 68645.82,
+            "max": 69885.1,
+            "runs": [
+              69867.64,
+              68645.82,
+              69885.1
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 16450,
+            "min": 16306,
+            "max": 17164.41,
+            "runs": [
+              16450,
+              16306,
+              17164.41
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 2,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              2
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 4,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 154
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 152
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 152
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 152
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 152
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 176.296875,
+      "loadPositions": [
+        4,
+        3,
+        2
+      ]
+    },
+    "hono": {
+      "name": "Hono",
+      "kind": "backend",
+      "version": "4.13.13",
+      "loadAvgAtStart": 2.005859375,
+      "build": {
+        "coldMs": {
+          "median": 187.01804200000333,
+          "min": 184.17416599999706,
+          "max": 192.59083300000202,
+          "runs": [
+            187.01804200000333,
+            184.17416599999706,
+            192.59083300000202
+          ]
+        },
+        "warmMs": {
+          "median": 194.38070800000423,
+          "min": 186.12066700000287,
+          "max": 195.5926249999975,
+          "runs": [
+            195.5926249999975,
+            186.12066700000287,
+            194.38070800000423
+          ]
+        }
+      },
+      "startMs": {
+        "median": 249.0425419999956,
+        "min": 220.6187079999945,
+        "max": 249.4966659999991,
+        "runs": [
+          249.31329100000585,
+          246.47166699999798,
+          249.0425419999956,
+          249.4966659999991,
+          220.6187079999945
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 137.703125,
+        "min": 137.625,
+        "max": 137.890625,
+        "runs": [
+          137.890625,
+          137.703125,
+          137.625,
+          137.625,
+          137.8125
+        ]
+      },
+      "load": {
+        "items": {
+          "rps": {
+            "median": 37819.64,
+            "min": 36167.2,
+            "max": 38806.4,
+            "runs": [
+              36167.2,
+              38806.4,
+              37819.64
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "me": {
+          "rps": {
+            "median": 74260.37,
+            "min": 73248,
+            "max": 74766.55,
+            "runs": [
+              73248,
+              74766.55,
+              74260.37
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postValid": {
+          "rps": {
+            "median": 64228.37,
+            "min": 63768.73,
+            "max": 64487.28,
+            "runs": [
+              64487.28,
+              64228.37,
+              63768.73
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "postInvalid": {
+          "rps": {
+            "median": 64430.55,
+            "min": 64248.73,
+            "max": 64493.1,
+            "runs": [
+              64430.55,
+              64248.73,
+              64493.1
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        },
+        "slow": {
+          "rps": {
+            "median": 16846.19,
+            "min": 15826.19,
+            "max": 17145.6,
+            "runs": [
+              15826.19,
+              16846.19,
+              17145.6
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 3,
+            "runs": [
+              3,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 4,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4
+            ]
+          },
+          "errorsOrUnexpected": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "wire": {
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 3966,
+            "headerBytes": 138
+          }
+        },
+        "me": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 16,
+            "headerBytes": 136
+          }
+        },
+        "postValid": {
+          "loadTool": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 201,
+            "contentEncoding": null,
+            "bodyBytes": 38,
+            "headerBytes": 136
+          }
+        },
+        "postInvalid": {
+          "loadTool": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 422,
+            "contentEncoding": null,
+            "bodyBytes": 48,
+            "headerBytes": 136
+          }
+        },
+        "slow": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "bodyBytes": 43,
+            "headerBytes": 136
+          }
+        }
+      },
+      "conforms": {
+        "items": true,
+        "me": true,
+        "postValid": true,
+        "postInvalid": true,
+        "slow": true
+      },
+      "memoryAfterLoadMb": 173.40625,
+      "loadPositions": [
+        5,
+        4,
+        3
+      ]
+    }
+  }
+}

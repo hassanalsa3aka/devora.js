@@ -1,0 +1,136 @@
+
+== Devora.js (Vite engine, this commit)
+build cold 592 ms, warm 589 ms
+start 254 ms, idle 154 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Devora.js (Sekhem engine, this commit)
+build cold 470 ms, warm 462 ms
+start 252 ms, idle 154 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Express 5
+build cold 190 ms, warm 201 ms
+start 253 ms, idle 151 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Fastify 5
+build cold 185 ms, warm 187 ms
+start 276 ms, idle 156 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Hono
+build cold 196 ms, warm 195 ms
+start 223 ms, idle 149 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== load round 1 of 3: devora-vite, devora-sekhem, express, fastify, hono
+devora-vite items: 41188 req/s
+devora-vite me: 47865 req/s
+devora-vite postValid: 46177 req/s
+devora-vite postInvalid: 46093 req/s
+devora-vite slow: 17396 req/s
+devora-sekhem items: 40953 req/s
+devora-sekhem me: 47306 req/s
+devora-sekhem postValid: 45567 req/s
+devora-sekhem postInvalid: 45558 req/s
+devora-sekhem slow: 16553 req/s
+express items: 37593 req/s
+express me: 55617 req/s
+express postValid: 46122 req/s
+express postInvalid: 46212 req/s
+(node:81246) TimeoutNegativeWarning: -2330 is a negative number.
+Timeout duration was set to 1.
+(Use `node --trace-warnings ...` to show where the warning was created)
+express slow: 13419 req/s
+fastify items: 52070 req/s
+fastify me: 81713 req/s
+fastify postValid: 70193 req/s
+fastify postInvalid: 69850 req/s
+fastify slow: 16148 req/s
+hono items: 57485 req/s
+hono me: 81440 req/s
+hono postValid: 67657 req/s
+hono postInvalid: 67207 req/s
+hono slow: 15713 req/s
+
+== load round 2 of 3: devora-sekhem, express, fastify, hono, devora-vite
+devora-sekhem items: 41197 req/s
+devora-sekhem me: 47268 req/s
+devora-sekhem postValid: 46041 req/s
+devora-sekhem postInvalid: 45875 req/s
+devora-sekhem slow: 16530 req/s
+express items: 37168 req/s
+express me: 54605 req/s
+express postValid: 45264 req/s
+express postInvalid: 44924 req/s
+express slow: 15396 req/s
+fastify items: 57793 req/s
+fastify me: 83092 req/s
+fastify postValid: 70810 req/s
+fastify postInvalid: 70368 req/s
+fastify slow: 16566 req/s
+hono items: 57270 req/s
+hono me: 80992 req/s
+hono postValid: 67830 req/s
+hono postInvalid: 67488 req/s
+hono slow: 15966 req/s
+devora-vite items: 41011 req/s
+devora-vite me: 47737 req/s
+devora-vite postValid: 46151 req/s
+devora-vite postInvalid: 46143 req/s
+devora-vite slow: 16895 req/s
+
+== load round 3 of 3: express, fastify, hono, devora-vite, devora-sekhem
+express items: 10001 req/s
+express me: 54012 req/s
+express postValid: 44880 req/s
+express postInvalid: 45546 req/s
+express slow: 15237 req/s
+fastify items: 58020 req/s
+fastify me: 82685 req/s
+fastify postValid: 70700 req/s
+fastify postInvalid: 64228 req/s
+fastify slow: 16501 req/s
+hono items: 57159 req/s
+hono me: 81667 req/s
+hono postValid: 67325 req/s
+hono postInvalid: 67082 req/s
+hono slow: 15705 req/s
+devora-vite items: 41159 req/s
+devora-vite me: 44287 req/s
+devora-vite postValid: 45983 req/s
+devora-vite postInvalid: 45991 req/s
+devora-vite slow: 16385 req/s
+devora-sekhem items: 41273 req/s
+devora-sekhem me: 47967 req/s
+devora-sekhem postValid: 43158 req/s
+devora-sekhem postInvalid: 44278 req/s
+devora-sekhem slow: 18270 req/s
+devora-vite: memory after load 231 MB; items 41159, me 47737, postValid 46151, postInvalid 46093, slow 16895
+devora-sekhem: memory after load 238 MB; items 41197, me 47306, postValid 45567, postInvalid 45558, slow 16553
+express: memory after load 188 MB; items 37168, me 54605, postValid 45264, postInvalid 45546, slow 15237
+fastify: memory after load 187 MB; items 57793, me 82685, postValid 70700, postInvalid 69850, slow 16501
+hono: memory after load 189 MB; items 57270, me 81440, postValid 67657, postInvalid 67207, slow 15713
+
+wrote results/backend-raw-2026-11-09.json

@@ -1,0 +1,397 @@
+
+== Devora.js (Vite engine, this commit)
+build cold 646 ms, warm 647 ms
+start 278 ms, idle 136 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Devora.js (Sekhem engine, this commit)
+build cold 531 ms, warm 525 ms
+start 279 ms, idle 137 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Express 5
+build cold 191 ms, warm 193 ms
+start 250 ms, idle 124 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Fastify 5
+build cold 193 ms, warm 196 ms
+start 301 ms, idle 132 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Hono
+build cold 190 ms, warm 196 ms
+start 222 ms, idle 126 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== NestJS (Express platform)
+build cold 1012 ms, warm 776 ms
+start 463 ms, idle 161 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== NestJS (Fastify platform)
+build cold 1122 ms, warm 1091 ms
+start 463 ms, idle 166 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Next.js
+build cold 2676 ms, warm 1534 ms
+start 465 ms, idle 160 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== SvelteKit
+build cold 2230 ms, warm 2189 ms
+start 251 ms, idle 128 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== React Router
+build cold 857 ms, warm 854 ms
+start 324 ms, idle 143 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== Astro
+build cold 1148 ms, warm 1047 ms
+start 334 ms, idle 152 MB
+items: wire probe done (3966 B body), load runs follow, alternating between apps
+me: wire probe done (16 B body), load runs follow, alternating between apps
+postValid: wire probe done (38 B body), load runs follow, alternating between apps
+postInvalid: wire probe done (48 B body), load runs follow, alternating between apps
+slow: wire probe done (43 B body), load runs follow, alternating between apps
+
+== load round 1 of 5: devora-vite, devora-sekhem, express, fastify, hono, nest-express, nest-fastify, next, sveltekit, react-router, astro
+devora-vite items: 23471 req/s
+devora-vite me: 40103 req/s
+devora-vite postValid: 37078 req/s
+devora-vite postInvalid: 39699 req/s
+devora-vite slow: 16584 req/s
+devora-sekhem items: 27697 req/s
+devora-sekhem me: 41354 req/s
+devora-sekhem postValid: 39932 req/s
+devora-sekhem postInvalid: 39935 req/s
+devora-sekhem slow: 17422 req/s
+express items: 12186 req/s
+express me: 16203 req/s
+express postValid: 13707 req/s
+express postInvalid: 13571 req/s
+express slow: 12042 req/s
+fastify items: 33450 req/s
+fastify me: 66809 req/s
+fastify postValid: 60740 req/s
+fastify postInvalid: 60801 req/s
+fastify slow: 15647 req/s
+hono items: 33715 req/s
+hono me: 70362 req/s
+hono postValid: 51649 req/s
+hono postInvalid: 56452 req/s
+hono slow: 16254 req/s
+nest-express items: 11453 req/s
+nest-express me: 14470 req/s
+nest-express postValid: 12749 req/s
+nest-express postInvalid: 11793 req/s
+nest-express slow: 12031 req/s
+nest-fastify items: 31045 req/s
+nest-fastify me: 54980 req/s
+nest-fastify postValid: 51353 req/s
+nest-fastify postInvalid: 41776 req/s
+nest-fastify slow: 15450 req/s
+next items: 5095 req/s
+next me: 5555 req/s
+next postValid: 4902 req/s
+next postInvalid: 4911 req/s
+next slow: 5426 req/s
+sveltekit items: 16661 req/s
+sveltekit me: 22667 req/s
+sveltekit postValid: 17305 req/s
+sveltekit postInvalid: 17812 req/s
+sveltekit slow: 15707 req/s
+react-router items: 5260 req/s
+react-router me: 6042 req/s
+react-router postValid: 6321 req/s
+react-router postInvalid: 6372 req/s
+react-router slow: 5894 req/s
+astro items: 9654 req/s
+astro me: 11369 req/s
+astro postValid: 8354 req/s
+astro postInvalid: 8919 req/s
+astro slow: 10966 req/s
+
+== load round 2 of 5: devora-sekhem, express, fastify, hono, nest-express, nest-fastify, next, sveltekit, react-router, astro, devora-vite
+devora-sekhem items: 27225 req/s
+devora-sekhem me: 40336 req/s
+devora-sekhem postValid: 38937 req/s
+devora-sekhem postInvalid: 39123 req/s
+devora-sekhem slow: 18187 req/s
+express items: 12204 req/s
+express me: 16425 req/s
+express postValid: 14005 req/s
+express postInvalid: 13790 req/s
+express slow: 11682 req/s
+fastify items: 34556 req/s
+fastify me: 71421 req/s
+fastify postValid: 61348 req/s
+fastify postInvalid: 61744 req/s
+fastify slow: 16880 req/s
+hono items: 33399 req/s
+hono me: 69681 req/s
+hono postValid: 56499 req/s
+hono postInvalid: 56519 req/s
+hono slow: 15449 req/s
+nest-express items: 11658 req/s
+nest-express me: 14725 req/s
+nest-express postValid: 13085 req/s
+nest-express postInvalid: 12133 req/s
+nest-express slow: 12289 req/s
+nest-fastify items: 32220 req/s
+nest-fastify me: 60214 req/s
+nest-fastify postValid: 52566 req/s
+nest-fastify postInvalid: 42628 req/s
+nest-fastify slow: 15444 req/s
+next items: 5052 req/s
+next me: 5581 req/s
+next postValid: 4926 req/s
+next postInvalid: 4903 req/s
+next slow: 5457 req/s
+sveltekit items: 16791 req/s
+sveltekit me: 22613 req/s
+sveltekit postValid: 17913 req/s
+sveltekit postInvalid: 17849 req/s
+sveltekit slow: 15752 req/s
+react-router items: 5572 req/s
+react-router me: 6103 req/s
+react-router postValid: 6374 req/s
+react-router postInvalid: 6386 req/s
+react-router slow: 5891 req/s
+astro items: 9780 req/s
+astro me: 11538 req/s
+astro postValid: 9213 req/s
+astro postInvalid: 9195 req/s
+astro slow: 11224 req/s
+devora-vite items: 27409 req/s
+devora-vite me: 41343 req/s
+devora-vite postValid: 40211 req/s
+devora-vite postInvalid: 39705 req/s
+devora-vite slow: 17448 req/s
+
+== load round 3 of 5: express, fastify, hono, nest-express, nest-fastify, next, sveltekit, react-router, astro, devora-vite, devora-sekhem
+express items: 11531 req/s
+express me: 15960 req/s
+express postValid: 13822 req/s
+express postInvalid: 13891 req/s
+express slow: 12022 req/s
+fastify items: 34477 req/s
+fastify me: 71718 req/s
+fastify postValid: 62230 req/s
+fastify postInvalid: 61249 req/s
+fastify slow: 16847 req/s
+hono items: 33913 req/s
+hono me: 70269 req/s
+hono postValid: 57354 req/s
+hono postInvalid: 57811 req/s
+hono slow: 15537 req/s
+nest-express items: 11093 req/s
+nest-express me: 14475 req/s
+nest-express postValid: 12891 req/s
+nest-express postInvalid: 11726 req/s
+nest-express slow: 11813 req/s
+nest-fastify items: 32043 req/s
+nest-fastify me: 58963 req/s
+nest-fastify postValid: 51094 req/s
+nest-fastify postInvalid: 42244 req/s
+nest-fastify slow: 15294 req/s
+next items: 5107 req/s
+next me: 5598 req/s
+next postValid: 4925 req/s
+next postInvalid: 4900 req/s
+next slow: 5483 req/s
+sveltekit items: 16607 req/s
+sveltekit me: 21066 req/s
+sveltekit postValid: 17431 req/s
+sveltekit postInvalid: 17233 req/s
+sveltekit slow: 15467 req/s
+react-router items: 5539 req/s
+react-router me: 6100 req/s
+react-router postValid: 6267 req/s
+react-router postInvalid: 6191 req/s
+react-router slow: 5869 req/s
+astro items: 9912 req/s
+astro me: 11608 req/s
+astro postValid: 9165 req/s
+astro postInvalid: 9208 req/s
+astro slow: 11234 req/s
+devora-vite items: 27511 req/s
+devora-vite me: 36346 req/s
+devora-vite postValid: 39251 req/s
+devora-vite postInvalid: 39929 req/s
+devora-vite slow: 16076 req/s
+devora-sekhem items: 27381 req/s
+devora-sekhem me: 40851 req/s
+devora-sekhem postValid: 38468 req/s
+devora-sekhem postInvalid: 39711 req/s
+devora-sekhem slow: 16480 req/s
+
+== load round 4 of 5: fastify, hono, nest-express, nest-fastify, next, sveltekit, react-router, astro, devora-vite, devora-sekhem, express
+fastify items: 33936 req/s
+fastify me: 70444 req/s
+fastify postValid: 60755 req/s
+fastify postInvalid: 55638 req/s
+fastify slow: 15840 req/s
+hono items: 32892 req/s
+hono me: 69907 req/s
+hono postValid: 53217 req/s
+hono postInvalid: 53462 req/s
+hono slow: 15469 req/s
+nest-express items: 11400 req/s
+nest-express me: 13746 req/s
+nest-express postValid: 12377 req/s
+nest-express postInvalid: 11879 req/s
+nest-express slow: 12069 req/s
+nest-fastify items: 29513 req/s
+nest-fastify me: 61345 req/s
+nest-fastify postValid: 52278 req/s
+nest-fastify postInvalid: 41479 req/s
+nest-fastify slow: 17300 req/s
+next items: 5014 req/s
+next me: 5430 req/s
+next postValid: 4793 req/s
+next postInvalid: 4747 req/s
+next slow: 5447 req/s
+sveltekit items: 16483 req/s
+sveltekit me: 22311 req/s
+sveltekit postValid: 17833 req/s
+sveltekit postInvalid: 17937 req/s
+sveltekit slow: 15790 req/s
+react-router items: 5622 req/s
+react-router me: 6007 req/s
+react-router postValid: 6431 req/s
+react-router postInvalid: 6235 req/s
+react-router slow: 5869 req/s
+astro items: 9722 req/s
+astro me: 11496 req/s
+astro postValid: 9250 req/s
+astro postInvalid: 9221 req/s
+astro slow: 11196 req/s
+devora-vite items: 27208 req/s
+devora-vite me: 41107 req/s
+devora-vite postValid: 36842 req/s
+devora-vite postInvalid: 39437 req/s
+devora-vite slow: 16194 req/s
+devora-sekhem items: 27301 req/s
+devora-sekhem me: 40801 req/s
+devora-sekhem postValid: 39661 req/s
+devora-sekhem postInvalid: 39530 req/s
+devora-sekhem slow: 15966 req/s
+express items: 12315 req/s
+express me: 15439 req/s
+express postValid: 13904 req/s
+express postInvalid: 13512 req/s
+express slow: 12010 req/s
+
+== load round 5 of 5: hono, nest-express, nest-fastify, next, sveltekit, react-router, astro, devora-vite, devora-sekhem, express, fastify
+hono items: 32262 req/s
+hono me: 70217 req/s
+hono postValid: 55114 req/s
+hono postInvalid: 52292 req/s
+hono slow: 15431 req/s
+nest-express items: 11085 req/s
+nest-express me: 14201 req/s
+nest-express postValid: 12859 req/s
+nest-express postInvalid: 11936 req/s
+nest-express slow: 12160 req/s
+nest-fastify items: 31929 req/s
+nest-fastify me: 55702 req/s
+nest-fastify postValid: 53404 req/s
+nest-fastify postInvalid: 42230 req/s
+nest-fastify slow: 15752 req/s
+next items: 5122 req/s
+next me: 5641 req/s
+next postValid: 4985 req/s
+next postInvalid: 4960 req/s
+next slow: 5529 req/s
+sveltekit items: 16734 req/s
+sveltekit me: 22610 req/s
+sveltekit postValid: 17121 req/s
+sveltekit postInvalid: 17351 req/s
+sveltekit slow: 15629 req/s
+react-router items: 5642 req/s
+react-router me: 6074 req/s
+react-router postValid: 6369 req/s
+react-router postInvalid: 6458 req/s
+react-router slow: 5968 req/s
+astro items: 9872 req/s
+astro me: 11551 req/s
+astro postValid: 8579 req/s
+astro postInvalid: 8706 req/s
+astro slow: 11265 req/s
+devora-vite items: 27173 req/s
+devora-vite me: 41098 req/s
+devora-vite postValid: 39949 req/s
+devora-vite postInvalid: 39923 req/s
+devora-vite slow: 16143 req/s
+devora-sekhem items: 27415 req/s
+devora-sekhem me: 41101 req/s
+devora-sekhem postValid: 40083 req/s
+devora-sekhem postInvalid: 40228 req/s
+devora-sekhem slow: 16321 req/s
+express items: 12444 req/s
+express me: 16373 req/s
+express postValid: 14024 req/s
+express postInvalid: 13530 req/s
+express slow: 11973 req/s
+fastify items: 34250 req/s
+fastify me: 71316 req/s
+fastify postValid: 60484 req/s
+fastify postInvalid: 60813 req/s
+fastify slow: 15395 req/s
+devora-vite: memory after load 179 MB; items 27208, me 41098, postValid 39251, postInvalid 39705, slow 16194
+devora-sekhem: memory after load 195 MB; items 27381, me 40851, postValid 39661, postInvalid 39711, slow 16480
+express: memory after load 171 MB; items 12204, me 16203, postValid 13904, postInvalid 13571, slow 12010
+fastify: memory after load 131 MB; items 34250, me 71316, postValid 60755, postInvalid 60813, slow 15840
+hono: memory after load 144 MB; items 33399, me 70217, postValid 55114, postInvalid 56452, slow 15469
+nest-express: memory after load 223 MB; items 11400, me 14470, postValid 12859, postInvalid 11879, slow 12069
+nest-fastify: memory after load 137 MB; items 31929, me 58963, postValid 52278, postInvalid 42230, slow 15450
+next: memory after load 314 MB; items 5095, me 5581, postValid 4925, postInvalid 4903, slow 5457
+sveltekit: memory after load 228 MB; items 16661, me 22610, postValid 17431, postInvalid 17812, slow 15707
+react-router: memory after load 221 MB; items 5572, me 6074, postValid 6369, postInvalid 6372, slow 5891
+astro: memory after load 263 MB; items 9780, me 11538, postValid 9165, postInvalid 9195, slow 11224
+
+wrote results/backend-raw-2026-11-09.json

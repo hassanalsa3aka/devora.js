@@ -14,7 +14,7 @@ import { defineConfig } from "vitest/config";
 // and the CLI refuses the engine with a message (tested in engineNode.test.ts). Every other test runs on every Node line.
 const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split(".").map(Number);
 const ownEngineNodeOk = nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 15);
-const needsOwnEngineNode = ["**/dev-server/src/__tests__/graph.test.ts", "**/server/__tests__/devServerExperimental.integration.test.ts", "**/dev-server/src/__tests__/devServerApp.test.ts"];
+const needsOwnEngineNode = ["**/dev-server/src/__tests__/graph.test.ts", "**/server/__tests__/devServerExperimental.integration.test.ts", "**/server/__tests__/devServerLive.integration.test.ts", "**/dev-server/src/__tests__/devServerApp.test.ts"];
 
 export default defineConfig({
   test: {
