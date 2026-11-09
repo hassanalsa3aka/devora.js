@@ -1,10 +1,11 @@
 /**
  * The Tauri 2 project `devora desktop build` writes next to an app (`desktop/src-tauri/`). Generated from data, so
  * no app code goes into Rust and the security settings cannot drift from the policy in policy.ts. The Rust shell is
- * a template: it is not compiled by the tests (they need no display or desktop toolchain), so the build and the
- * click-through are a manual check.
+ * a template: the tests check what it says (they need no display or Rust toolchain), and what the window does is a
+ * manual check (examples/desktop-app/README.md).
  */
 import { parseIpcAllowlist } from "./policy.js";
+import { buildIconSet } from "./icon.js";
 
 export interface TauriProjectOptions {
   /** Window title and bundle name. */
@@ -14,12 +15,21 @@ export interface TauriProjectOptions {
   version: string;
   /** `desktop.ipc` from app.config.ts; default none. */
   ipc?: unknown;
-  /** Path of the bundled Node + app server binary, relative to src-tauri (Tauri's externalBin). */
+  /**
+   * `desktop build`: declare the server binary the bundle ships (Tauri's externalBin) and require it to exist. `desktop dev`
+   * leaves this out: the dev shell starts the server through the CLI, so there is no binary and no declaration (a declared
+   * binary that does not exist stops the build: "resource path binaries/devora-server-<triple> doesn't exist").
+   */
+  bundleSidecar?: boolean;
+  /** Path of the bundled Node + app server binary, relative to src-tauri (only with `bundleSidecar`). */
   sidecar?: string;
   /** Public key for signed updates; without it the updater is not configured at all. */
   updaterPublicKey?: string;
   updaterEndpoint?: string;
 }
+
+/** The icon set of the generated project (see icons.ts). */
+export const ICON_FILES = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"];
 
 const IDENTIFIER = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+){2,}$/i;
 
@@ -39,7 +49,8 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
     productName: options.productName,
     version: options.version,
     identifier: options.identifier,
-    build: {},
+    // The window shows the server's own origin, never these files; Tauri still wants a folder to embed.
+    build: { frontendDist: "./frontend" },
     app: {
       // The window is created in main.rs once the sidecar's random port is known.
       windows: [],
@@ -51,7 +62,7 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
         capabilities: ["main"],
       },
     },
-    bundle: { active: true, externalBin: [sidecar] },
+    bundle: { active: true, icon: ICON_FILES, ...(options.bundleSidecar ? { externalBin: [sidecar] } : {}) },
     plugins: options.updaterPublicKey && options.updaterEndpoint ? { updater: { pubkey: options.updaterPublicKey, endpoints: [options.updaterEndpoint] } } : {},
   };
 
@@ -67,10 +78,17 @@ export function generateTauriProject(options: TauriProjectOptions): Record<strin
   return {
     "tauri.conf.json": JSON.stringify(conf, null, 2) + "\n",
     "capabilities/main.json": JSON.stringify(capability, null, 2) + "\n",
-    "src/main.rs": mainRs(sidecar),
+    "src/main.rs": mainRs(sidecar, options.productName),
     "Cargo.toml": cargoToml(options),
     "build.rs": "fn main() {\n    tauri_build::build()\n}\n",
+    "frontend/index.html": '<!doctype html><meta charset="utf-8"><title>devora</title><p>Starting the app server\u2026</p>\n',
+    ".gitignore": "target/\ngen/\n",
   };
+}
+
+/** Binary files of the project (the icon set). */
+export function generateTauriBinaryFiles(): Record<string, Buffer> {
+  return buildIconSet();
 }
 
 function cargoToml(options: TauriProjectOptions): string {
@@ -85,28 +103,93 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 rand = "0.8"
 base64 = "0.22"
-url = "2"
 `;
 }
 
-function mainRs(sidecar: string): string {
+/** Injected into every page of the window, as defence in depth: the enforcement is `on_navigation` below. */
+const HARDEN_SCRIPT = `(function () {
+  window.open = function () { return null; };
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a[target]") : null;
+    if (a && a.target !== "_self") { e.preventDefault(); if (a.origin === location.origin) location.assign(a.href); }
+  }, true);
+  document.addEventListener("submit", function (e) {
+    if (e.target && e.target.target && e.target.target !== "_self") e.target.target = "_self";
+  }, true);
+})();`;
+
+/**
+ * DEVORA_DESKTOP_DEBUG=1 (debug builds only): the page tells the server what it sees, and the server prints it, so what the window
+ * really did can be read in the terminal without looking at it: the document's states, scripts and stylesheets that loaded (the
+ * browser may serve them from its cache, so the server's own request log can look empty), errors, a click on the first island's
+ * button, and what window.open returns.
+ */
+export const DIAGNOSTIC_SCRIPT = `(function () {
+  function say(m) { try { new Image().src = "/__devora_desktop/debug/" + encodeURIComponent(String(m).slice(0, 200)) + "?t=" + Date.now(); } catch (e) {} }
+  say("start " + document.readyState + " " + location.origin);
+  document.addEventListener("readystatechange", function () { say("document " + document.readyState + ", " + document.scripts.length + " script(s), " + document.querySelectorAll("link").length + " link(s)"); });
+  document.addEventListener("securitypolicyviolation", function (e) { say("CSP blocked " + e.blockedURI + " (" + e.violatedDirective + ")"); });
+  window.addEventListener("error", function (e) { say("error: " + (e.message || "a resource failed to load") + " " + (e.filename || (e.target && e.target.src) || "")); }, true);
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      var res = performance.getEntriesByType("resource").map(function (r) { return r.name.split("/").pop().split("?")[0]; }).filter(function (n) { return n.indexOf("devora_desktop") === -1 && n !== "debug"; });
+      say("loaded: " + res.join(", ") + " | title: " + document.title + " | h1: " + ((document.querySelector("h1") || {}).textContent || "(none)"));
+      var b = document.querySelector("[data-island] button");
+      var before = b && b.textContent;
+      if (b) b.click();
+      setTimeout(function () { say("island button: " + (b ? before + " -> " + b.textContent : "(no island on this page)") + " | window.open returns " + String(window.open("https://example.com")));
+        var a = document.createElement("a"); a.href = "https://example.com/"; a.target = "_blank"; document.body.appendChild(a); a.click();
+        location.assign("https://example.com/");
+        setTimeout(function () { say("tried a _blank link and location.assign to https://example.com: the window is still on " + location.origin); }, 1500);
+      }, 400);
+    }, 1200);
+  });
+})();`;
+
+export { HARDEN_SCRIPT };
+
+function mainRs(sidecar: string, productName: string): string {
   const binary = sidecar.split("/").pop();
-  return `// Generated by devora desktop. Template: review it, then build it on your machine (see MANUAL-CHECK.md).
-// The shell starts the app's server as a sidecar on 127.0.0.1 with a random port and a per-launch token,
-// opens one window on that origin and refuses every other navigation. That window.open() is refused too must be
-// checked by hand on each OS (MANUAL-CHECK.md); add an on_new_window handler if your Tauri version offers one.
+  return `// Generated by devora desktop. Review it before shipping; what the window does is a manual check
+// (examples/desktop-app/README.md).
+//
+// The shell asks the OS for a free port on 127.0.0.1, makes a per-launch token, starts the app's server on that port with
+// the token in its environment (never on its command line), waits until the server answers, and opens ONE window on that
+// origin. Navigation to any other origin is refused. No command is exposed to the page (see capabilities/main.json).
+// Closing the window stops the server; the server also stops by itself if this process disappears.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use base64::Engine;
 use rand::RngCore;
-use std::net::TcpListener;
-use tauri::{WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_shell::ShellExt;
+use std::error::Error;
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+
+/// The running server process. Dropped (and killed) when the app state goes away, and killed on exit.
+struct Server(Mutex<Option<Child>>);
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
 
 fn free_loopback_port() -> u16 {
+    // Debug builds only: DEVORA_DESKTOP_PORT pins the port while you debug. A release build always asks the OS.
+    #[cfg(debug_assertions)]
+    if let Some(port) = std::env::var("DEVORA_DESKTOP_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        return port;
+    }
     TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()).map(|a| a.port()).expect("no free port")
 }
 
@@ -116,33 +199,142 @@ fn launch_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
+/// Debug builds (devora desktop dev): run the CLI's own server command, handed over in the environment.
+#[cfg(debug_assertions)]
+fn server_command() -> Result<Command, Box<dyn Error>> {
+    let node = std::env::var("DEVORA_DESKTOP_NODE")?;
+    let argv = std::env::var("DEVORA_DESKTOP_SERVER_ARGV")?;
+    let root = std::env::var("DEVORA_DESKTOP_ROOT")?;
+    let mut command = Command::new(node);
+    command.args(argv.split('\\n').filter(|a| !a.is_empty())).current_dir(root);
+    Ok(command)
+}
+
+/// Release builds: the bundled server binary (${binary}, Tauri's externalBin) next to this executable.
+#[cfg(not(debug_assertions))]
+fn server_command() -> Result<Command, Box<dyn Error>> {
+    let exe = std::env::current_exe()?;
+    let dir = exe.parent().ok_or("the executable has no folder")?;
+    Ok(Command::new(dir.join("${binary}")))
+}
+
+fn spawn_server(port: u16, token: &str) -> Result<Child, Box<dyn Error>> {
+    let mut command = server_command()?;
+    command
+        .env("HOST", "127.0.0.1")
+        .env("PORT", port.to_string())
+        .env("NODE_ENV", "production")
+        .env("DEVORA_DESKTOP_TOKEN", token)
+        .env("DEVORA_DESKTOP_PARENT_PID", std::process::id().to_string())
+        .stdin(Stdio::null());
+    Ok(command.spawn()?)
+}
+
+/// Waits until the server accepts a connection; fails (so no window opens) if it exits first or takes over 60 s.
+fn wait_for_server(port: u16, child: &mut Child) -> Result<(), Box<dyn Error>> {
+    let address: SocketAddr = format!("127.0.0.1:{port}").parse()?;
+    let started = Instant::now();
+    loop {
+        if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
+            return Ok(());
+        }
+        if let Some(status) = child.try_wait()? {
+            return Err(format!("the app server exited before it was ready ({status})").into());
+        }
+        if started.elapsed() > Duration::from_secs(60) {
+            return Err("the app server did not answer within 60 seconds".into());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn stop_server(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<Server>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
+
+const HARDEN: &str = r#"${HARDEN_SCRIPT}"#;
+
+/// DEVORA_DESKTOP_DEBUG=1, debug builds: the page reports what it sees to the server's log.
+#[cfg(debug_assertions)]
+const DIAGNOSTIC: &str = r#"${DIAGNOSTIC_SCRIPT}"#;
+
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let port = free_loopback_port();
             let token = launch_token();
+            let mut child = spawn_server(port, &token)?;
+            if let Err(error) = wait_for_server(port, &mut child) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+            app.manage(Server(Mutex::new(Some(child))));
+            // If the app server stops (a crash, or the end of a check run), a window that still shows its last page would be
+            // misleading: close the app too.
+            let watcher = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_millis(500));
+                let stopped = match watcher.try_state::<Server>() {
+                    Some(state) => match state.0.lock() {
+                        Ok(mut guard) => match guard.as_mut() {
+                            Some(child) => child.try_wait().ok().flatten().map(|status| status.code().unwrap_or(1)),
+                            None => return, // already stopped on purpose
+                        },
+                        Err(_) => return,
+                    },
+                    None => return,
+                };
+                if let Some(code) = stopped {
+                    eprintln!("[devora desktop] the app server stopped (exit code {code}): closing the window");
+                    watcher.exit(if code == 0 { 0 } else { 1 });
+                    return;
+                }
+            });
             let origin = format!("http://127.0.0.1:{port}");
-            // The token goes to the server through the environment, never on its command line.
-            let (_rx, _child) = app
-                .shell()
-                .sidecar("${binary}")?
-                .env("HOST", "127.0.0.1")
-                .env("PORT", port.to_string())
-                .env("NODE_ENV", "production")
-                .env("DEVORA_DESKTOP_TOKEN", &token)
-                .spawn()?;
-            // TODO(manual check): wait until the server answers before opening the window.
-            let launch = format!("{origin}/__devora_desktop/launch?token={token}");
-            let allowed = url::Url::parse(&origin)?.origin();
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch.parse()?))
-                .title(app.package_info().name.clone())
-                .on_navigation(move |url| url.origin() == allowed)
-                .build()?;
+            let launch: tauri::Url = format!("{origin}/__devora_desktop/launch?token={token}").parse()?;
+            let allowed = tauri::Url::parse(&origin)?.origin();
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(launch))
+                .title("${productName}")
+                .inner_size(1100.0, 760.0)
+                .initialization_script(HARDEN)
+                // Any URL whose origin is not the server's own is refused: no other site is ever shown in this window.
+                .on_navigation(move |url| url.origin() == allowed);
+            #[cfg(debug_assertions)]
+            let builder = if std::env::var("DEVORA_DESKTOP_DEBUG").is_ok() { builder.initialization_script(DIAGNOSTIC) } else { builder };
+            let window = builder.build()?;
+            // Started from a terminal, the app is not the active one: without this, macOS creates the window but keeps it
+            // off screen until something activates the app. Show it and take focus.
+            let _ = window.show();
+            let _ = window.set_focus();
+            // "devora desktop dev" starts this from a terminal: macOS does not let such an app take over the screen, so the
+            // window can open behind other windows, and the web view then pauses loading ("occluded"). Float it on top for a
+            // moment so it is seen and starts loading; a debug build only.
+            #[cfg(debug_assertions)]
+            {
+                let _ = window.set_always_on_top(true);
+                let raised = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    let _ = raised.set_always_on_top(false);
+                });
+            }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the desktop app");
+        .build(tauri::generate_context!())
+        .expect("error while building the desktop app")
+        .run(|app, event| {
+            if let RunEvent::Exit = event {
+                stop_server(app);
+            }
+        });
 }
 `;
 }

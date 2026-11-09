@@ -51,7 +51,12 @@ export async function startDesktopServer(options: { token: string; handler: Desk
   const host = options.host ?? DESKTOP_HOST;
   assertLoopbackHost(host);
   const port = options.port ?? (await pickLoopbackPort());
+  const debug = process.env.DEVORA_DESKTOP_DEBUG === "1"; // prints each request (path only, never the query or the token)
   const server = http.createServer((req, res) => {
+    if (debug) {
+      res.on("finish", () => console.log(`[devora desktop] ${req.method} ${(req.url ?? "").split("?")[0]} -> ${res.statusCode}`));
+      res.on("close", () => !res.writableFinished && console.log(`[devora desktop] ${req.method} ${(req.url ?? "").split("?")[0]} -> closed before it was answered`));
+    }
     if (!isDesktopHostHeader(req.headers.host, port)) {
       res.statusCode = 400;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -59,6 +64,21 @@ export async function startDesktopServer(options: { token: string; handler: Desk
       return;
     }
     if (guardDesktopRequest(options.token, req, res) !== "allowed") return;
+    if (debug && (req.url ?? "").startsWith("/__devora_desktop/debug/")) {
+      // what the page says about itself (DEVORA_DESKTOP_DEBUG=1; only reaches here with the launch token)
+      let message = "";
+      try {
+        message = decodeURIComponent((req.url ?? "").slice("/__devora_desktop/debug/".length).split("?")[0]!);
+      } catch {
+        message = "(unreadable)";
+      }
+      console.log(`[devora desktop] page: ${message.replace(/[\u0000-\u001f]/g, " ")}`);
+      res.statusCode = 204;
+      res.end();
+      // `pnpm run check:desktop-window`: the last report ends the run (the shell notices the server stopped and closes)
+      if (process.env.DEVORA_DESKTOP_EXIT_AFTER_REPORT === "1" && message.startsWith("tried a _blank link")) setTimeout(() => process.exit(0), 300);
+      return;
+    }
     Promise.resolve(options.handler(req, res)).catch((error: unknown) => {
       console.error("[devora desktop] request failed:", error);
       if (!res.headersSent) res.statusCode = 500;
