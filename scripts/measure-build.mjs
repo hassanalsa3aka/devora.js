@@ -13,9 +13,10 @@ const runs = Number((process.argv.find((a) => a.startsWith("--runs=")) ?? "--run
 const jsonOut = process.argv.find((a) => a.startsWith("--json="))?.slice(7);
 const nodeOk = (() => { const [a, b] = process.versions.node.split(".").map(Number); return a > 22 || (a === 22 && b >= 15); })();
 const allVariants = [
-  { name: "vite6", engine: "vite" },
+  // the repository's own Vite (8.3.7 since this release) is "vite8"; older majors come from folders with node_modules/vite
+  ...(process.env.DEVORA_VITE6_DIR ? [{ name: "vite6", engine: "vite", vite: process.env.DEVORA_VITE6_DIR }] : []),
   ...(process.env.DEVORA_VITE7_DIR ? [{ name: "vite7", engine: "vite", vite: process.env.DEVORA_VITE7_DIR }] : []),
-  ...(process.env.DEVORA_VITE8_DIR ? [{ name: "vite8", engine: "vite", vite: process.env.DEVORA_VITE8_DIR }] : []),
+  { name: "vite8", engine: "vite" },
   ...(nodeOk ? [{ name: "sekhem", engine: "own" }] : []), // Sekhem refuses Node older than 22.15
 ];
 const variants = allVariants;
