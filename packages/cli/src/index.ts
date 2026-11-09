@@ -4,7 +4,7 @@ import { ENGINE_NAME } from "@devorajs/core/config";
 import { dev } from "./commands/dev.js";
 import { build } from "./commands/build.js";
 import { desktopBuild, desktopDev, desktopServe } from "./commands/desktop.js";
-import { start } from "./commands/start.js";
+import { addStartCommand } from "./startCommand.js";
 import { deploy } from "./commands/deploy.js";
 import { newApp, scaffoldApp } from "./commands/new.js";
 import { removeApp } from "./commands/remove.js";
@@ -27,7 +27,7 @@ program
 // module's progress output follows it (terminal/output.ts).
 program.hook("preAction", (_program, command) => setQuiet(command.opts().quiet));
 
-const QUIET_HELP = "only warnings, errors and the app URLs — no header, route tables or progress lines";
+import { QUIET_HELP } from "./startCommand.js";
 
 program
   .command("dev")
@@ -56,14 +56,7 @@ program
   .option("--quiet", QUIET_HELP)
   .action(async (opts) => build(opts));
 
-program
-  .command("start")
-  .description("Serve a production build (adapter-node) — run `devora build` first")
-  .option("--app <name>", "serve only this app")
-  .option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)")
-  .option("--host <host>", "interface to bind (default: $HOST, else all interfaces)")
-  .option("--quiet", QUIET_HELP)
-  .action(async (opts) => start(opts));
+addStartCommand(program);
 
 const desktop = program
   .command("desktop")

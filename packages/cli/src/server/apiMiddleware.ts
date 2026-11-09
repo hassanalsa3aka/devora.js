@@ -120,6 +120,33 @@ export function createOpenInEditorGuardPlugin(): Plugin {
   };
 }
 
+/**
+ * Finding H34: Vite's HMR WebSocket accepted a client that sent no `Origin` header. Browsers always send one, so only a local
+ * non-browser process could connect (it can already read the project files), but there is no reason to let it: an upgrade to the
+ * HMR protocol without an Origin is closed before Vite sees it. A browser's upgrade is untouched; the other checks (Host, and
+ * Vite's own token) stay where they were.
+ */
+export function createHmrOriginGuardPlugin(): Plugin {
+  return {
+    name: "devora-hmr-origin-guard",
+    configureServer(server) {
+      server.httpServer?.prependListener("upgrade", (req, socket) => {
+        if (isHmrUpgradeWithoutOrigin(req.headers)) {
+          socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+          socket.destroy();
+        }
+      });
+    },
+  };
+}
+
+/** True for a WebSocket upgrade that speaks Vite's HMR protocol and carries no `Origin`. */
+export function isHmrUpgradeWithoutOrigin(headers: Record<string, string | string[] | undefined>): boolean {
+  const protocol = headers["sec-websocket-protocol"];
+  const speaksHmr = typeof protocol === "string" && protocol.split(",").some((p) => p.trim().startsWith("vite-"));
+  return speaksHmr && (typeof headers.origin !== "string" || headers.origin === "");
+}
+
 /** True when the browser says the request came from another site or origin. */
 export function isCrossSiteDevRequest(headers: Record<string, string | string[] | undefined>): boolean {
   const site = headers["sec-fetch-site"];

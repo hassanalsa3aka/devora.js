@@ -124,11 +124,13 @@ describe("dev server", () => {
     });
     const port = (dev.httpServer!.address() as AddressInfo).port;
     expect((await get(port, { Host: `localhost:${port}` }, "/", "localhost")).status).toBe(200);
-    expect((await get(port, { Host: "evil.com" }, "/", "localhost")).status).toBe(400);
-    expect((await get(port, { Host: "evil.com" }, "/api/whatever", "localhost")).status).toBe(400);
+    // An unlisted host is refused either by Devora's check (400) or, on Vite 7 and 8, by Vite's own host check, which gets the same list and answers 403 first.
+    const refused = (status: number) => expect([400, 403]).toContain(status);
+    refused((await get(port, { Host: "evil.com" }, "/", "localhost")).status);
+    refused((await get(port, { Host: "evil.com" }, "/api/whatever", "localhost")).status);
     // Finding H22: a listed host that is not localhost reaches the app; Vite's own check does not answer 403 for it.
     expect((await get(port, { Host: "app.example.com" }, "/", "localhost")).status).toBe(200);
     expect((await get(port, { Host: "dev.example.org" }, "/", "localhost")).status).toBe(200);
-    expect((await get(port, { Host: "app.example.com.evil.com" }, "/", "localhost")).status).toBe(400);
+    refused((await get(port, { Host: "app.example.com.evil.com" }, "/", "localhost")).status);
   }, 30_000);
 });

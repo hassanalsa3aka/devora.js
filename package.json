@@ -8,7 +8,7 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
-    "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs",
+    "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs && node scripts/docsSiteUrl.mjs --check",
     "compare:dev-parity": "node scripts/dev-server-compare/parity.mjs",
     "compare:build-parity": "tsx scripts/dev-server-compare/build-parity.mts",
     "check:no-vite": "node scripts/check-no-vite.mjs",

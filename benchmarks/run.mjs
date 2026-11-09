@@ -57,6 +57,9 @@ const ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 // Build outputs and caches to delete for a cold build.
 const FRAMEWORKS = [
   { key: "devora", name: "Devora.js", pkg: "@devorajs/cli", clean: ["apps/bench/dist", "apps/bench/node_modules/.vite", "node_modules/.vite"] },
+  // this commit's CLI, built with the Vite engine and with Sekhem (node benchmarks/setup-devora-local.mjs creates the two folders)
+  { key: "devora-pages-vite", name: "Devora.js (Vite 8 engine, this commit)", pkg: "@devorajs/cli", clean: ["apps/bench/dist", "apps/bench/node_modules/.vite", "node_modules/.vite"] },
+  { key: "devora-pages-sekhem", name: "Devora.js (Sekhem engine, this commit)", pkg: "@devorajs/cli", clean: ["apps/bench/dist"] },
   { key: "next", name: "Next.js", pkg: "next", clean: [".next"] },
   { key: "astro", name: "Astro", pkg: "astro", clean: ["dist", ".astro", "node_modules/.astro", "node_modules/.vite"] },
   { key: "sveltekit", name: "SvelteKit", pkg: "@sveltejs/kit", clean: ["build", ".svelte-kit", "node_modules/.vite"] },
@@ -338,7 +341,7 @@ try {
     const dir = path.join(HERE, "apps", fw.key);
     console.log(`\n== ${fw.name}`);
     const r = { name: fw.name, version: installedVersion(dir, fw.pkg) };
-    if (fw.key === "devora") r.coreVersion = installedVersion(dir, "@devorajs/core");
+    if (fw.key.startsWith("devora")) r.coreVersion = installedVersion(dir, "@devorajs/core");
 
     const cold = [], warm = [];
     for (let i = 0; i < CONFIG.buildRuns; i++) {

@@ -164,7 +164,7 @@ This section exists to stop scope creep. If it's listed here, it does not go int
 
 - ❌ Real-time/live-query sync engine (the "modern Meteor" piece) — v2, only if v1 users ask for it.
 - ❌ Built-in ORM, auth provider, or file storage — bring your own in v1.
-- ⏳ Desktop and native mobile apps — planned goals, not started, no dates. If they happen, business logic, backend client, validation and design tokens would be shared and the UI would be platform-specific. Not part of v1.
+- ⏳ Native mobile apps — a planned goal, not started, no dates (a desktop target exists since 0.4.0, experimental: `devora desktop`, see ROADMAP.md). If mobile happens, business logic, backend client, validation and design tokens would be shared and the UI would be platform-specific. Not part of v1.
 - ❌ Formal third-party security audit / signed provenance — v2, once API is stable.
 - ❌ "Best in market" security or SEO claims — these are earned over time, not asserted at launch.
 - ❌ Custom RSC-style server/client serialization protocol — too large and too security-sensitive for v1.
