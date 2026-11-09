@@ -1,4 +1,5 @@
 import path from "node:path";
+import { parseRequestUrl } from "../server/requestUrl.js";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { createServer, type ViteDevServer } from "vite";
@@ -160,7 +161,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
   if (appConfig.backendOnly === true) {
     // No pages: GET / gets the same small JSON status as in production.
     server.middlewares.use((req, res, next) => {
-      if ((req.method !== "GET" && req.method !== "HEAD") || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if ((req.method !== "GET" && req.method !== "HEAD") || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status.status;
       for (const [name, value] of Object.entries(status.headers ?? {})) res.setHeader(name, value);
