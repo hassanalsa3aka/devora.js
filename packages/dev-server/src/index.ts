@@ -2,9 +2,10 @@ export { assertDevOnly, createDevHostCheck, generateDevToken, hostName, tokenMat
 export { resolveServedFile, type ServedRoot, type ResolveResult } from "./files.js";
 export { createTransformCache, isTransformable } from "./transform.js";
 export { createHmrChannel, HMR_PATH, HMR_PROTOCOL, type HmrChannel } from "./hmr.js";
-export { startExperimentalDevServer, trace, MODULE_PREFIX, PREAMBLE_PATH, type DevServer, type DevServerOptions } from "./server.js";
+export { startExperimentalDevServer, listAppScripts, trace, MODULE_PREFIX, PREAMBLE_PATH, type DevServer, type DevServerOptions } from "./server.js";
 export { createServerModuleHost, type ServerModuleHost } from "./serverModules.js";
 export { createClientModules, type ClientModules, type ClientModule } from "./clientModules.js";
 export { createDepsManager, type DepsManager } from "./deps.js";
+export { resolveCacheRoot, CACHE_FORMAT } from "./depsCache.js";
 export { createCssGraph } from "./cssGraph.js";
 export { resolveFile, urlForFile, scanImports } from "./core.mjs";

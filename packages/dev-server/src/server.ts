@@ -6,7 +6,7 @@
  * to the same page and API handlers `devora dev` uses.
  */
 import http from "node:http";
-import { watch, type FSWatcher } from "node:fs";
+import { realpathSync, watch, type FSWatcher } from "node:fs";
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -102,6 +102,12 @@ const TYPES: Record<string, string> = {
 const IGNORED_DIRS = new Set(["node_modules", "dist", ".vercel", ".netlify", "netlify"]);
 const FRAMEWORK_CLIENT_DEPS = ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "react-refresh/runtime", "@devorajs/core/client"];
 
+export async function listAppScripts(appRoot: string): Promise<string[]> {
+  const out: string[] = [];
+  await walkScripts(appRoot, out);
+  return out;
+}
+
 async function walkScripts(dir: string, out: string[], depth = 0): Promise<void> {
   if (depth > 8) return;
   let entries;
@@ -119,7 +125,7 @@ async function walkScripts(dir: string, out: string[], depth = 0): Promise<void>
 }
 
 /** The bare imports browser code of this app needs: from the framework's client scripts, island targets and csr routes. */
-async function discoverClientDeps(appRoot: string, extra: string[]): Promise<string[]> {
+async function discoverClientDeps(appRoot: string, extra: string[]): Promise<{ deps: string[]; files: string[] }> {
   const files: string[] = [];
   await walkScripts(appRoot, files);
   const entries = new Set<string>();
@@ -162,7 +168,7 @@ async function discoverClientDeps(appRoot: string, extra: string[]): Promise<str
       }
     }
   }
-  return [...deps];
+  return { deps: [...deps], files: [...seen] };
 }
 
 export async function startExperimentalDevServer(options: DevServerOptions): Promise<DevServer> {
@@ -179,6 +185,7 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
 
   let deps: DepsManager | undefined;
   let clientModules: ClientModules | undefined;
+  const realDirs: string[] = [];
   // The dependency bundle is prepared in the background: the server listens first (as Vite's does) and a request that needs
   // the bundle waits for it. A failure is printed at once and answered as a 500 naming the dependency.
   let depsReady: Promise<void> = Promise.resolve();
@@ -187,6 +194,7 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
     // Files are looked up by real path (symlinks followed), so the URL table is keyed by real paths too.
     const realRoots = await Promise.all(options.roots.map(async (r) => ({ ...r, dir: await realpath(r.dir).catch(() => r.dir) })));
     clientModules = createClientModules({ roots: realRoots, deps: () => deps });
+    realDirs.push(...realRoots.map((r) => r.dir));
     depsReady = (async () => {
       const resolvable: string[] = [];
       const { createRequire } = await import("node:module");
@@ -205,9 +213,18 @@ export async function startExperimentalDevServer(options: DevServerOptions): Pro
       }
       trace("dependency scan starts");
       const found = await discoverClientDeps(app.appRoot, [...resolvable, ...(app.clientDeps ?? [])]);
-      trace(`dependency scan done (${found.length} dependencies)`);
-      deps = await createDepsManager(app.appRoot, found, { cache: app.depsCache });
+      trace(`dependency scan done (${found.deps.length} dependencies, ${found.files.length} browser modules)`);
+      deps = await createDepsManager(app.appRoot, found.deps, { cache: app.depsCache });
       trace(`dependency bundle ready (${deps.fromCache ? "from the cache" : "built"})`);
+      // The browser modules this app is known to need are transformed now, in parallel, so the browser's requests find them ready.
+      void (async () => {
+        let next = 0;
+        const worker = async () => {
+          while (next < found.files.length) await clientModules!.load(found.files[next++]!).catch(() => {});
+        };
+        await Promise.all(Array.from({ length: Math.min(12, found.files.length) }, worker));
+        trace("browser modules prepared");
+      })();
     })().catch((error: Error) => {
       depsError = error;
       console.error(error.message);
@@ -350,26 +367,42 @@ export default undefined;`;
     (await realpath(file).catch(async () => path.join(await realpath(path.dirname(file)).catch(() => path.dirname(file)), path.basename(file))));
 
   async function changed(changedFile: string): Promise<void> {
+    const began = performance.now();
     await depsReady; // what a change means depends on which dependencies are CommonJS
-    const file = await realPathOf(changedFile);
+    // A file the watcher reports is already under a real root; anything else (a test, a link) is resolved.
+    const file = realDirs.some((d) => changedFile.startsWith(d + path.sep)) ? changedFile : await realPathOf(changedFile);
     transforms.invalidate(file);
     clientModules?.invalidate(file);
-    app?.onChange?.(file);
     const t = Date.now();
-    if (!clientModules) return hmr.broadcast({ type: "full-reload" });
+    // The browser is told first; the server's own modules are invalidated right after. Except for a full reload: the page
+    // request that follows it must already see the new modules.
+    const send = (message: { type: string; [k: string]: unknown }) => {
+      if (message.type === "full-reload") app?.onChange?.(file);
+      hmr.broadcast(message);
+      if (message.type !== "full-reload") app?.onChange?.(file);
+      trace(`change ${path.relative(options.roots[0]?.dir ?? "", file)} -> ${message.type} sent after ${(performance.now() - began).toFixed(1)} ms`);
+    };
+    if (!clientModules) return send({ type: "full-reload" });
     const urlOf = clientModules.urlOf;
     if (CSS_EXT.test(file)) {
       const u = urlOf(file);
-      return u ? hmr.broadcast({ type: "css-update", url: u, t }) : hmr.broadcast({ type: "full-reload" });
+      return u ? send({ type: "css-update", url: u, t }) : send({ type: "full-reload" });
     }
-    if (!/\.(tsx|ts|jsx|js|mjs)$/.test(file)) return hmr.broadcast({ type: "full-reload" });
+    if (!/\.(tsx|ts|jsx|js|mjs)$/.test(file)) return send({ type: "full-reload" });
     try {
       await clientModules.load(file); // a syntax error is reported to the overlay instead of reloading into a 500
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return hmr.broadcast({ type: "full-reload" }); // deleted or renamed
-      return hmr.broadcast({ type: "error", message: error instanceof Error ? error.message : String(error) });
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return send({ type: "full-reload" }); // deleted or renamed
+      // A save can be seen half-written (empty or cut short): look once more before showing an error.
+      await new Promise((r) => setTimeout(r, 25));
+      try {
+        clientModules.invalidate(file);
+        await clientModules.load(file);
+      } catch (again) {
+        return send({ type: "error", message: again instanceof Error ? again.message : String(again) });
+      }
     }
-    if (!clientModules.wasLoaded(file)) return hmr.broadcast({ type: "full-reload" });
+    if (!clientModules.wasLoaded(file)) return send({ type: "full-reload" });
     // Fast Refresh: the nearest modules that accept updates; any path that reaches a module that does not -> full reload.
     const boundaries = new Set<string>();
     const seen = new Set<string>();
@@ -387,29 +420,41 @@ export default undefined;`;
     };
     visit(file);
     const urls = [...boundaries].map((f) => urlOf(f)).filter((u): u is string => u !== undefined);
-    if (reload || urls.length === 0) return hmr.broadcast({ type: "full-reload" });
-    hmr.broadcast({ type: "update", urls, t });
+    if (reload || urls.length === 0) return send({ type: "full-reload" });
+    send({ type: "update", urls, t });
   }
 
   const watchers: FSWatcher[] = [];
   if (options.watch !== false) {
-    const pending = new Map<string, NodeJS.Timeout>();
+    // No timer between the file system event and the update. A save usually raises two events (truncate, then write) a
+    // fraction of a millisecond apart: while a file is being handled, another event for it only marks it to be handled once
+    // more afterwards, so the last content always wins and nothing is processed twice at the same time.
+    const running = new Set<string>();
+    const again = new Set<string>();
+    const handle = async (full: string): Promise<void> => {
+      if (running.has(full)) {
+        again.add(full);
+        return;
+      }
+      running.add(full);
+      try {
+        do {
+          again.delete(full);
+          await changed(full).catch((error) => console.error("[devora dev-server]", error));
+        } while (again.has(full));
+      } finally {
+        running.delete(full);
+      }
+    };
     for (const r of options.roots) {
       try {
+        const dir = realpathSync(r.dir); // events then name real paths: no lookup per event
         watchers.push(
-          watch(r.dir, { recursive: true }, (_event, file) => {
+          watch(dir, { recursive: true }, (_event, file) => {
             if (!file) return;
             const parts = String(file).split(path.sep);
             if (parts.some((s) => s.startsWith(".") || IGNORED_DIRS.has(s))) return;
-            const full = path.join(r.dir, String(file));
-            clearTimeout(pending.get(full));
-            pending.set(
-              full,
-              setTimeout(() => {
-                pending.delete(full);
-                void changed(full).catch((error) => console.error("[devora dev-server]", error));
-              }, 15)
-            );
+            void handle(path.join(dir, String(file)));
           })
         );
       } catch {

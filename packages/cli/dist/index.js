@@ -6627,7 +6627,10 @@ async function createExperimentalAppDevServer(options) {
   const packagesDir = path16.join(opts.projectRoot, "packages");
   if (existsSync8(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
   devServer.trace("cli: dev-server module loaded");
-  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots });
+  const cacheRoot = await devServer.resolveCacheRoot(appRoot);
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path16.join(cacheRoot, "compiled-v1") : void 0 });
+  void devServer.listAppScripts(appRoot).then((files) => modules.prewarm(files)).catch(() => {
+  });
   const cssGraph = devServer.createCssGraph(roots);
   const publicDir = resolvePublicDir(appRoot);
   const host = {
@@ -6649,6 +6652,7 @@ async function createExperimentalAppDevServer(options) {
       backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {
+        cssGraph.clear(file);
         for (const f of modules.invalidate(file)) runAndClearDisposable(f);
         clearStreamingModuleCache();
       }

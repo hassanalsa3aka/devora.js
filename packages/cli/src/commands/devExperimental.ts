@@ -85,7 +85,10 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
   if (existsSync(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
 
   devServer.trace("cli: dev-server module loaded");
-  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots });
+  const cacheRoot = await devServer.resolveCacheRoot(appRoot);
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path.join(cacheRoot, "compiled-v1") : undefined });
+  // Compile the app's files in parallel while the first request has not arrived yet (best effort).
+  void devServer.listAppScripts(appRoot).then((files) => modules.prewarm(files)).catch(() => {});
   const cssGraph = devServer.createCssGraph(roots);
   const publicDir = resolvePublicDir(appRoot);
   const host: DevPageHost = {
@@ -108,6 +111,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
       backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {
+        cssGraph.clear(file);
         // The same cleanup Vite's hot-update hook does: run the dispose callbacks of the changed module and of what imports it.
         for (const f of modules.invalidate(file)) runAndClearDisposable(f);
         clearStreamingModuleCache();

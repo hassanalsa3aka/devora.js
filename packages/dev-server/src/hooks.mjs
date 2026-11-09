@@ -10,10 +10,13 @@
 //    its URL;
 //  - record who imports whom, for the invalidation above and for the dispose callbacks.
 // Nothing from a request reaches this file: it only sees the specifiers the app's own code imports.
-import { readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { transformSync } from "esbuild";
+import { transform, transformSync } from "esbuild";
 import { ASSET_EXT, CSS_EXT, applyEdits, islandEditsSync, parseModule, resolveFileSync, splitSourceMap, urlForFile } from "./core.mjs";
 
 const SCHEME = "devora-src:";
@@ -35,6 +38,9 @@ function fileOf(url) {
   const clean = url.split("?")[0].split("#")[0];
   return fileURLToPath(clean.startsWith(SCHEME) ? `file://${clean.slice(SCHEME.length + 2, -SUFFIX.length)}` : clean);
 }
+const esbuildVersion = createRequire(import.meta.url)("esbuild/package.json").version;
+const COMPILE_CACHE_FORMAT = 1;
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const srcUrl = (file, epoch) => `${SCHEME}//${pathToFileURL(file).pathname}${SUFFIX}?devora=${epoch}`;
 
 /**
@@ -42,10 +48,77 @@ const srcUrl = (file, epoch) => `${SCHEME}//${pathToFileURL(file).pathname}${SUF
  * graph operations the host needs.
  */
 export function createServerHooks({ projectRoot, frozen = [] }) {
+  let defaultCacheDir; // framework modules (not part of any app) use the first app's cache folder
   const apps = new Map(); // app id -> { roots, versions, outgoing and importers (the import graph), loaded (files that have been loaded), unresolved (modules with an import that did not resolve) }
   let counter = 0;
   // Compiled output by file, kept across versions: an edit recompiles only the files that changed.
   const compiled = new Map();
+
+  // The same output on disk, for the next start. An entry's name is the SHA-256 of what it was made from (the source text
+  // itself, the file's path, esbuild's version, the cache format), so a changed file can never find a stale entry, and its
+  // first line holds the SHA-256 of the rest: an entry that does not match is ignored. Output that contains an island call is
+  // never cached on disk (its URL depends on other files).
+  const diskKeyOf = (file, source) => sha256(`${COMPILE_CACHE_FORMAT}\0${esbuildVersion}\0${file}\0${source}`);
+  const diskPath = (dir, key) => (dir ? path.join(dir, key.slice(0, 2), `${key}.js`) : undefined);
+  function readDisk(dir, key) {
+    const p = diskPath(dir, key);
+    if (!p) return undefined;
+    try {
+      const text = readFileSync(p, "utf8");
+      const nl = text.indexOf("\n");
+      if (nl === -1 || !text.startsWith("//devora:")) return undefined;
+      const code = text.slice(nl + 1);
+      return sha256(code) === text.slice(9, nl) ? code : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  const writeQueue = [];
+  let writing = false;
+  function writeDisk(dir, key, code) {
+    const p = diskPath(dir, key);
+    if (!p) return;
+    writeQueue.push([p, code]);
+    if (writing) return;
+    writing = true;
+    setImmediate(function drain() {
+      for (let i = 0; i < 25 && writeQueue.length > 0; i++) {
+        const [target, body] = writeQueue.shift();
+        try {
+          mkdirSync(path.dirname(target), { recursive: true });
+          const tmp = `${target}.${process.pid}.tmp`;
+          writeFileSync(tmp, `//devora:${sha256(body)}\n${body}`);
+          renameSync(tmp, target);
+        } catch {
+          // a cache that cannot be written is only slower
+        }
+      }
+      if (writeQueue.length > 0) setImmediate(drain);
+      else writing = false;
+    });
+  }
+
+  const transformOptions = (file, ext) => ({
+    loader: LOADERS[ext] ?? "js",
+    format: "esm",
+    jsx: "automatic",
+    target: "es2022",
+    sourcemap: "inline",
+    sourcefile: file,
+    // The module's URL is not a file URL here, so code that reads its own location gets the real one.
+    define: { "import.meta.url": JSON.stringify(pathToFileURL(file).href), "import.meta.dirname": JSON.stringify(path.dirname(file)), "import.meta.filename": JSON.stringify(file) },
+  });
+  /** Island URLs, once esbuild has produced plain JavaScript (they depend on where the app's files are served). */
+  function withIslandUrls(code, file, roots) {
+    if (!code.includes("island")) return code;
+    const { code: body, map } = splitSourceMap(code);
+    const edits = islandEditsSync(
+      parseModule(body),
+      (spec) => (spec.startsWith(".") ? resolveFileSync(path.resolve(path.dirname(file), spec)) : undefined),
+      (f) => urlForFile(f, roots)
+    );
+    return applyEdits(body, edits) + map;
+  }
 
   const isFrameworkSource = (file) => !inNodeModules(file) && frozen.some((dir) => file === dir || file.startsWith(dir + path.sep));
   const isVersioned = (file) => !!projectRoot && !inNodeModules(file) && file.startsWith(projectRoot + path.sep) && !isFrameworkSource(file);
@@ -127,37 +200,62 @@ export function createServerHooks({ projectRoot, frozen = [] }) {
         const hit = compiled.get(file);
         if (hit?.key === key) return { format: "module", source: hit.code, shortCircuit: true };
         const source = readFileSync(file, "utf8");
-        let code;
-        try {
-          code = transformSync(source, {
-            loader: LOADERS[ext] ?? "js",
-            format: "esm",
-            jsx: "automatic",
-            target: "es2022",
-            sourcemap: "inline",
-            sourcefile: file,
-            // The module's URL is not a file URL here, so code that reads its own location gets the real one.
-            define: { "import.meta.url": JSON.stringify(pathToFileURL(file).href), "import.meta.dirname": JSON.stringify(path.dirname(file)), "import.meta.filename": JSON.stringify(file) },
-          }).code;
-        } catch (error) {
-          throw new Error(`[devora dev-server] cannot transform ${file}: ${error.message}`);
+        const diskKey = diskKeyOf(file, source);
+        const cacheDir = app?.compileCacheDir ?? defaultCacheDir;
+        let code = readDisk(cacheDir, diskKey);
+        if (code === undefined) {
+          try {
+            code = transformSync(source, transformOptions(file, ext)).code;
+          } catch (error) {
+            throw new Error(`[devora dev-server] cannot transform ${file}: ${error.message}`);
+          }
+          if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
         }
-        if (versioned && code.includes("island")) {
-          const { code: body, map } = splitSourceMap(code);
-          const edits = islandEditsSync(
-            parseModule(body),
-            (spec) => (spec.startsWith(".") ? resolveFileSync(path.resolve(path.dirname(file), spec)) : undefined),
-            (f) => urlForFile(f, rootsOf(url))
-          );
-          code = applyEdits(body, edits) + map;
-        }
+        if (versioned) code = withIslandUrls(code, file, rootsOf(url));
         compiled.set(file, { key, code });
         return { format: "module", source: code, shortCircuit: true };
       },
     },
 
-    addApp(id, roots) {
-      apps.set(id, { roots, versions: new Map(), outgoing: new Map(), importers: new Map(), loaded: new Set(), unresolved: new Set() });
+    /**
+     * Compiles files in parallel (esbuild's asynchronous API) into the same caches the load hook reads, so the first page
+     * request finds them ready. Best effort: a file that fails here is reported by the load hook when it is really needed.
+     */
+    async prewarm(id, files, concurrency = 16) {
+      const app = apps.get(id);
+      if (!app) return;
+      let next = 0;
+      const worker = async () => {
+        while (next < files.length) {
+          const file = files[next++];
+          try {
+            const ext = path.extname(file).toLowerCase();
+            if (!LOADERS[ext]) continue;
+            const versioned = isVersioned(file);
+            const info = await stat(file);
+            const key = `${info.size}:${info.mtimeMs}:${versioned}`;
+            if (compiled.get(file)?.key === key) continue;
+            const source = await readFile(file, "utf8");
+            const diskKey = diskKeyOf(file, source);
+            const cacheDir = app.compileCacheDir ?? defaultCacheDir;
+            let code = readDisk(cacheDir, diskKey);
+            if (code === undefined) {
+              code = (await transform(source, transformOptions(file, ext))).code;
+              if (!code.includes("island")) writeDisk(cacheDir, diskKey, code);
+            }
+            if (versioned) code = withIslandUrls(code, file, app.roots);
+            compiled.set(file, { key, code });
+          } catch {
+            // left to the load hook
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+    },
+
+    addApp(id, roots, compileCacheDir) {
+      defaultCacheDir ??= compileCacheDir;
+      apps.set(id, { compileCacheDir, roots, versions: new Map(), outgoing: new Map(), importers: new Map(), loaded: new Set(), unresolved: new Set() });
     },
 
     /** The URL to import to get this file's current version, for an app. */

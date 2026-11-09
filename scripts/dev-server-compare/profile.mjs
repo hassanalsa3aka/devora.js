@@ -75,6 +75,9 @@ console.log(`ready (spawn -> address printed): ${readyMs.toFixed(0)} ms   intera
 console.log("\nstart-up steps and the first requests:");
 for (const line of out.split("\n").filter((l) => l.includes("trace]")).slice(0, 40)) console.log(" ", line.replace("[devora dev-server trace] ", ""));
 
+console.log("\nthe last server-edit rounds (change event handling, then the page request that shows it):");
+for (const line of out.split("\n").filter((l) => /change |GET \/ ->/.test(l)).slice(-16)) console.log(" ", line.replace("[devora dev-server trace] ", ""));
+
 const files = fs.readdirSync(profDir.dir).filter((f) => f.endsWith(".cpuprofile")).map((f) => path.join(profDir.dir, f));
 const biggest = files.map((f) => ({ f, size: fs.statSync(f).size })).sort((a, b) => b.size - a.size)[0];
 if (biggest) {

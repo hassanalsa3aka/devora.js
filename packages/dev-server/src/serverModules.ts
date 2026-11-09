@@ -34,19 +34,22 @@ export interface ServerModuleHost {
   ssrLoadModule(file: string): Promise<Record<string, unknown>>;
   /** A file changed: it and the modules that import it run again at the next import. Returns those files. */
   invalidate(file: string): string[];
+  /** Compiles these files in parallel ahead of the first request (best effort). */
+  prewarm(files: string[]): Promise<void>;
   /** Files whose modules have been loaded (tests and trace). */
   loaded(): string[];
   ssrFixStacktrace(error: Error): void;
 }
 
-export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[] }): Promise<ServerModuleHost> {
+export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[]; compileCacheDir?: string }): Promise<ServerModuleHost> {
   const hooks = ensureRegistered(path.resolve(options.projectRoot));
-  hooks.addApp(options.appId, options.roots);
+  hooks.addApp(options.appId, options.roots, options.compileCacheDir);
   return {
     // `devora-src:` is the scheme the hooks own (see hooks.mjs): nothing else compiles these files.
     ssrLoadModule: (file) => import(hooks.entryUrl(options.appId, file)) as Promise<Record<string, unknown>>,
     invalidate: (file) => hooks.invalidate(options.appId, file),
     loaded: () => hooks.loaded(options.appId),
+    prewarm: (files) => hooks.prewarm(options.appId, files),
     ssrFixStacktrace(error) {
       // Frames name `devora-src://<file>.devora-module?devora=...:line:col` (generated code); show the file and line written.
       if (typeof error?.stack !== "string") return;
