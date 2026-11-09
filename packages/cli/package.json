@@ -49,6 +49,6 @@
     "@devorajs/adapter-netlify": "*",
     "@devorajs/scaffold": "*",
     "@devorajs/desktop": "*",
-    "@devorajs/dev-server": "*"
+    "@devorajs/sekhem": "*"
   }
 }

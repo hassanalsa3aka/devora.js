@@ -168,7 +168,7 @@ async function buildAppClientOwn(appRoot: string, islandFiles: string[]): Promis
   for (const file of islandFiles) entries[clientEntryName(appRoot, file)] = file;
   for (const file of csrFiles) entries[toBuildKey(appRoot, file)] = file;
 
-  const { buildClientBundle } = await import("@devorajs/dev-server");
+  const { buildClientBundle } = await import("@devorajs/sekhem");
   const { urls } = await buildClientBundle({ appRoot, entries, outDir: clientOutDir, publicDir, logLevel: "warning" });
   const islandUrls = new Map<string, string>();
   const csrUrls = new Map<string, string>();

@@ -23,7 +23,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-export const PUBLISHED = ["packages/core", "packages/cli", "adapters/adapter-node", "adapters/adapter-vercel", "adapters/adapter-netlify", "create-devora"];
+export const PUBLISHED = ["packages/core", "packages/cli", "packages/dev-server", "adapters/adapter-node", "adapters/adapter-vercel", "adapters/adapter-netlify", "create-devora"];
 
 const ALWAYS = /^(package\.json|README(\.[a-z]+)?|LICENSE(\.[a-z]+)?|LICENCE(\.[a-z]+)?|CHANGELOG(\.[a-z]+)?)$/i;
 const NEVER = [

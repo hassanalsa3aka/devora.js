@@ -109,7 +109,7 @@ export async function buildAppServer(
   const islandPlaceholders = new Map<string, string>();
   const routeCss: Record<string, string[]> = {};
   if (engine === "own") {
-    const { buildServerBundle } = await import("@devorajs/dev-server");
+    const { buildServerBundle } = await import("@devorajs/sekhem");
     const built = await buildServerBundle({ appRoot, entries: input, outDir: serverOutDir, logLevel: "warning" });
     for (const [placeholder, file] of built.islands) islandPlaceholders.set(placeholder, file);
     Object.assign(routeCss, built.routeCss);

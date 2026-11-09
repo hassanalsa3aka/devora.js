@@ -1,6 +1,6 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { loadEnv } from "vite";
+import { readEnvFiles } from "./envFiles.js";
 import { info } from "../terminal/output.js";
 
 /**
@@ -30,8 +30,7 @@ export function loadProjectEnv(root: string, mode: "development" | "production")
   const files = [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`].filter((f) => existsSync(path.join(root, f)));
   if (files.length === 0) return [];
   const before = new Set(Object.keys(process.env));
-  // prefix "" = every variable, not just VITE_* (it also returns process.env's, which is why `before` is checked).
-  const loaded = loadEnv(mode, root, "");
+  const loaded = readEnvFiles(root, mode, files, process.env);
   for (const [key, value] of Object.entries(loaded)) {
     if (!before.has(key)) {
       process.env[key] = value;

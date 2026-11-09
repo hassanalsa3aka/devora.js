@@ -70,9 +70,9 @@ const result = await esbuild.build({
   platform: "node",
   format: "esm",
   outfile: "dist/index.js",
-  // "@devorajs/dev-server" (private, experimental) is loaded only by `--experimental-dev-server`: left out of the bundle,
+  // "@devorajs/sekhem" (private, experimental) is loaded only by `--experimental-dev-server`: left out of the bundle,
   // the flag works from a repository checkout and the bundle's other behaviour is unchanged.
-  external: ["commander", "vite", "esbuild", "jiti", "@vitejs/plugin-react", "@devorajs/dev-server"],
+  external: ["commander", "vite", "esbuild", "jiti", "@vitejs/plugin-react", "@devorajs/sekhem"],
   logLevel: "info",
   metafile: true,
 });

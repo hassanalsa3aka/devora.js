@@ -81,7 +81,7 @@ function resolvePublicDir(appRoot: string): string | undefined {
 
 /**
  * One app's dev server on the experimental server (`devora dev --experimental-dev-server`): the same page, API, session
- * and header handlers as the Vite path, over `@devorajs/dev-server`'s confined routes, esbuild transforms and Fast Refresh.
+ * and header handlers as the Vite path, over `@devorajs/sekhem`'s confined routes, esbuild transforms and Fast Refresh.
  * Loaded only when the flag is given, so the default path never imports it.
  */
 export async function createExperimentalAppDevServer(options: AppDevServerOptions): Promise<DevServerHandle> {
@@ -98,9 +98,9 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
   });
   validateCorsConfig(app.name, appConfig.cors);
   if (opts.host) throw new Error("[devora] --host is not available with --experimental-dev-server: it binds 127.0.0.1 only");
-  let devServer: typeof import("@devorajs/dev-server");
+  let devServer: typeof import("@devorajs/sekhem");
   try {
-    devServer = await import("@devorajs/dev-server");
+    devServer = await import("@devorajs/sekhem");
   } catch (error) {
     throw new Error(
       "[devora] the experimental dev server is not part of the published CLI. Run it from a checkout of the repository: " +

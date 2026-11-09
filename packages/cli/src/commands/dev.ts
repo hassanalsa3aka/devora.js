@@ -2,7 +2,7 @@ import path from "node:path";
 import { parseRequestUrl } from "../server/requestUrl.js";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
-import { createServer, type ViteDevServer } from "vite";
+import type { ViteDevServer } from "vite";
 import type { DevServerHandle } from "./devExperimental.js";
 import {
   listRouteFiles,
@@ -81,6 +81,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     csrf: appConfig.csrf,
   });
   validateCorsConfig(app.name, appConfig.cors);
+  const { createServer } = await import("vite");
   const server = await createServer({
     root: appRoot,
     appType: "custom", // we own the HTML response — see ../server/ssrMiddleware.ts

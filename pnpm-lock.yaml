@@ -217,12 +217,12 @@ importers:
       '@devorajs/desktop':
         specifier: '*'
         version: link:../desktop
-      '@devorajs/dev-server':
-        specifier: '*'
-        version: link:../dev-server
       '@devorajs/scaffold':
         specifier: '*'
         version: link:../scaffold
+      '@devorajs/sekhem':
+        specifier: '*'
+        version: link:../dev-server
 
   packages/core:
     dependencies:

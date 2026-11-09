@@ -11,6 +11,7 @@
     "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs",
     "compare:dev-parity": "node scripts/dev-server-compare/parity.mjs",
     "compare:build-parity": "tsx scripts/dev-server-compare/build-parity.mts",
+    "check:no-vite": "node scripts/check-no-vite.mjs",
     "measure:build": "node scripts/measure-build.mjs",
     "compare:dev-security": "node scripts/dev-server-compare/attack-compare.mjs",
     "check:dev-browser": "node scripts/dev-server-compare/browser-checks.mjs",
