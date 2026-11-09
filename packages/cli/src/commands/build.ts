@@ -48,11 +48,8 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
     console.error((err as Error).message);
     process.exit(1);
   }
-  if (engine === "own") {
-    // The build with the engine of Devora's own is not written yet: say so, never fall back to Vite silently.
-    console.error(`[devora] the ${ENGINE_NAME} build is not available yet (only its dev server is); run \`devora build --engine=vite\` or remove \`engine: "own"\` from devora.config.ts for the build`);
-    process.exit(1);
-  }
+
+  if (engine === "own") info(`[devora] building with ${ENGINE_NAME} (experimental, not Vite)`);
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 
@@ -77,7 +74,7 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
 
   for (const app of apps) {
     try {
-      await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out });
+      await buildAppForAdapter(root, project, app, opts.adapter, { out: opts.out, engine });
     } catch (err) {
       // Preflight already printed why; a framework-authored error (config
       // validation, a prebuild exit — all prefixed "[devora]") is printed as

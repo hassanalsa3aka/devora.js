@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
  * Devora's own dev and build engine, as shown to people. The same value is exported from `@devorajs/core/config` (that package
  * cannot be a dependency of this dependency-free one, so a test checks the two stay equal): rename it in both.
  */
-export const ENGINE_NAME = "Devora Engine";
+export const ENGINE_NAME = "Sekhem";
 
 /** `"vite"` is stable and the default; `"own"` is ENGINE_NAME, experimental. */
 export type EngineChoice = "vite" | "own";

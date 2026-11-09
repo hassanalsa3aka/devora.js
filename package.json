@@ -10,6 +10,8 @@
     "test": "vitest run",
     "check:docs": "node scripts/checkMarkdownLinks.mjs && node scripts/checkVersions.mjs",
     "compare:dev-parity": "node scripts/dev-server-compare/parity.mjs",
+    "compare:build-parity": "tsx scripts/dev-server-compare/build-parity.mts",
+    "measure:build": "node scripts/measure-build.mjs",
     "compare:dev-security": "node scripts/dev-server-compare/attack-compare.mjs",
     "check:dev-browser": "node scripts/dev-server-compare/browser-checks.mjs",
     "measure:dev-reexec": "node scripts/dev-server-compare/reexec.mjs",
