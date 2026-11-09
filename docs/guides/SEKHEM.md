@@ -168,4 +168,4 @@ Vite has plugins, a large ecosystem and years of use; Sekhem has none of that. O
 (the design is in the repository's notes: no Vite plugin API, a small Devora one later), PostCSS and Sass, source maps in the build,
 `VITE_` variables, Windows and Linux tests, and request-level security tests of the built output.
 
-For numbers (build time, memory, dev server, requests) see the [Performance page](/performance).
+For numbers (build time, memory, dev server, requests) see the [Performance page](https://devorajs-docs-docs.vercel.app/performance).
