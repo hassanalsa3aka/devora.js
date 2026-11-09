@@ -21,7 +21,7 @@ import {
 import { loadProjectConfig, loadAppConfig, resolveAppDir } from "@devorajs/core/config-loader";
 import { ENGINE_NAME, isEngine, resolveEngine } from "@devorajs/core/config";
 import { createSsrMiddleware } from "../server/ssrMiddleware.js";
-import { createApiMiddlewarePlugin, createHostCheckPlugin, createOpenInEditorGuardPlugin } from "../server/apiMiddleware.js";
+import { createApiMiddlewarePlugin, createHmrOriginGuardPlugin, createHostCheckPlugin, createOpenInEditorGuardPlugin } from "../server/apiMiddleware.js";
 import { createSecurityHeadersMiddleware, createSvgHeadersPlugin } from "../server/securityHeadersMiddleware.js";
 import { islandsPlugin } from "../islandsPlugin.js";
 import { moduleDisposePlugin } from "../server/moduleDisposePlugin.js";
@@ -132,6 +132,7 @@ export async function createAppDevServer(opts: AppDevServerOptions): Promise<Vit
     plugins: [
       // First, so a request for an unknown host never reaches another middleware.
       createHostCheckPlugin(appConfig.allowedHosts, appConfig.trustProxy),
+      createHmrOriginGuardPlugin(),
       // Before Vite's own /__open-in-editor middleware (finding H28).
       createOpenInEditorGuardPlugin(),
       // Also before Vite's own static-file handling (which serves public/ .svg files).
