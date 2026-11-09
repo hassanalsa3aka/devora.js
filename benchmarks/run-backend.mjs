@@ -42,6 +42,8 @@ const ITEMS = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `Item ${
 
 const FRAMEWORKS = [
   { key: "devora-api", name: "Devora.js", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
+  { key: "devora-vite", name: "Devora.js (Vite engine, this commit)", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
+  { key: "devora-sekhem", name: "Devora.js (Sekhem engine, this commit)", pkg: "@devorajs/cli", kind: "backend+pages", clean: ["apps/api/dist"], env: { DEVORA_SESSION_SECRET: "bench-secret-bench-secret-bench-secret" }, extra: ["@devorajs/core"] },
   { key: "express", name: "Express 5", pkg: "express", kind: "backend", clean: [] },
   { key: "fastify", name: "Fastify 5", pkg: "fastify", kind: "backend", clean: [] },
   { key: "hono", name: "Hono", pkg: "hono", kind: "backend", clean: [] },

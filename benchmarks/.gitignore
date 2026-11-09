@@ -7,3 +7,5 @@ apps/*/.astro/
 apps/*/.svelte-kit/
 apps/*/.react-router/
 apps/devora/apps/bench/dist/
+apps/devora-vite/
+apps/devora-sekhem/
