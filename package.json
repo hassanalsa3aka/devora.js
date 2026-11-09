@@ -13,6 +13,8 @@
     "compare:dev-security": "node scripts/dev-server-compare/attack-compare.mjs",
     "check:dev-browser": "node scripts/dev-server-compare/browser-checks.mjs",
     "measure:dev-reexec": "node scripts/dev-server-compare/reexec.mjs",
+    "measure:dev-perf": "node scripts/dev-server-compare/perf.mjs",
+    "fuzz:dev-server": "tsx scripts/dev-server-compare/fuzz.mts",
     "check:desktop-window": "node scripts/desktop-check.mjs"
   },
   "workspaces": [

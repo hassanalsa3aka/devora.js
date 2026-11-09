@@ -1,103 +1,68 @@
 /**
- * The server side of the experimental dev server: pages, entry-server and API routes run in this Node process, loaded
- * by the hooks in hooks.mjs. A module of the app is imported as `file:///…/route.tsx?devora=<app>.<n>`; the hooks pass
- * that query on to its imports, so `invalidate()` (n + 1) makes the next import execute the app's whole module graph
- * again, while `node_modules` and the framework's own packages stay loaded once. No module of a request's making is
- * ever imported: callers pass files their own router already matched.
+ * The server side of the experimental dev server: pages and API routes run in this Node process, loaded by the in-thread
+ * hooks in hooks.mjs. A module of the app has its own version; `invalidate()` gives a changed file and the modules that import
+ * it a new one, so the next import runs exactly those again while `node_modules` and the framework's own packages stay loaded.
+ * No module of a request's making is ever imported: callers pass files their own router already matched.
  */
-import { findSourceMap, register } from "node:module";
-import { MessageChannel, type MessagePort } from "node:worker_threads";
+import { findSourceMap, registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createServerHooks } from "./hooks.mjs";
 import type { ServedRoot } from "./files.js";
-
-interface Registration {
-  port: MessagePort;
-  projectRoot: string;
-  edges: Map<string, Set<string>>; // imported file -> files that import it (app modules only)
-  pongs: Map<number, () => void>;
-  counter: number;
-}
-
-let registration: Registration | undefined;
 
 const FRAMEWORK_DIRS = ["packages/core", "packages/cli", "packages/dev-server", "packages/desktop", "packages/scaffold", "adapters", "create-devora"];
 
-function ensureRegistered(projectRoot: string): Registration {
-  if (registration) {
-    if (registration.projectRoot !== projectRoot) throw new Error("[devora dev-server] one project per process (the module loader is registered for " + registration.projectRoot + ")");
-    return registration;
+type Hooks = ReturnType<typeof createServerHooks>;
+let registered: { projectRoot: string; hooks: Hooks } | undefined;
+
+function ensureRegistered(projectRoot: string): Hooks {
+  if (registered) {
+    if (registered.projectRoot !== projectRoot) throw new Error("[devora dev-server] one project per process (the module hooks are registered for " + registered.projectRoot + ")");
+    return registered.hooks;
   }
-  const { port1, port2 } = new MessageChannel();
-  const reg: Registration = { port: port1, projectRoot, edges: new Map(), pongs: new Map(), counter: 0 };
-  port1.on("message", (message: { edge?: [string, string]; pong?: number }) => {
-    if (message.edge) {
-      const [parent, child] = message.edge;
-      let set = reg.edges.get(child);
-      if (!set) reg.edges.set(child, (set = new Set()));
-      set.add(parent);
-    }
-    if (message.pong !== undefined) reg.pongs.get(message.pong)?.();
-  });
-  port1.unref();
-  register(new URL("./hooks.mjs", import.meta.url), {
-    parentURL: import.meta.url,
-    data: { projectRoot, frozen: FRAMEWORK_DIRS.map((d) => path.join(projectRoot, d)), port: port2 },
-    transferList: [port2],
-  });
-  registration = reg;
-  return reg;
+  if (typeof registerHooks !== "function") {
+    throw new Error("[devora dev-server] the experimental dev server needs Node 22.15 or later (module.registerHooks); this is " + process.version);
+  }
+  const hooks = createServerHooks({ projectRoot, frozen: FRAMEWORK_DIRS.map((d) => path.join(projectRoot, d)) });
+  registerHooks(hooks.hooks as unknown as Parameters<typeof registerHooks>[0]);
+  registered = { projectRoot, hooks };
+  return hooks;
 }
 
 export interface ServerModuleHost {
-  /** Imports a route, entry or store file the framework's own router matched, at the current epoch. */
+  /** Imports a route, entry or store file the framework's own router matched, at its current version. */
   ssrLoadModule(file: string): Promise<Record<string, unknown>>;
-  /** The next import re-executes the app's whole module graph. Returns every app module that was loaded, for their dispose callbacks. */
+  /** A file changed: it and the modules that import it run again at the next import. Returns those files. */
   invalidate(file: string): string[];
+  /** Compiles these files in parallel ahead of the first request (best effort). */
+  prewarm(files: string[]): Promise<void>;
+  /** Files whose modules have been loaded (tests and trace). */
+  loaded(): string[];
   ssrFixStacktrace(error: Error): void;
 }
 
-export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[] }): Promise<ServerModuleHost> {
-  const reg = ensureRegistered(path.resolve(options.projectRoot));
-  const id = ++reg.counter;
-  // The port is unref'd so it never keeps the process alive; hold it while waiting for the hooks thread's answer.
-  reg.port.ref();
-  await new Promise<void>((resolve) => {
-    reg.pongs.set(id, resolve);
-    reg.port.postMessage({ app: { id: options.appId, roots: options.roots } });
-    reg.port.postMessage({ ping: id });
-  });
-  reg.port.unref();
-  reg.pongs.delete(id);
-  let epoch = 0;
+export async function createServerModuleHost(options: { appId: string; projectRoot: string; roots: ServedRoot[]; compileCacheDir?: string; aliases?: unknown }): Promise<ServerModuleHost> {
+  const hooks = ensureRegistered(path.resolve(options.projectRoot));
+  hooks.addApp(options.appId, options.roots, options.compileCacheDir, options.aliases);
   return {
     // `devora-src:` is the scheme the hooks own (see hooks.mjs): nothing else compiles these files.
-    ssrLoadModule: (file) => import(`devora-src://${pathToFileURL(file).pathname}.devora-module?devora=${options.appId}.${epoch}`) as Promise<Record<string, unknown>>,
-    invalidate(file) {
-      epoch += 1;
-      // Every module of the app is executed again at the next import (not only what imports the changed file), so
-      // every one of them gets its dispose callback: a database handle in an unrelated module must not be leaked.
-      const all = new Set<string>([file]);
-      for (const [child, parents] of reg.edges) {
-        all.add(child);
-        for (const parent of parents) all.add(parent);
-      }
-      return [...all];
-    },
+    ssrLoadModule: (file) => import(hooks.entryUrl(options.appId, file)) as Promise<Record<string, unknown>>,
+    invalidate: (file) => hooks.invalidate(options.appId, file),
+    loaded: () => hooks.loaded(options.appId),
+    prewarm: (files) => hooks.prewarm(options.appId, files),
     ssrFixStacktrace(error) {
-      // Frames name `devora-src://<file>.devora-module?devora=…:line:col` (generated code); show the file and line written.
+      // Frames name `devora-src://<file>.devora-module?devora=...:line:col` (generated code); show the file and line written.
       if (typeof error?.stack !== "string") return;
       try {
-        error.stack = error.stack.replace(/devora-src:\/\/(\S+?)\.devora-module(\?devora=[^:)\s]+):(\d+):(\d+)/g, (whole, file: string, query: string, line: string, col: string) => {
-        let plain = file;
-        try {
-          plain = decodeURIComponent(file);
-        } catch {
-          // keep the encoded name
-        }
-        const entry = findSourceMap(whole.split(":").slice(0, -2).join(":"))?.findEntry(Number(line) - 1, Number(col) - 1);
-        void query;
-        return entry && "originalLine" in entry ? `${plain}:${entry.originalLine + 1}:${entry.originalColumn + 1}` : `${plain}:${line}:${col}`;
+        error.stack = error.stack.replace(/devora-src:\/\/(\S+?)\.devora-module(\?devora=[^:)\s]+):(\d+):(\d+)/g, (whole, file: string, _query: string, line: string, col: string) => {
+          let plain = file;
+          try {
+            plain = decodeURIComponent(file);
+          } catch {
+            // keep the encoded name
+          }
+          const entry = findSourceMap(whole.split(":").slice(0, -2).join(":"))?.findEntry(Number(line) - 1, Number(col) - 1);
+          return entry && "originalLine" in entry ? `${plain}:${entry.originalLine + 1}:${entry.originalColumn + 1}` : `${plain}:${line}:${col}`;
         });
       } catch {
         // an error whose stack cannot be rewritten (a frozen or internal error) is reported as it is

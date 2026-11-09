@@ -131,25 +131,39 @@ export async function bootDevServer(options: import("../../commands/dev.js").App
   }
   const { spawn } = await import("node:child_process");
   const { findFreePort } = await import("../devNetwork.js");
-  const port = await findFreePort(11010 + Math.floor(Math.random() * 70), new Set(), "127.0.0.1");
-  const child = spawn(path.join(REPO_ROOT, "node_modules", ".bin", "tsx"), [path.join(REPO_ROOT, "packages/cli/src/server/__tests__/experimentalHarness.ts"), JSON.stringify({ ...options, port })], {
-    env: { ...process.env, NODE_ENV: "development" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  // Test files run in parallel and each picks a port in 11010-11079: a clash (EADDRINUSE) is retried on another port.
+  let port = 0;
+  let child!: ReturnType<typeof spawn>;
   let output = "";
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`experimental dev server did not start:\n${output}`)), 25_000);
-    const onData = (chunk: Buffer) => {
-      output += chunk.toString();
-      if (output.includes("READY")) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    port = await findFreePort(11010 + Math.floor(Math.random() * 70), new Set(), "127.0.0.1");
+    child = spawn(path.join(REPO_ROOT, "node_modules", ".bin", "tsx"), [path.join(REPO_ROOT, "packages/cli/src/server/__tests__/experimentalHarness.ts"), JSON.stringify({ ...options, port })], {
+      env: { ...process.env, NODE_ENV: "development" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    output = "";
+    const started = await new Promise<"ready" | "in-use" | "failed">((resolve) => {
+      const timer = setTimeout(() => resolve("failed"), 25_000);
+      const onData = (chunk: Buffer) => {
+        output += chunk.toString();
+        if (output.includes("READY")) {
+          clearTimeout(timer);
+          resolve("ready");
+        }
+      };
+      child.stdout!.on("data", onData);
+      child.stderr!.on("data", (c) => (output += c.toString()));
+      child.on("exit", () => {
         clearTimeout(timer);
-        resolve();
-      }
-    };
-    child.stdout.on("data", onData);
-    child.stderr.on("data", (c) => (output += c.toString()));
-    child.on("exit", (code) => reject(new Error(`experimental dev server exited (${code}):\n${output}`)));
-  });
+        resolve(output.includes("EADDRINUSE") ? "in-use" : "failed");
+      });
+    });
+    if (started === "ready") break;
+    child.removeAllListeners("exit");
+    child.kill("SIGTERM");
+    if (started === "failed") throw new Error(`experimental dev server did not start:\n${output}`);
+    if (attempt === 5) throw new Error(`experimental dev server: no free port after 6 tries:\n${output}`);
+  }
   child.removeAllListeners("exit");
   return {
     httpServer: { address: () => ({ address: "127.0.0.1", family: "IPv4", port }) },

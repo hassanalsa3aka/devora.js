@@ -41,6 +41,26 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// src/server/requestUrl.ts
+function parseRequestUrl(target) {
+  const raw = target ?? "/";
+  try {
+    return raw.startsWith("/") ? new URL(`http://localhost${raw}`) : new URL(raw, "http://localhost");
+  } catch {
+    return void 0;
+  }
+}
+function sendBadRequest(res) {
+  res.statusCode = 400;
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.end("Bad Request");
+}
+var init_requestUrl = __esm({
+  "src/server/requestUrl.ts"() {
+    "use strict";
+  }
+});
+
 // ../core/src/config.ts
 function resolveAuthMode(project, appName) {
   const app = project.apps.find((a) => a.name === appName);
@@ -6201,7 +6221,8 @@ function createSsrMiddleware(vite, appRoot, appName, authMode, domain, sitemapEn
   };
   return async function ssrMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
     if (url.pathname === "/sitemap.xml") {
       if (!sitemapEnabled) return next();
       const xml = generateSitemapXml(
@@ -6403,6 +6424,7 @@ var init_ssrMiddleware = __esm({
     init_src();
     init_devSessionOptions();
     init_reactRefreshPreamblePlugin();
+    init_requestUrl();
     DEV_PREAMBLE_URL = `/@id/${REACT_REFRESH_PREAMBLE_VIRTUAL_ID}`;
     VITE_ASSET_URLS = {
       islandClient: "/island-client.tsx",
@@ -6482,7 +6504,8 @@ function createApiMiddleware(vite, options) {
   const securityHeaders = resolveSecurityHeaders(security);
   return async function apiMiddleware(req, res, next) {
     if (!req.url) return next();
-    const url = new URL(req.url, "http://localhost");
+    const url = parseRequestUrl(req.url);
+    if (!url) return sendBadRequest(res);
     if (!isApiPath(url.pathname)) return next();
     for (const [name, value] of Object.entries(securityHeaders)) {
       res.setHeader(name, value);
@@ -6536,6 +6559,7 @@ function sendApiResponse2(res, result, noStore = false) {
 var init_apiMiddleware = __esm({
   "src/server/apiMiddleware.ts"() {
     "use strict";
+    init_requestUrl();
     init_src();
     init_devSessionOptions();
   }
@@ -6576,7 +6600,8 @@ var init_securityHeadersMiddleware = __esm({
 // src/commands/devExperimental.ts
 var devExperimental_exports = {};
 __export(devExperimental_exports, {
-  createExperimentalAppDevServer: () => createExperimentalAppDevServer
+  createExperimentalAppDevServer: () => createExperimentalAppDevServer,
+  findUnsupportedSettings: () => findUnsupportedSettings
 });
 import path16 from "node:path";
 import { existsSync as existsSync8, readFileSync as readFileSync3, realpathSync } from "node:fs";
@@ -6591,6 +6616,26 @@ function chain(handlers, finish) {
     };
     next();
   };
+}
+function findUnsupportedSettings(appRoot, projectRoot) {
+  const found = [];
+  for (const dir of /* @__PURE__ */ new Set([appRoot, projectRoot])) {
+    for (const base of ["postcss.config", "tailwind.config"]) {
+      for (const ext of ["js", "cjs", "mjs", "ts"]) {
+        if (existsSync8(path16.join(dir, `${base}.${ext}`))) found.push(`${base}.${ext} (PostCSS and Tailwind are not run)`);
+      }
+    }
+  }
+  const config = path16.join(appRoot, "vite.config.ts");
+  if (existsSync8(config)) {
+    const text = readFileSync3(config, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const plugins = /\bplugins\s*:\s*\[([\s\S]*?)\]/.exec(text)?.[1]?.replace(/\breact\(\s*\)/g, "").replace(/[,\s]/g, "");
+    if (plugins) found.push("vite.config.ts plugins other than react() (Vite plugins are not run)");
+    for (const [key, what] of [["alias", "resolve.alias"], ["define", "define"], ["proxy", "server.proxy"], ["css", "css options (preprocessors, PostCSS)"]]) {
+      if (new RegExp(`\\b${key}\\s*:`).test(text)) found.push(`vite.config.ts ${what} (not read)`);
+    }
+  }
+  return found;
 }
 function resolvePublicDir(appRoot) {
   const config = path16.join(appRoot, "vite.config.ts");
@@ -6623,10 +6668,18 @@ async function createExperimentalAppDevServer(options) {
     );
   }
   process.setSourceMapsEnabled(true);
+  for (const item of findUnsupportedSettings(appRoot, opts.projectRoot)) {
+    console.warn(`[devora] "${app.name}": the experimental dev server does not support ${item}. Use plain devora dev (Vite) if the app needs it.`);
+  }
   const roots = [{ prefix: "/_devora/m/app/", dir: appRoot }];
   const packagesDir = path16.join(opts.projectRoot, "packages");
   if (existsSync8(packagesDir)) roots.push({ prefix: "/_devora/m/packages/", dir: packagesDir });
-  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots });
+  devServer.trace("cli: dev-server module loaded");
+  const aliases = devServer.loadPathAliases(appRoot);
+  const cacheRoot = await devServer.resolveCacheRoot(appRoot);
+  const modules = await devServer.createServerModuleHost({ appId: app.name, projectRoot: opts.projectRoot, roots, compileCacheDir: cacheRoot ? path16.join(cacheRoot, "compiled-v1") : void 0, aliases });
+  void devServer.listAppScripts(appRoot).then((files) => modules.prewarm(files)).catch(() => {
+  });
   const cssGraph = devServer.createCssGraph(roots);
   const publicDir = resolvePublicDir(appRoot);
   const host = {
@@ -6635,6 +6688,7 @@ async function createExperimentalAppDevServer(options) {
     moduleGraph: cssGraph,
     config: { publicDir: publicDir ?? "", root: appRoot }
   };
+  devServer.trace("cli: module host ready");
   let handler;
   const server = await devServer.startExperimentalDevServer({
     roots,
@@ -6644,9 +6698,11 @@ async function createExperimentalAppDevServer(options) {
     app: {
       appRoot,
       publicDir,
+      aliases,
       backendOnly: appConfig.backendOnly === true,
       svgCsp: SVG_CSP,
       onChange(file) {
+        cssGraph.clear(file);
         for (const f of modules.invalidate(file)) runAndClearDisposable(f);
         clearStreamingModuleCache();
       }
@@ -6676,7 +6732,7 @@ async function createExperimentalAppDevServer(options) {
   );
   if (appConfig.backendOnly === true) {
     handlers.push((req, res, next) => {
-      if (req.method !== "GET" && req.method !== "HEAD" || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if (req.method !== "GET" && req.method !== "HEAD" || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status2 = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status2.status;
       for (const [name, value] of Object.entries(status2.headers ?? {})) res.setHeader(name, value);
@@ -6740,6 +6796,7 @@ async function createExperimentalAppDevServer(options) {
 var init_devExperimental = __esm({
   "src/commands/devExperimental.ts"() {
     "use strict";
+    init_requestUrl();
     init_src();
     init_apiMiddleware();
     init_securityHeadersMiddleware();
@@ -6751,6 +6808,7 @@ var init_devExperimental = __esm({
 import { Command } from "commander";
 
 // src/commands/dev.ts
+init_requestUrl();
 init_src();
 import path17 from "node:path";
 import { createRequire } from "node:module";
@@ -7942,7 +8000,7 @@ async function createAppDevServer(opts) {
   server.middlewares.use(createSecurityHeadersMiddleware(appConfig.security));
   if (appConfig.backendOnly === true) {
     server.middlewares.use((req, res, next) => {
-      if (req.method !== "GET" && req.method !== "HEAD" || new URL(req.url ?? "/", "http://localhost").pathname !== "/") return next();
+      if (req.method !== "GET" && req.method !== "HEAD" || parseRequestUrl(req.url)?.pathname !== "/") return next();
       const status2 = backendStatusFor(app.name, req.headers.accept);
       res.statusCode = status2.status;
       for (const [name, value] of Object.entries(status2.headers ?? {})) res.setHeader(name, value);
