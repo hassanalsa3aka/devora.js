@@ -1,4 +1,5 @@
 import { loadProjectConfig } from "@devorajs/core/config-loader";
+import { ENGINE_NAME, resolveEngine } from "@devorajs/core/config";
 import { buildAppForAdapter } from "../build/buildForAdapter.js";
 import { PreflightError } from "../build/preflight.js";
 import { forceProductionNodeEnv } from "../build/productionEnv.js";
@@ -9,7 +10,7 @@ import { formatDuration, info, plural, printHeader, stdoutPaint } from "../termi
 /** Values `--adapter` accepts. adapter-node needs no flag: plain `devora build`, then `devora start`. */
 export const BUILD_ADAPTERS = ["vercel", "netlify"] as const;
 
-export async function build(opts: { app?: string; adapter?: string; out?: string; quiet?: boolean }) {
+export async function build(opts: { app?: string; adapter?: string; out?: string; quiet?: boolean; engine?: string }) {
   const started = performance.now();
   printHeader(`build${opts.adapter ? ` · ${opts.adapter}` : ""}`);
   // `devora build` always means "build for production" — never rely on the
@@ -39,6 +40,19 @@ export async function build(opts: { app?: string; adapter?: string; out?: string
   const root = process.cwd();
   loadProjectEnv(root, "production");
   const project = await loadProjectConfig(root);
+
+  let engine;
+  try {
+    engine = resolveEngine(opts.engine, project);
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(1);
+  }
+  if (engine === "own") {
+    // The build with the engine of Devora's own is not written yet: say so, never fall back to Vite silently.
+    console.error(`[devora] the ${ENGINE_NAME} build is not available yet (only its dev server is); run \`devora build --engine=vite\` or remove \`engine: "own"\` from devora.config.ts for the build`);
+    process.exit(1);
+  }
 
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
 

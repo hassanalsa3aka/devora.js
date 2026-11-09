@@ -41,6 +41,31 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// ../core/src/config.ts
+function isEngine(value) {
+  return typeof value === "string" && ENGINES.includes(value);
+}
+function resolveEngine(flag, project) {
+  const chosen = flag ?? project?.engine ?? "vite";
+  if (!isEngine(chosen)) {
+    throw new Error(`[devora] unknown engine "${String(chosen)}": use "vite" (default) or "own" (${ENGINE_NAME}, experimental)`);
+  }
+  return chosen;
+}
+function resolveAuthMode(project, appName) {
+  const app = project.apps.find((a) => a.name === appName);
+  if (!app) throw new Error(`[framework.config] unknown app: "${appName}"`);
+  return app.auth ?? project.shared.auth;
+}
+var ENGINE_NAME, ENGINES;
+var init_config = __esm({
+  "../core/src/config.ts"() {
+    "use strict";
+    ENGINE_NAME = "Devora Engine";
+    ENGINES = ["vite", "own"];
+  }
+});
+
 // src/server/requestUrl.ts
 function parseRequestUrl(target) {
   const raw = target ?? "/";
@@ -57,18 +82,6 @@ function sendBadRequest(res) {
 }
 var init_requestUrl = __esm({
   "src/server/requestUrl.ts"() {
-    "use strict";
-  }
-});
-
-// ../core/src/config.ts
-function resolveAuthMode(project, appName) {
-  const app = project.apps.find((a) => a.name === appName);
-  if (!app) throw new Error(`[framework.config] unknown app: "${appName}"`);
-  return app.auth ?? project.shared.auth;
-}
-var init_config = __esm({
-  "../core/src/config.ts"() {
     "use strict";
   }
 });
@@ -6644,7 +6657,9 @@ function resolvePublicDir(appRoot) {
     if (m) return path16.resolve(appRoot, m[1]);
   }
   const fallback = path16.join(appRoot, "public");
-  return existsSync8(fallback) ? fallback : void 0;
+  if (existsSync8(fallback)) return fallback;
+  const shared = path16.resolve(appRoot, "..", "..", "assets");
+  return !existsSync8(config) && existsSync8(shared) ? shared : void 0;
 }
 async function createExperimentalAppDevServer(options) {
   const opts = { ...options, appRoot: realpathSync(options.appRoot), projectRoot: realpathSync(options.projectRoot) };
@@ -6805,6 +6820,7 @@ var init_devExperimental = __esm({
 });
 
 // src/index.ts
+init_config();
 import { Command } from "commander";
 
 // src/commands/dev.ts
@@ -6850,6 +6866,7 @@ async function loadAppConfig(appRoot) {
 }
 
 // src/commands/dev.ts
+init_config();
 init_ssrMiddleware();
 init_apiMiddleware();
 init_securityHeadersMiddleware();
@@ -7074,8 +7091,11 @@ async function resolveAuthChoice(explicit, appName) {
   }
 }
 
-// ../scaffold/src/resolveScopeChoice.ts
+// ../scaffold/src/resolveEngineChoice.ts
 import { createInterface as createInterface2 } from "node:readline/promises";
+
+// ../scaffold/src/resolveScopeChoice.ts
+import { createInterface as createInterface3 } from "node:readline/promises";
 
 // ../scaffold/src/names.ts
 var APP_NAME = /^[a-z0-9][a-z0-9_-]{0,49}$/;
@@ -7106,6 +7126,7 @@ async function scaffoldAppFiles(appDir, appName, opts) {
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;
+  const ownEngine = opts.engine === "own";
   const devoraCmd = cliInvocation === "monorepo" ? "cd ../.. && node packages/cli/dist/index.js" : "cd ../.. && ./node_modules/.bin/devora";
   await mkdir2(path12.join(appDir, kind === "api" ? SCAFFOLD_API_DIR : "routes"), { recursive: true });
   await writeFile2(
@@ -7132,8 +7153,8 @@ async function scaffoldAppFiles(appDir, appName, opts) {
           ...withBackend ? { "@devorajs/backend": "*" } : {},
           // A backend-only app renders no pages, so it needs no React at
           // all; it still needs vite, which runs its dev server and build.
-          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" } : {},
-          vite: "^6.4.4",
+          ...kind === "pages" ? { react: "^18.3.0", "react-dom": "^18.3.0", ...ownEngine ? {} : { "@vitejs/plugin-react": "^4.3.0" } } : {},
+          ...ownEngine ? {} : { vite: "^6.4.4" },
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
@@ -7165,7 +7186,7 @@ export default defineApp({
 ` + API_DIR_CONFIG_LINES + `});
 `
     );
-    await writeFile2(
+    if (!ownEngine) await writeFile2(
       path12.join(appDir, "vite.config.ts"),
       `import { defineConfig } from "vite";
 
@@ -7189,7 +7210,7 @@ export default defineApp({
 });
 `
     );
-    await writeFile2(
+    if (!ownEngine) await writeFile2(
       path12.join(appDir, "vite.config.ts"),
       `import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8035,6 +8056,7 @@ async function createAppDevServer(opts) {
 async function startDevSession(root, opts) {
   loadProjectEnv(root, "development");
   const project = await loadProjectConfig(root);
+  const engine = resolveEngine(opts.engine ?? (opts.experimentalDevServer ? "own" : void 0), project);
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
   if (opts.app && apps.length === 0) {
     throw new Error(`[devora] no app named "${opts.app}" in devora.config.ts`);
@@ -8076,7 +8098,7 @@ async function startDevSession(root, opts) {
         port,
         host: opts.host
       };
-      const server = opts.experimentalDevServer ? await (await Promise.resolve().then(() => (init_devExperimental(), devExperimental_exports))).createExperimentalAppDevServer(serverOptions) : await createAppDevServer(serverOptions);
+      const server = engine === "own" ? await (await Promise.resolve().then(() => (init_devExperimental(), devExperimental_exports))).createExperimentalAppDevServer(serverOptions) : await createAppDevServer(serverOptions);
       booted.push({ app, authMode, appRoot, apiDir: appConfig.apiDir, server });
     }
   } catch (err) {
@@ -8092,7 +8114,13 @@ function printStartupError(err) {
 async function dev(opts) {
   const root = process.cwd();
   if (process.env.DEVORA_EXPERIMENTAL_DEV_SERVER === "1") opts = { ...opts, experimentalDevServer: true };
-  if (opts.experimentalDevServer) console.log("[devora] experimental dev server (not Vite): see the roadmap before relying on it");
+  if (opts.engine !== void 0 && !isEngine(opts.engine)) {
+    console.error(`[devora] unknown --engine "${opts.engine}": use vite (default) or own (${ENGINE_NAME}, experimental)`);
+    process.exit(1);
+  }
+  if (opts.engine === "own" || opts.experimentalDevServer) {
+    console.log(`[devora] ${ENGINE_NAME} dev server (experimental, not Vite): see the roadmap before relying on it`);
+  }
   const expandRoutes = opts.routes === true || process.env.DEVORA_ROUTES === "all";
   let session;
   try {
@@ -8192,6 +8220,9 @@ function resolvableClientDeps(appRoot) {
     }
   });
 }
+
+// src/commands/build.ts
+init_config();
 
 // src/build/buildForAdapter.ts
 init_src();
@@ -9359,6 +9390,17 @@ async function build3(opts) {
   const root = process.cwd();
   loadProjectEnv(root, "production");
   const project = await loadProjectConfig(root);
+  let engine;
+  try {
+    engine = resolveEngine(opts.engine, project);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+  if (engine === "own") {
+    console.error(`[devora] the ${ENGINE_NAME} build is not available yet (only its dev server is); run \`devora build --engine=vite\` or remove \`engine: "own"\` from devora.config.ts for the build`);
+    process.exit(1);
+  }
   const apps = opts.app ? project.apps.filter((a) => a.name === opts.app) : project.apps;
   if (opts.app && apps.length === 0) {
     console.error(`[devora] no app named "${opts.app}" in devora.config.ts`);
@@ -10680,14 +10722,14 @@ function nameForSplitTarget(root, project, relativePath) {
 }
 
 // src/build/confirmAction.ts
-import { createInterface as createInterface3 } from "node:readline/promises";
+import { createInterface as createInterface4 } from "node:readline/promises";
 async function confirmAction(message, opts) {
   if (opts.yes) return true;
   if (!process.stdin.isTTY) {
     console.error(`[devora] ${message} \u2014 refusing without --yes in a non-interactive shell.`);
     return false;
   }
-  const rl = createInterface3({ input: process.stdin, output: process.stdout });
+  const rl = createInterface4({ input: process.stdin, output: process.stdout });
   try {
     const answer = (await rl.question(`${message} [y/N]: `)).trim().toLowerCase();
     return answer === "y" || answer === "yes";
@@ -10932,11 +10974,11 @@ var QUIET_HELP = "only warnings, errors and the app URLs \u2014 no header, route
 program.command("dev").description("Run all apps in dev mode (or one with --app)").option("--app <name>", "run only this app").option(
   "--host",
   "listen on all network interfaces (so a phone/other device on your LAN can reach it) \u2014 off by default"
-).option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)").option("--quiet", QUIET_HELP).option("--experimental-dev-server", "run the experimental dev server of Devora's own instead of Vite (repository checkout only; also DEVORA_EXPERIMENTAL_DEV_SERVER=1)").action(async (opts) => dev(opts));
+).option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)").option("--quiet", QUIET_HELP).option("--engine <engine>", `dev engine: vite (default) or own (${ENGINE_NAME}, experimental); overrides devora.config.ts`).option("--experimental-dev-server", "same as --engine=own (also DEVORA_EXPERIMENTAL_DEV_SERVER=1)").action(async (opts) => dev(opts));
 program.command("build").description("Build all apps (or one with --app)").option("--app <name>", "build only this app").option("--adapter <target>", "also write output for this adapter: vercel or netlify").option(
   "--out <dir>",
   "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
-).option("--quiet", QUIET_HELP).action(async (opts) => build3(opts));
+).option("--engine <engine>", `build engine: vite (default) or own (${ENGINE_NAME}, experimental); overrides devora.config.ts`).option("--quiet", QUIET_HELP).action(async (opts) => build3(opts));
 program.command("start").description("Serve a production build (adapter-node) \u2014 run `devora build` first").option("--app <name>", "serve only this app").option("--port <port>", "starting port (default: $PORT, else 4173; increments per app)").option("--host <host>", "interface to bind (default: $HOST, else all interfaces)").option("--quiet", QUIET_HELP).action(async (opts) => start(opts));
 var desktop = program.command("desktop").description("Experimental, off by default: the same app in a desktop window (Tauri 2). Needs --experimental");
 for (const [name, description, action] of [

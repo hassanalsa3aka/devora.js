@@ -136,12 +136,43 @@ export interface SharedConfig {
   sessions?: SessionsConfig;
 }
 
+/** The name of Devora's own dev and build engine, shown wherever the engine is offered. One constant so a rename is one line. */
+export const ENGINE_NAME = "Devora Engine";
+
+/** `"vite"` (stable, the default) or `"own"` (experimental: ENGINE_NAME). */
+export type Engine = "vite" | "own";
+export const ENGINES: readonly Engine[] = ["vite", "own"];
+
+export function isEngine(value: unknown): value is Engine {
+  return typeof value === "string" && (ENGINES as readonly string[]).includes(value);
+}
+
+/**
+ * Which engine runs `devora dev` / `devora build`: the `--engine` flag, else `devora.config.ts`, else Vite. An unknown value is an
+ * error (never a silent fall-back to another engine).
+ */
+export function resolveEngine(flag: string | undefined, project?: { engine?: Engine }): Engine {
+  const chosen = flag ?? project?.engine ?? "vite";
+  if (!isEngine(chosen)) {
+    throw new Error(`[devora] unknown engine "${String(chosen)}": use "vite" (default) or "own" (${ENGINE_NAME}, experimental)`);
+  }
+  return chosen;
+}
+
 export interface ProjectConfig {
   apps: AppConfig[];
   shared: SharedConfig;
+  /**
+   * Dev and build engine for every app: `"vite"` (default, stable) or `"own"` (ENGINE_NAME, experimental). `--engine` on the command
+   * line wins over this.
+   */
+  engine?: Engine;
 }
 
 export function defineProject(config: ProjectConfig): ProjectConfig {
+  if (config.engine !== undefined && !isEngine(config.engine)) {
+    throw new Error(`[framework.config] engine must be "vite" or "own", got ${JSON.stringify(config.engine)}`);
+  }
   const names = new Set<string>();
   for (const app of config.apps) {
     if (names.has(app.name)) {

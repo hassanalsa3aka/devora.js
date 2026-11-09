@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { ENGINE_NAME } from "@devorajs/core/config";
 import { dev } from "./commands/dev.js";
 import { build } from "./commands/build.js";
 import { desktopBuild, desktopDev, desktopServe } from "./commands/desktop.js";
@@ -38,7 +39,8 @@ program
   )
   .option("--routes", "list every API route at boot (default: listed up to 10 per app, counted above that; also DEVORA_ROUTES=all)")
   .option("--quiet", QUIET_HELP)
-  .option("--experimental-dev-server", "run the experimental dev server of Devora's own instead of Vite (repository checkout only; also DEVORA_EXPERIMENTAL_DEV_SERVER=1)")
+  .option("--engine <engine>", `dev engine: vite (default) or own (${ENGINE_NAME}, experimental); overrides devora.config.ts`)
+  .option("--experimental-dev-server", "same as --engine=own (also DEVORA_EXPERIMENTAL_DEV_SERVER=1)")
   .action(async (opts) => dev(opts));
 
 program
@@ -50,6 +52,7 @@ program
     "--out <dir>",
     "with --adapter=vercel and --app: write the Build Output API directory here instead of apps/<name>/.vercel/output (e.g. --out=.vercel/output when the Vercel project's Root Directory is the repo root)"
   )
+  .option("--engine <engine>", `build engine: vite (default) or own (${ENGINE_NAME}, experimental); overrides devora.config.ts`)
   .option("--quiet", QUIET_HELP)
   .action(async (opts) => build(opts));
 

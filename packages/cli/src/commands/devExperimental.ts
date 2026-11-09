@@ -73,7 +73,10 @@ function resolvePublicDir(appRoot: string): string | undefined {
     if (m) return path.resolve(appRoot, m[1]!);
   }
   const fallback = path.join(appRoot, "public");
-  return existsSync(fallback) ? fallback : undefined;
+  if (existsSync(fallback)) return fallback;
+  // A project scaffolded for this engine has no vite.config.ts: its shared brand assets are the project's assets/ folder.
+  const shared = path.resolve(appRoot, "..", "..", "assets");
+  return !existsSync(config) && existsSync(shared) ? shared : undefined;
 }
 
 /**

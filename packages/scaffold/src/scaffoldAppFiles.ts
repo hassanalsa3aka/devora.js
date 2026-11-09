@@ -4,6 +4,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import type { AuthChoice } from "./resolveAuthChoice.js";
 
 export interface ScaffoldAppOptions {
+  /** `"own"`: the engine of Devora's own; the app gets no `vite.config.ts` and no `vite` or `@vitejs/plugin-react` dependency. Default `"vite"`. */
+  engine?: "vite" | "own";
   authMode: AuthChoice;
   /**
    * Version string for the generated package.json's "@devorajs/core"
@@ -124,6 +126,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
   const { authMode, coreVersion, cliInvocation, cliVersion } = opts;
   const kind = opts.kind ?? "pages";
   const withBackend = opts.withBackend ?? true;
+  const ownEngine = opts.engine === "own";
   const devoraCmd =
     cliInvocation === "monorepo"
       ? "cd ../.. && node packages/cli/dist/index.js"
@@ -156,9 +159,9 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
           // A backend-only app renders no pages, so it needs no React at
           // all; it still needs vite, which runs its dev server and build.
           ...(kind === "pages"
-            ? { react: "^18.3.0", "react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.0" }
+            ? { react: "^18.3.0", "react-dom": "^18.3.0", ...(ownEngine ? {} : { "@vitejs/plugin-react": "^4.3.0" }) }
             : {}),
-          vite: "^6.4.4",
+          ...(ownEngine ? {} : { vite: "^6.4.4" }),
           // Only for a standalone (create-devora) app — see cliVersion's
           // doc comment for why a workspace-scoped platform install needs
           // this declared here too, not just at the project root.
@@ -191,7 +194,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         API_DIR_CONFIG_LINES +
         `});\n`
     );
-    await writeFile(
+    if (!ownEngine) await writeFile(
       path.join(appDir, "vite.config.ts"),
       `import { defineConfig } from "vite";\n\n` +
         `// Backend-only app — nothing here ever ships to a browser, so no React\n` +
@@ -213,7 +216,7 @@ export async function scaffoldAppFiles(appDir: string, appName: string, opts: Sc
         `});\n`
     );
 
-    await writeFile(
+    if (!ownEngine) await writeFile(
       path.join(appDir, "vite.config.ts"),
       `import path from "node:path";\n` +
         `import { fileURLToPath } from "node:url";\n` +
