@@ -32,3 +32,24 @@ for (const [key, engine] of [["devora-vite", "vite"], ["devora-sekhem", "own"]])
   fs.symlinkSync(fs.realpathSync(path.join(repo, "apps", "api-only", "node_modules", "vite")), path.join(dest, "apps", "api", "node_modules", "vite"));
   console.log(`${key}: ${engine}`);
 }
+
+// The pages benchmark (run.mjs): the same two engines on apps/devora (a static page, a server-rendered page with an island, a form).
+const pagesSource = path.join(here, "apps", "devora");
+for (const [key, engine] of [["devora-pages-vite", "vite"], ["devora-pages-sekhem", "own"]]) {
+  const dest = path.join(here, "apps", key);
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.cpSync(pagesSource, dest, { recursive: true, filter: (s) => !["node_modules", "dist", "package-lock.json"].includes(path.basename(s)) });
+  const run = engine === "own" ? `${TSX} ${CLI_SRC}` : `node ${CLI_DIST}`;
+  fs.writeFileSync(
+    path.join(dest, "package.json"),
+    JSON.stringify({ name: `bench-${key}`, private: true, version: "0.1.0", scripts: { build: `${run} build --engine=${engine}`, start: `node ${CLI_LAUNCHER} start` } }, null, 2) + "\n"
+  );
+  fs.symlinkSync(path.join(repo, "node_modules"), path.join(dest, "node_modules"));
+  // the app's own folder resolves what the repository's apps resolve: react, react-dom, vite and the React plugin
+  const appModules = path.join(dest, "apps", "bench", "node_modules");
+  fs.mkdirSync(path.join(appModules, "@vitejs"), { recursive: true });
+  const dash = path.join(repo, "apps", "dashboard", "node_modules");
+  for (const name of ["react", "react-dom", "vite"]) fs.symlinkSync(fs.realpathSync(path.join(dash, name)), path.join(appModules, name));
+  fs.symlinkSync(fs.realpathSync(path.join(dash, "@vitejs", "plugin-react")), path.join(appModules, "@vitejs", "plugin-react"));
+  console.log(`${key}: ${engine}`);
+}
