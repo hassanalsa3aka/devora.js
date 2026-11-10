@@ -16,7 +16,7 @@
   "dependencies": {
     "@devorajs/cli": "^0.4.1",
     "@devorajs/core": "^0.4.1",
-    "bullmq": "^6.3.15",
+    "bullmq": "^6.7.2",
     "ioredis": "^6.0.0",
     "node-cron": "^4.6.0"
   },
