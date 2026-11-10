@@ -124,12 +124,18 @@ function stopServer(child) {
   try {
     process.kill(-child.pid, "SIGTERM");
   } catch {}
+  // A server that ignores SIGTERM (Next.js held its port on the Linux server) is killed after 3 s, so the next one can bind.
+  setTimeout(() => {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {}
+  }, 3000).unref();
 }
 
 // Never start a server while an earlier one still answers on the port: the
 // numbers would silently belong to the wrong framework.
 async function waitPortFree() {
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 1200; i++) {
     try {
       await fetch(`http://localhost:${PORT}/`);
       await sleep(50);

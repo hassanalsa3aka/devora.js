@@ -1,0 +1,314 @@
+{
+  "date": "2026-11-10T12:51:53.257Z",
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "memoryGb": 16,
+    "os": "Darwin 27.2.0 (darwin arm64)",
+    "node": "v26.13.0"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "browserRuns": 5,
+    "order": "interleaved (rounds; the start of the list rotates by one each round)",
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "nuxt": {
+      "name": "Nuxt",
+      "version": "4.6.4",
+      "build": {
+        "coldMs": {
+          "median": 3503.471375000001,
+          "min": 3404.543832999998,
+          "max": 3996.6907919999994,
+          "runs": [
+            3996.6907919999994,
+            3503.471375000001,
+            3404.543832999998
+          ]
+        },
+        "warmMs": {
+          "median": 3414.7139580000003,
+          "min": 3339.585124999998,
+          "max": 3418.105375000001,
+          "runs": [
+            3414.7139580000003,
+            3418.105375000001,
+            3339.585124999998
+          ]
+        }
+      },
+      "startMs": {
+        "median": 258.8749590000007,
+        "min": 257.29004200000054,
+        "max": 292.8153749999983,
+        "runs": [
+          292.8153749999983,
+          259.0609170000025,
+          258.6107499999998,
+          257.29004200000054,
+          258.8749590000007
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 158.484375,
+        "min": 158.421875,
+        "max": 158.8125,
+        "runs": [
+          158.796875,
+          158.46875,
+          158.8125,
+          158.484375,
+          158.421875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1904,
+            "bodyBytes": 1904
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1904,
+            "bodyBytes": 1904
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 9748,
+            "bodyBytes": 9748
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 9748,
+            "bodyBytes": 9748
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 98,
+            "bodyBytes": 98
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 98,
+            "bodyBytes": 98
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 194351,
+          "jsGzip": 73642,
+          "jsBrotli": 66544
+        },
+        "/items": {
+          "jsBytes": 203286,
+          "jsGzip": 76857,
+          "jsBrotli": 69525,
+          "hydrationMs": {
+            "median": 37.70000001788139,
+            "min": 37.5,
+            "max": 46,
+            "runs": [
+              46,
+              37.70000001788139,
+              42.599999994039536,
+              37.5,
+              37.69999998807907
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 32106.91,
+            "min": 31408.73,
+            "max": 32357.1,
+            "runs": [
+              32106.91,
+              31960,
+              32357.1,
+              31408.73,
+              32272.73
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 2168.81,
+            "min": 2155.2,
+            "max": 2192.81,
+            "runs": [
+              2165.4,
+              2180.2,
+              2192.81,
+              2168.81,
+              2155.2
+            ]
+          },
+          "p50": {
+            "median": 18,
+            "min": 18,
+            "max": 19,
+            "runs": [
+              18,
+              18,
+              18,
+              19,
+              19
+            ]
+          },
+          "p99": {
+            "median": 52,
+            "min": 51,
+            "max": 53,
+            "runs": [
+              51,
+              51,
+              52,
+              52,
+              53
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 33340.37,
+            "min": 33016.73,
+            "max": 33508.37,
+            "runs": [
+              33016.73,
+              33298.19,
+              33340.37,
+              33499.64,
+              33508.37
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            363263,
+            366222,
+            366773,
+            368516,
+            368535
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 340.828125,
+      "loadPositions": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}
