@@ -9,3 +9,5 @@ apps/*/.react-router/
 apps/devora/apps/bench/dist/
 apps/devora-vite/
 apps/devora-sekhem/
+apps/nuxt/.nuxt/
+apps/nuxt/.output/

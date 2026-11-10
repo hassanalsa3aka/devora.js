@@ -13,6 +13,7 @@ defaults, measured the same way. Not published to npm; nothing here is used by t
 |---|---|---|
 | `apps/devora` | Devora.js (`@devorajs/core`/`cli`, installed from npm; the version is in each report) | `devora build`, `devora start` (adapter-node). `/static` is `ssg`; the counter is an `island()` |
 | `apps/next` | Next.js 16.4.1 | `next build`, `next start`, App Router. `/static` is static by default; `/items` uses `dynamic = "force-dynamic"` and a client component; the form is a Server Action with `useActionState` |
+| `apps/nuxt` | Nuxt 4.6.4 (Vue 3.5.45) | `nuxt build`, then `node .output/server/index.mjs` (Nitro, node-server preset); `/static` is pre-rendered through `routeRules`; the counter is part of the Vue page (hydrated), the form is a Nitro route |
 | `apps/astro` | Astro 7.3.8 | `output: "server"` on `@astrojs/node` (standalone); `/static` has `prerender = true`; the counter is a React component with `client:load` |
 | `apps/sveltekit` | SvelteKit 3.0.1 | `@sveltejs/adapter-node` 6; `/static` has `prerender = true`; the form uses form actions with `fail()` and `redirect()` |
 | `apps/react-router` | React Router 8.4.0 (framework mode) | `react-router build`, `react-router-serve`; `/static` is in `prerender`; the form uses `<Form>` and an `action` |

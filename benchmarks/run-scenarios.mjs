@@ -26,8 +26,8 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/
 const PORT = Number(args.port ?? 4400);
 const RUNS = Number(args.runs ?? 5);
 const ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-const KEYS = ["devora-pages-vite", "devora-pages-sekhem", "next", "astro", "sveltekit", "react-router"].filter((k) => !args.only || args.only.split(",").includes(k));
-const NAMES = { "devora-pages-vite": "Devora.js with Vite", "devora-pages-sekhem": "Devora.js with Sekhem", next: "Next.js", astro: "Astro", sveltekit: "SvelteKit", "react-router": "React Router" };
+const KEYS = ["devora-pages-vite", "devora-pages-sekhem", "next", "astro", "sveltekit", "react-router", "nuxt"].filter((k) => !args.only || args.only.split(",").includes(k));
+const NAMES = { "devora-pages-vite": "Devora.js with Vite", "devora-pages-sekhem": "Devora.js with Sekhem", next: "Next.js", astro: "Astro", sveltekit: "SvelteKit", "react-router": "React Router", nuxt: "Nuxt" };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sorted = (xs) => [...xs].sort((a, b) => a - b);

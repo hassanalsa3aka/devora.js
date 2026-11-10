@@ -1,0 +1,9 @@
+
+== Nuxt
+cold: start to first page byte 293 ms, first page request 7 ms
+ttfb /items: p50 1.12 ms, p99 2.57 ms
+1000 connections /static: 28525 req/s, p99 5156 ms, errors 15881/14656, non-2xx 0/0
+1000 connections /items: 1906 req/s, p99 465 ms, errors 83249/91927, non-2xx 0/0
+memory after the 1,000-connection runs: 363 MB
+
+wrote /Users/hassansayed/Developer/_work/devora.js-followups/benchmarks/results/scenarios-2026-11-10.json
