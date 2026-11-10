@@ -28,7 +28,7 @@ The flag wins over the file. An unknown engine name is an error: Devora.js never
 switches `--experimental-dev-server` and `DEVORA_EXPERIMENTAL_DEV_SERVER=1` mean the same as `--engine=own`.
 
 **Requirements.** Node 22.15 or later (Sekhem uses `module.registerHooks`; older Node gets a message and exits, and the Vite engine is
-not affected). Until the package `@devorajs/sekhem` is published, Sekhem runs from a checkout of the Devora.js repository.
+not affected). Sekhem is the separate package `@devorajs/sekhem`: `npm install --save-dev @devorajs/sekhem` (or pnpm or yarn). `npx create-devora my-app --engine=own` adds it to the new project. Without it, `--engine=own` stops with a message that says what to install.
 
 A project created for Sekhem has no `vite.config.ts` and no `vite` or `@vitejs/plugin-react` dependency in its apps.
 
@@ -164,7 +164,7 @@ The Node lines 20, 22, 24 and 26 were checked; Sekhem refuses Node older than 22
 
 ## Where Sekhem is behind
 
-Vite has plugins, a large ecosystem and years of use; Sekhem has none of that. Open items: publish `@devorajs/sekhem`, a plugin API
+Vite has plugins, a large ecosystem and years of use; Sekhem has none of that. Open items: a plugin API
 (the design is in the repository's notes: no Vite plugin API, a small Devora one later), PostCSS and Sass, source maps in the build,
 `VITE_` variables, and Windows and Linux tests.
 

@@ -17,6 +17,7 @@ import {
 import { ERROR_PAGE_FILES } from "../server/ssrMiddleware.js";
 import { buildAppClient } from "./buildAppClient.js";
 import { removeDotfiles } from "./removeDotfiles.js";
+import { loadSekhem } from "./loadSekhem.js";
 import { islandsBuildPlugin, ISLAND_PLACEHOLDER_RE } from "./islandsBuildPlugin.js";
 import { viteLogLevel } from "../terminal/output.js";
 
@@ -110,7 +111,7 @@ export async function buildAppServer(
   const islandPlaceholders = new Map<string, string>();
   const routeCss: Record<string, string[]> = {};
   if (engine === "own") {
-    const { buildServerBundle } = await import("@devorajs/sekhem");
+    const { buildServerBundle } = await loadSekhem();
     const built = await buildServerBundle({ appRoot, entries: input, outDir: serverOutDir, logLevel: "warning" });
     for (const [placeholder, file] of built.islands) islandPlaceholders.set(placeholder, file);
     Object.assign(routeCss, built.routeCss);

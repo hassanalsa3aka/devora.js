@@ -10,7 +10,26 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `docs/history/BUILD-LOG.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
-## Unreleased
+## 0.4.1 — 2026-11-10
+
+Packages: `@devorajs/core` 0.4.1, `@devorajs/cli` 0.4.1, `create-devora` 0.4.1, and `@devorajs/sekhem` 0.1.0 (first release). The adapters stay at 0.3.0 and the engine package is new.
+
+The 0.4.0 tarballs of `@devorajs/core`, `@devorajs/cli` and `create-devora` were published from a checkout whose build output was older than its source, so they were missing changes listed under 0.4.0 below: the `engine` setting in `devora.config.ts` (and so `--engine=own`), the refusal of dotfiles in `public/` (H37), the 405 for PUT, PATCH and DELETE on a page (H38), the clear message when `@devorajs/sekhem` is not installed, and `create-devora` adding `@devorajs/sekhem` to a project that chooses the engine. 0.4.1 is the same release built from the current source; 0.4.0 of those three packages is deprecated in favour of it. Use 0.4.1. No other behavior differs from what 0.4.0 describes.
+
+`scripts/checkPublishable.mjs` (run by the publish scripts) now refuses to publish a package whose build output is older than its source.
+
+## 0.4.0 — 2026-11-10
+
+Packages: `@devorajs/core` 0.4.0, `@devorajs/cli` 0.4.0, `@devorajs/adapter-node` 0.3.0, `@devorajs/adapter-vercel` 0.3.0,
+`@devorajs/adapter-netlify` 0.3.0, `create-devora` 0.4.0 and, new, `@devorajs/sekhem` 0.1.0 (the experimental engine of our own; install it with `npm install --save-dev @devorajs/sekhem` to use `--engine=own`; `create-devora` adds it to a project that chooses it). The adapters depend on `@devorajs/core` `^0.4.0` (they took
+`^0.3.2`, which does not accept 0.4.0) and pass it the new settings, so upgrade core, cli and the adapters together.
+`create-devora` 0.4.0 writes `^0.4.0` for core and cli, `vite` `^8.3.7` and `@vitejs/plugin-react` `^6.3.0` into new projects.
+
+This release is a security hardening pass. There has been no third-party audit; the review was internal. Three
+changes can make an existing app's requests fail, and one dependency requirement can stop an install; each lists
+the exact step. Everything else is additive or only tightens a default.
+
+### New in this release
 
 - `devora dev` no longer stops when it receives a request target that starts with two slashes (`GET //` from the local machine ended the process: finding H36 in `ROADMAP.md`). A request target that cannot be read at all gets a 400.
 - `devora desktop dev --experimental` opens a window (a generated Tauri 2 shell, run with `cargo run`) when Rust and, on macOS, the Xcode command line tools are present; otherwise it says what is missing and the command to run, and serves the app on its own as before (`--no-window` forces that). The shell starts the server on a random loopback port with a per-launch token, shows only that origin, refuses other navigation, exposes no command to the page, and stops the server when it closes; the server also stops by itself when the process that started it is gone. Experimental; the Rust shell has not been compiled or run by its author.
@@ -21,17 +40,6 @@ detailed, per-feature account of that work instead of a fabricated day-by-day hi
 - `devora start` answers a page route with 405 (`Allow: GET, HEAD, POST`) for PUT, PATCH and DELETE instead of the page (finding H38).
 - `pnpm run compare:built-security` runs about 75 request-level attacks (path traversal, files that must not be served, error output, methods, malformed requests, limits, redirects, host headers, CORS) against a built app served by `devora start`, built with Vite and with Sekhem; both builds pass.
 - With Vite 8 (now the declared Vite), a request to `devora dev` with a host that is not in `allowedHosts` is refused by Vite's own host check with 403 before Devora's check, which answers 400; both refuse. With no `allowedHosts` set, Vite's default check applies as before.
-
-## 0.4.0 — DATE-TO-FILL
-
-Packages: `@devorajs/core` 0.4.0, `@devorajs/cli` 0.4.0, `@devorajs/adapter-node` 0.3.0, `@devorajs/adapter-vercel` 0.3.0,
-`@devorajs/adapter-netlify` 0.3.0, `create-devora` 0.4.0. The adapters depend on `@devorajs/core` `^0.4.0` (they took
-`^0.3.2`, which does not accept 0.4.0) and pass it the new settings, so upgrade core, cli and the adapters together.
-`create-devora` 0.4.0 writes `^0.4.0` for core and cli, `vite` `^8.3.7` and `@vitejs/plugin-react` `^6.3.0` into new projects.
-
-This release is a security hardening pass. There has been no third-party audit; the review was internal. Three
-changes can make an existing app's requests fail, and one dependency requirement can stop an install; each lists
-the exact step. Everything else is additive or only tightens a default.
 
 ### Breaking changes
 

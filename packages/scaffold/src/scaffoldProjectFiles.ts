@@ -62,6 +62,9 @@ export const PNPM_WORKSPACE_YAML =
 /** .yarnrc.yml for a project created for Yarn: the node_modules linker (see ScaffoldProjectOptions.packageManager). */
 export const YARNRC_YML = `nodeLinker: node-modules\n`;
 
+/** The range of `@devorajs/sekhem` a project that chose the engine of our own depends on. */
+export const SEKHEM_VERSION = "^0.1.0"; // version-ok: Sekhem has its own version, not Devora's
+
 /**
  * Generates the ROOT of a brand-new devora.js project — everything that has
  * to exist *before* any app can be scaffolded into it: `devora.config.ts`,
@@ -120,6 +123,8 @@ export async function scaffoldProjectFiles(projectRoot: string, opts: ScaffoldPr
         dependencies: {
           "@devorajs/core": coreVersion,
           "@devorajs/cli": cliVersion,
+          // The engine of our own is a separate package the CLI loads when `engine: "own"` is set; a platform's build needs it too.
+          ...(opts.engine === "own" ? { "@devorajs/sekhem": SEKHEM_VERSION } : {}),
         },
         // Only for `npm run typecheck` / editors — the build itself
         // (Vite + esbuild) never needs TypeScript, so these stay dev-only.
