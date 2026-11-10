@@ -399,8 +399,9 @@ export default undefined;`;
   async function changed(changedFile: string): Promise<void> {
     const began = performance.now();
     await depsReady; // what a change means depends on which dependencies are CommonJS
-    // A file the watcher reports is already under a real root; anything else (a test, a link) is resolved.
-    const file = realDirs.some((d) => changedFile.startsWith(d + path.sep)) ? changedFile : await realPathOf(changedFile);
+    // The real path of the file, always: a link under a served folder whose target lies elsewhere must be seen as outside
+    // (a path that merely starts with a root's real path can still be such a link).
+    const file = await realPathOf(changedFile);
     const inside = realDirs.length === 0 || realDirs.some((d) => file.startsWith(d + path.sep));
     transforms.invalidate(file);
     clientModules?.invalidate(file);
