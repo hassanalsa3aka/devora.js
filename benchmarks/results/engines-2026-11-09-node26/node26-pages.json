@@ -1,0 +1,1772 @@
+{
+  "date": "2026-11-10T10:29:01.739Z",
+  "machine": {
+    "cpu": "Apple M5",
+    "cores": 10,
+    "memoryGb": 16,
+    "os": "Darwin 27.2.0 (darwin arm64)",
+    "node": "v26.13.0"
+  },
+  "config": {
+    "buildRuns": 3,
+    "startRuns": 5,
+    "loadRuns": 5,
+    "loadSeconds": 10,
+    "warmupSeconds": 5,
+    "connections": 50,
+    "browserRuns": 5,
+    "order": "interleaved (rounds; the start of the list rotates by one each round)",
+    "tool": "autocannon 8.0.0"
+  },
+  "frameworks": {
+    "devora-pages-vite": {
+      "name": "Devora.js (Vite 8 engine, this commit)",
+      "version": "0.4.0",
+      "coreVersion": "0.4.0",
+      "build": {
+        "coldMs": {
+          "median": 425.7710000000002,
+          "min": 415.325417,
+          "max": 514.826458,
+          "runs": [
+            514.826458,
+            425.7710000000002,
+            415.325417
+          ]
+        },
+        "warmMs": {
+          "median": 420.0887089999999,
+          "min": 419.5674170000002,
+          "max": 424.9612910000001,
+          "runs": [
+            420.0887089999999,
+            424.9612910000001,
+            419.5674170000002
+          ]
+        }
+      },
+      "startMs": {
+        "median": 252.71249999999964,
+        "min": 251.8277080000007,
+        "max": 294.4768750000003,
+        "runs": [
+          261.59658300000046,
+          252.71249999999964,
+          294.4768750000003,
+          252.59558300000026,
+          251.8277080000007
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 151.3125,
+        "min": 151.03125,
+        "max": 151.78125,
+        "runs": [
+          151.3125,
+          151.21875,
+          151.78125,
+          151.03125,
+          151.390625
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4897,
+            "bodyBytes": 4897
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4897,
+            "bodyBytes": 4897
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 140663,
+          "jsGzip": 45665,
+          "jsBrotli": 40114,
+          "hydrationMs": {
+            "median": 31.80000001192093,
+            "min": 29.099999994039536,
+            "max": 41.400000005960464,
+            "runs": [
+              41.400000005960464,
+              31.69999998807907,
+              33.79999998211861,
+              31.80000001192093,
+              29.099999994039536
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 63125.82,
+            "min": 62241.46,
+            "max": 63559.28,
+            "runs": [
+              63125.82,
+              62241.46,
+              63253.82,
+              63559.28,
+              62587.64
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 7598.73,
+            "min": 7571.82,
+            "max": 7664.91,
+            "runs": [
+              7664.91,
+              7628.55,
+              7586,
+              7571.82,
+              7598.73
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 13,
+            "min": 12,
+            "max": 13,
+            "runs": [
+              12,
+              13,
+              13,
+              13,
+              13
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 47428.37,
+            "min": 46977.46,
+            "max": 47611.64,
+            "runs": [
+              46977.46,
+              47355.64,
+              47530.19,
+              47428.37,
+              47611.64
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 2,
+            "min": 1,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              1,
+              2,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            516721,
+            520841,
+            522766,
+            521684,
+            523724
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 223.53125,
+      "loadPositions": [
+        1,
+        2,
+        1,
+        2,
+        1
+      ]
+    },
+    "devora-pages-sekhem": {
+      "name": "Devora.js (Sekhem engine, this commit)",
+      "version": "0.4.0",
+      "coreVersion": "0.4.0",
+      "build": {
+        "coldMs": {
+          "median": 341.7347919999993,
+          "min": 340.18845899999724,
+          "max": 375.2625000000007,
+          "runs": [
+            375.2625000000007,
+            341.7347919999993,
+            340.18845899999724
+          ]
+        },
+        "warmMs": {
+          "median": 338.54291699999885,
+          "min": 336.0460830000011,
+          "max": 339.1520410000012,
+          "runs": [
+            339.1520410000012,
+            336.0460830000011,
+            338.54291699999885
+          ]
+        }
+      },
+      "startMs": {
+        "median": 252.33516599999712,
+        "min": 251.17508299999463,
+        "max": 253.265707999999,
+        "runs": [
+          252.33516599999712,
+          253.265707999999,
+          252.9794159999983,
+          252.32179100000212,
+          251.17508299999463
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 151.34375,
+        "min": 151,
+        "max": 151.765625,
+        "runs": [
+          151.34375,
+          151.5,
+          151.21875,
+          151.765625,
+          151
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 568,
+            "bodyBytes": 568
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4897,
+            "bodyBytes": 4897
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4897,
+            "bodyBytes": 4897
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": 0,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 142736,
+          "jsGzip": 46491,
+          "jsBrotli": 40796,
+          "hydrationMs": {
+            "median": 35.900000005960464,
+            "min": 35.19999998807907,
+            "max": 39.599999994039536,
+            "runs": [
+              39.599999994039536,
+              35.19999998807907,
+              35.900000005960464,
+              35.69999998807907,
+              36.19999998807907
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 63044.37,
+            "min": 62759.28,
+            "max": 63396.37,
+            "runs": [
+              62782.55,
+              63044.37,
+              62759.28,
+              63396.37,
+              63096.73
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "runs": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 7574.73,
+            "min": 7536.19,
+            "max": 7617.28,
+            "runs": [
+              7544.19,
+              7536.19,
+              7617.28,
+              7574.73,
+              7586
+            ]
+          },
+          "p50": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "p99": {
+            "median": 13,
+            "min": 13,
+            "max": 13,
+            "runs": [
+              13,
+              13,
+              13,
+              13,
+              13
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 47597.1,
+            "min": 46043.64,
+            "max": 47792,
+            "runs": [
+              47792,
+              46043.64,
+              47227.64,
+              47597.1,
+              47611.64
+            ]
+          },
+          "p50": {
+            "median": 0,
+            "min": 0,
+            "max": 1,
+            "runs": [
+              0,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          "p99": {
+            "median": 1,
+            "min": 1,
+            "max": 2,
+            "runs": [
+              1,
+              2,
+              2,
+              1,
+              1
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            525684,
+            506503,
+            519484,
+            523512,
+            523656
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 241.015625,
+      "loadPositions": [
+        2,
+        1,
+        2,
+        1,
+        2
+      ]
+    },
+    "next": {
+      "name": "Next.js",
+      "version": "16.4.1",
+      "build": {
+        "coldMs": {
+          "median": 2674.527458000004,
+          "min": 2543.4347500000003,
+          "max": 4145.268250000001,
+          "runs": [
+            4145.268250000001,
+            2674.527458000004,
+            2543.4347500000003
+          ]
+        },
+        "warmMs": {
+          "median": 1536.4339160000018,
+          "min": 1525.7785829999993,
+          "max": 1558.9053330000024,
+          "runs": [
+            1525.7785829999993,
+            1536.4339160000018,
+            1558.9053330000024
+          ]
+        }
+      },
+      "startMs": {
+        "median": 423.4790839999914,
+        "min": 417.73245800000586,
+        "max": 436.26616600000125,
+        "runs": [
+          436.26616600000125,
+          417.73245800000586,
+          429.9246669999993,
+          420.33391700001084,
+          423.4790839999914
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 188.25,
+        "min": 188.078125,
+        "max": 194.15625,
+        "runs": [
+          188.421875,
+          188.078125,
+          188.25,
+          188.15625,
+          194.15625
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 200,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 5688,
+            "bodyBytes": 5688
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 1816
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 17363
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "gzip",
+            "contentLength": null,
+            "bodyBytes": 4224
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 456139,
+          "jsGzip": 134953,
+          "jsBrotli": 115952
+        },
+        "/items": {
+          "jsBytes": 456466,
+          "jsGzip": 135218,
+          "jsBrotli": 116161,
+          "hydrationMs": {
+            "median": 58.30000001192093,
+            "min": 56.400000005960464,
+            "max": 63.5,
+            "runs": [
+              62.5,
+              58.30000001192093,
+              57.70000001788139,
+              63.5,
+              56.400000005960464
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 9065.82,
+            "min": 8901.46,
+            "max": 9091.28,
+            "runs": [
+              8901.46,
+              9027.28,
+              9091.28,
+              9065.82,
+              9074.55
+            ]
+          },
+          "p50": {
+            "median": 5,
+            "min": 5,
+            "max": 5,
+            "runs": [
+              5,
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "p99": {
+            "median": 10,
+            "min": 10,
+            "max": 10,
+            "runs": [
+              10,
+              10,
+              10,
+              10,
+              10
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 1013.8,
+            "min": 1010,
+            "max": 1025,
+            "runs": [
+              1025,
+              1016.3,
+              1010,
+              1013.8,
+              1011.2
+            ]
+          },
+          "p50": {
+            "median": 48,
+            "min": 47,
+            "max": 48,
+            "runs": [
+              47,
+              48,
+              48,
+              48,
+              48
+            ]
+          },
+          "p99": {
+            "median": 63,
+            "min": 63,
+            "max": 69,
+            "runs": [
+              63,
+              63,
+              65,
+              63,
+              69
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 5406.37,
+            "min": 5361.28,
+            "max": 5412.91,
+            "runs": [
+              5361.28,
+              5373.28,
+              5406.37,
+              5412.91,
+              5409.28
+            ]
+          },
+          "p50": {
+            "median": 8,
+            "min": 8,
+            "max": 8,
+            "runs": [
+              8,
+              8,
+              8,
+              8,
+              8
+            ]
+          },
+          "p99": {
+            "median": 18,
+            "min": 18,
+            "max": 18,
+            "runs": [
+              18,
+              18,
+              18,
+              18,
+              18
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            58965,
+            59097,
+            59460,
+            59544,
+            59497
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 420.828125,
+      "loadPositions": [
+        3,
+        2,
+        1,
+        6,
+        5
+      ]
+    },
+    "astro": {
+      "name": "Astro",
+      "version": "7.3.8",
+      "build": {
+        "coldMs": {
+          "median": 997.8889580000105,
+          "min": 994.2494580000057,
+          "max": 2528.928709,
+          "runs": [
+            2528.928709,
+            997.8889580000105,
+            994.2494580000057
+          ]
+        },
+        "warmMs": {
+          "median": 928.078125,
+          "min": 925.942624999996,
+          "max": 931.5241669999959,
+          "runs": [
+            928.078125,
+            931.5241669999959,
+            925.942624999996
+          ]
+        }
+      },
+      "startMs": {
+        "median": 303.17445799999405,
+        "min": 302.24908300000243,
+        "max": 329.2083330000023,
+        "runs": [
+          329.2083330000023,
+          302.6940420000028,
+          302.24908300000243,
+          303.59137499998906,
+          303.17445799999405
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 177.234375,
+        "min": 176.40625,
+        "max": 178.109375,
+        "runs": [
+          177.234375,
+          176.40625,
+          177.1875,
+          177.5625,
+          178.109375
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 398,
+            "bodyBytes": 398
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8390
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 8390
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 0,
+          "jsGzip": 0,
+          "jsBrotli": 0
+        },
+        "/items": {
+          "jsBytes": 221290,
+          "jsGzip": 69060,
+          "jsBrotli": 59828,
+          "hydrationMs": {
+            "median": 36.80000001192093,
+            "min": 36.099999994039536,
+            "max": 41.599999994039536,
+            "runs": [
+              41.599999994039536,
+              36.79999998211861,
+              36.80000001192093,
+              36.099999994039536,
+              38.400000005960464
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 20166.55,
+            "min": 19341.46,
+            "max": 20211.64,
+            "runs": [
+              20173.82,
+              20211.64,
+              20166.55,
+              20048.73,
+              19341.46
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 4,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 6380.55,
+            "min": 6301.64,
+            "max": 6396.19,
+            "runs": [
+              6380.55,
+              6336.19,
+              6386.37,
+              6301.64,
+              6396.19
+            ]
+          },
+          "p50": {
+            "median": 7,
+            "min": 7,
+            "max": 7,
+            "runs": [
+              7,
+              7,
+              7,
+              7,
+              7
+            ]
+          },
+          "p99": {
+            "median": 14,
+            "min": 14,
+            "max": 14,
+            "runs": [
+              14,
+              14,
+              14,
+              14,
+              14
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 11514.55,
+            "min": 11377.82,
+            "max": 11534.19,
+            "runs": [
+              11481.82,
+              11531.28,
+              11534.19,
+              11377.82,
+              11514.55
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 8,
+            "min": 8,
+            "max": 8,
+            "runs": [
+              8,
+              8,
+              8,
+              8,
+              8
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            126291,
+            126814,
+            126873,
+            125146,
+            126655
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 356,
+      "loadPositions": [
+        4,
+        3,
+        2,
+        1,
+        6
+      ]
+    },
+    "sveltekit": {
+      "name": "SvelteKit",
+      "version": "3.0.1",
+      "build": {
+        "coldMs": {
+          "median": 1732.8637080000044,
+          "min": 1727.0301670000044,
+          "max": 2736.782665999999,
+          "runs": [
+            2736.782665999999,
+            1727.0301670000044,
+            1732.8637080000044
+          ]
+        },
+        "warmMs": {
+          "median": 1757.2027499999967,
+          "min": 1743.859540999998,
+          "max": 1757.7428330000112,
+          "runs": [
+            1757.7428330000112,
+            1757.2027499999967,
+            1743.859540999998
+          ]
+        }
+      },
+      "startMs": {
+        "median": 222.07837500001187,
+        "min": 221.2989169999928,
+        "max": 249.67820900000515,
+        "runs": [
+          249.67820900000515,
+          221.2989169999928,
+          222.54454199998872,
+          222.07837500001187,
+          222.061040999979
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 150.25,
+        "min": 149.96875,
+        "max": 150.359375,
+        "runs": [
+          149.96875,
+          150.25,
+          150.359375,
+          150.21875,
+          150.296875
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 1868,
+            "bodyBytes": 1868
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": 629,
+            "bodyBytes": 629
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 7824,
+            "bodyBytes": 7824
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 87944,
+          "jsGzip": 34159,
+          "jsBrotli": 30829
+        },
+        "/items": {
+          "jsBytes": 88058,
+          "jsGzip": 34209,
+          "jsBrotli": 30907,
+          "hydrationMs": {
+            "median": 32,
+            "min": 31,
+            "max": 33.69999998807907,
+            "runs": [
+              32,
+              33.69999998807907,
+              32.400000005960464,
+              31.19999998807907,
+              31
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 23330.19,
+            "min": 23266.19,
+            "max": 23408,
+            "runs": [
+              23405.82,
+              23266.19,
+              23269.1,
+              23408,
+              23330.19
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 4,
+            "min": 4,
+            "max": 4,
+            "runs": [
+              4,
+              4,
+              4,
+              4,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 4212.55,
+            "min": 4156.1,
+            "max": 4224.55,
+            "runs": [
+              4220.8,
+              4156.1,
+              4224.55,
+              4212.55,
+              4193.37
+            ]
+          },
+          "p50": {
+            "median": 11,
+            "min": 11,
+            "max": 11,
+            "runs": [
+              11,
+              11,
+              11,
+              11,
+              11
+            ]
+          },
+          "p99": {
+            "median": 22,
+            "min": 22,
+            "max": 22,
+            "runs": [
+              22,
+              22,
+              22,
+              22,
+              22
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 20941.78,
+            "min": 15548.67,
+            "max": 23906.19,
+            "runs": [
+              23906.19,
+              15548.67,
+              20941.78,
+              23497.46,
+              18680.91
+            ]
+          },
+          "p50": {
+            "median": 1,
+            "min": 1,
+            "max": 1,
+            "runs": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "p99": {
+            "median": 7,
+            "min": 5,
+            "max": 7,
+            "runs": [
+              5,
+              7,
+              7,
+              5,
+              7
+            ]
+          },
+          "errors": [
+            0,
+            98,
+            99,
+            0,
+            0
+          ],
+          "non2xx": [
+            262968,
+            46652,
+            188494,
+            258473,
+            205499
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 300.125,
+      "loadPositions": [
+        5,
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "react-router": {
+      "name": "React Router",
+      "version": "8.4.0",
+      "build": {
+        "coldMs": {
+          "median": 733.7833329999994,
+          "min": 727.3483750000014,
+          "max": 1423.621959000011,
+          "runs": [
+            1423.621959000011,
+            733.7833329999994,
+            727.3483750000014
+          ]
+        },
+        "warmMs": {
+          "median": 726.8732500000042,
+          "min": 722.1580830000166,
+          "max": 727.5409170000057,
+          "runs": [
+            726.8732500000042,
+            722.1580830000166,
+            727.5409170000057
+          ]
+        }
+      },
+      "startMs": {
+        "median": 283.316582999978,
+        "min": 278.5171669999836,
+        "max": 441.16029199998593,
+        "runs": [
+          441.16029199998593,
+          308.8942920000118,
+          278.5171669999836,
+          280.5620829999971,
+          283.316582999978
+        ]
+      },
+      "idleMemoryMb": {
+        "median": 161.609375,
+        "min": 161.28125,
+        "max": 161.703125,
+        "runs": [
+          161.640625,
+          161.609375,
+          161.359375,
+          161.703125,
+          161.28125
+        ]
+      },
+      "form": {
+        "status": 303,
+        "location": "/form?sent=1",
+        "emptyNameStatus": 400,
+        "emptyNameShowsError": true
+      },
+      "staticPath": "/static/",
+      "wire": {
+        "static": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": 4601,
+            "bodyBytes": 4601
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 1754
+          }
+        },
+        "items": {
+          "loadTool": {
+            "status": 200,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 15153
+          },
+          "browser": {
+            "status": 200,
+            "contentEncoding": "br",
+            "contentLength": null,
+            "bodyBytes": 3463
+          }
+        },
+        "form": {
+          "loadTool": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          },
+          "browser": {
+            "status": 303,
+            "contentEncoding": null,
+            "contentLength": null,
+            "bodyBytes": 0
+          }
+        }
+      },
+      "browser": {
+        "/static": {
+          "jsBytes": 346383,
+          "jsGzip": 111192,
+          "jsBrotli": 97340
+        },
+        "/items": {
+          "jsBytes": 346438,
+          "jsGzip": 111241,
+          "jsBrotli": 97405,
+          "hydrationMs": {
+            "median": 47.80000001192093,
+            "min": 47.5,
+            "max": 48.20000001788139,
+            "runs": [
+              48.19999998807907,
+              48.20000001788139,
+              47.80000001192093,
+              47.599999994039536,
+              47.5
+            ]
+          }
+        }
+      },
+      "load": {
+        "static": {
+          "rps": {
+            "median": 21504.73,
+            "min": 9557.5,
+            "max": 21602.19,
+            "runs": [
+              21602.19,
+              9557.5,
+              21507.64,
+              21504.73,
+              20627.64
+            ]
+          },
+          "p50": {
+            "median": 2,
+            "min": 2,
+            "max": 2,
+            "runs": [
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "p99": {
+            "median": 3,
+            "min": 3,
+            "max": 23,
+            "runs": [
+              3,
+              23,
+              3,
+              3,
+              4
+            ]
+          },
+          "errors": [
+            0,
+            65,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "items": {
+          "rps": {
+            "median": 2338.82,
+            "min": 2299,
+            "max": 2353,
+            "runs": [
+              2353,
+              2319.19,
+              2341.55,
+              2338.82,
+              2299
+            ]
+          },
+          "p50": {
+            "median": 20,
+            "min": 20,
+            "max": 21,
+            "runs": [
+              20,
+              21,
+              20,
+              20,
+              21
+            ]
+          },
+          "p99": {
+            "median": 31,
+            "min": 30,
+            "max": 32,
+            "runs": [
+              30,
+              30,
+              31,
+              31,
+              32
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "form": {
+          "rps": {
+            "median": 14418.55,
+            "min": 13807.64,
+            "max": 14498.55,
+            "runs": [
+              14418.55,
+              13807.64,
+              14438.91,
+              14318.91,
+              14498.55
+            ]
+          },
+          "p50": {
+            "median": 3,
+            "min": 3,
+            "max": 3,
+            "runs": [
+              3,
+              3,
+              3,
+              3,
+              3
+            ]
+          },
+          "p99": {
+            "median": 6,
+            "min": 6,
+            "max": 6,
+            "runs": [
+              6,
+              6,
+              6,
+              6,
+              6
+            ]
+          },
+          "errors": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "non2xx": [
+            158604,
+            151885,
+            158833,
+            157512,
+            159481
+          ]
+        }
+      },
+      "memoryAfterLoadMb": 315.203125,
+      "loadPositions": [
+        6,
+        5,
+        4,
+        3,
+        2
+      ]
+    }
+  },
+  "note": "Devora.js rows re-run after the Sekhem build used its compiled dist; other rows from the first run. Chrome (not Playwright headless shell) for browser steps."
+}

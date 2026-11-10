@@ -1,0 +1,171 @@
+
+== Devora.js (Vite 8 engine, this commit)
+build cold 417 ms, warm 415 ms
+start 254 ms, idle 151 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4897 B (identity), browser 4897 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 45665 B gzip, hydration 33 ms
+
+== Devora.js (Sekhem engine, this commit)
+build cold 538 ms, warm 528 ms
+start 253 ms, idle 151 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4897 B (identity), browser 4897 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 46491 B gzip, hydration 36 ms
+
+== Next.js
+build cold 2675 ms, warm 1536 ms
+start 423 ms, idle 188 MB
+wire static: load tool 5688 B (identity), browser 1816 B (gzip)
+wire items: load tool 17363 B (identity), browser 4224 B (gzip)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 135218 B gzip, hydration 58 ms
+
+== Astro
+build cold 998 ms, warm 928 ms
+start 303 ms, idle 177 MB
+wire static: load tool 398 B (identity), browser 398 B (identity)
+wire items: load tool 8390 B (identity), browser 8390 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 69060 B gzip, hydration 37 ms
+
+== SvelteKit
+build cold 1733 ms, warm 1757 ms
+start 222 ms, idle 150 MB
+wire static: load tool 1868 B (identity), browser 629 B (br)
+wire items: load tool 7824 B (identity), browser 7824 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 34209 B gzip, hydration 32 ms
+
+== React Router
+build cold 734 ms, warm 727 ms
+start 283 ms, idle 162 MB
+wire static: load tool 4601 B (identity), browser 1754 B (br)
+wire items: load tool 15153 B (identity), browser 3463 B (br)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 111241 B gzip, hydration 48 ms
+
+== load round 1 of 5: devora-pages-vite, devora-pages-sekhem, next, astro, sveltekit, react-router
+devora-pages-vite static: 61404 req/s
+(node:20768) TimeoutNegativeWarning: -582186 is a negative number.
+Timeout duration was set to 1.
+(Use `node --trace-warnings ...` to show where the warning was created)
+devora-pages-vite items: 6342 req/s
+devora-pages-vite form: 24545 req/s
+devora-pages-sekhem static: 49923 req/s
+devora-pages-sekhem items: 6984 req/s
+devora-pages-sekhem form: 46765 req/s
+next static: 8901 req/s
+next items: 1025 req/s
+next form: 5361 req/s
+astro static: 20174 req/s
+astro items: 6381 req/s
+astro form: 11482 req/s
+sveltekit static: 23406 req/s
+sveltekit items: 4221 req/s
+sveltekit form: 23906 req/s
+react-router static: 21602 req/s
+react-router items: 2353 req/s
+react-router form: 14419 req/s
+
+== load round 2 of 5: devora-pages-sekhem, next, astro, sveltekit, react-router, devora-pages-vite
+devora-pages-sekhem static: 63466 req/s
+devora-pages-sekhem items: 7591 req/s
+devora-pages-sekhem form: 47219 req/s
+next static: 9027 req/s
+next items: 1016 req/s
+next form: 5373 req/s
+astro static: 20212 req/s
+astro items: 6336 req/s
+astro form: 11531 req/s
+sveltekit static: 23266 req/s
+sveltekit items: 4156 req/s
+sveltekit form: 15549 req/s
+react-router static: 9558 req/s
+react-router items: 2319 req/s
+react-router form: 13808 req/s
+devora-pages-vite static: 63161 req/s
+devora-pages-vite items: 7479 req/s
+devora-pages-vite form: 46439 req/s
+
+== load round 3 of 5: next, astro, sveltekit, react-router, devora-pages-vite, devora-pages-sekhem
+next static: 9091 req/s
+next items: 1010 req/s
+next form: 5406 req/s
+astro static: 20167 req/s
+astro items: 6386 req/s
+astro form: 11534 req/s
+sveltekit static: 23269 req/s
+sveltekit items: 4225 req/s
+sveltekit form: 20942 req/s
+react-router static: 21508 req/s
+react-router items: 2342 req/s
+react-router form: 14439 req/s
+devora-pages-vite static: 63393 req/s
+devora-pages-vite items: 7577 req/s
+devora-pages-vite form: 47396 req/s
+devora-pages-sekhem static: 63306 req/s
+devora-pages-sekhem items: 7554 req/s
+devora-pages-sekhem form: 32297 req/s
+
+== load round 4 of 5: astro, sveltekit, react-router, devora-pages-vite, devora-pages-sekhem, next
+astro static: 20049 req/s
+astro items: 6302 req/s
+astro form: 11378 req/s
+sveltekit static: 23408 req/s
+sveltekit items: 4213 req/s
+sveltekit form: 23497 req/s
+react-router static: 21505 req/s
+react-router items: 2339 req/s
+react-router form: 14319 req/s
+devora-pages-vite static: 62410 req/s
+devora-pages-vite items: 7413 req/s
+devora-pages-vite form: 41777 req/s
+devora-pages-sekhem static: 63123 req/s
+devora-pages-sekhem items: 7625 req/s
+devora-pages-sekhem form: 47101 req/s
+next static: 9066 req/s
+next items: 1014 req/s
+next form: 5413 req/s
+
+== load round 5 of 5: sveltekit, react-router, devora-pages-vite, devora-pages-sekhem, next, astro
+sveltekit static: 23330 req/s
+sveltekit items: 4193 req/s
+sveltekit form: 18681 req/s
+react-router static: 20628 req/s
+react-router items: 2299 req/s
+react-router form: 14499 req/s
+devora-pages-vite static: 63280 req/s
+devora-pages-vite items: 7578 req/s
+devora-pages-vite form: 47667 req/s
+devora-pages-sekhem static: 63644 req/s
+devora-pages-sekhem items: 7631 req/s
+devora-pages-sekhem form: 47356 req/s
+next static: 9075 req/s
+next items: 1011 req/s
+next form: 5409 req/s
+astro static: 19341 req/s
+astro items: 6396 req/s
+astro form: 11515 req/s
+devora-pages-vite static: 63161 req/s (61404, 63161, 63393, 62410, 63280), p50 0 ms, p99 1 ms
+devora-pages-vite items: 7479 req/s (6342, 7479, 7577, 7413, 7578), p50 6 ms, p99 13 ms
+devora-pages-vite form: 46439 req/s (24545, 46439, 47396, 41777, 47667), p50 0 ms, p99 2 ms
+devora-pages-sekhem static: 63306 req/s (49923, 63466, 63306, 63123, 63644), p50 0 ms, p99 1 ms
+devora-pages-sekhem items: 7591 req/s (6984, 7591, 7554, 7625, 7631), p50 6 ms, p99 13 ms
+devora-pages-sekhem form: 47101 req/s (46765, 47219, 32297, 47101, 47356), p50 0 ms, p99 2 ms
+next static: 9066 req/s (8901, 9027, 9091, 9066, 9075), p50 5 ms, p99 10 ms
+next items: 1014 req/s (1025, 1016, 1010, 1014, 1011), p50 48 ms, p99 63 ms
+next form: 5406 req/s (5361, 5373, 5406, 5413, 5409), p50 8 ms, p99 18 ms
+astro static: 20167 req/s (20174, 20212, 20167, 20049, 19341), p50 2 ms, p99 3 ms
+astro items: 6381 req/s (6381, 6336, 6386, 6302, 6396), p50 7 ms, p99 14 ms
+astro form: 11515 req/s (11482, 11531, 11534, 11378, 11515), p50 3 ms, p99 8 ms
+sveltekit static: 23330 req/s (23406, 23266, 23269, 23408, 23330), p50 1 ms, p99 4 ms
+sveltekit items: 4213 req/s (4221, 4156, 4225, 4213, 4193), p50 11 ms, p99 22 ms
+sveltekit form: 20942 req/s (23906, 15549, 20942, 23497, 18681), p50 1 ms, p99 7 ms
+react-router static: 21505 req/s (21602, 9558, 21508, 21505, 20628), p50 2 ms, p99 3 ms
+react-router items: 2339 req/s (2353, 2319, 2342, 2339, 2299), p50 20 ms, p99 31 ms
+react-router form: 14419 req/s (14419, 13808, 14439, 14319, 14499), p50 3 ms, p99 6 ms
+
+wrote results/raw-2026-11-10.json

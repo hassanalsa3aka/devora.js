@@ -1,0 +1,4 @@
+{"date":"2026-11-09T21:21:05.692Z","node":"v26.13.0","os":"Linux 7.0.0-1013-oracle arm64","cpu":"Neoverse-N1","cpus":2,"ramGb":12,"runs":5}
+variant   median ms  min..max          peak RSS MB (median)  output KB
+vite8         1677   1595..2010                  468               18979
+sekhem        1169   1154..1193                  201               9651

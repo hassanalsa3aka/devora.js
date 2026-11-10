@@ -1,0 +1,4 @@
+{"date":"2026-11-09T21:07:01.753Z","node":"v26.13.0","os":"Darwin 27.2.0 arm64","cpu":"Apple M5","cpus":10,"ramGb":16,"runs":5}
+variant   median ms  min..max          peak RSS MB (median)  output KB
+vite8          731   723..1040                   395               18981
+sekhem         570   555..596                    232               9655

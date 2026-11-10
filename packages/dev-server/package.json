@@ -28,7 +28,10 @@
     "build": "node build.mjs"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "devora-dist": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
   },
   "files": [
     "dist"

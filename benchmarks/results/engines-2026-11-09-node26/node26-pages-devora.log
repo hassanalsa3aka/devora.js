@@ -1,0 +1,64 @@
+
+== Devora.js (Vite 8 engine, this commit)
+build cold 426 ms, warm 420 ms
+start 253 ms, idle 151 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4897 B (identity), browser 4897 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 45665 B gzip, hydration 32 ms
+
+== Devora.js (Sekhem engine, this commit)
+build cold 342 ms, warm 339 ms
+start 252 ms, idle 151 MB
+wire static: load tool 568 B (identity), browser 568 B (identity)
+wire items: load tool 4897 B (identity), browser 4897 B (identity)
+wire form: load tool 0 B (identity), browser 0 B (identity)
+items JS 46491 B gzip, hydration 36 ms
+
+== load round 1 of 5: devora-pages-vite, devora-pages-sekhem
+devora-pages-vite static: 63126 req/s
+devora-pages-vite items: 7665 req/s
+devora-pages-vite form: 46977 req/s
+devora-pages-sekhem static: 62783 req/s
+devora-pages-sekhem items: 7544 req/s
+devora-pages-sekhem form: 47792 req/s
+
+== load round 2 of 5: devora-pages-sekhem, devora-pages-vite
+devora-pages-sekhem static: 63044 req/s
+devora-pages-sekhem items: 7536 req/s
+devora-pages-sekhem form: 46044 req/s
+devora-pages-vite static: 62241 req/s
+devora-pages-vite items: 7629 req/s
+devora-pages-vite form: 47356 req/s
+
+== load round 3 of 5: devora-pages-vite, devora-pages-sekhem
+devora-pages-vite static: 63254 req/s
+devora-pages-vite items: 7586 req/s
+devora-pages-vite form: 47530 req/s
+devora-pages-sekhem static: 62759 req/s
+devora-pages-sekhem items: 7617 req/s
+devora-pages-sekhem form: 47228 req/s
+
+== load round 4 of 5: devora-pages-sekhem, devora-pages-vite
+devora-pages-sekhem static: 63396 req/s
+devora-pages-sekhem items: 7575 req/s
+devora-pages-sekhem form: 47597 req/s
+devora-pages-vite static: 63559 req/s
+devora-pages-vite items: 7572 req/s
+devora-pages-vite form: 47428 req/s
+
+== load round 5 of 5: devora-pages-vite, devora-pages-sekhem
+devora-pages-vite static: 62588 req/s
+devora-pages-vite items: 7599 req/s
+devora-pages-vite form: 47612 req/s
+devora-pages-sekhem static: 63097 req/s
+devora-pages-sekhem items: 7586 req/s
+devora-pages-sekhem form: 47612 req/s
+devora-pages-vite static: 63126 req/s (63126, 62241, 63254, 63559, 62588), p50 0 ms, p99 1 ms
+devora-pages-vite items: 7599 req/s (7665, 7629, 7586, 7572, 7599), p50 6 ms, p99 13 ms
+devora-pages-vite form: 47428 req/s (46977, 47356, 47530, 47428, 47612), p50 0 ms, p99 2 ms
+devora-pages-sekhem static: 63044 req/s (62783, 63044, 62759, 63396, 63097), p50 0 ms, p99 1 ms
+devora-pages-sekhem items: 7575 req/s (7544, 7536, 7617, 7575, 7586), p50 6 ms, p99 13 ms
+devora-pages-sekhem form: 47597 req/s (47792, 46044, 47228, 47597, 47612), p50 0 ms, p99 1 ms
+
+wrote results/raw-2026-11-10.json
