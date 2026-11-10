@@ -279,6 +279,12 @@ export function createProdRequestHandler(
       return sendErrorPage(res, 404);
     }
 
+    // A page answers GET, HEAD and POST (its action). Another method (PUT, PATCH, DELETE, TRACE, ...) is a 405, not the page.
+    if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "POST" && req.method !== "OPTIONS") {
+      res.setHeader("Allow", "GET, HEAD, POST");
+      return sendErrorPage(res, 405, new HttpError(405, "Method Not Allowed"));
+    }
+
     const buildKey = buildKeyFor(match.filePath);
     const routeModule = (await importBuilt(serverOutDir, buildKey)) as RouteModule;
     const renderMode = resolveRenderMode(routeModule, appDefaultRenderMode);

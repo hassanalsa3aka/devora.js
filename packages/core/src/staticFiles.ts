@@ -250,6 +250,10 @@ export function createStaticFileServer(rootDir: string, budget: ByteBudget = new
       return undefined;
     }
     if (decoded.includes("\0") || decoded.includes("\\")) return undefined;
+    // A file or folder whose name starts with a dot is never served (a `.env` or `.git` in a public folder would otherwise be
+    // published by the build's copy of it), except the `.well-known` folder at the top, which standards ask sites to serve.
+    const segments = decoded.split("/").filter(Boolean);
+    if (segments.some((segment, i) => segment.startsWith(".") && !(i === 0 && segment === ".well-known"))) return undefined;
     const filePath = path.resolve(root, "." + decoded);
     if (!filePath.startsWith(root + path.sep)) return undefined;
     return filePath;

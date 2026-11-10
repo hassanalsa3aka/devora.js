@@ -16,6 +16,7 @@ import {
 } from "@devorajs/core";
 import { ERROR_PAGE_FILES } from "../server/ssrMiddleware.js";
 import { buildAppClient } from "./buildAppClient.js";
+import { removeDotfiles } from "./removeDotfiles.js";
 import { islandsBuildPlugin, ISLAND_PLACEHOLDER_RE } from "./islandsBuildPlugin.js";
 import { viteLogLevel } from "../terminal/output.js";
 
@@ -146,6 +147,11 @@ export async function buildAppServer(
   //    images/fonts) next to the client assets, where every adapter serves
   //    /assets/* from. After the client build, which empties dist/client.
   await publishSsrAssets(serverOutDir, clientOutDir);
+  // The public folder is copied as it is; a dotfile in it (a `.env`, a `.git` folder) must not be published (`.well-known` stays).
+  const removedDotfiles = await removeDotfiles(clientOutDir);
+  if (removedDotfiles.length > 0) {
+    console.warn(`[devora] not published (names starting with a dot, except .well-known): ${removedDotfiles.join(", ")}`);
+  }
   await writeFile(path.join(serverOutDir, ROUTE_CSS_MANIFEST_FILE), JSON.stringify(routeCss, null, 2));
 
   if (options.sessions) {

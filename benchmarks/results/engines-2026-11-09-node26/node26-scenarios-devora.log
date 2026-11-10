@@ -1,0 +1,16 @@
+
+== Devora.js with Vite
+cold: start to first page byte 248 ms, first page request 4 ms
+ttfb /items: p50 0.57 ms, p99 1.02 ms
+1000 connections /static: 58723 req/s, p99 563 ms, errors 213/1931, non-2xx 0/0
+1000 connections /items: 6453 req/s, p99 237 ms, errors 83913/75855, non-2xx 0/0
+memory after the 1,000-connection runs: 135 MB
+
+== Devora.js with Sekhem
+cold: start to first page byte 252 ms, first page request 4 ms
+ttfb /items: p50 0.55 ms, p99 0.83 ms
+1000 connections /static: 57414 req/s, p99 830 ms, errors 881/1746, non-2xx 0/0
+1000 connections /items: 6545 req/s, p99 203 ms, errors 86125/78525, non-2xx 0/0
+memory after the 1,000-connection runs: 390 MB
+
+wrote /Users/hassansayed/Developer/_work/devora.js-followups/benchmarks/results/scenarios-2026-11-10.json
