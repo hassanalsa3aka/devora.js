@@ -51,7 +51,7 @@ function treeRssKb(pid) {
 function timed(p) {
   return new Promise((resolve, reject) => {
     const t0 = performance.now();
-    const req = http.request({ host: "127.0.0.1", port: PORT, path: p, headers: { accept: ACCEPT }, agent: false }, (res) => {
+    const req = http.request({ host: "localhost", port: PORT, path: p, headers: { accept: ACCEPT }, agent: false }, (res) => {
       let first = 0;
       res.once("data", () => (first = performance.now() - t0));
       res.on("data", () => {});
@@ -79,7 +79,7 @@ async function spawnServer(dir) {
   const t0 = performance.now();
   const child = spawn("npm", ["start"], { cwd: dir, detached: true, stdio: "ignore", env: { ...process.env, PORT: String(PORT), NODE_ENV: "production" } });
   // wait until the port answers, without sending any page request (so /items is untouched): a TCP connect is enough
-  const open = () => new Promise((resolve) => { const s = http.get({ host: "127.0.0.1", port: PORT, path: "/__nonexistent_probe__", agent: false }, (r) => { r.resume(); r.on("end", () => resolve(true)); }); s.on("error", () => resolve(false)); });
+  const open = () => new Promise((resolve) => { const s = http.get({ host: "localhost", port: PORT, path: "/__nonexistent_probe__", agent: false }, (r) => { r.resume(); r.on("end", () => resolve(true)); }); s.on("error", () => resolve(false)); });
   for (let i = 0; i < 1200; i++) {
     if (await open()) return { child, upMs: performance.now() - t0, t0 };
     await sleep(10);
@@ -126,13 +126,15 @@ for (const key of KEYS) {
       const errors = [];
       const non2xx = [];
       const p99 = [];
-      for (let i = 0; i < Math.min(RUNS, 3); i++) {
-        const out = await new Promise((resolve, reject) => autocannon({ url: `http://127.0.0.1:${PORT}${p}`, connections: 1000, duration: 10, pipelining: 1, headers: { accept: ACCEPT } }, (e, x) => (e ? reject(e) : resolve(x))));
+      for (let i = 0; i < 2; i++) {
+        if (i > 0) await sleep(35000); // let the closed connections leave TIME_WAIT: the next run must not run out of local ports
+        const out = await new Promise((resolve, reject) => autocannon({ url: `http://localhost:${PORT}${p}`, connections: 1000, duration: 10, pipelining: 1, headers: { accept: ACCEPT } }, (e, x) => (e ? reject(e) : resolve(x))));
         rps.push(out.requests.average);
         errors.push(out.errors + out.timeouts);
         non2xx.push(out.non2xx);
         p99.push(out.latency.p99);
       }
+      await sleep(35000);
       r.conn1000[name] = { rps: summary(rps), p99Ms: summary(p99), errors, non2xx };
       console.log(`1000 connections ${p}: ${Math.round(median(rps))} req/s, p99 ${median(p99)} ms, errors ${errors.join("/")}, non-2xx ${non2xx.join("/")}`);
     }

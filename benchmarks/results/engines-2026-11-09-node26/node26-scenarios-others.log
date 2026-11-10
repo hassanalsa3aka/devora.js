@@ -1,0 +1,33 @@
+
+== Next.js
+cold: start to first page byte 461 ms, first page request 32 ms
+ttfb /items: p50 1.90 ms, p99 4.03 ms
+1000 connections /static: 7122 req/s, p99 164 ms, errors 79291/87626, non-2xx 0/0
+(node:75379) TimeoutNegativeWarning: -947097 is a negative number.
+Timeout duration was set to 1.
+(Use `node --trace-warnings ...` to show where the warning was created)
+1000 connections /items: 700 req/s, p99 1897 ms, errors 44257/87798, non-2xx 0/0
+memory after the 1,000-connection runs: 457 MB
+
+== Astro
+cold: start to first page byte 316 ms, first page request 11 ms
+ttfb /items: p50 0.84 ms, p99 1.38 ms
+1000 connections /static: 16622 req/s, p99 6860 ms, errors 36667/30422, non-2xx 0/0
+1000 connections /items: 4608 req/s, p99 237 ms, errors 80024/78968, non-2xx 0/0
+memory after the 1,000-connection runs: 427 MB
+
+== SvelteKit
+cold: start to first page byte 241 ms, first page request 5 ms
+ttfb /items: p50 0.88 ms, p99 1.07 ms
+1000 connections /static: 17760 req/s, p99 7157 ms, errors 36274/31059, non-2xx 0/0
+1000 connections /items: 3841 req/s, p99 248 ms, errors 80574/89923, non-2xx 0/0
+memory after the 1,000-connection runs: 342 MB
+
+== React Router
+cold: start to first page byte 318 ms, first page request 7 ms
+ttfb /items: p50 1.12 ms, p99 1.80 ms
+1000 connections /static: 35970 req/s, p99 4365 ms, errors 11845/9791, non-2xx 359467/359716
+1000 connections /items: 1801 req/s, p99 398 ms, errors 81618/81484, non-2xx 0/0
+memory after the 1,000-connection runs: 446 MB
+
+wrote /Users/hassansayed/Developer/_work/devora.js-main-bench/benchmarks/results/scenarios-2026-11-10.json
