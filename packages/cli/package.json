@@ -1,7 +1,7 @@
 {
   "name": "@devorajs/cli",
   "version": "0.4.1",
-  "description": "The devora CLI \u2014 dev/build/start/deploy for a devora.js project, plus repo-splitting (split/sync/status).",
+  "description": "The devora CLI — dev/build/start/deploy for a devora.js project, plus repo-splitting (split/sync/status).",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -32,8 +32,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "node ./build.mjs",
-    "prepare": "node ./build.mjs"
+    "build": "node ./build.mjs"
   },
   "dependencies": {
     "commander": "^12.1.0",
