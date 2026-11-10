@@ -33,6 +33,8 @@ describe("scaffold for the own engine", () => {
       const config = await readFile(path.join(root, "devora.config.ts"), "utf8");
       const pkg = JSON.parse(await readFile(path.join(root, "apps", "web", "package.json"), "utf8"));
       const hasViteConfig = await stat(path.join(root, "apps", "web", "vite.config.ts")).then(() => true, () => false);
+      const rootPkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+      expect(rootPkg.dependencies["@devorajs/sekhem"]).toBe(engine === "own" ? "^0.1.0" : undefined);
       if (engine === "own") {
         expect(config).toContain('engine: "own"');
         expect(hasViteConfig).toBe(false);

@@ -1,3 +1,4 @@
+import { loadSekhem } from "../build/loadSekhem.js";
 import path from "node:path";
 import { parseRequestUrl } from "../server/requestUrl.js";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -98,15 +99,7 @@ export async function createExperimentalAppDevServer(options: AppDevServerOption
   });
   validateCorsConfig(app.name, appConfig.cors);
   if (opts.host) throw new Error("[devora] --host is not available with --experimental-dev-server: it binds 127.0.0.1 only");
-  let devServer: typeof import("@devorajs/sekhem");
-  try {
-    devServer = await import("@devorajs/sekhem");
-  } catch (error) {
-    throw new Error(
-      "[devora] the experimental dev server is not part of the published CLI. Run it from a checkout of the repository: " +
-        `pnpm exec tsx packages/cli/src/index.ts dev --experimental-dev-server (${(error as Error).message})`
-    );
-  }
+  const devServer = await loadSekhem();
   process.setSourceMapsEnabled(true);
   for (const item of findUnsupportedSettings(appRoot, opts.projectRoot)) {
     console.warn(`[devora] "${app.name}": the experimental dev server does not support ${item}. Use plain devora dev (Vite) if the app needs it.`);

@@ -6634,6 +6634,25 @@ var init_securityHeadersMiddleware = __esm({
   }
 });
 
+// src/build/loadSekhem.ts
+async function loadSekhem() {
+  try {
+    return await import("@devorajs/sekhem");
+  } catch (error) {
+    if (error.code === "ERR_MODULE_NOT_FOUND" || /Cannot find (package|module)/.test(error.message)) {
+      throw new Error(
+        "[devora] the Sekhem engine is a separate package and is not installed here. Install it (Node 22.15 or later): npm install --save-dev @devorajs/sekhem   (or pnpm add -D / yarn add -D), or run with --engine=vite."
+      );
+    }
+    throw error;
+  }
+}
+var init_loadSekhem = __esm({
+  "src/build/loadSekhem.ts"() {
+    "use strict";
+  }
+});
+
 // src/commands/devExperimental.ts
 var devExperimental_exports = {};
 __export(devExperimental_exports, {
@@ -6698,14 +6717,7 @@ async function createExperimentalAppDevServer(options) {
   });
   validateCorsConfig(app.name, appConfig.cors);
   if (opts.host) throw new Error("[devora] --host is not available with --experimental-dev-server: it binds 127.0.0.1 only");
-  let devServer;
-  try {
-    devServer = await import("@devorajs/sekhem");
-  } catch (error) {
-    throw new Error(
-      `[devora] the experimental dev server is not part of the published CLI. Run it from a checkout of the repository: pnpm exec tsx packages/cli/src/index.ts dev --experimental-dev-server (${error.message})`
-    );
-  }
+  const devServer = await loadSekhem();
   process.setSourceMapsEnabled(true);
   for (const item of findUnsupportedSettings(appRoot, opts.projectRoot)) {
     console.warn(`[devora] "${app.name}": the experimental dev server does not support ${item}. Use plain devora dev (Vite) if the app needs it.`);
@@ -6835,6 +6847,7 @@ async function createExperimentalAppDevServer(options) {
 var init_devExperimental = __esm({
   "src/commands/devExperimental.ts"() {
     "use strict";
+    init_loadSekhem();
     init_requestUrl();
     init_src();
     init_apiMiddleware();
@@ -8318,6 +8331,7 @@ import { existsSync as existsSync10 } from "node:fs";
 import { copyFile, mkdir as mkdir3, readdir as readdir2, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
 
 // src/build/buildAppClient.ts
+init_loadSekhem();
 init_src();
 import path18 from "node:path";
 import { readFile as readFile4, cp } from "node:fs/promises";
@@ -8433,7 +8447,7 @@ async function buildAppClientOwn(appRoot, islandFiles) {
   if (csrFiles.length > 0) entries["csr-client"] = csrClientPath;
   for (const file of islandFiles) entries[clientEntryName(appRoot, file)] = file;
   for (const file of csrFiles) entries[toBuildKey(appRoot, file)] = file;
-  const { buildClientBundle } = await import("@devorajs/sekhem");
+  const { buildClientBundle } = await loadSekhem();
   const { urls } = await buildClientBundle({ appRoot, entries, outDir: clientOutDir, publicDir, logLevel: "warning" });
   const islandUrls = /* @__PURE__ */ new Map();
   const csrUrls = /* @__PURE__ */ new Map();
@@ -8484,6 +8498,9 @@ async function removeDotfiles(dir) {
   await walk2(dir, true);
   return removed;
 }
+
+// src/build/buildAppServer.ts
+init_loadSekhem();
 
 // src/build/islandsBuildPlugin.ts
 import { createHash as createHash3 } from "node:crypto";
@@ -8542,7 +8559,7 @@ async function buildAppServer(appRoot, options = {}) {
   const islandPlaceholders = /* @__PURE__ */ new Map();
   const routeCss = {};
   if (engine === "own") {
-    const { buildServerBundle } = await import("@devorajs/sekhem");
+    const { buildServerBundle } = await loadSekhem();
     const built = await buildServerBundle({ appRoot, entries: input, outDir: serverOutDir, logLevel: "warning" });
     for (const [placeholder, file] of built.islands) islandPlaceholders.set(placeholder, file);
     Object.assign(routeCss, built.routeCss);

@@ -20,7 +20,7 @@ and its own deploy target, without duplicating the plumbing between them.
 
 **How it works.** By default Devora.js uses Vite for the dev server (one per app, which also loads and reloads
 your server modules) and for the client build; an experimental engine of our own, Sekhem, replaces Vite when you
-choose it (`engine: "own"`, Node 22.15 or later, from a checkout of this repository for now). Routing, the render modes, sessions, the shared backend and the
+choose it (`engine: "own"`, Node 22.15 or later; `npm install --save-dev @devorajs/sekhem`, and `create-devora` adds it for you). Routing, the render modes, sessions, the shared backend and the
 production server (`devora start`, which runs without a Vite dev server) are Devora.js's own code.
 
 ```ts
@@ -117,7 +117,7 @@ Each app gets its own port starting at `10000` (in `devora.config.ts` order), an
 prints every app's URL and route table when it boots. To test from a phone on the same Wi-Fi, add
 `--host` — it's off by default because it exposes the dev server to everyone on that network.
 
-One experimental option: `--experimental-dev-server` (also `DEVORA_EXPERIMENTAL_DEV_SERVER=1`) runs a dev server of Devora's own instead of Vite. It is experimental, runs only from a checkout of this repository (it is not in the published CLI), needs Node 22.15 or later, and is not the default: plain `devora dev` is Vite and is unchanged. It does not read `vite.config.ts`, so there are no Vite plugins, no PostCSS or Sass, no `--host` and no HTTPS (tsconfig path aliases, CSS modules and `import.meta.glob` are supported). No performance numbers are published.
+One experimental option: `--experimental-dev-server` (also `DEVORA_EXPERIMENTAL_DEV_SERVER=1`) runs a dev server of Devora's own instead of Vite. It is experimental, is the separate package `@devorajs/sekhem` (install it with `npm install --save-dev @devorajs/sekhem`; `create-devora` adds it to a project that chooses it), needs Node 22.15 or later, and is not the default: plain `devora dev` is Vite and is unchanged. It does not read `vite.config.ts`, so there are no Vite plugins, no PostCSS or Sass, no `--host` and no HTTPS (tsconfig path aliases, CSS modules and `import.meta.glob` are supported). Measurements are on the docs site's Performance page and in `benchmarks/results/`.
 
 Or start a brand-new standalone project, outside this repo:
 
