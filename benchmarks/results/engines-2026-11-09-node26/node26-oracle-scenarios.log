@@ -1,0 +1,54 @@
+
+== Devora.js with Vite
+cold: start to first page byte 345 ms, first page request 10 ms
+ttfb /items: p50 1.18 ms, p99 4.07 ms
+(node:325035) TimeoutNegativeWarning: -3 is a negative number.
+Timeout duration was set to 1.
+(Use `node --trace-warnings ...` to show where the warning was created)
+1000 connections /static: 10461 req/s, p99 197 ms, errors 382/194, non-2xx 0/0
+1000 connections /items: 2315 req/s, p99 676 ms, errors 272/0, non-2xx 0/0
+memory after the 1,000-connection runs: 382 MB
+
+== Devora.js with Sekhem
+cold: start to first page byte 339 ms, first page request 10 ms
+ttfb /items: p50 1.02 ms, p99 3.48 ms
+1000 connections /static: 10432 req/s, p99 139 ms, errors 478/294, non-2xx 0/0
+1000 connections /items: 2142 req/s, p99 745 ms, errors 42/0, non-2xx 0/0
+memory after the 1,000-connection runs: 396 MB
+
+== Next.js
+cold: start to first page byte 791 ms, first page request 69 ms
+ttfb /items: p50 4.85 ms, p99 19.39 ms
+1000 connections /static: 1503 req/s, p99 842 ms, errors 0/420, non-2xx 0/0
+1000 connections /items: 186 req/s, p99 4941 ms, errors 140/178, non-2xx 0/0
+memory after the 1,000-connection runs: 651 MB
+
+== Astro
+cold: start to first page byte 491 ms, first page request 25 ms
+ttfb /items: p50 1.79 ms, p99 6.34 ms
+1000 connections /static: 4736 req/s, p99 433 ms, errors 362/324, non-2xx 0/0
+1000 connections /items: 948 req/s, p99 1184 ms, errors 330/726, non-2xx 0/0
+memory after the 1,000-connection runs: 368 MB
+
+== SvelteKit
+cold: start to first page byte 331 ms, first page request 12 ms
+ttfb /items: p50 1.76 ms, p99 3.77 ms
+1000 connections /static: 4425 req/s, p99 473 ms, errors 0/0, non-2xx 0/0
+1000 connections /items: 1176 req/s, p99 1154 ms, errors 0/0, non-2xx 0/0
+memory after the 1,000-connection runs: 421 MB
+
+== React Router
+cold: start to first page byte 534 ms, first page request 28 ms
+ttfb /items: p50 2.55 ms, p99 9.63 ms
+1000 connections /static: 8239 req/s, p99 259 ms, errors 32/0, non-2xx 89575/90639
+1000 connections /items: 583 req/s, p99 1632 ms, errors 624/406, non-2xx 0/0
+memory after the 1,000-connection runs: 437 MB
+
+== Nuxt
+cold: start to first page byte 446 ms, first page request 21 ms
+ttfb /items: p50 2.54 ms, p99 10.43 ms
+1000 connections /static: 6088 req/s, p99 311 ms, errors 390/0, non-2xx 0/0
+1000 connections /items: 574 req/s, p99 2861 ms, errors 0/0, non-2xx 0/0
+memory after the 1,000-connection runs: 446 MB
+
+wrote /home/ubuntu/bench/repo/benchmarks/results/scenarios-2026-11-10.json

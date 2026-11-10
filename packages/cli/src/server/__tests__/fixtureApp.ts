@@ -104,7 +104,7 @@ export function createFixtureProject(): FixtureProject {
   for (const [file, source] of Object.entries(API_ROUTES)) write(path.join(appRoot, "api", file), source);
   for (const [file, source] of Object.entries(PAGE_ROUTES)) write(path.join(appRoot, "routes", file), source);
   fs.symlinkSync(path.join(REPO_ROOT, "apps", "dashboard", "node_modules"), path.join(appRoot, "node_modules"), "dir");
-  return { projectRoot, appRoot, cleanup: () => fs.rmSync(projectRoot, { recursive: true, force: true }) };
+  return { projectRoot, appRoot, cleanup: () => fs.rmSync(projectRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }) };
 }
 
 export function write(file: string, contents: string): void {
