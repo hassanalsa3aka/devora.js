@@ -95,9 +95,11 @@ jobs:
         if: matrix.package-manager == 'npm'
         run: npm install
 
+      # --ignore-engines: this leg runs Node 20, and one workspace package (@devorajs/sekhem, the experimental engine) declares
+      # Node 22.15 or later. Yarn 1 refuses the whole install over that; the package is opt-in and is not used by this job.
       - name: Install (yarn)
         if: matrix.package-manager == 'yarn'
-        run: yarn install
+        run: yarn install --ignore-engines
 
       # Only pnpm is used from here — the point of the matrix above is
       # proving `install` itself succeeds under all three (this is exactly
@@ -136,7 +138,7 @@ jobs:
       - name: Check the contents of every package tarball
         if: matrix.package-manager == 'pnpm'
         run: |
-          pnpm --filter @devorajs/core --filter @devorajs/adapter-node --filter @devorajs/adapter-vercel --filter @devorajs/adapter-netlify --filter create-devora run build
+          pnpm --filter @devorajs/core --filter @devorajs/adapter-node --filter @devorajs/adapter-vercel --filter @devorajs/adapter-netlify --filter create-devora --filter @devorajs/sekhem run build
           node scripts/checkPackContents.mjs
 
       # Fresh create-devora projects (full-stack and backend-only), installed
@@ -217,7 +219,23 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 26
+      # An example installs the packages from npm. Until the release it asks for is published, `npm ci` cannot find it (ETARGET):
+      # the example is then skipped with a notice instead of failing, and runs as soon as the version exists.
+      - name: Is the release this example asks for on npm?
+        id: published
+        run: |
+          range=$(node -p "require('./package.json').dependencies['@devorajs/cli'] || ''")
+          if npm view "@devorajs/cli@${range}" version >/dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::@devorajs/cli@${range} is not on npm yet, so this example was not installed or built."
+          fi
       - run: npm ci
+        if: steps.published.outputs.ready == 'true'
       - run: npm run typecheck
+        if: steps.published.outputs.ready == 'true'
       - run: npm run build
+        if: steps.published.outputs.ready == 'true'
       - run: node ../check.mjs
+        if: steps.published.outputs.ready == 'true'
