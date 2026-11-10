@@ -18,8 +18,8 @@ for (const [key, engine] of [["devora-vite", "vite"], ["devora-sekhem", "own"]])
   const dest = path.join(here, "apps", key);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.cpSync(source, dest, { recursive: true, filter: (s) => !["node_modules", "dist", "package-lock.json"].includes(path.basename(s)) });
-  // The Vite engine runs the compiled CLI; Sekhem's build runs from source through tsx (its package exports TypeScript in the repository).
-  const run = engine === "own" ? `${TSX} ${CLI_SRC}` : `node ${CLI_DIST}`;
+  // Both engines run the compiled CLI; Sekhem loads its own compiled dist (the "devora-dist" export condition) so that no tsx start-up is in its build time.
+  const run = engine === "own" ? `node --conditions=devora-dist ${CLI_DIST}` : `node ${CLI_DIST}`;
   fs.writeFileSync(
     path.join(dest, "package.json"),
     JSON.stringify({ name: `bench-${key}`, private: true, version: "0.1.0", scripts: { build: `${run} build --engine=${engine}`, start: `node ${CLI_LAUNCHER} start` } }, null, 2) + "\n"
@@ -39,7 +39,7 @@ for (const [key, engine] of [["devora-pages-vite", "vite"], ["devora-pages-sekhe
   const dest = path.join(here, "apps", key);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.cpSync(pagesSource, dest, { recursive: true, filter: (s) => !["node_modules", "dist", "package-lock.json"].includes(path.basename(s)) });
-  const run = engine === "own" ? `${TSX} ${CLI_SRC}` : `node ${CLI_DIST}`;
+  const run = engine === "own" ? `node --conditions=devora-dist ${CLI_DIST}` : `node ${CLI_DIST}`;
   fs.writeFileSync(
     path.join(dest, "package.json"),
     JSON.stringify({ name: `bench-${key}`, private: true, version: "0.1.0", scripts: { build: `${run} build --engine=${engine}`, start: `node ${CLI_LAUNCHER} start` } }, null, 2) + "\n"

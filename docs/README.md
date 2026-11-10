@@ -8,6 +8,7 @@ Start with the [README](../README.md). This page links every other document in t
 |---|---|
 | [PAGES.md](guides/PAGES.md) | Request access in loaders, action results, forms, uploads, error pages, the head API, dynamic and catch-all routes |
 | [DEPLOYING.md](guides/DEPLOYING.md) | Vercel, Netlify, Docker, container platforms, a VPS, CI, `devora deploy`, static-file serving |
+| [SEKHEM.md](guides/SEKHEM.md) | Sekhem, the engine of our own: how it works, how to turn it on, what is supported, how it was tested |
 | [REALTIME.md](guides/REALTIME.md) | Live updates (WebSockets): polling versus a realtime server, `ws` through a wrapper, why server-sent events do not work yet |
 | [BACKGROUND-JOBS.md](guides/BACKGROUND-JOBS.md) | Background jobs: BullMQ with Redis, a SQLite queue, node-cron, and what was verified |
 | [REPOS.md](guides/REPOS.md) | Splitting an app or the backend into its own repository |

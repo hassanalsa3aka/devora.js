@@ -1,0 +1,6 @@
+small/own          cold: ready 285 (281-333) html 113 (111-123) interactive 167 (158-192) | warm: ready 289 (283-299) html 83 (79-96) interactive 163 (142-193) | hmr 33 (32-33) serverEdit 6 (6-7) rss 125 (83-126) idle% 0.4
+small/vite         cold: ready 503 (491-506) html 154 (153-155) interactive 201 (182-210) | warm: ready 499 (484-513) html 146 (145-148) interactive 214 (180-217) | hmr 133 (100-165) serverEdit 7 (4-8) rss 271 (184-308) idle% 0.6
+small/vite-tuned   cold: ready 501 (490-515) html 153 (151-156) interactive 205 (203-218) | warm: ready 489 (487-498) html 143 (142-146) interactive 200 (182-209) | hmr 33 (32-33) serverEdit 8 (6-8) rss 306 (244-307) idle% 0.5
+200/own            cold: ready 279 (279-282) html 277 (276-283) interactive 269 (237-275) | warm: ready 271 (270-292) html 130 (129-140) interactive 203 (199-217) | hmr 32 (32-33) serverEdit 10 (9-11) rss 146 (146-146) idle% 0.5
+200/vite           cold: ready 508 (501-511) html 281 (279-291) interactive 285 (282-290) | warm: ready 485 (478-495) html 276 (274-278) interactive 290 (278-312) | hmr 165 (164-165) serverEdit 10 (9-11) rss 270 (209-312) idle% 0.6
+200/vite-tuned     cold: ready 504 (504-514) html 298 (297-300) interactive 295 (284-331) | warm: ready 496 (490-500) html 285 (284-286) interactive 285 (284-308) | hmr 33 (32-33) serverEdit 11 (10-12) rss 302 (242-308) idle% 0.6
