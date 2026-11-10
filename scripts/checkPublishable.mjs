@@ -69,8 +69,39 @@ export function listPackedFiles(pkgDir) {
 }
 
 /** Throws with every problem listed. */
+/**
+ * A build older than its source ships the old code (0.4.0 of core, cli and create-devora went out that way). Returns a problem
+ * line when the newest source file is newer than the newest built file. Skipped when `dist/` is committed (its file times
+ * are the checkout's, not the build's) or the package has no `src/`. `create-devora` also reads `packages/scaffold/src`.
+ */
+export function staleBuildProblem(pkgDir, name) {
+  const srcDirs = [path.join(pkgDir, "src")];
+  if (name === "create-devora") srcDirs.push(path.join(pkgDir, "..", "packages", "scaffold", "src"));
+  const dist = path.join(pkgDir, "dist");
+  if (!existsSync(dist) || !srcDirs.some((d) => existsSync(d))) return undefined;
+  try {
+    execFileSync("git", ["ls-files", "--error-unmatch", "dist"], { cwd: pkgDir, stdio: "ignore" });
+    return undefined; // committed build output
+  } catch {}
+  const newest = (dir, keep) => {
+    let t = 0;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "__tests__" || entry.name === "node_modules") continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) t = Math.max(t, newest(full, keep));
+      else if (keep(entry.name)) t = Math.max(t, statSync(full).mtimeMs);
+    }
+    return t;
+  };
+  const src = Math.max(...srcDirs.filter((d) => existsSync(d)).map((d) => newest(d, (n) => /\.(ts|tsx|mjs|js)$/.test(n) && !/\.test\./.test(n))));
+  const built = newest(dist, (n) => /\.(js|mjs)$/.test(n));
+  return src > built + 1000 ? `${name}: the build output in dist/ is older than the source (rebuild it: pnpm --filter ${name} build)` : undefined;
+}
+
 export function assertPublishable(manifest, pkgDir) {
   const problems = checkPublishable(manifest, pkgDir, listPackedFiles(pkgDir));
+  const stale = staleBuildProblem(pkgDir, manifest.name);
+  if (stale) problems.push(stale);
   if (problems.length) {
     throw new Error(`refusing to publish:\n  - ${problems.join("\n  - ")}`);
   }

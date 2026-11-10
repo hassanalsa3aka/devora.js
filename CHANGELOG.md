@@ -10,6 +10,14 @@ the SSR handler, sessions/CSRF, security headers, islands, render modes, the CLI
 adapters, Docker/VPS/CI support — landed as one large initial commit; see `docs/history/BUILD-LOG.md` for the
 detailed, per-feature account of that work instead of a fabricated day-by-day history here.
 
+## 0.4.1 — 2026-11-10
+
+Packages: `@devorajs/core` 0.4.1, `@devorajs/cli` 0.4.1, `create-devora` 0.4.1, and `@devorajs/sekhem` 0.1.0 (first release). The adapters stay at 0.3.0 and the engine package is new.
+
+The 0.4.0 tarballs of `@devorajs/core`, `@devorajs/cli` and `create-devora` were published from a checkout whose build output was older than its source, so they were missing changes listed under 0.4.0 below: the `engine` setting in `devora.config.ts` (and so `--engine=own`), the refusal of dotfiles in `public/` (H37), the 405 for PUT, PATCH and DELETE on a page (H38), the clear message when `@devorajs/sekhem` is not installed, and `create-devora` adding `@devorajs/sekhem` to a project that chooses the engine. 0.4.1 is the same release built from the current source; 0.4.0 of those three packages is deprecated in favour of it. Use 0.4.1. No other behavior differs from what 0.4.0 describes.
+
+`scripts/checkPublishable.mjs` (run by the publish scripts) now refuses to publish a package whose build output is older than its source.
+
 ## 0.4.0 — 2026-11-10
 
 Packages: `@devorajs/core` 0.4.0, `@devorajs/cli` 0.4.0, `@devorajs/adapter-node` 0.3.0, `@devorajs/adapter-vercel` 0.3.0,
