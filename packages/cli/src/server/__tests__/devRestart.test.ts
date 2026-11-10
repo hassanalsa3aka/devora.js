@@ -33,7 +33,7 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const w of watchers.splice(0)) w.close();
-  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 type Seen = { restart: string[]; notices: string[] };

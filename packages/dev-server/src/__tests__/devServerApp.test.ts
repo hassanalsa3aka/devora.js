@@ -50,7 +50,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await dev?.close();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 async function get(pathname: string, headers: Record<string, string> = {}) {
