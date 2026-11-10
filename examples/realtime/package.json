@@ -16,8 +16,8 @@
     "realtime"
   ],
   "dependencies": {
-    "@devorajs/core": "^0.4.0",
-    "@devorajs/cli": "^0.4.0"
+    "@devorajs/core": "^0.4.1",
+    "@devorajs/cli": "^0.4.1"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
