@@ -37,7 +37,7 @@ production (SSR, SSG, CSR, ISR, streaming, islands, sessions, CSRF, security hea
 routes, three adapters, the CLI under npm/Yarn/pnpm); the release is 0.4.0 once published (0.3.5 is the one on npm until then); Vercel and Netlify were
 deployed live with releases before 0.3.2, and 0.3.5 is verified live only by the documentation site
 (a pre-rendered single app on Vercel); multi-app, sessions, API functions and Netlify are not yet
-verified live on it. A security hardening pass (ROADMAP.md findings H1 to H18, top section of CHANGELOG.md) is
+verified live on it. A security hardening pass (ROADMAP.md findings H1 to H38, top section of CHANGELOG.md) is
 new in 0.4.0: CSRF is checked by default for cookie-authenticated writes, `redirect()` stays
 on-origin, session responses are `private, no-store`, plus nosniff, an SVG sandbox CSP, `allowedHosts`,
 server timeouts, form limits, an opt-in per-route `rateLimit`, a dev restart on config/env/route changes.
