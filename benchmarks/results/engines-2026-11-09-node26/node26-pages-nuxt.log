@@ -1,0 +1,38 @@
+
+== Nuxt
+build cold 3503 ms, warm 3415 ms
+start 259 ms, idle 158 MB
+wire static: load tool 1904 B (identity), browser 1904 B (identity)
+wire items: load tool 9748 B (identity), browser 9748 B (identity)
+wire form: load tool 98 B (identity), browser 98 B (identity)
+items JS 76857 B gzip, hydration 38 ms
+
+== load round 1 of 5: nuxt
+nuxt static: 32107 req/s
+nuxt items: 2165 req/s
+nuxt form: 33017 req/s
+
+== load round 2 of 5: nuxt
+nuxt static: 31960 req/s
+nuxt items: 2180 req/s
+nuxt form: 33298 req/s
+
+== load round 3 of 5: nuxt
+nuxt static: 32357 req/s
+nuxt items: 2193 req/s
+nuxt form: 33340 req/s
+
+== load round 4 of 5: nuxt
+nuxt static: 31409 req/s
+nuxt items: 2169 req/s
+nuxt form: 33500 req/s
+
+== load round 5 of 5: nuxt
+nuxt static: 32273 req/s
+nuxt items: 2155 req/s
+nuxt form: 33508 req/s
+nuxt static: 32107 req/s (32107, 31960, 32357, 31409, 32273), p50 1 ms, p99 2 ms
+nuxt items: 2169 req/s (2165, 2180, 2193, 2169, 2155), p50 18 ms, p99 52 ms
+nuxt form: 33340 req/s (33017, 33298, 33340, 33500, 33508), p50 1 ms, p99 2 ms
+
+wrote results/raw-2026-11-10.json

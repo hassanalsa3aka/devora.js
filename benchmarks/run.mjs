@@ -64,6 +64,7 @@ const FRAMEWORKS = [
   { key: "astro", name: "Astro", pkg: "astro", clean: ["dist", ".astro", "node_modules/.astro", "node_modules/.vite"] },
   { key: "sveltekit", name: "SvelteKit", pkg: "@sveltejs/kit", clean: ["build", ".svelte-kit", "node_modules/.vite"] },
   { key: "react-router", name: "React Router", pkg: "react-router", clean: ["build", ".react-router", "node_modules/.vite"] },
+  { key: "nuxt", name: "Nuxt", pkg: "nuxt", clean: [".nuxt", ".output", "node_modules/.cache"] },
 ].filter((f) => !args.only || args.only.split(",").includes(f.key));
 
 const median = (xs) => {
