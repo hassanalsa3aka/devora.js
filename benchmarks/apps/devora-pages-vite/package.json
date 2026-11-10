@@ -1,0 +1,9 @@
+{
+  "name": "bench-devora-pages-vite",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "node /Users/hassansayed/Developer/_work/devora.js-followups/packages/cli/dist/index.js build --engine=vite",
+    "start": "node /Users/hassansayed/Developer/_work/devora.js-followups/packages/cli/dist/devora.js start"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "bench-devora-pages-sekhem",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "node --conditions=devora-dist /Users/hassansayed/Developer/_work/devora.js-followups/packages/cli/dist/index.js build --engine=own",
+    "start": "node /Users/hassansayed/Developer/_work/devora.js-followups/packages/cli/dist/devora.js start"
+  }
+}
