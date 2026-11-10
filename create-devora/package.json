@@ -29,7 +29,7 @@
     "@devorajs/scaffold": "*",
     "esbuild": "^0.28.2",
     "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^26.6.6"
   },
   "engines": {
     "node": ">=20"
