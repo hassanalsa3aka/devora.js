@@ -136,8 +136,8 @@ repository's four example apps every route answered with the same status, header
 - The caches check a hash before use and never follow links. Someone who can write the cache folder with a self-consistent entry has the
   same power as someone who can edit your sources or `node_modules`.
 - Checked so far: a fuzzer sent about 99,000 request paths and 35,000 damaged cache entries without a problem; a comparison script runs
-  the same attacks against both engines (path escape, host and Origin checks, WebSocket token, request limits, cache attacks). Not done:
-  request-level attacks against the built output, and a review by someone outside the project. There has been no third-party audit.
+  the same attacks against both engines (path escape, host and Origin checks, WebSocket token, request limits, cache attacks). Request-level attacks against the built output run with
+  `pnpm run compare:built-security` (about 75 checks, for a Vite build and a Sekhem build). Not done: a review by someone outside the project. There has been no third-party audit.
 
 ## How it was tested
 
@@ -166,6 +166,6 @@ The Node lines 20, 22, 24 and 26 were checked; Sekhem refuses Node older than 22
 
 Vite has plugins, a large ecosystem and years of use; Sekhem has none of that. Open items: publish `@devorajs/sekhem`, a plugin API
 (the design is in the repository's notes: no Vite plugin API, a small Devora one later), PostCSS and Sass, source maps in the build,
-`VITE_` variables, Windows and Linux tests, and request-level security tests of the built output.
+`VITE_` variables, and Windows and Linux tests.
 
 For numbers (build time, memory, dev server, requests) see the [Performance page](https://devorajs-docs-docs.vercel.app/performance).

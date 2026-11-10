@@ -4610,6 +4610,8 @@ function createStaticFileServer(rootDir, budget = new ByteBudget()) {
       return void 0;
     }
     if (decoded.includes("\0") || decoded.includes("\\")) return void 0;
+    const segments = decoded.split("/").filter(Boolean);
+    if (segments.some((segment, i) => segment.startsWith(".") && !(i === 0 && segment === ".well-known"))) return void 0;
     const filePath = path3.resolve(root, "." + decoded);
     if (!filePath.startsWith(root + path3.sep)) return void 0;
     return filePath;
@@ -5403,6 +5405,10 @@ function createProdRequestHandler(appRoot, appName, authMode, domain, security, 
         return true;
       }
       return sendErrorPage(res, 404);
+    }
+    if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "POST" && req.method !== "OPTIONS") {
+      res.setHeader("Allow", "GET, HEAD, POST");
+      return sendErrorPage(res, 405, new HttpError(405, "Method Not Allowed"));
     }
     const buildKey = buildKeyFor(match.filePath);
     const routeModule = await importBuilt(serverOutDir, buildKey);

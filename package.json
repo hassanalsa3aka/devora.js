@@ -14,6 +14,7 @@
     "check:no-vite": "node scripts/check-no-vite.mjs",
     "measure:build": "node scripts/measure-build.mjs",
     "compare:dev-security": "node scripts/dev-server-compare/attack-compare.mjs",
+    "compare:built-security": "node scripts/dev-server-compare/built-attack.mjs",
     "check:dev-browser": "node scripts/dev-server-compare/browser-checks.mjs",
     "measure:dev-reexec": "node scripts/dev-server-compare/reexec.mjs",
     "measure:dev-perf": "node scripts/dev-server-compare/perf.mjs",
