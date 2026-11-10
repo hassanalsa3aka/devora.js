@@ -272,7 +272,11 @@ CHECKS.realtime = async () => {
 
     // An order placed through the app's API is pushed to the browser.
     const pushed = nextEvent(alice, "order");
-    const csrf = b.jar.get("devora_csrf");
+    // Since 0.4.0 a signed-in browser's CSRF token is bound to its session, so it is the page's own token (the dashboard hands it to the
+    // island as a prop), not the value of the CSRF cookie.
+    const dashboard = await (await b(`${app}/`)).text();
+    const csrf = dashboard.match(/csrfToken(?:&quot;|\\u0022|")\s*:\s*(?:&quot;|")([^"&\\]+)/)?.[1] ?? "";
+    expect("the dashboard carries the session's CSRF token", csrf.length > 20, true);
     expect("an order without CSRF is a 403", (await b(`${app}/api/orders`, json({ item: "x" }))).status, 403);
     const placed = await b(`${app}/api/orders`, {
       method: "POST",
